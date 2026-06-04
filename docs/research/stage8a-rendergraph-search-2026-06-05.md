@@ -97,11 +97,12 @@ Preferred next implementation order:
 
 Local follow-up evidence: a builder-declaration probe now observes named `RenderGraphBuilder` declarations for `CameraColor`, `CameraDepthStencil`, `Motion Vectors`, and `NormalBuffer` without calling `GetTexture(TextureHandle&)`. This narrows the remaining Stage 8A work to execution inside a declared RenderGraph pass or delegate.
 
-Additional local negative evidence: `RenderGraph.PreRenderPassExecute` can be patched but was not observed as called in the main menu, and patching `TextureHandle` implicit conversions produced repeated IL2CPP trampoline `NullReferenceException` logs. These results make an explicit diagnostic `AddRenderPass`/`SetRenderFunc` path the preferred next implementation step.
+Additional local negative evidence: `RenderGraph.PreRenderPassExecute` can be patched but was not observed as called in the main menu; `RenderGraphPass<T>.Execute(RenderGraphContext)` cannot be patched as an open generic method with the current Harmony route; and patching `TextureHandle` implicit conversions produced repeated IL2CPP trampoline `NullReferenceException` logs. These results make an explicit diagnostic `AddRenderPass`/`SetRenderFunc` path the preferred next implementation step.
 
 Rejected or deferred:
 
 - Calling `GetTexture(TextureHandle&)` from ordinary Harmony prefixes.
+- Patching the open generic `RenderGraphPass<T>.Execute(RenderGraphContext)` method directly.
 - Patching `TextureHandle` implicit conversion operators as a broad diagnostic route.
 - Evaluating DLSS from main-menu HDCamera exposure/global texture evidence.
 - Replacing the primary route with Streamline before first direct-NGX evaluate.

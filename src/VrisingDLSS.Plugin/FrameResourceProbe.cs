@@ -1085,6 +1085,14 @@ internal static class FrameResourceProbe
         object? owner = null;
         var pointer = IntPtr.Zero;
 
+        var graphicsResource = TryGetRenderGraphTextureResourceGraphicsResource(registry, resourceHandle, out var resourceStatus);
+        status.Add(resourceStatus);
+        if (graphicsResource is not null && TryFindNativeTexturePtr(graphicsResource, out owner, out pointer) && pointer != IntPtr.Zero)
+        {
+            candidates.Add(new RenderGraphTextureCandidate(label, resourceName, pointer, $"TextureResource.graphicsResource nativeOwner={SummarizeValue(owner ?? graphicsResource)}"));
+            return;
+        }
+
         if (textureHandle is not null)
         {
             var texture = TryGetRenderGraphTexture(registry, textureHandle, out var textureStatus);
@@ -1094,14 +1102,6 @@ internal static class FrameResourceProbe
                 candidates.Add(new RenderGraphTextureCandidate(label, resourceName, pointer, $"GetTexture nativeOwner={SummarizeValue(owner ?? texture)}"));
                 return;
             }
-        }
-
-        var graphicsResource = TryGetRenderGraphTextureResourceGraphicsResource(registry, resourceHandle, out var resourceStatus);
-        status.Add(resourceStatus);
-        if (graphicsResource is not null && TryFindNativeTexturePtr(graphicsResource, out owner, out pointer) && pointer != IntPtr.Zero)
-        {
-            candidates.Add(new RenderGraphTextureCandidate(label, resourceName, pointer, $"TextureResource.graphicsResource nativeOwner={SummarizeValue(owner ?? graphicsResource)}"));
-            return;
         }
 
         candidates.Add(new RenderGraphTextureCandidate(label, resourceName, IntPtr.Zero, string.Join("; ", status.Where(value => !string.IsNullOrWhiteSpace(value)))));
