@@ -69,6 +69,7 @@ function Get-ConfiguredStage {
         [hashtable]$Config
     )
 
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssFeatureCreateProbe") { return "dlss-feature-create" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssInitQueryProbe") { return "dlss-init-query" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssRuntimeProbe") { return "dlss-runtime" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableFrameResourceProbe") { return "frame-resource" }
@@ -174,7 +175,16 @@ function Get-NextRecommendation {
         return "Set DLSS.DlssRuntimePath/DlssApplicationId, then run write-diagnostic-config.ps1 -Stage dlss-init-query."
     }
 
-    return "Stage 1-6 diagnostics are passing. Next engineering step is DLSS feature creation/evaluate implementation."
+    $featureCreate = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 7"
+    if ($featureCreate -eq "Blocked") {
+        return "Stage 7 feature create is blocked until the native bridge is built with the optional NVIDIA SDK wrapper path."
+    }
+
+    if ($featureCreate -ne "Pass") {
+        return "Use the optional SDK-wrapper native build, then run write-diagnostic-config.ps1 -Stage dlss-feature-create."
+    }
+
+    return "Stage 1-7 diagnostics are passing. Next engineering step is DLSS evaluate implementation with real frame resources."
 }
 
 $resolvedRoot = (Resolve-Path -LiteralPath $Root).Path

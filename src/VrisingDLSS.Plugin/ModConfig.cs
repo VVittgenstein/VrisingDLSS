@@ -10,6 +10,7 @@ internal sealed class ModConfig
     internal ConfigEntry<bool> EnableD3D11TextureProbe { get; }
     internal ConfigEntry<bool> EnableDlssRuntimeProbe { get; }
     internal ConfigEntry<bool> EnableDlssInitQueryProbe { get; }
+    internal ConfigEntry<bool> EnableDlssFeatureCreateProbe { get; }
     internal ConfigEntry<bool> EnableHookProbe { get; }
     internal ConfigEntry<bool> EnableHarmonyCallProbe { get; }
     internal ConfigEntry<bool> EnableFrameResourceProbe { get; }
@@ -27,6 +28,7 @@ internal sealed class ModConfig
         EnableD3D11TextureProbe = config.Bind("Diagnostics", "EnableD3D11TextureProbe", false, "Create a temporary RenderTexture, pass its native texture pointer to VrisingDLSS.Native.dll, and verify D3D11 resource/device access. Diagnostic only.");
         EnableDlssRuntimeProbe = config.Bind("Diagnostics", "EnableDlssRuntimeProbe", false, "Try loading and releasing the user-supplied DLSS runtime path. Diagnostic only; does not initialize or evaluate DLSS.");
         EnableDlssInitQueryProbe = config.Bind("Diagnostics", "EnableDlssInitQueryProbe", false, "Guarded NGX init/query diagnostic with a temporary RenderTexture D3D11 device. May report blocked until NVIDIA SDK wrapper integration exists; does not create or evaluate a DLSS feature.");
+        EnableDlssFeatureCreateProbe = config.Bind("Diagnostics", "EnableDlssFeatureCreateProbe", false, "SDK-wrapper DLSS feature create/release diagnostic with a temporary RenderTexture D3D11 device. Diagnostic only; does not evaluate a frame.");
         EnableHookProbe = config.Bind("Diagnostics", "EnableHookProbe", true, "Scan loaded assemblies for candidate HDRP hook points and log the result.");
         EnableHarmonyCallProbe = config.Bind("Diagnostics", "EnableHarmonyCallProbe", false, "Patch candidate HDRP methods with read-only Harmony prefixes and log call counts. Diagnostic only.");
         EnableFrameResourceProbe = config.Bind("Diagnostics", "EnableFrameResourceProbe", false, "Patch candidate HDRP render methods with read-only Harmony prefixes and log source/destination/depth/motion native texture pointers. Diagnostic only.");

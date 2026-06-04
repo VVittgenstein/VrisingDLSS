@@ -113,6 +113,20 @@ If the log says `DLSS init/query probe blocked`, the current native build does n
 
 If NGX init succeeds but `SuperSampling.Available=0`, the runtime/device/driver path is reachable but DLSS is unavailable for that machine or configuration. If init returns a failure result, keep DLSS disabled and preserve the full status line from `BepInEx/LogOutput.log`.
 
+## DLSS Feature Create Probe Is Blocked Or Fails
+
+`EnableDlssFeatureCreateProbe` creates one temporary RenderTexture to get a D3D11 device/context, then asks the optional SDK-wrapper native path to create and immediately release a DLSS SuperSampling feature.
+
+Check:
+
+- `EnableD3D11TextureProbe` passes first.
+- `EnableDlssRuntimeProbe` passes first.
+- `EnableDlssInitQueryProbe` passes first in the same SDK-wrapper build route.
+- `EnableNativeBridgeSmokeTest` logs bridge API version `6` or newer.
+- The runtime is a current production `nvngx_dlss.dll` from an approved NVIDIA distribution path.
+
+If the log says `DLSS feature create probe blocked`, the current native bridge was built without the optional NVIDIA SDK wrapper path. If create succeeds but release, parameter destruction, or shutdown fails, keep DLSS disabled and preserve the full status line. This probe still does not evaluate a frame or prove image correctness.
+
 ## Hook Targets Are Missing
 
 If the hook probe logs missing `CustomVignette`, `HDCamera`, or `HDRenderPipeline`, the current game/HDRP version likely differs from the 2022 PureDark-era assumptions.

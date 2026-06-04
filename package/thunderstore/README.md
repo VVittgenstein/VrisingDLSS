@@ -27,5 +27,6 @@ This package template is not ready for public gameplay use yet. The current sour
 - Optionally probes candidate HDRP frame resources for source/destination/depth/motion native texture pointers.
 - Optionally probes loading and releasing a user-supplied DLSS runtime path.
 - Optionally runs a guarded NGX init/query diagnostic; current source-only builds are expected to report blocked until NVIDIA SDK wrapper integration exists.
+- Optionally runs an SDK-wrapper DLSS feature create/release diagnostic in local research builds; release-safe builds are expected to report blocked.
 - Source repository includes helper scripts for BepInExPack staging, one-stage diagnostic config generation, BepInEx log analysis, and next-step status reporting.
 - Does not evaluate DLSS yet.

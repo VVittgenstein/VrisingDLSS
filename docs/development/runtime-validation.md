@@ -45,7 +45,7 @@ powershell -ExecutionPolicy Bypass -File scripts\analyze-bepinex-log.ps1 -GamePa
 powershell -ExecutionPolicy Bypass -File scripts\get-runtime-validation-status.ps1 -GamePath "C:\path\to\VRising"
 ```
 
-The config helper writes `BepInEx\config\dev.vrisingdlss.plugin.cfg` for a single diagnostic stage. The analyzer reads `BepInEx\LogOutput.log` and reports pass/fail/partial/missing evidence for stages 1-6. The status helper combines preflight, config, log evidence, and the next recommended command.
+The config helper writes `BepInEx\config\dev.vrisingdlss.plugin.cfg` for a single diagnostic stage. The analyzer reads `BepInEx\LogOutput.log` and reports pass/fail/partial/missing evidence for stages 1-7. The status helper combines preflight, config, log evidence, and the next recommended command.
 
 ## Stage 2: Hook Probe
 
@@ -240,7 +240,39 @@ Current Stage 6 status:
 - Re-running `dlss-init-query` with only a production `nvngx_dlss.dll` is expected to report `Blocked`, not `Pass`.
 - A local MSVC SDK-wrapper research build passed Stage 6 with ProjectID init: `init=0x00000001`, `capability=0x00000001`, `available=1`, `needsUpdatedDriver=0`, `minDriver=470.0`, `featureInitResult=1`, `destroy=0x00000001`, `shutdown=0x00000001`.
 
-## Stage 7: First DLSS Evaluate
+## Stage 7: DLSS Feature Create/Release Probe
+
+Implemented as an optional SDK-wrapper research diagnostic:
+
+- Config key: `Diagnostics.EnableDlssFeatureCreateProbe=false` by default.
+- Runtime path key: `DLSS.DlssRuntimePath`.
+- Optional NGX application id key: `DLSS.DlssApplicationId`.
+- Creates a temporary 64x64 Unity `RenderTexture` only to acquire the D3D11 device/context path.
+- Uses the configured quality mode to choose a fixed diagnostic render size for a 1920x1080 target.
+- Calls the SDK-wrapper-backed NGX path to create a DLSS SuperSampling feature, then releases it immediately.
+- Does not use game color/depth/motion-vector textures.
+- Does not evaluate DLSS.
+
+Pass criteria:
+
+- Stage 5D and Stage 6 have already passed in the same native integration route.
+- The native build has the optional NVIDIA SDK wrapper integration path.
+- `NGX_D3D11_CREATE_DLSS_EXT` succeeds for a temporary D3D11 device/context path.
+- The created feature handle is released.
+- Parameter destruction and NGX shutdown succeed.
+
+Evidence:
+
+- `BepInEx/LogOutput.log` lines beginning with `Running DLSS feature create/release probe`.
+- Log line beginning with `DLSS feature create probe succeeded`.
+- Native status includes `render=`, `target=`, `perfQuality=`, `flags=`, `create=`, `feature=`, `release=`, `destroy=`, and `shutdown=`.
+
+Current Stage 7 status:
+
+- A local MSVC SDK-wrapper research build passed Stage 7 with ProjectID init: `render=1280x720`, `target=1920x1080`, `perfQuality=2`, `flags=0x00000040`, `create=0x00000001`, `feature=yes`, `release=0x00000001`, `destroy=0x00000001`, `shutdown=0x00000001`.
+- Release-safe builds are expected to report blocked because the NVIDIA SDK wrapper path is not enabled or packaged by default.
+
+## Stage 8: First DLSS Evaluate
 
 Not implemented yet.
 

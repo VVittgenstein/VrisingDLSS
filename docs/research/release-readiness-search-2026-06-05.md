@@ -74,12 +74,13 @@ Already aligned:
 - The package template has root metadata and a 256x256 PNG icon.
 - Local diagnostics prove plugin load, HDRP hook discovery, render-thread callback, D3D11 native texture/device access, and production DLSS runtime load/release.
 - Stage 6 now reports the SDK-wrapper gate honestly instead of treating the production runtime's missing helper exports as an ordinary runtime failure.
+- A local SDK-wrapper research build has passed Stage 6 DLSS capability query and Stage 7 DLSS feature create/release.
 
 Still missing for MVP:
 
-- Optional local SDK-wrapper-backed Stage 6 that can query DLSS capability from the official SDK wrapper path.
+- Real DLSS evaluate path with game frame resources.
 - A reliable in-frame motion-vector source. `_CameraMotionVectorsTexture` was `null` in the all-low main-menu test.
-- Real DLSS feature create/evaluate/release path.
+- Persistent DLSS feature lifecycle around actual color/depth/motion-vector resources.
 - Render-scale control, mip-map bias handling, camera reset, resize handling, quality modes, overlay, and safe fallback.
 - A normal-user install path and config location under `BepInEx/plugins/VrisingDLSS/VrisingDLSS.cfg`.
 - Release review for any package that bundles `nvngx_dlss.dll`.
@@ -89,9 +90,9 @@ Still missing for MVP:
 Primary route for MVP:
 
 1. Keep using BepInEx IL2CPP and Harmony/reflective probes.
-2. Add an optional local NVIDIA SDK root CMake path for SDK-wrapper research builds.
+2. Keep using the optional local NVIDIA SDK root CMake path for SDK-wrapper research builds.
 3. Keep NVIDIA SDK headers/libs out of the public repository unless a separate review approves the exact files and notices.
-4. Implement SDK-wrapper-backed capability query first, then DLSS create/evaluate.
+4. Implement the first DLSS evaluate probe only after frame resources are aligned.
 5. Test motion vectors in an actual gameplay scene before assuming the main-menu all-low result is final.
 6. Use Thunderstore as the mod-manager package shape, but do not publicly upload until DLSS evaluate is proven and the README accurately describes the package.
 
@@ -109,8 +110,8 @@ This estimate starts from the current 2026-06-05 evidence, not from an empty rep
 
 Fast path, if SDK-wrapper linking is straightforward and motion vectors appear in gameplay:
 
-- First SDK-wrapper-backed capability query: 1-3 days.
-- First DLSS create/evaluate visible image: 1-3 weeks.
+- First SDK-wrapper-backed capability query and DLSS create/release: validated locally on 2026-06-05.
+- First DLSS evaluate visible image: 1-3 weeks.
 - Private-world playable alpha: 3-5 weeks.
 - Public Thunderstore/GitHub MVP release: 5-8 weeks.
 
@@ -127,8 +128,7 @@ Unknown/legal path:
 ## Next Engineering Steps
 
 1. Keep the optional `VRISINGDLSS_NGX_SDK_ROOT` / SDK-wrapper CMake path off by default for release-safe builds.
-2. Use the local MSVC SDK-wrapper research build as the Stage 6 path. The first ProjectID init/query pass was validated on 2026-06-05.
-3. Implement the smallest DLSS create/release probe using the SDK-wrapper research build before attempting evaluate.
-4. Test frame-resource probing in an actual local/private gameplay scene, not just main menu.
-5. If motion vectors remain missing, patch additional HDRP camera/update points and inspect `HDCamera` frame history/motion-vector fields.
-6. After capability query, feature create/release, and frame resources are proven, implement the smallest evaluate path with DLSS disabled by default until image correctness is verified.
+2. Use the local MSVC SDK-wrapper research build for Stage 7 create/release evidence. The first ProjectID create/release pass was validated on 2026-06-05.
+3. Test frame-resource probing in an actual local/private gameplay scene, not just main menu.
+4. If motion vectors remain missing, patch additional HDRP camera/update points and inspect `HDCamera` frame history/motion-vector fields.
+5. After frame resources are proven, implement the smallest evaluate path with DLSS disabled by default until image correctness is verified.

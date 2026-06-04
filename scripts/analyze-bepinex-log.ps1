@@ -177,6 +177,13 @@ $results.Add((New-StageResult `
     -BlockedPatterns @("DLSS init/query probe blocked:") `
     -StartedPatterns @("Running DLSS init/query probe.")))
 
+$results.Add((New-StageResult `
+    -Stage "Stage 7 DLSS Feature Create" `
+    -PassPatterns @("DLSS feature create probe succeeded:") `
+    -FailPatterns @("DLSS feature create probe failed:", "DLSS feature create probe skipped:") `
+    -BlockedPatterns @("DLSS feature create probe blocked:") `
+    -StartedPatterns @("Running DLSS feature create/release probe.")))
+
 $results
 
 if ($FailOnProblems) {

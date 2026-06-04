@@ -21,6 +21,8 @@ internal sealed class NativeBridge
     private GetStringPointerDelegate? _getDlssRuntimeProbeStatus;
     private ProbeDlssInitQueryDelegate? _probeDlssInitQuery;
     private GetStringPointerDelegate? _getDlssInitQueryStatus;
+    private ProbeDlssFeatureCreateDelegate? _probeDlssFeatureCreate;
+    private GetStringPointerDelegate? _getDlssFeatureCreateStatus;
 
     internal NativeBridge(ManualLogSource log)
     {
@@ -54,6 +56,8 @@ internal sealed class NativeBridge
         _getDlssRuntimeProbeStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetDlssRuntimeProbeStatus");
         _probeDlssInitQuery = GetOptionalExport<ProbeDlssInitQueryDelegate>("VrisingDlss_ProbeDlssInitQuery");
         _getDlssInitQueryStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetDlssInitQueryStatus");
+        _probeDlssFeatureCreate = GetOptionalExport<ProbeDlssFeatureCreateDelegate>("VrisingDlss_ProbeDlssFeatureCreate");
+        _getDlssFeatureCreateStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetDlssFeatureCreateStatus");
 
         return _getBridgeApiVersion is not null
             && _getBridgeVersion is not null
@@ -90,6 +94,31 @@ internal sealed class NativeBridge
         _probeDlssInitQuery?.Invoke(nativeTexturePtr, runtimePath, applicationDataPath, applicationId) == 1;
 
     internal string GetDlssInitQueryStatus() => PtrToString(_getDlssInitQueryStatus?.Invoke() ?? IntPtr.Zero);
+
+    internal bool ProbeDlssFeatureCreate(
+        IntPtr nativeTexturePtr,
+        string runtimePath,
+        string applicationDataPath,
+        ulong applicationId,
+        uint renderWidth,
+        uint renderHeight,
+        uint targetWidth,
+        uint targetHeight,
+        int perfQualityValue,
+        int featureFlags) =>
+        _probeDlssFeatureCreate?.Invoke(
+            nativeTexturePtr,
+            runtimePath,
+            applicationDataPath,
+            applicationId,
+            renderWidth,
+            renderHeight,
+            targetWidth,
+            targetHeight,
+            perfQualityValue,
+            featureFlags) == 1;
+
+    internal string GetDlssFeatureCreateStatus() => PtrToString(_getDlssFeatureCreateStatus?.Invoke() ?? IntPtr.Zero);
 
     private T? GetExport<T>(string exportName) where T : Delegate
     {
@@ -139,6 +168,19 @@ internal sealed class NativeBridge
         [MarshalAs(UnmanagedType.LPWStr)] string runtimePath,
         [MarshalAs(UnmanagedType.LPWStr)] string applicationDataPath,
         ulong applicationId);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+    private delegate int ProbeDlssFeatureCreateDelegate(
+        IntPtr nativeTexturePtr,
+        [MarshalAs(UnmanagedType.LPWStr)] string runtimePath,
+        [MarshalAs(UnmanagedType.LPWStr)] string applicationDataPath,
+        ulong applicationId,
+        uint renderWidth,
+        uint renderHeight,
+        uint targetWidth,
+        uint targetHeight,
+        int perfQualityValue,
+        int featureFlags);
 
     private static class NativeMethods
     {

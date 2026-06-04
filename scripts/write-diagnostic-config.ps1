@@ -6,7 +6,8 @@ param(
         "d3d11",
         "frame-resource",
         "dlss-runtime",
-        "dlss-init-query"
+        "dlss-init-query",
+        "dlss-feature-create"
     )]
     [string]$Stage = "loader",
 
@@ -41,6 +42,7 @@ function New-ConfigMap {
             EnableFrameResourceProbe = "false"
             EnableDlssRuntimeProbe = "false"
             EnableDlssInitQueryProbe = "false"
+            EnableDlssFeatureCreateProbe = "false"
             EnableHookProbe = "true"
             EnableHarmonyCallProbe = "false"
             ShowOverlay = "true"
@@ -95,6 +97,13 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableD3D11TextureProbe = "true"
             $Config.Diagnostics.EnableDlssRuntimeProbe = "true"
             $Config.Diagnostics.EnableDlssInitQueryProbe = "true"
+        }
+        "dlss-feature-create" {
+            $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
+            $Config.Diagnostics.EnableD3D11TextureProbe = "true"
+            $Config.Diagnostics.EnableDlssRuntimeProbe = "true"
+            $Config.Diagnostics.EnableDlssInitQueryProbe = "true"
+            $Config.Diagnostics.EnableDlssFeatureCreateProbe = "true"
         }
     }
 }

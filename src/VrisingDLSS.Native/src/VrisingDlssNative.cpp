@@ -12,6 +12,7 @@
 
 #if defined(VRISINGDLSS_ENABLE_NGX_SDK_WRAPPER)
 #include <nvsdk_ngx.h>
+#include <nvsdk_ngx_helpers.h>
 #endif
 
 #if defined(_WIN32)
@@ -28,6 +29,7 @@ namespace
     char g_d3d11ProbeStatus[512] = "D3D11 texture probe has not run";
     char g_dlssRuntimeProbeStatus[512] = "DLSS runtime probe has not run";
     char g_dlssInitQueryStatus[1024] = "DLSS init/query probe has not run";
+    char g_dlssFeatureCreateStatus[1024] = "DLSS feature create probe has not run";
     constexpr unsigned int kNgxResultSuccess = 0x00000001;
     constexpr unsigned int kNgxVersionApi = 0x00000015;
 
@@ -67,6 +69,12 @@ namespace
     {
         std::lock_guard<std::mutex> lock(g_probeStatusMutex);
         std::snprintf(g_dlssInitQueryStatus, sizeof(g_dlssInitQueryStatus), "%s", message);
+    }
+
+    void SetDlssFeatureCreateStatus(const char* message)
+    {
+        std::lock_guard<std::mutex> lock(g_probeStatusMutex);
+        std::snprintf(g_dlssFeatureCreateStatus, sizeof(g_dlssFeatureCreateStatus), "%s", message);
     }
 
     template <typename T>
@@ -180,6 +188,53 @@ namespace
     }
 
 #if defined(VRISINGDLSS_ENABLE_NGX_SDK_WRAPPER)
+    NVSDK_NGX_Result InitializeNgxD3D11WithSdkWrapper(
+        ID3D11Device* device,
+        const wchar_t* runtimePath,
+        const wchar_t* applicationDataPath,
+        unsigned long long applicationId,
+        NVSDK_NGX_FeatureCommonInfo* outFeatureInfo,
+        std::wstring* outRuntimeDirectory,
+        const char** outInitRoute)
+    {
+        if (outRuntimeDirectory == nullptr || outFeatureInfo == nullptr || outInitRoute == nullptr)
+        {
+            return NVSDK_NGX_Result_FAIL_InvalidParameter;
+        }
+
+        *outRuntimeDirectory = GetParentDirectory(runtimePath);
+        const wchar_t* featurePaths[] = { outRuntimeDirectory->c_str() };
+
+        *outFeatureInfo = {};
+        if (!outRuntimeDirectory->empty())
+        {
+            outFeatureInfo->PathListInfo.Path = featurePaths;
+            outFeatureInfo->PathListInfo.Length = 1;
+        }
+
+        const NVSDK_NGX_FeatureCommonInfo* featureInfoPointer = outRuntimeDirectory->empty() ? nullptr : outFeatureInfo;
+        *outInitRoute = "SDK wrapper AppID";
+        if (applicationId == 0)
+        {
+            *outInitRoute = "SDK wrapper ProjectID";
+            return NVSDK_NGX_D3D11_Init_with_ProjectID(
+                "0b8c67f3-3b8b-4e79-a062-5be2e52f39a7",
+                NVSDK_NGX_ENGINE_TYPE_UNITY,
+                "Unity 2022.3",
+                applicationDataPath,
+                device,
+                featureInfoPointer,
+                NVSDK_NGX_Version_API);
+        }
+
+        return NVSDK_NGX_D3D11_Init(
+            applicationId,
+            applicationDataPath,
+            device,
+            featureInfoPointer,
+            NVSDK_NGX_Version_API);
+    }
+
     bool TryGetNgxIntParameterFromSdkWrapper(
         NVSDK_NGX_Parameter* parameters,
         const char* name,
@@ -221,40 +276,17 @@ namespace
         const wchar_t* applicationDataPath,
         unsigned long long applicationId)
     {
-        std::wstring runtimeDirectory = GetParentDirectory(runtimePath);
-        const wchar_t* featurePaths[] = { runtimeDirectory.c_str() };
-
         NVSDK_NGX_FeatureCommonInfo featureInfo{};
-        if (!runtimeDirectory.empty())
-        {
-            featureInfo.PathListInfo.Path = featurePaths;
-            featureInfo.PathListInfo.Length = 1;
-        }
-
-        const NVSDK_NGX_FeatureCommonInfo* featureInfoPointer = runtimeDirectory.empty() ? nullptr : &featureInfo;
-        const char* initRoute = "SDK wrapper AppID";
-        NVSDK_NGX_Result initResult = NVSDK_NGX_Result_Fail;
-        if (applicationId == 0)
-        {
-            initRoute = "SDK wrapper ProjectID";
-            initResult = NVSDK_NGX_D3D11_Init_with_ProjectID(
-                "0b8c67f3-3b8b-4e79-a062-5be2e52f39a7",
-                NVSDK_NGX_ENGINE_TYPE_UNITY,
-                "Unity 2022.3",
-                applicationDataPath,
-                device,
-                featureInfoPointer,
-                NVSDK_NGX_Version_API);
-        }
-        else
-        {
-            initResult = NVSDK_NGX_D3D11_Init(
-                applicationId,
-                applicationDataPath,
-                device,
-                featureInfoPointer,
-                NVSDK_NGX_Version_API);
-        }
+        std::wstring runtimeDirectory;
+        const char* initRoute = "";
+        NVSDK_NGX_Result initResult = InitializeNgxD3D11WithSdkWrapper(
+            device,
+            runtimePath,
+            applicationDataPath,
+            applicationId,
+            &featureInfo,
+            &runtimeDirectory,
+            &initRoute);
 
         if (initResult != NVSDK_NGX_Result_Success)
         {
@@ -327,6 +359,153 @@ namespace
 
         return destroyResult == NVSDK_NGX_Result_Success && shutdownResult == NVSDK_NGX_Result_Success ? 1 : 0;
     }
+
+    int ProbeDlssFeatureCreateWithSdkWrapper(
+        ID3D11Device* device,
+        const wchar_t* runtimePath,
+        const wchar_t* applicationDataPath,
+        unsigned long long applicationId,
+        unsigned int renderWidth,
+        unsigned int renderHeight,
+        unsigned int targetWidth,
+        unsigned int targetHeight,
+        int perfQualityValue,
+        int featureFlags)
+    {
+        NVSDK_NGX_FeatureCommonInfo featureInfo{};
+        std::wstring runtimeDirectory;
+        const char* initRoute = "";
+        NVSDK_NGX_Result initResult = InitializeNgxD3D11WithSdkWrapper(
+            device,
+            runtimePath,
+            applicationDataPath,
+            applicationId,
+            &featureInfo,
+            &runtimeDirectory,
+            &initRoute);
+
+        if (initResult != NVSDK_NGX_Result_Success)
+        {
+            char message[384];
+            std::snprintf(
+                message,
+                sizeof(message),
+                "DLSS feature create probe failed: %s init returned 0x%08X; applicationId=%llu; runtimeDir=%ls",
+                initRoute,
+                static_cast<NgxResult>(initResult),
+                applicationId,
+                runtimeDirectory.c_str());
+            SetDlssFeatureCreateStatus(message);
+            return 0;
+        }
+
+        NVSDK_NGX_Parameter* parameters = nullptr;
+        NVSDK_NGX_Result capabilityResult = NVSDK_NGX_D3D11_GetCapabilityParameters(&parameters);
+        if (capabilityResult != NVSDK_NGX_Result_Success || parameters == nullptr)
+        {
+            NVSDK_NGX_Result shutdownResult = NVSDK_NGX_D3D11_Shutdown1(device);
+            char message[384];
+            std::snprintf(
+                message,
+                sizeof(message),
+                "DLSS feature create probe failed: GetCapabilityParameters returned 0x%08X; shutdown=0x%08X",
+                static_cast<NgxResult>(capabilityResult),
+                static_cast<NgxResult>(shutdownResult));
+            SetDlssFeatureCreateStatus(message);
+            return 0;
+        }
+
+        int available = -1;
+        NgxResult availableResult = 0;
+        bool hasAvailable = TryGetNgxIntParameterFromSdkWrapper(parameters, NVSDK_NGX_Parameter_SuperSampling_Available, &available, &availableResult);
+        if (!hasAvailable || available != 1)
+        {
+            NVSDK_NGX_Result destroyResult = NVSDK_NGX_D3D11_DestroyParameters(parameters);
+            NVSDK_NGX_Result shutdownResult = NVSDK_NGX_D3D11_Shutdown1(device);
+            char message[512];
+            std::snprintf(
+                message,
+                sizeof(message),
+                "DLSS feature create probe failed: SuperSampling.Available=%d(result=0x%08X); destroy=0x%08X; shutdown=0x%08X",
+                available,
+                availableResult,
+                static_cast<NgxResult>(destroyResult),
+                static_cast<NgxResult>(shutdownResult));
+            SetDlssFeatureCreateStatus(message);
+            return 0;
+        }
+
+        ID3D11DeviceContext* context = nullptr;
+        device->GetImmediateContext(&context);
+        if (context == nullptr)
+        {
+            NVSDK_NGX_Result destroyResult = NVSDK_NGX_D3D11_DestroyParameters(parameters);
+            NVSDK_NGX_Result shutdownResult = NVSDK_NGX_D3D11_Shutdown1(device);
+            char message[384];
+            std::snprintf(
+                message,
+                sizeof(message),
+                "DLSS feature create probe failed: D3D11 device did not return an immediate context; destroy=0x%08X; shutdown=0x%08X",
+                static_cast<NgxResult>(destroyResult),
+                static_cast<NgxResult>(shutdownResult));
+            SetDlssFeatureCreateStatus(message);
+            return 0;
+        }
+
+        NVSDK_NGX_DLSS_Create_Params createParams{};
+        createParams.Feature.InWidth = renderWidth;
+        createParams.Feature.InHeight = renderHeight;
+        createParams.Feature.InTargetWidth = targetWidth;
+        createParams.Feature.InTargetHeight = targetHeight;
+        createParams.Feature.InPerfQualityValue = static_cast<NVSDK_NGX_PerfQuality_Value>(perfQualityValue);
+        createParams.InFeatureCreateFlags = featureFlags;
+        createParams.InEnableOutputSubrects = false;
+
+        NVSDK_NGX_Handle* feature = nullptr;
+        NVSDK_NGX_Result createResult = NGX_D3D11_CREATE_DLSS_EXT(context, &feature, parameters, &createParams);
+        NVSDK_NGX_Result releaseResult = NVSDK_NGX_Result_Success;
+        if (feature != nullptr)
+        {
+            releaseResult = NVSDK_NGX_D3D11_ReleaseFeature(feature);
+        }
+
+        context->Release();
+
+        NVSDK_NGX_Result destroyResult = NVSDK_NGX_D3D11_DestroyParameters(parameters);
+        NVSDK_NGX_Result shutdownResult = NVSDK_NGX_D3D11_Shutdown1(device);
+
+        char message[896];
+        std::snprintf(
+            message,
+            sizeof(message),
+            "DLSS feature create probe completed via %s; appId=%llu; init=0x%08X; capability=0x%08X; available=%d(result=0x%08X); render=%ux%u; target=%ux%u; perfQuality=%d; flags=0x%08X; create=0x%08X; feature=%s; release=0x%08X; destroy=0x%08X; shutdown=0x%08X",
+            initRoute,
+            applicationId,
+            static_cast<NgxResult>(initResult),
+            static_cast<NgxResult>(capabilityResult),
+            available,
+            availableResult,
+            renderWidth,
+            renderHeight,
+            targetWidth,
+            targetHeight,
+            perfQualityValue,
+            static_cast<unsigned int>(featureFlags),
+            static_cast<NgxResult>(createResult),
+            feature != nullptr ? "yes" : "no",
+            static_cast<NgxResult>(releaseResult),
+            static_cast<NgxResult>(destroyResult),
+            static_cast<NgxResult>(shutdownResult));
+        SetDlssFeatureCreateStatus(message);
+
+        return createResult == NVSDK_NGX_Result_Success
+            && feature != nullptr
+            && releaseResult == NVSDK_NGX_Result_Success
+            && destroyResult == NVSDK_NGX_Result_Success
+            && shutdownResult == NVSDK_NGX_Result_Success
+            ? 1
+            : 0;
+    }
 #endif
 
     void SetD3D11ProbeStatusFormatted(
@@ -357,7 +536,7 @@ extern "C"
 {
     int __cdecl VrisingDlss_GetBridgeApiVersion()
     {
-        return 5;
+        return 6;
     }
 
     const char* __cdecl VrisingDlss_GetBridgeVersion()
@@ -738,5 +917,98 @@ extern "C"
     {
         std::lock_guard<std::mutex> lock(g_probeStatusMutex);
         return g_dlssInitQueryStatus;
+    }
+
+    int __cdecl VrisingDlss_ProbeDlssFeatureCreate(
+        void* nativeTexturePtr,
+        const wchar_t* runtimePath,
+        const wchar_t* applicationDataPath,
+        unsigned long long applicationId,
+        unsigned int renderWidth,
+        unsigned int renderHeight,
+        unsigned int targetWidth,
+        unsigned int targetHeight,
+        int perfQualityValue,
+        int featureFlags)
+    {
+        if (nativeTexturePtr == nullptr)
+        {
+            SetDlssFeatureCreateStatus("DLSS feature create probe failed: native texture pointer was null");
+            return 0;
+        }
+
+        if (runtimePath == nullptr || runtimePath[0] == L'\0')
+        {
+            SetDlssFeatureCreateStatus("DLSS feature create probe failed: runtime path was empty");
+            return 0;
+        }
+
+        if (renderWidth == 0 || renderHeight == 0 || targetWidth == 0 || targetHeight == 0)
+        {
+            SetDlssFeatureCreateStatus("DLSS feature create probe failed: render/target dimensions must be non-zero");
+            return 0;
+        }
+
+        const wchar_t* appDataPath = applicationDataPath != nullptr && applicationDataPath[0] != L'\0'
+            ? applicationDataPath
+            : L".";
+
+#if !defined(VRISINGDLSS_ENABLE_NGX_SDK_WRAPPER)
+        (void)appDataPath;
+        (void)applicationId;
+        (void)renderWidth;
+        (void)renderHeight;
+        (void)targetWidth;
+        (void)targetHeight;
+        (void)perfQualityValue;
+        (void)featureFlags;
+        SetDlssFeatureCreateStatus("DLSS feature create probe blocked: native bridge was built without NVIDIA SDK wrapper integration");
+        return 0;
+#else
+        ID3D11Resource* resource = nullptr;
+        HRESULT hr = static_cast<IUnknown*>(nativeTexturePtr)->QueryInterface(
+            __uuidof(ID3D11Resource),
+            reinterpret_cast<void**>(&resource));
+        if (FAILED(hr) || resource == nullptr)
+        {
+            char message[256];
+            std::snprintf(
+                message,
+                sizeof(message),
+                "DLSS feature create probe failed: QueryInterface(ID3D11Resource) returned hr=0x%08X",
+                static_cast<unsigned int>(hr));
+            SetDlssFeatureCreateStatus(message);
+            return 0;
+        }
+
+        ID3D11Device* device = nullptr;
+        resource->GetDevice(&device);
+        resource->Release();
+        if (device == nullptr)
+        {
+            SetDlssFeatureCreateStatus("DLSS feature create probe failed: resource did not return a D3D11 device");
+            return 0;
+        }
+
+        int result = ProbeDlssFeatureCreateWithSdkWrapper(
+            device,
+            runtimePath,
+            appDataPath,
+            applicationId,
+            renderWidth,
+            renderHeight,
+            targetWidth,
+            targetHeight,
+            perfQualityValue,
+            featureFlags);
+        device->Release();
+        return result;
+#endif
+    }
+
+    const char* __cdecl VrisingDlss_GetDlssFeatureCreateStatus()
+    {
+        std::lock_guard<std::mutex> lock(g_probeStatusMutex);
+        return g_dlssFeatureCreateStatus;
     }
 }

@@ -41,7 +41,7 @@ The optional local SDK-wrapper research build links `nvsdk_ngx_s.lib` from a use
 - `SuperSampling.MinDriverVersionMinor`
 - `SuperSampling.FeatureInitResult`
 
-The probe does not create a DLSS feature, does not allocate DLSS resources, and does not evaluate a frame.
+The Stage 6 probe does not create a DLSS feature, does not allocate DLSS resources, and does not evaluate a frame.
 
 The 2026-06-05 runtime test showed an important boundary:
 
@@ -60,6 +60,15 @@ The 2026-06-05 local SDK-wrapper research build passed Stage 6 using `NVSDK_NGX_
 - Result: `init=0x00000001`, `capability=0x00000001`, `available=1`, `needsUpdatedDriver=0`, `minDriver=470.0`, `featureInitResult=1`, `destroy=0x00000001`, `shutdown=0x00000001`.
 
 This proves capability query can work locally without committing NVIDIA SDK headers/libs or bundling `nvngx_dlss.dll` into the release package.
+
+The same local SDK-wrapper research route passed Stage 7 by calling `NGX_D3D11_CREATE_DLSS_EXT` for a DLSS SuperSampling feature and immediately releasing it. Evidence:
+
+- Init route: `SDK wrapper ProjectID`.
+- Diagnostic render/target size: `render=1280x720`, `target=1920x1080`.
+- Quality/flags: `perfQuality=2`, `flags=0x00000040`.
+- Result: `create=0x00000001`, `feature=yes`, `release=0x00000001`, `destroy=0x00000001`, `shutdown=0x00000001`.
+
+This proves the SDK-wrapper create/release path can work locally. It still does not prove frame evaluation, image correctness, motion-vector availability, resize handling, or playable stability.
 
 ## Preset Notes
 

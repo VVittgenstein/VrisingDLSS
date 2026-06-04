@@ -12,7 +12,8 @@
 - Added user-supplied DLSS runtime load/release probe interface.
 - Added guarded user-supplied DLSS init/query probe interface; full capability query requires NVIDIA SDK wrapper integration.
 - Added optional local SDK-wrapper research build path; not enabled or packaged by default.
+- Added optional local SDK-wrapper DLSS feature create/release probe interface; not enabled or packaged by default.
 - Added BepInExPack staging helper for local/offline tests.
 - Added source-side diagnostic config, log analysis, and runtime status helpers.
 - Added local install helper and third-party notices.
-- No DLSS feature creation or frame evaluation yet.
+- No DLSS frame evaluation yet.

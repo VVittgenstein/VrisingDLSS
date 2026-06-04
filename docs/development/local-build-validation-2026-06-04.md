@@ -52,6 +52,8 @@ Result:
   - `VrisingDlss_GetDlssRuntimeProbeStatus`
   - `VrisingDlss_ProbeDlssInitQuery`
   - `VrisingDlss_GetDlssInitQueryStatus`
+  - `VrisingDlss_ProbeDlssFeatureCreate`
+  - `VrisingDlss_GetDlssFeatureCreateStatus`
 
 ```powershell
 $cmake = "C:\Software\w64devkit\bin\cmake.exe"
@@ -102,5 +104,6 @@ This is a distributable diagnostic scaffold package, not a playable DLSS mod. It
 - HDRP frame resource native texture pointer probe.
 - User-supplied DLSS runtime load/release probe.
 - User-supplied guarded DLSS init/query probe; full capability query still requires NVIDIA SDK wrapper integration.
+- Optional SDK-wrapper DLSS feature create/release probe; release-safe builds are expected to report blocked.
 
-DLSS feature creation and first DLSS evaluate are still not implemented.
+First DLSS evaluate is still not implemented.
