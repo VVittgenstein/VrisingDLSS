@@ -11,6 +11,7 @@ internal static class FrameResourceProbe
 {
     private const string HarmonyId = PluginInfo.Guid + ".frame-resource-probe";
     private const int MaxInitialLogsPerMethod = 5;
+    private const int MaxRenderGraphGetTextureLogs = 40;
     private const int MaxTextureSearchDepth = 3;
     private static readonly FrameProbeTarget[] Targets =
     {
@@ -19,6 +20,7 @@ internal static class FrameResourceProbe
     };
     private static readonly object Sync = new();
     private static readonly Dictionary<string, int> CallCounts = new(StringComparer.Ordinal);
+    private static int RenderGraphGetTextureCallCount;
     private static readonly string[] GlobalTextureNames =
     {
         "_CameraDepthTexture",
@@ -121,6 +123,35 @@ internal static class FrameResourceProbe
             }
 
             log.LogInfo($"Frame resource extended candidate probe patched {extendedPatched} method(s).");
+
+            var renderGraphPatched = 0;
+            foreach (var method in DiscoverRenderGraphFrameResourceMethods(assemblies))
+            {
+                if (TryPatchFrameResourceMethod(
+                    log,
+                    method,
+                    harmonyMethodConstructor,
+                    patchMethod,
+                    prefix,
+                    patchedMethodKeys,
+                    "Frame resource RenderGraph candidate"))
+                {
+                    patched++;
+                    renderGraphPatched++;
+                }
+            }
+
+            log.LogInfo($"Frame resource RenderGraph candidate probe patched {renderGraphPatched} method(s).");
+
+            if (TryPatchRenderGraphGetTextureMethod(
+                log,
+                assemblies,
+                harmonyMethodConstructor,
+                patchMethod,
+                patchedMethodKeys))
+            {
+                patched++;
+            }
         }
 
         Installed = patched > 0;
@@ -175,7 +206,54 @@ internal static class FrameResourceProbe
             lock (Sync)
             {
                 CallCounts.Clear();
+                RenderGraphGetTextureCallCount = 0;
             }
+        }
+    }
+
+    private static bool TryPatchRenderGraphGetTextureMethod(
+        ManualLogSource log,
+        IEnumerable<Assembly> assemblies,
+        ConstructorInfo harmonyMethodConstructor,
+        MethodInfo patchMethod,
+        ISet<string> patchedMethodKeys)
+    {
+        var method = FindRenderGraphGetTextureMethod(assemblies);
+        var postfix = typeof(FrameResourceProbe).GetMethod(nameof(RenderGraphGetTexturePostfix), BindingFlags.NonPublic | BindingFlags.Static);
+        if (method is null || postfix is null || !CanPatch(method))
+        {
+            log.LogWarning("Frame resource RenderGraph GetTexture postfix target was not found.");
+            return false;
+        }
+
+        if (!patchedMethodKeys.Add(GetMethodKey(method)))
+        {
+            return false;
+        }
+
+        try
+        {
+            var postfixPatch = harmonyMethodConstructor.Invoke(new object[] { postfix });
+            var arguments = new object?[patchMethod.GetParameters().Length];
+            arguments[0] = method;
+            if (arguments.Length > 2)
+            {
+                arguments[2] = postfixPatch;
+            }
+            else
+            {
+                log.LogWarning("Harmony Patch overload does not expose a postfix argument.");
+                return false;
+            }
+
+            patchMethod.Invoke(HarmonyInstance, arguments);
+            log.LogInfo($"Frame resource RenderGraph GetTexture postfix patched: {HookTargetCatalog.FormatMethod(method)}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            log.LogWarning($"Frame resource RenderGraph GetTexture postfix failed to patch {HookTargetCatalog.FormatMethod(method)}: {GetExceptionMessage(ex)}");
+            return false;
         }
     }
 
@@ -260,6 +338,86 @@ internal static class FrameResourceProbe
             && parameters.Count(parameter => TypeNameContains(parameter.ParameterType, "RTHandle")) >= 2;
     }
 
+    private static IEnumerable<MethodInfo> DiscoverRenderGraphFrameResourceMethods(IEnumerable<Assembly> assemblies)
+    {
+        foreach (var assembly in assemblies)
+        {
+            if (!IsRenderGraphProbeAssembly(assembly))
+            {
+                continue;
+            }
+
+            foreach (var type in SafeGetTypes(assembly))
+            {
+                foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly))
+                {
+                    if (IsRenderGraphFrameResourceMethod(method))
+                    {
+                        yield return method;
+                    }
+                }
+            }
+        }
+    }
+
+    private static bool IsRenderGraphProbeAssembly(Assembly assembly)
+    {
+        var name = assembly.GetName().Name ?? string.Empty;
+        return name.Equals("Unity.RenderPipelines.HighDefinition.Runtime", StringComparison.Ordinal);
+    }
+
+    private static bool IsRenderGraphFrameResourceMethod(MethodInfo method)
+    {
+        if (!IsRenderGraphCandidateName(method.Name))
+        {
+            return false;
+        }
+
+        var parameters = method.GetParameters();
+        return parameters.Any(parameter => TypeNameContains(parameter.ParameterType, "RenderGraph"))
+            && parameters.Any(parameter => TypeNameContains(parameter.ParameterType, "TextureHandle"))
+            && parameters.Any(parameter => TypeNameContains(parameter.ParameterType, "HDCamera") || TypeNameContains(parameter.ParameterType, "PrepassOutput"));
+    }
+
+    private static bool IsRenderGraphCandidateName(string methodName)
+    {
+        return string.Equals(methodName, "RenderPostProcess", StringComparison.Ordinal)
+            || string.Equals(methodName, "DoCustomPostProcess", StringComparison.Ordinal)
+            || string.Equals(methodName, "BlitFinalCameraTexture", StringComparison.Ordinal)
+            || string.Equals(methodName, "RenderAfterPostProcessObjects", StringComparison.Ordinal)
+            || string.Equals(methodName, "RenderCameraMotionVectors", StringComparison.Ordinal)
+            || string.Equals(methodName, "ResolveMotionVector", StringComparison.Ordinal)
+            || string.Equals(methodName, "BlitCameraTexture_Internal", StringComparison.Ordinal)
+            || string.Equals(methodName, "GetPostprocessOutputHandle", StringComparison.Ordinal)
+            || string.Equals(methodName, "GetPostprocessUpsampledOutputHandle", StringComparison.Ordinal);
+    }
+
+    private static MethodInfo? FindRenderGraphGetTextureMethod(IEnumerable<Assembly> assemblies)
+    {
+        var registryType = FindRuntimeType(
+            assemblies,
+            "UnityEngine.Experimental.Rendering.RenderGraphModule.RenderGraphResourceRegistry");
+        if (registryType is null)
+        {
+            return null;
+        }
+
+        return registryType
+            .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+            .FirstOrDefault(method =>
+            {
+                if (!string.Equals(method.Name, "GetTexture", StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                var parameters = method.GetParameters();
+                return parameters.Length == 1
+                    && parameters[0].ParameterType.IsByRef
+                    && TypeNameContains(parameters[0].ParameterType.GetElementType()!, "TextureHandle");
+            });
+    }
+
     private static string GetMethodKey(MethodInfo method)
     {
         return $"{method.Module.ModuleVersionId:N}:{method.MetadataToken}";
@@ -297,11 +455,12 @@ internal static class FrameResourceProbe
             }
 
             log.LogInfo($"Frame resource probe call #{count}: {key}");
+            var renderGraph = FindRenderGraphArgument(__args);
             if (__args is not null)
             {
                 for (var index = 0; index < __args.Length; index++)
                 {
-                    ProbeTextureCandidate(log, bridge, $"arg{index}", __args[index]);
+                    ProbeTextureCandidate(log, bridge, $"arg{index}", __args[index], renderGraph);
                 }
             }
 
@@ -311,7 +470,7 @@ internal static class FrameResourceProbe
                 ProbeTextureCandidate(log, bridge, $"global:{globalTextureName}", texture);
             }
 
-            TryRunDlssEvaluateInputProbe(log, bridge, __originalMethod, __args);
+            TryRunDlssEvaluateInputProbe(log, bridge, __originalMethod, __args, renderGraph);
         }
         catch (Exception ex)
         {
@@ -319,11 +478,69 @@ internal static class FrameResourceProbe
         }
     }
 
+    private static void RenderGraphGetTexturePostfix(MethodBase __originalMethod, object? __instance, object?[]? __args, object? __result)
+    {
+        try
+        {
+            var log = Log;
+            var bridge = Bridge;
+            if (log is null || bridge is null)
+            {
+                return;
+            }
+
+            int count;
+            lock (Sync)
+            {
+                RenderGraphGetTextureCallCount++;
+                count = RenderGraphGetTextureCallCount;
+            }
+
+            if (count > MaxRenderGraphGetTextureLogs && count % 300 != 0)
+            {
+                return;
+            }
+
+            var handle = __args is { Length: > 0 } ? __args[0] : null;
+            var handleSummary = SummarizeValue(handle);
+            var resultSummary = SummarizeValue(__result);
+            if (__result is null)
+            {
+                log.LogInfo($"RenderGraph GetTexture call #{count}: handle={handleSummary}; result=null; nativePtr=not found");
+                return;
+            }
+
+            if (!TryFindNativeTexturePtr(__result, out var owner, out var pointer) || pointer == IntPtr.Zero)
+            {
+                log.LogInfo($"RenderGraph GetTexture call #{count}: handle={handleSummary}; result={resultSummary}; nativePtr=not found");
+                return;
+            }
+
+            var ownerSummary = owner is null ? "unknown" : SummarizeValue(owner);
+            log.LogInfo($"RenderGraph GetTexture call #{count}: handle={handleSummary}; result={resultSummary}; nativeOwner={ownerSummary}; nativePtr=0x{pointer.ToInt64():X}");
+            var success = bridge.ProbeD3D11Texture(pointer);
+            var status = bridge.GetD3D11ProbeStatus();
+            if (success)
+            {
+                log.LogInfo($"RenderGraph GetTexture call #{count}: D3D11 probe succeeded: {status}");
+            }
+            else
+            {
+                log.LogWarning($"RenderGraph GetTexture call #{count}: D3D11 probe failed: {status}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log?.LogWarning($"RenderGraph GetTexture postfix failed: {GetExceptionMessage(ex)}");
+        }
+    }
+
     private static void TryRunDlssEvaluateInputProbe(
         ManualLogSource log,
         NativeBridge bridge,
         MethodBase originalMethod,
-        object?[]? args)
+        object?[]? args,
+        object? renderGraph)
     {
         if (!DlssEvaluateInputProbeEnabled || DlssEvaluateInputProbeSucceeded)
         {
@@ -331,7 +548,7 @@ internal static class FrameResourceProbe
         }
 
         var methodLabel = HookTargetCatalog.FormatMethod(originalMethod);
-        var argumentTextures = CollectArgumentTextureCandidates(originalMethod, args);
+        var argumentTextures = CollectArgumentTextureCandidates(originalMethod, args, renderGraph);
         if (argumentTextures.Count < 2)
         {
             log.LogWarning($"DLSS evaluate input probe blocked: {methodLabel} did not expose two texture-like source/output arguments.");
@@ -372,7 +589,7 @@ internal static class FrameResourceProbe
         }
     }
 
-    private static IReadOnlyList<NativeTextureCandidate> CollectArgumentTextureCandidates(MethodBase originalMethod, object?[]? args)
+    private static IReadOnlyList<NativeTextureCandidate> CollectArgumentTextureCandidates(MethodBase originalMethod, object?[]? args, object? renderGraph)
     {
         var candidates = new List<NativeTextureCandidate>();
         if (args is null)
@@ -389,7 +606,7 @@ internal static class FrameResourceProbe
                 continue;
             }
 
-            if (!TryFindNativeTexturePtr(arg, out _, out var pointer) || pointer == IntPtr.Zero)
+            if (!TryFindNativeTexturePtr(arg, renderGraph, out _, out var pointer) || pointer == IntPtr.Zero)
             {
                 continue;
             }
@@ -421,7 +638,7 @@ internal static class FrameResourceProbe
         return true;
     }
 
-    private static void ProbeTextureCandidate(ManualLogSource log, NativeBridge bridge, string label, object? candidate)
+    private static void ProbeTextureCandidate(ManualLogSource log, NativeBridge bridge, string label, object? candidate, object? renderGraph = null)
     {
         if (candidate is null)
         {
@@ -430,9 +647,15 @@ internal static class FrameResourceProbe
         }
 
         var summary = SummarizeValue(candidate);
-        if (!TryFindNativeTexturePtr(candidate, out var owner, out var pointer))
+        if (!TryFindNativeTexturePtr(candidate, renderGraph, out var owner, out var pointer))
         {
             log.LogInfo($"Frame resource {label}: {summary}; nativePtr=not found");
+            var renderGraphStatus = TryDescribeRenderGraphTextureResolution(renderGraph, candidate);
+            if (renderGraphStatus is not null)
+            {
+                log.LogInfo($"Frame resource {label}: {renderGraphStatus}");
+            }
+
             return;
         }
 
@@ -474,14 +697,38 @@ internal static class FrameResourceProbe
         return method?.Invoke(null, new object[] { textureName });
     }
 
+    private static object? FindRenderGraphArgument(object?[]? args)
+    {
+        if (args is null)
+        {
+            return null;
+        }
+
+        foreach (var arg in args)
+        {
+            if (arg is not null && TypeNameContains(arg.GetType(), "RenderGraph"))
+            {
+                return arg;
+            }
+        }
+
+        return null;
+    }
+
     private static bool TryFindNativeTexturePtr(object candidate, out object? owner, out IntPtr pointer)
     {
+        return TryFindNativeTexturePtr(candidate, null, out owner, out pointer);
+    }
+
+    private static bool TryFindNativeTexturePtr(object candidate, object? renderGraph, out object? owner, out IntPtr pointer)
+    {
         var visited = new HashSet<int>();
-        return TryFindNativeTexturePtr(candidate, 0, visited, out owner, out pointer);
+        return TryFindNativeTexturePtr(candidate, renderGraph, 0, visited, out owner, out pointer);
     }
 
     private static bool TryFindNativeTexturePtr(
         object? candidate,
+        object? renderGraph,
         int depth,
         ISet<int> visited,
         out object? owner,
@@ -508,9 +755,25 @@ internal static class FrameResourceProbe
             return true;
         }
 
+        foreach (var resolved in EnumerateRenderGraphTextureResolutions(renderGraph, candidate))
+        {
+            if (TryFindNativeTexturePtr(resolved, renderGraph, depth + 1, visited, out owner, out pointer))
+            {
+                return true;
+            }
+        }
+
+        foreach (var converted in EnumerateTextureConversions(candidate))
+        {
+            if (TryFindNativeTexturePtr(converted, renderGraph, depth + 1, visited, out owner, out pointer))
+            {
+                return true;
+            }
+        }
+
         foreach (var nested in EnumerateLikelyTextureMembers(candidate))
         {
-            if (TryFindNativeTexturePtr(nested, depth + 1, visited, out owner, out pointer))
+            if (TryFindNativeTexturePtr(nested, renderGraph, depth + 1, visited, out owner, out pointer))
             {
                 return true;
             }
@@ -536,6 +799,208 @@ internal static class FrameResourceProbe
         catch
         {
             return null;
+        }
+    }
+
+    private static IEnumerable<object?> EnumerateTextureConversions(object candidate)
+    {
+        var type = candidate.GetType();
+        if (!TypeLooksTextureLike(type))
+        {
+            yield break;
+        }
+
+        foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static))
+        {
+            if (method.Name != "op_Implicit" && method.Name != "op_Explicit")
+            {
+                continue;
+            }
+
+            var parameters = method.GetParameters();
+            if (parameters.Length != 1 || parameters[0].ParameterType != type || !TypeLooksTextureLike(method.ReturnType))
+            {
+                continue;
+            }
+
+            object? converted;
+            try
+            {
+                converted = method.Invoke(null, new[] { candidate });
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (converted is not null)
+            {
+                yield return converted;
+            }
+        }
+    }
+
+    private static IEnumerable<object?> EnumerateRenderGraphTextureResolutions(object? renderGraph, object candidate)
+    {
+        if (renderGraph is null || !TypeNameContains(candidate.GetType(), "TextureHandle"))
+        {
+            yield break;
+        }
+
+        foreach (var registry in EnumerateRenderGraphRegistries(renderGraph))
+        {
+            var resourceHandle = TryReadPropertyObject(candidate, "handle")
+                ?? TryReadFieldObject(candidate, "handle");
+            if (resourceHandle is null)
+            {
+                continue;
+            }
+
+            foreach (var textureResource in InvokeByRefResourceMethod(registry.Instance, "GetTextureResource", resourceHandle))
+            {
+                if (textureResource is not null)
+                {
+                    yield return textureResource;
+                    yield return TryReadPropertyObject(textureResource, "graphicsResource")
+                        ?? TryReadFieldObject(textureResource, "graphicsResource");
+                }
+            }
+        }
+    }
+
+    private static IEnumerable<object?> InvokeByRefResourceMethod(object registry, string methodName, object handle)
+    {
+        var method = FindByRefResourceMethod(registry, methodName, handle);
+        if (method is null)
+        {
+            yield break;
+        }
+
+        object? value;
+        try
+        {
+            value = method.Invoke(registry, new[] { handle });
+        }
+        catch
+        {
+            yield break;
+        }
+
+        if (value is not null)
+        {
+            yield return value;
+        }
+    }
+
+    private static MethodInfo? FindByRefResourceMethod(object registry, string methodName, object handle)
+    {
+        var handleTypeName = handle.GetType().FullName;
+        return registry.GetType()
+            .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+            .FirstOrDefault(candidate =>
+            {
+                if (!string.Equals(candidate.Name, methodName, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                var parameters = candidate.GetParameters();
+                var elementType = parameters.Length == 1 && parameters[0].ParameterType.IsByRef
+                    ? parameters[0].ParameterType.GetElementType()
+                    : null;
+                return string.Equals(elementType?.FullName, handleTypeName, StringComparison.Ordinal);
+            });
+    }
+
+    private static IEnumerable<RenderGraphRegistryCandidate> EnumerateRenderGraphRegistries(object renderGraph)
+    {
+        var seen = new HashSet<int>();
+
+        var fromGraph = TryReadPropertyObject(renderGraph, "m_Resources")
+            ?? TryReadFieldObject(renderGraph, "m_Resources");
+        if (fromGraph is not null && seen.Add(RuntimeHelpers.GetHashCode(fromGraph)))
+        {
+            yield return new RenderGraphRegistryCandidate("renderGraph.m_Resources", fromGraph);
+        }
+
+        var registryType = FindRuntimeType(
+            AppDomain.CurrentDomain.GetAssemblies(),
+            "UnityEngine.Experimental.Rendering.RenderGraphModule.RenderGraphResourceRegistry");
+        if (registryType is null)
+        {
+            yield break;
+        }
+
+        foreach (var propertyName in new[] { "current", "m_CurrentRegistry" })
+        {
+            var current = TryReadStaticPropertyObject(registryType, propertyName);
+            if (current is not null && seen.Add(RuntimeHelpers.GetHashCode(current)))
+            {
+                yield return new RenderGraphRegistryCandidate($"RenderGraphResourceRegistry.{propertyName}", current);
+            }
+        }
+    }
+
+    private static string? TryDescribeRenderGraphTextureResolution(object? renderGraph, object candidate)
+    {
+        if (renderGraph is null || !TypeNameContains(candidate.GetType(), "TextureHandle"))
+        {
+            return null;
+        }
+
+        var details = new List<string>();
+        var registries = EnumerateRenderGraphRegistries(renderGraph).ToList();
+        if (registries.Count == 0)
+        {
+            return "RenderGraph texture resolve: no resource registry found.";
+        }
+
+        foreach (var registry in registries)
+        {
+            details.Add($"{registry.Label}.GetTexture not called from prefix");
+
+            var resourceHandle = TryReadPropertyObject(candidate, "handle")
+                ?? TryReadFieldObject(candidate, "handle");
+            if (resourceHandle is not null)
+            {
+                details.Add(DescribeByRefResourceCall(registry, "GetTextureResource", resourceHandle, out var textureResource));
+                if (textureResource is not null)
+                {
+                    var graphicsResource = TryReadPropertyObject(textureResource, "graphicsResource")
+                        ?? TryReadFieldObject(textureResource, "graphicsResource");
+                    details.Add(graphicsResource is null
+                        ? $"{registry.Label}.TextureResource.graphicsResource returned null"
+                        : $"{registry.Label}.TextureResource.graphicsResource returned {SummarizeValue(graphicsResource)}");
+                }
+            }
+            else
+            {
+                details.Add($"{registry.Label}.TextureHandle.handle not readable");
+            }
+        }
+
+        return $"RenderGraph texture resolve: {string.Join("; ", details)}";
+    }
+
+    private static string DescribeByRefResourceCall(RenderGraphRegistryCandidate registry, string methodName, object handle, out object? value)
+    {
+        value = null;
+        var method = FindByRefResourceMethod(registry.Instance, methodName, handle);
+        if (method is null)
+        {
+            return $"{registry.Label}.{methodName} missing";
+        }
+
+        try
+        {
+            value = method.Invoke(registry.Instance, new[] { handle });
+            return value is null
+                ? $"{registry.Label}.{methodName} returned null"
+                : $"{registry.Label}.{methodName} returned {SummarizeValue(value)}";
+        }
+        catch (Exception ex)
+        {
+            return $"{registry.Label}.{methodName} threw {FirstLine(GetExceptionMessage(ex))}";
         }
     }
 
@@ -693,9 +1158,10 @@ internal static class FrameResourceProbe
                 var parameters = method.GetParameters();
                 return parameters.Length >= 2
                     && typeof(MethodBase).IsAssignableFrom(parameters[0].ParameterType)
-                    && parameters[1].ParameterType.FullName == "HarmonyLib.HarmonyMethod";
+                    && parameters[1].ParameterType.FullName == "HarmonyLib.HarmonyMethod"
+                    && (parameters.Length == 2 || parameters[2].ParameterType.FullName == "HarmonyLib.HarmonyMethod");
             })
-            .OrderBy(method => method.GetParameters().Length)
+            .OrderByDescending(method => method.GetParameters().Length)
             .FirstOrDefault();
     }
 
@@ -747,7 +1213,11 @@ internal static class FrameResourceProbe
             "rtHandleProperties",
             "graphicsFormat",
             "colorFormat",
-            "dimension"
+            "dimension",
+            "handle",
+            "type",
+            "index",
+            "IsValid"
         })
         {
             var propertyValue = TryReadPropertyString(value, propertyName);
@@ -757,7 +1227,53 @@ internal static class FrameResourceProbe
             }
         }
 
+        foreach (var fieldName in new[]
+        {
+            "handle",
+            "m_Handle",
+            "m_Type",
+            "index",
+            "m_Index"
+        })
+        {
+            var fieldValue = TryReadFieldString(value, fieldName);
+            if (fieldValue is not null)
+            {
+                parts.Add($"{fieldName}={fieldValue}");
+            }
+        }
+
+        AddNestedHandleSummary(parts, value);
+
         return string.Join(" ", parts);
+    }
+
+    private static void AddNestedHandleSummary(ICollection<string> parts, object value)
+    {
+        var handle = TryReadPropertyObject(value, "handle")
+            ?? TryReadFieldObject(value, "handle");
+        if (handle is null || ReferenceEquals(handle, value))
+        {
+            return;
+        }
+
+        foreach (var propertyName in new[] { "index", "type", "iType", "IsValid" })
+        {
+            var propertyValue = TryReadPropertyString(handle, propertyName);
+            if (propertyValue is not null)
+            {
+                parts.Add($"handle.{propertyName}={propertyValue}");
+            }
+        }
+
+        foreach (var fieldName in new[] { "m_Value", "_type_k__BackingField" })
+        {
+            var fieldValue = TryReadFieldString(handle, fieldName);
+            if (fieldValue is not null)
+            {
+                parts.Add($"handle.{fieldName}={fieldValue}");
+            }
+        }
     }
 
     private static object? TryReadPropertyObject(object instance, string propertyName)
@@ -787,6 +1303,48 @@ internal static class FrameResourceProbe
         return value?.ToString();
     }
 
+    private static object? TryReadStaticPropertyObject(Type type, string propertyName)
+    {
+        try
+        {
+            var property = type.GetProperty(
+                propertyName,
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+
+            if (property is null || property.GetIndexParameters().Length != 0 || property.GetMethod is null)
+            {
+                return null;
+            }
+
+            return property.GetValue(null);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static object? TryReadFieldObject(object instance, string fieldName)
+    {
+        try
+        {
+            var field = instance.GetType().GetField(
+                fieldName,
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+
+            return field?.GetValue(instance);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? TryReadFieldString(object instance, string fieldName)
+    {
+        return TryReadFieldObject(instance, fieldName)?.ToString();
+    }
+
     private static string GetExceptionMessage(Exception ex)
     {
         return ex is TargetInvocationException { InnerException: not null }
@@ -794,7 +1352,15 @@ internal static class FrameResourceProbe
             : ex.Message;
     }
 
+    private static string FirstLine(string value)
+    {
+        var lineEnd = value.IndexOfAny(new[] { '\r', '\n' });
+        return lineEnd >= 0 ? value[..lineEnd] : value;
+    }
+
     private readonly record struct FrameProbeTarget(string TypeName, string MemberName);
 
     private readonly record struct NativeTextureCandidate(string Label, IntPtr Pointer);
+
+    private readonly record struct RenderGraphRegistryCandidate(string Label, object Instance);
 }

@@ -280,6 +280,9 @@ Implemented as an optional real-frame diagnostic:
 - Reuses the Stage 5C frame-resource Harmony patch.
 - Collects the first two texture-like native pointers from the frame hook as color/output candidates.
 - When Stage 8A is enabled, also discovers and patches loaded non-abstract `Render(CommandBuffer, HDCamera, RTHandle, RTHandle)` methods in HDRP and ProjectM assemblies.
+- Also discovers selected HDRP RenderGraph methods that carry `RenderGraph` plus `TextureHandle` parameters, including post-process, motion-vector, final-blit, and custom-post-process paths.
+- For RenderGraph callbacks, records resource handle index/type and checks `GetTextureResource(ResourceHandle&)` state. It does not call `GetTexture(TextureHandle&)` from a method prefix, because invalid-scope calls can produce IL2CPP trampoline errors even when caught.
+- Patches `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` with a read-only postfix to detect any engine-owned, valid-scope texture materialization and probe the returned `RTHandle`.
 - Reads global `_CameraDepthTexture` and `_CameraMotionVectorsTexture` as depth/motion candidates.
 - Passes color/output/depth/motion native pointers to `VrisingDlss_ProbeDlssEvaluateInputs`.
 - Native code validates D3D11 Texture2D resources, non-zero dimensions, same D3D11 device, and frame-aligned color/depth/motion dimensions.
@@ -304,7 +307,10 @@ Current Stage 8A status:
 
 - Implemented and build-validated.
 - Main-menu runtime evidence is `Blocked`: `CustomVignette.Render` plus nine extended `Render(CommandBuffer, HDCamera, RTHandle, RTHandle)` candidates were patched but not observed as called; `HDRenderPipeline.UpdateShaderVariablesGlobalCB` was called but only exposed HDCamera/CommandBuffer, not source/output RTHandles. `_CameraDepthTexture` appeared as a D3D11 texture, while `_CameraMotionVectorsTexture` remained `null`.
-- The next runtime test should use a local/private gameplay scene before deciding whether a different HDRP hook point is required.
+- RenderGraph main-menu evidence is also `Blocked`, but more informative: `RenderCameraMotionVectors`, `DoCustomPostProcess`, and `ResolveMotionVector` were called and exposed handles for `CameraColor`, `CameraDepthStencil`, `Motion Vectors`, and `NormalBuffer`. The resource registry recognized those names, but `GetTexture(TextureHandle&)` threw because the texture was not yet created or was already released at the Harmony prefix point. No native texture pointer was available from these method-prefix hooks.
+- A direct prefix call to `GetTexture(TextureHandle&)` was rejected as an unsafe diagnostic route because it produced IL2CPP trampoline error logs. The current code avoids that direct call and instead listens for engine-owned successful `GetTexture` calls through a postfix.
+- The `GetTexture` postfix patched successfully in a 45-second main-menu run without IL2CPP trampoline errors, but no successful `RenderGraph GetTexture call` was observed in that window.
+- The next implementation gate is to run inside a declared RenderGraph pass/read scope, or hook the RenderGraph execution delegate path where these handles are valid. A local/private gameplay scene is still useful, but the main blocker is now resource lifetime/scope rather than just method discovery.
 
 ## Stage 8: First DLSS Evaluate
 

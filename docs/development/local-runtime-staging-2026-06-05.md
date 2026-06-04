@@ -63,6 +63,12 @@ Current validated evidence:
 - Stage 8A DLSS evaluate inputs:
   - Main-menu runtime test started and was correctly classified as `Blocked`. The frame-resource hook patched `CustomVignette.Render` and `HDRenderPipeline.UpdateShaderVariablesGlobalCB`, but only `UpdateShaderVariablesGlobalCB(HDCamera, CommandBuffer)` was called in the observed main-menu run. That callback exposed an HDCamera exposure texture and a CommandBuffer, not two source/output render targets. `_CameraDepthTexture` appeared as a 720x720 D3D11 texture after the first callback; `_CameraMotionVectorsTexture` remained `null`.
   - The extended Stage 8A hook scanner found and patched nine additional `Render(CommandBuffer, HDCamera, RTHandle, RTHandle)` candidates in the main-menu run: `VisualLineOfSightDebug`, `LineOfSightVision`, `BatFormFog`, `DarkForeground`, `LineOfSight`, `ProjectM.ContestAreaEffect`, HDRP `CustomPostProcessVolumeComponent`, `Compositor.AlphaInjection`, and `Compositor.ChromaKeying`. None of those candidates were observed as called before the main-menu run was stopped.
+  - The RenderGraph scanner found and patched five HDRP candidate methods: `RenderCameraMotionVectors`, `BlitFinalCameraTexture`, `ResolveMotionVector`, `RenderPostProcess`, and `DoCustomPostProcess`.
+  - Main-menu RenderGraph callbacks observed `RenderCameraMotionVectors`, `DoCustomPostProcess`, and `ResolveMotionVector`. The exposed `TextureHandle` names include `CameraColor`, `CameraDepthStencil`, `Motion Vectors`, and `NormalBuffer`.
+  - `RenderGraph.m_Resources.GetTexture(TextureHandle&)` recognized those resources but threw because the texture was already released or not yet created at the Harmony prefix point. `GetTextureResource(ResourceHandle&)` returned a `TextureResource`, but no native `RTHandle`/`Texture` pointer was available from the prefix.
+  - A follow-up change stopped calling `GetTexture(TextureHandle&)` from method prefixes and instead patches `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` with a read-only postfix. The postfix patched cleanly in a 45-second main-menu run, and no IL2CPP trampoline errors were produced after the direct prefix call was removed.
+  - No successful `RenderGraph GetTexture call` was observed during that final main-menu window, so the postfix should next be tested in a local/private gameplay scene or at a RenderGraph execution delegate point.
+  - Current conclusion: Stage 8A is blocked by RenderGraph resource lifetime/scope. The next implementation step should hook or inject inside a declared RenderGraph pass/read scope, not keep adding ordinary method-prefix candidates.
 - Local GPU/driver for Stage 6/7 pass: NVIDIA GeForce RTX 5060, driver `610.47`.
 
 Archived logs:
@@ -79,11 +85,16 @@ Archived logs:
 - `artifacts/runtime-logs/LogOutput-stage7-dlss-feature-create-2026-06-05.log`
 - `artifacts/runtime-logs/LogOutput-stage8a-dlss-evaluate-inputs-main-menu-2026-06-05.log`
 - `artifacts/runtime-logs/LogOutput-stage8a-extended-frame-resource-main-menu-2026-06-05.log`
+- `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-texturehandle-main-menu-2026-06-05-020700.log`
+- `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-registry-attempt-main-menu-2026-06-05-021102.log`
+- `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-resource-state-main-menu-2026-06-05-021255.log`
+- `artifacts/runtime-logs/LogOutput-stage8a-gettexture-postfix-unsafe-prefix-call-2026-06-05-021707.log`
+- `artifacts/runtime-logs/LogOutput-stage8a-gettexture-postfix-main-menu-2026-06-05-021840.log`
 
 No PureDark files were copied into the game plugin folder. The NVIDIA runtime was copied only into `ref/` for local research and was not added to the release package.
 
 Next implementation gate:
 
-- Run `dlss-evaluate-inputs` in a local/private gameplay scene and capture whether any extended `Render(CommandBuffer, HDCamera, RTHandle, RTHandle)` candidate is called with source/output RTHandles.
-- If the extended candidates still do not run or `_CameraMotionVectorsTexture` remains `null`, patch another HDRP/RenderGraph hook point or inspect HDCamera motion-vector/frame-history fields before attempting evaluate.
-- Implement the smallest SDK-wrapper-backed DLSS evaluate probe only after Stage 8A proves frame resources are aligned.
+- Prototype a RenderGraph-scoped diagnostic pass or hook an execution-time delegate where `CameraColor`, `CameraDepthStencil`, and `Motion Vectors` are valid declared resources.
+- Keep using `dlss-evaluate-inputs` in a local/private gameplay scene after the RenderGraph-scope hook exists, because gameplay may expose a fuller camera/motion-vector frame than the main menu.
+- Implement the smallest SDK-wrapper-backed DLSS evaluate probe only after Stage 8A proves frame resources are aligned and native D3D11 pointers are available in the same frame.

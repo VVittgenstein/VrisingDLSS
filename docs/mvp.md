@@ -56,6 +56,14 @@ ShowOverlay = true
 - The mod does not modify game networking, gameplay rules, server protocol, saves, DRM, or online services.
 - Release boundary checks pass before packaging.
 
+## Current MVP Gate
+
+The current blocker is Stage 8A frame input access. DLSS runtime load, SDK-wrapper init/query, and feature create/release have local proof, but first evaluate still requires color/output/depth/motion resources as valid native D3D11 textures in the same frame.
+
+Latest local evidence shows HDRP RenderGraph methods expose `TextureHandle` entries named `CameraColor`, `CameraDepthStencil`, `Motion Vectors`, and `NormalBuffer`, but ordinary Harmony prefixes see those handles outside a valid RenderGraph resource read scope. The next implementation path is a RenderGraph-scoped hook or diagnostic pass where those handles are declared/read while alive.
+
+The current diagnostic build therefore avoids calling `GetTexture(TextureHandle&)` from method prefixes and instead listens for engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` calls with a read-only postfix. That path is safe in the latest main-menu test, but still needs a gameplay or RenderGraph execution-stage hit before first DLSS evaluate can be attempted.
+
 ## Current Non-Goals
 
 - Monetization.
