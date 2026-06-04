@@ -1,6 +1,7 @@
 using BepInEx.Logging;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -11,6 +12,8 @@ internal static class FrameResourceProbe
 {
     private const string HarmonyId = PluginInfo.Guid + ".frame-resource-probe";
     private const int MaxInitialLogsPerMethod = 5;
+    private const int MaxRenderGraphBuilderDeclarationLogs = 80;
+    private const int MaxRenderGraphBuilderStackLogs = 12;
     private const int MaxRenderGraphGetTextureLogs = 40;
     private const int MaxTextureSearchDepth = 3;
     private static readonly FrameProbeTarget[] Targets =
@@ -20,6 +23,7 @@ internal static class FrameResourceProbe
     };
     private static readonly object Sync = new();
     private static readonly Dictionary<string, int> CallCounts = new(StringComparer.Ordinal);
+    private static int RenderGraphBuilderDeclarationCallCount;
     private static int RenderGraphGetTextureCallCount;
     private static readonly string[] GlobalTextureNames =
     {
@@ -143,6 +147,15 @@ internal static class FrameResourceProbe
 
             log.LogInfo($"Frame resource RenderGraph candidate probe patched {renderGraphPatched} method(s).");
 
+            var renderGraphBuilderPatched = TryPatchRenderGraphBuilderDeclarationMethods(
+                log,
+                assemblies,
+                harmonyMethodConstructor,
+                patchMethod,
+                patchedMethodKeys);
+            patched += renderGraphBuilderPatched;
+            log.LogInfo($"Frame resource RenderGraph builder declaration probe patched {renderGraphBuilderPatched} method(s).");
+
             if (TryPatchRenderGraphGetTextureMethod(
                 log,
                 assemblies,
@@ -206,9 +219,43 @@ internal static class FrameResourceProbe
             lock (Sync)
             {
                 CallCounts.Clear();
+                RenderGraphBuilderDeclarationCallCount = 0;
                 RenderGraphGetTextureCallCount = 0;
             }
         }
+    }
+
+    private static int TryPatchRenderGraphBuilderDeclarationMethods(
+        ManualLogSource log,
+        IEnumerable<Assembly> assemblies,
+        ConstructorInfo harmonyMethodConstructor,
+        MethodInfo patchMethod,
+        ISet<string> patchedMethodKeys)
+    {
+        var prefix = typeof(FrameResourceProbe).GetMethod(nameof(RenderGraphBuilderDeclarationPrefix), BindingFlags.NonPublic | BindingFlags.Static);
+        if (prefix is null)
+        {
+            log.LogWarning("Frame resource RenderGraph builder declaration prefix target was not found.");
+            return 0;
+        }
+
+        var patched = 0;
+        foreach (var method in DiscoverRenderGraphBuilderDeclarationMethods(assemblies))
+        {
+            if (TryPatchFrameResourceMethod(
+                log,
+                method,
+                harmonyMethodConstructor,
+                patchMethod,
+                prefix,
+                patchedMethodKeys,
+                "Frame resource RenderGraph builder declaration"))
+            {
+                patched++;
+            }
+        }
+
+        return patched;
     }
 
     private static bool TryPatchRenderGraphGetTextureMethod(
@@ -418,6 +465,46 @@ internal static class FrameResourceProbe
             });
     }
 
+    private static IEnumerable<MethodInfo> DiscoverRenderGraphBuilderDeclarationMethods(IEnumerable<Assembly> assemblies)
+    {
+        var builderType = FindRuntimeType(
+            assemblies,
+            "UnityEngine.Experimental.Rendering.RenderGraphModule.RenderGraphBuilder");
+        if (builderType is null)
+        {
+            yield break;
+        }
+
+        foreach (var method in builderType.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+        {
+            if (IsRenderGraphBuilderDeclarationMethod(method))
+            {
+                yield return method;
+            }
+        }
+    }
+
+    private static bool IsRenderGraphBuilderDeclarationMethod(MethodInfo method)
+    {
+        if (method.ContainsGenericParameters)
+        {
+            return false;
+        }
+
+        if (!string.Equals(method.Name, "UseColorBuffer", StringComparison.Ordinal)
+            && !string.Equals(method.Name, "UseDepthBuffer", StringComparison.Ordinal)
+            && !string.Equals(method.Name, "ReadTexture", StringComparison.Ordinal)
+            && !string.Equals(method.Name, "WriteTexture", StringComparison.Ordinal)
+            && !string.Equals(method.Name, "ReadWriteTexture", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        return method.GetParameters().Any(parameter =>
+            parameter.ParameterType.IsByRef
+            && TypeNameContains(parameter.ParameterType.GetElementType()!, "TextureHandle"));
+    }
+
     private static string GetMethodKey(MethodInfo method)
     {
         return $"{method.Module.ModuleVersionId:N}:{method.MetadataToken}";
@@ -475,6 +562,40 @@ internal static class FrameResourceProbe
         catch (Exception ex)
         {
             Log?.LogWarning($"Frame resource probe prefix failed: {GetExceptionMessage(ex)}");
+        }
+    }
+
+    private static void RenderGraphBuilderDeclarationPrefix(MethodBase __originalMethod, object? __instance, object?[]? __args)
+    {
+        try
+        {
+            var log = Log;
+            if (log is null)
+            {
+                return;
+            }
+
+            int count;
+            lock (Sync)
+            {
+                RenderGraphBuilderDeclarationCallCount++;
+                count = RenderGraphBuilderDeclarationCallCount;
+            }
+
+            if (count > MaxRenderGraphBuilderDeclarationLogs && count % 300 != 0)
+            {
+                return;
+            }
+
+            log.LogInfo($"RenderGraph builder declaration #{count}: {HookTargetCatalog.FormatMethod(__originalMethod)}; args=[{SummarizeArguments(__args)}]{DescribeRenderGraphBuilderDeclaration(__instance, __args)}");
+            if (count <= MaxRenderGraphBuilderStackLogs)
+            {
+                log.LogInfo($"RenderGraph builder declaration caller #{count}: {GetManagedCallerSummary()}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log?.LogWarning($"RenderGraph builder declaration prefix failed: {GetExceptionMessage(ex)}");
         }
     }
 
@@ -1004,6 +1125,55 @@ internal static class FrameResourceProbe
         }
     }
 
+    private static string DescribeRenderGraphBuilderDeclaration(object? builder, object?[]? args)
+    {
+        if (builder is null || args is null)
+        {
+            return string.Empty;
+        }
+
+        var textureHandle = args.FirstOrDefault(arg => arg is not null && TypeNameContains(arg.GetType(), "TextureHandle"));
+        if (textureHandle is null)
+        {
+            return string.Empty;
+        }
+
+        var resourceHandle = TryReadPropertyObject(textureHandle, "handle")
+            ?? TryReadFieldObject(textureHandle, "handle");
+        if (resourceHandle is null)
+        {
+            return string.Empty;
+        }
+
+        var registry = TryReadPropertyObject(builder, "m_Resources")
+            ?? TryReadFieldObject(builder, "m_Resources");
+        if (registry is null)
+        {
+            return "; resourceName=unavailable";
+        }
+
+        var resourceName = TryGetRenderGraphResourceName(registry, resourceHandle);
+        return resourceName is null ? "; resourceName=unavailable" : $"; resourceName={resourceName}";
+    }
+
+    private static string? TryGetRenderGraphResourceName(object registry, object resourceHandle)
+    {
+        var method = FindByRefResourceMethod(registry, "GetRenderGraphResourceName", resourceHandle);
+        if (method is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return method.Invoke(registry, new[] { resourceHandle })?.ToString();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static IEnumerable<object?> EnumerateLikelyTextureMembers(object candidate)
     {
         var type = candidate.GetType();
@@ -1191,6 +1361,46 @@ internal static class FrameResourceProbe
 
                 return true;
             });
+    }
+
+    private static string SummarizeArguments(object?[]? args)
+    {
+        if (args is null || args.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        return string.Join("; ", args.Select((arg, index) => $"arg{index}={SummarizeValue(arg)}"));
+    }
+
+    private static string GetManagedCallerSummary()
+    {
+        try
+        {
+            var frames = new StackTrace(2, false).GetFrames();
+            if (frames is null || frames.Length == 0)
+            {
+                return "unavailable";
+            }
+
+            var callers = frames
+                .Select(frame => frame.GetMethod())
+                .Where(method => method is not null)
+                .Cast<MethodBase>()
+                .Where(method => method.DeclaringType is not null)
+                .Select(method => $"{method.DeclaringType!.FullName}.{method.Name}")
+                .Where(name => name.IndexOf(nameof(FrameResourceProbe), StringComparison.Ordinal) < 0)
+                .Where(name => name.IndexOf("Harmony", StringComparison.OrdinalIgnoreCase) < 0)
+                .Where(name => name.IndexOf("Il2CppInterop", StringComparison.OrdinalIgnoreCase) < 0)
+                .Take(8)
+                .ToArray();
+
+            return callers.Length == 0 ? "unavailable" : string.Join(" <- ", callers);
+        }
+        catch
+        {
+            return "unavailable";
+        }
     }
 
     private static string SummarizeValue(object? value)

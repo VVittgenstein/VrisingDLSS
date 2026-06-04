@@ -68,6 +68,9 @@ Current validated evidence:
   - `RenderGraph.m_Resources.GetTexture(TextureHandle&)` recognized those resources but threw because the texture was already released or not yet created at the Harmony prefix point. `GetTextureResource(ResourceHandle&)` returned a `TextureResource`, but no native `RTHandle`/`Texture` pointer was available from the prefix.
   - A follow-up change stopped calling `GetTexture(TextureHandle&)` from method prefixes and instead patches `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` with a read-only postfix. The postfix patched cleanly in a 45-second main-menu run, and no IL2CPP trampoline errors were produced after the direct prefix call was removed.
   - No successful `RenderGraph GetTexture call` was observed during that final main-menu window, so the postfix should next be tested in a local/private gameplay scene or at a RenderGraph execution delegate point.
+  - A follow-up builder-declaration probe patched five `RenderGraphBuilder` methods: `UseColorBuffer`, `UseDepthBuffer`, `ReadTexture`, `WriteTexture`, and `ReadWriteTexture`.
+  - The builder-declaration probe cleanly resolved resource names with `GetRenderGraphResourceName(ResourceHandle&)` in a 45-second main-menu run. Evidence includes `UseColorBuffer(CameraColor)`, `ReadTexture(CameraColor)`, `ReadTexture(CameraDepthStencil)`, `UseColorBuffer(Motion Vectors)`, `ReadTexture(Motion Vectors)`, and `ReadTexture(NormalBuffer)`.
+  - This confirms the target resources are declared in HDRP RenderGraph passes; it still does not expose native texture pointers, so the next code path must execute inside a declared RenderGraph pass or execution delegate.
   - Current conclusion: Stage 8A is blocked by RenderGraph resource lifetime/scope. The next implementation step should hook or inject inside a declared RenderGraph pass/read scope, not keep adding ordinary method-prefix candidates.
 - Local GPU/driver for Stage 6/7 pass: NVIDIA GeForce RTX 5060, driver `610.47`.
 
@@ -90,6 +93,8 @@ Archived logs:
 - `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-resource-state-main-menu-2026-06-05-021255.log`
 - `artifacts/runtime-logs/LogOutput-stage8a-gettexture-postfix-unsafe-prefix-call-2026-06-05-021707.log`
 - `artifacts/runtime-logs/LogOutput-stage8a-gettexture-postfix-main-menu-2026-06-05-021840.log`
+- `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-builder-declarations-main-menu-2026-06-05-023132.log`
+- `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-builder-resource-names-main-menu-2026-06-05-023434.log`
 
 No PureDark files were copied into the game plugin folder. The NVIDIA runtime was copied only into `ref/` for local research and was not added to the release package.
 

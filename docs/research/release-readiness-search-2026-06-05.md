@@ -85,7 +85,7 @@ Already aligned:
 - Stage 6 now reports the SDK-wrapper gate honestly instead of treating the production runtime's missing helper exports as an ordinary runtime failure.
 - A local SDK-wrapper research build has passed Stage 6 DLSS capability query and Stage 7 DLSS feature create/release.
 - Stage 8A DLSS evaluate-input probing is implemented to validate real color/output/depth/motion D3D11 resources before calling evaluate. A main-menu run starts the probe but blocks because source/output RTHandles are not exposed there and `_CameraMotionVectorsTexture` remains `null`.
-- A later Stage 8A RenderGraph run found the expected texture handles by name, but ordinary prefixes do not run inside a valid resource scope. The current probe avoids direct prefix `GetTexture` calls and passively hooks engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` calls.
+- Later Stage 8A RenderGraph runs found the expected texture handles by name. The builder-declaration probe observes `CameraColor`, `CameraDepthStencil`, `Motion Vectors`, and `NormalBuffer` declarations without materializing textures. Ordinary prefixes still do not run inside a valid resource scope, so the current probe avoids direct prefix `GetTexture` calls and passively hooks engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` calls.
 
 Still missing for MVP:
 

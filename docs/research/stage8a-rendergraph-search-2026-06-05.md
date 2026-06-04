@@ -95,6 +95,8 @@ Preferred next implementation order:
 5. Run `VrisingDlss_ProbeDlssEvaluateInputs` inside that valid pass before any NGX evaluate call.
 6. Only after Stage 8A passes, wire the SDK-wrapper-backed DLSS feature lifecycle to the real frame path.
 
+Local follow-up evidence: a builder-declaration probe now observes named `RenderGraphBuilder` declarations for `CameraColor`, `CameraDepthStencil`, `Motion Vectors`, and `NormalBuffer` without calling `GetTexture(TextureHandle&)`. This narrows the remaining Stage 8A work to execution inside a declared RenderGraph pass or delegate.
+
 Rejected or deferred:
 
 - Calling `GetTexture(TextureHandle&)` from ordinary Harmony prefixes.
