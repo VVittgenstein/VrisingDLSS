@@ -126,9 +126,9 @@ Unknown/legal path:
 
 ## Next Engineering Steps
 
-1. Add optional `VRISINGDLSS_NGX_SDK_ROOT` / SDK-wrapper CMake scaffolding that is off by default.
-2. Build a local MSVC research DLL that links NVIDIA's wrapper lib from `ref/NVIDIA-DLSS-main`, without committing NVIDIA headers/libs.
-3. Replace Stage 6 blocked result with real init/capability query only in that wrapper-backed build.
+1. Keep the optional `VRISINGDLSS_NGX_SDK_ROOT` / SDK-wrapper CMake path off by default for release-safe builds.
+2. Use the local MSVC SDK-wrapper research build as the Stage 6 path. The first ProjectID init/query pass was validated on 2026-06-05.
+3. Implement the smallest DLSS create/release probe using the SDK-wrapper research build before attempting evaluate.
 4. Test frame-resource probing in an actual local/private gameplay scene, not just main menu.
 5. If motion vectors remain missing, patch additional HDRP camera/update points and inspect `HDCamera` frame history/motion-vector fields.
-6. After capability query and frame resources are both proven, implement the smallest create/evaluate/release path with DLSS disabled by default until image correctness is verified.
+6. After capability query, feature create/release, and frame resources are proven, implement the smallest evaluate path with DLSS disabled by default until image correctness is verified.

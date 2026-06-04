@@ -90,7 +90,7 @@ The source-only package intentionally does not include `nvngx_dlss.dll`.
 
 The current diagnostic scaffold can optionally load and immediately release a user-supplied production `nvngx_dlss.dll` when `Diagnostics.EnableDlssRuntimeProbe=true` and `DLSS.DlssRuntimePath` points to that file. This is only a path/export probe.
 
-The next diagnostic switch, `Diagnostics.EnableDlssInitQueryProbe=true`, currently uses a temporary RenderTexture D3D11 device to confirm the native path and then checks whether the loaded runtime exposes the helper exports needed for NGX capability query. With the official production `nvngx_dlss.dll` tested so far, this is expected to report `DLSS init/query probe blocked` until the native bridge has an explicit NVIDIA SDK wrapper integration path.
+The next diagnostic switch, `Diagnostics.EnableDlssInitQueryProbe=true`, currently uses a temporary RenderTexture D3D11 device to confirm the native path and then checks whether the loaded runtime exposes the helper exports needed for NGX capability query. Release-safe builds are expected to report `DLSS init/query probe blocked` with only a production `nvngx_dlss.dll`. Local SDK-wrapper research builds can run the full init/capability query, but they are not enabled or packaged by default.
 
 This still does not create a DLSS feature or evaluate a frame.
 

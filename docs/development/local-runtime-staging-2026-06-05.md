@@ -55,7 +55,10 @@ Current validated evidence:
 - Stage 5B D3D11 texture: pass. Temporary `RenderTexture` pointer was recognized as a D3D11 resource/device.
 - Stage 5C frame resources: pass. All-low main-menu run reached `HDRenderPipeline.UpdateShaderVariablesGlobalCB`; `_CameraDepthTexture` was found and D3D11-probed. `_CameraMotionVectorsTexture` was `null` in that scene/settings.
 - Stage 5D DLSS runtime load/release: pass with official NVIDIA DLSS `310.6.0.0` runtime extracted under `ref/` for local research. The runtime exposes D3D11 init/create/evaluate/release/shutdown exports and `PopulateParameters_Impl`, but not `GetCapabilityParameters`.
-- Stage 6 DLSS init/query: currently gated. The source-only build now reports this as `Blocked` when only the production `nvngx_dlss.dll` is available, because full capability query requires NVIDIA SDK wrapper integration.
+- Stage 6 DLSS init/query:
+  - Source-only/release-safe build reports `Blocked` when only the production `nvngx_dlss.dll` is available, because full capability query requires NVIDIA SDK wrapper integration.
+  - Local MSVC SDK-wrapper research build passed with ProjectID init. Evidence: `init=0x00000001`, `capability=0x00000001`, `available=1`, `needsUpdatedDriver=0`, `minDriver=470.0`, `featureInitResult=1`, `destroy=0x00000001`, `shutdown=0x00000001`.
+- Local GPU/driver for Stage 6 pass: NVIDIA GeForce RTX 5060, driver `610.47`.
 
 Archived logs:
 
@@ -66,10 +69,12 @@ Archived logs:
 - `artifacts/runtime-logs/LogOutput-stage5b-d3d11-2026-06-05.log`
 - `artifacts/runtime-logs/LogOutput-stage5c-frame-resource-2026-06-05.log`
 - `artifacts/runtime-logs/LogOutput-stage5d-dlss-runtime-2026-06-05.log`
+- `artifacts/runtime-logs/LogOutput-stage6-sdk-wrapper-2026-06-05.log`
+- `artifacts/runtime-logs/LogOutput-stage6-sdk-wrapper-projectid-2026-06-05.log`
 
 No PureDark files were copied into the game plugin folder. The NVIDIA runtime was copied only into `ref/` for local research and was not added to the release package.
 
 Next implementation gate:
 
-- Integrate the official NVIDIA SDK wrapper path or reproduce the required parameter wrapper behavior cleanly from official headers/libs, then rerun Stage 6 init/query.
+- Implement the smallest SDK-wrapper-backed DLSS feature create/release probe before evaluate.
 - Find a reliable motion-vector source. `_CameraMotionVectorsTexture` was `null` in the all-low main-menu run, so another hook point, scene, or graphics setting may be required.

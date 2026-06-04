@@ -213,7 +213,7 @@ Implemented as an optional diagnostic switch:
 - Loads the user-supplied production `nvngx_dlss.dll`.
 - In the current source-only build, checks whether the runtime exposes the helper exports needed for capability query.
 - If those helper exports are missing, logs `DLSS init/query probe blocked` and exits before NGX init.
-- A full SDK-wrapper-backed Stage 6 build should call `NVSDK_NGX_D3D11_Init`, query DLSS SuperSampling capability parameters, destroy the parameter map, and immediately call NGX shutdown.
+- An SDK-wrapper-backed research build calls `NVSDK_NGX_D3D11_Init` or `NVSDK_NGX_D3D11_Init_with_ProjectID`, queries DLSS SuperSampling capability parameters, destroys the parameter map, and immediately calls NGX shutdown.
 - Does not create a DLSS feature.
 - Does not use game color/depth/motion-vector textures.
 - Does not evaluate DLSS.
@@ -233,11 +233,12 @@ Evidence:
 - Log line beginning with `DLSS init/query probe succeeded`.
 - Native status includes `available=`, `needsUpdatedDriver=`, `minDriver=`, `featureInitResult=`, `destroy=`, and `shutdown=`.
 
-Current blocker:
+Current Stage 6 status:
 
 - The official `nvngx_dlss.dll` runtime from DLSS SDK `310.6.0` exposes D3D11 init/create/evaluate/release/shutdown and `NVSDK_NGX_D3D11_PopulateParameters_Impl`, but does not directly export `NVSDK_NGX_D3D11_GetCapabilityParameters`.
-- The official sample links the NVIDIA SDK wrapper library for `GetCapabilityParameters` and parameter-map helpers. Stage 6 therefore needs an SDK-wrapper integration decision before it can be considered valid.
+- The official sample links the NVIDIA SDK wrapper library for `GetCapabilityParameters` and parameter-map helpers. The source-only/release-safe build therefore reports `Blocked`.
 - Re-running `dlss-init-query` with only a production `nvngx_dlss.dll` is expected to report `Blocked`, not `Pass`.
+- A local MSVC SDK-wrapper research build passed Stage 6 with ProjectID init: `init=0x00000001`, `capability=0x00000001`, `available=1`, `needsUpdatedDriver=0`, `minDriver=470.0`, `featureInitResult=1`, `destroy=0x00000001`, `shutdown=0x00000001`.
 
 ## Stage 7: First DLSS Evaluate
 

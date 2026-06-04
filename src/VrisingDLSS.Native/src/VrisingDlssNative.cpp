@@ -8,6 +8,11 @@
 #include <cstdio>
 #include <cstring>
 #include <mutex>
+#include <string>
+
+#if defined(VRISINGDLSS_ENABLE_NGX_SDK_WRAPPER)
+#include <nvsdk_ngx.h>
+#endif
 
 #if defined(_WIN32)
 #define VRISINGDLSS_RENDER_EVENT_CALL __stdcall
@@ -113,6 +118,216 @@ namespace
 
         return false;
     }
+
+    std::wstring GetParentDirectory(const wchar_t* path)
+    {
+        if (path == nullptr || path[0] == L'\0')
+        {
+            return L"";
+        }
+
+        std::wstring value(path);
+        const size_t separator = value.find_last_of(L"\\/");
+        if (separator == std::wstring::npos)
+        {
+            return L".";
+        }
+
+        return value.substr(0, separator);
+    }
+
+    void SetDlssInitQueryCompletedStatus(
+        const char* route,
+        unsigned long long applicationId,
+        NgxResult initResult,
+        NgxResult capabilityResult,
+        int available,
+        NgxResult availableResult,
+        int needsUpdatedDriver,
+        NgxResult needsDriverResult,
+        int minDriverMajor,
+        int minDriverMinor,
+        NgxResult minMajorResult,
+        NgxResult minMinorResult,
+        int featureInitResult,
+        NgxResult featureInitResultStatus,
+        NgxResult destroyResult,
+        NgxResult shutdownResult)
+    {
+        char message[832];
+        std::snprintf(
+            message,
+            sizeof(message),
+            "DLSS init/query probe completed via %s; appId=%llu; init=0x%08X; capability=0x%08X; available=%d(result=0x%08X); needsUpdatedDriver=%d(result=0x%08X); minDriver=%d.%d(results=0x%08X/0x%08X); featureInitResult=%d(result=0x%08X); destroy=0x%08X; shutdown=0x%08X",
+            route,
+            applicationId,
+            initResult,
+            capabilityResult,
+            available,
+            availableResult,
+            needsUpdatedDriver,
+            needsDriverResult,
+            minDriverMajor,
+            minDriverMinor,
+            minMajorResult,
+            minMinorResult,
+            featureInitResult,
+            featureInitResultStatus,
+            destroyResult,
+            shutdownResult);
+
+        SetDlssInitQueryStatus(message);
+    }
+
+#if defined(VRISINGDLSS_ENABLE_NGX_SDK_WRAPPER)
+    bool TryGetNgxIntParameterFromSdkWrapper(
+        NVSDK_NGX_Parameter* parameters,
+        const char* name,
+        int* outValue,
+        NgxResult* outResult)
+    {
+        if (parameters == nullptr || outValue == nullptr || outResult == nullptr)
+        {
+            return false;
+        }
+
+        int intValue = 0;
+        NVSDK_NGX_Result intResult = NVSDK_NGX_Parameter_GetI(parameters, name, &intValue);
+        if (intResult == NVSDK_NGX_Result_Success)
+        {
+            *outValue = intValue;
+            *outResult = static_cast<NgxResult>(intResult);
+            return true;
+        }
+
+        *outResult = static_cast<NgxResult>(intResult);
+
+        unsigned int uintValue = 0;
+        NVSDK_NGX_Result uintResult = NVSDK_NGX_Parameter_GetUI(parameters, name, &uintValue);
+        if (uintResult == NVSDK_NGX_Result_Success)
+        {
+            *outValue = static_cast<int>(uintValue);
+            *outResult = static_cast<NgxResult>(uintResult);
+            return true;
+        }
+
+        *outResult = static_cast<NgxResult>(uintResult);
+        return false;
+    }
+
+    int ProbeDlssInitQueryWithSdkWrapper(
+        ID3D11Device* device,
+        const wchar_t* runtimePath,
+        const wchar_t* applicationDataPath,
+        unsigned long long applicationId)
+    {
+        std::wstring runtimeDirectory = GetParentDirectory(runtimePath);
+        const wchar_t* featurePaths[] = { runtimeDirectory.c_str() };
+
+        NVSDK_NGX_FeatureCommonInfo featureInfo{};
+        if (!runtimeDirectory.empty())
+        {
+            featureInfo.PathListInfo.Path = featurePaths;
+            featureInfo.PathListInfo.Length = 1;
+        }
+
+        const NVSDK_NGX_FeatureCommonInfo* featureInfoPointer = runtimeDirectory.empty() ? nullptr : &featureInfo;
+        const char* initRoute = "SDK wrapper AppID";
+        NVSDK_NGX_Result initResult = NVSDK_NGX_Result_Fail;
+        if (applicationId == 0)
+        {
+            initRoute = "SDK wrapper ProjectID";
+            initResult = NVSDK_NGX_D3D11_Init_with_ProjectID(
+                "0b8c67f3-3b8b-4e79-a062-5be2e52f39a7",
+                NVSDK_NGX_ENGINE_TYPE_UNITY,
+                "Unity 2022.3",
+                applicationDataPath,
+                device,
+                featureInfoPointer,
+                NVSDK_NGX_Version_API);
+        }
+        else
+        {
+            initResult = NVSDK_NGX_D3D11_Init(
+                applicationId,
+                applicationDataPath,
+                device,
+                featureInfoPointer,
+                NVSDK_NGX_Version_API);
+        }
+
+        if (initResult != NVSDK_NGX_Result_Success)
+        {
+            char message[384];
+            std::snprintf(
+                message,
+                sizeof(message),
+                "DLSS init/query probe failed: %s init returned 0x%08X; applicationId=%llu; runtimeDir=%ls",
+                initRoute,
+                static_cast<NgxResult>(initResult),
+                applicationId,
+                runtimeDirectory.c_str());
+            SetDlssInitQueryStatus(message);
+            return 0;
+        }
+
+        NVSDK_NGX_Parameter* parameters = nullptr;
+        NVSDK_NGX_Result capabilityResult = NVSDK_NGX_D3D11_GetCapabilityParameters(&parameters);
+        if (capabilityResult != NVSDK_NGX_Result_Success || parameters == nullptr)
+        {
+            NVSDK_NGX_Result shutdownResult = NVSDK_NGX_D3D11_Shutdown1(device);
+            char message[384];
+            std::snprintf(
+                message,
+                sizeof(message),
+                "DLSS init/query probe failed: SDK-wrapper GetCapabilityParameters returned 0x%08X; shutdown=0x%08X",
+                static_cast<NgxResult>(capabilityResult),
+                static_cast<NgxResult>(shutdownResult));
+            SetDlssInitQueryStatus(message);
+            return 0;
+        }
+
+        int available = -1;
+        int needsUpdatedDriver = -1;
+        int minDriverMajor = -1;
+        int minDriverMinor = -1;
+        int featureInitResult = -1;
+        NgxResult availableResult = 0;
+        NgxResult needsDriverResult = 0;
+        NgxResult minMajorResult = 0;
+        NgxResult minMinorResult = 0;
+        NgxResult featureInitResultStatus = 0;
+
+        TryGetNgxIntParameterFromSdkWrapper(parameters, NVSDK_NGX_Parameter_SuperSampling_Available, &available, &availableResult);
+        TryGetNgxIntParameterFromSdkWrapper(parameters, NVSDK_NGX_Parameter_SuperSampling_NeedsUpdatedDriver, &needsUpdatedDriver, &needsDriverResult);
+        TryGetNgxIntParameterFromSdkWrapper(parameters, NVSDK_NGX_Parameter_SuperSampling_MinDriverVersionMajor, &minDriverMajor, &minMajorResult);
+        TryGetNgxIntParameterFromSdkWrapper(parameters, NVSDK_NGX_Parameter_SuperSampling_MinDriverVersionMinor, &minDriverMinor, &minMinorResult);
+        TryGetNgxIntParameterFromSdkWrapper(parameters, NVSDK_NGX_Parameter_SuperSampling_FeatureInitResult, &featureInitResult, &featureInitResultStatus);
+
+        NVSDK_NGX_Result destroyResult = NVSDK_NGX_D3D11_DestroyParameters(parameters);
+        NVSDK_NGX_Result shutdownResult = NVSDK_NGX_D3D11_Shutdown1(device);
+
+        SetDlssInitQueryCompletedStatus(
+            initRoute,
+            applicationId,
+            static_cast<NgxResult>(initResult),
+            static_cast<NgxResult>(capabilityResult),
+            available,
+            availableResult,
+            needsUpdatedDriver,
+            needsDriverResult,
+            minDriverMajor,
+            minDriverMinor,
+            minMajorResult,
+            minMinorResult,
+            featureInitResult,
+            featureInitResultStatus,
+            static_cast<NgxResult>(destroyResult),
+            static_cast<NgxResult>(shutdownResult));
+
+        return destroyResult == NVSDK_NGX_Result_Success && shutdownResult == NVSDK_NGX_Result_Success ? 1 : 0;
+    }
+#endif
 
     void SetD3D11ProbeStatusFormatted(
         HRESULT hr,
@@ -373,6 +588,13 @@ extern "C"
             return 0;
         }
 
+#if defined(VRISINGDLSS_ENABLE_NGX_SDK_WRAPPER)
+        int sdkWrapperResult = ProbeDlssInitQueryWithSdkWrapper(device, runtimePath, appDataPath, applicationId);
+        device->Release();
+        resource->Release();
+        return sdkWrapperResult;
+#endif
+
         HMODULE module = LoadLibraryW(runtimePath);
         if (module == nullptr)
         {
@@ -487,11 +709,8 @@ extern "C"
         NgxResult destroyResult = destroyParameters(parameters);
         NgxResult shutdownResult = shutdown1 != nullptr ? shutdown1(device) : shutdown();
 
-        char message[768];
-        std::snprintf(
-            message,
-            sizeof(message),
-            "DLSS init/query probe completed; appId=%llu; init=0x%08X; capability=0x%08X; available=%d(result=0x%08X); needsUpdatedDriver=%d(result=0x%08X); minDriver=%d.%d(results=0x%08X/0x%08X); featureInitResult=%d(result=0x%08X); destroy=0x%08X; shutdown=0x%08X",
+        SetDlssInitQueryCompletedStatus(
+            "runtime exports",
             applicationId,
             initResult,
             capabilityResult,
@@ -507,8 +726,6 @@ extern "C"
             featureInitResultStatus,
             destroyResult,
             shutdownResult);
-
-        SetDlssInitQueryStatus(message);
 
         FreeLibrary(module);
         device->Release();

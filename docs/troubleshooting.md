@@ -109,7 +109,7 @@ Check:
 - `EnableNativeBridgeSmokeTest` logs bridge API version `5` or newer.
 - The runtime is a current production `nvngx_dlss.dll` from an approved NVIDIA distribution path.
 
-If the log says `DLSS init/query probe blocked`, the current native build needs an explicit NVIDIA SDK wrapper integration path. Re-running the same diagnostic with only `nvngx_dlss.dll` is expected to produce the same blocked result.
+If the log says `DLSS init/query probe blocked`, the current native build does not include the optional NVIDIA SDK wrapper path. Re-running the same release-safe diagnostic with only `nvngx_dlss.dll` is expected to produce the same blocked result. Use the local SDK-wrapper research build when validating full capability query.
 
 If NGX init succeeds but `SuperSampling.Available=0`, the runtime/device/driver path is reachable but DLSS is unavailable for that machine or configuration. If init returns a failure result, keep DLSS disabled and preserve the full status line from `BepInEx/LogOutput.log`.
 

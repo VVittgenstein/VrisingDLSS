@@ -18,7 +18,7 @@ The current implementation goal is a source-only, legally conservative package:
 - Clear user-facing install, diagnostics, and risk documentation.
 - No monetization path or paid-build dependency.
 
-Latest local validation: the C# plugin and native bridge build successfully, the native export table includes the diagnostic probes through API version 5, the render-thread/D3D11/runtime probes pass locally, and Stage 6 init/query is currently blocked until NVIDIA SDK wrapper integration is added. The Thunderstore zip contains only this project's own binaries and metadata. See [local runtime staging](docs/development/local-runtime-staging-2026-06-05.md).
+Latest local validation: the C# plugin and native bridge build successfully, the native export table includes the diagnostic probes through API version 5, the render-thread/D3D11/runtime probes pass locally, and a local SDK-wrapper research build passes Stage 6 DLSS init/capability query. Release-safe builds still do not link or bundle NVIDIA SDK/runtime files. The Thunderstore zip contains only this project's own binaries and metadata. See [local runtime staging](docs/development/local-runtime-staging-2026-06-05.md).
 
 ## What Is In Scope
 

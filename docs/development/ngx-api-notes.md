@@ -23,7 +23,7 @@ The local `nvngx_dlss.dll` research copy is file version `310.6.0.0`, signed by 
 
 ## Diagnostic Probe Scope
 
-The current source-only `VrisingDlss_ProbeDlssInitQuery` uses dynamic runtime lookup for:
+The source-only/release-safe `VrisingDlss_ProbeDlssInitQuery` uses dynamic runtime lookup for:
 
 - `NVSDK_NGX_D3D11_Init`
 - `NVSDK_NGX_D3D11_GetCapabilityParameters`
@@ -33,7 +33,7 @@ The current source-only `VrisingDlss_ProbeDlssInitQuery` uses dynamic runtime lo
 
 If the runtime lacks the capability-query helper exports, the probe reports that NVIDIA SDK wrapper integration is required and exits before NGX init. This is the expected result with the local DLSS `310.6.0.0` production runtime.
 
-A future SDK-wrapper-backed probe should read these DLSS SuperSampling capability keys:
+The optional local SDK-wrapper research build links `nvsdk_ngx_s.lib` from a user-provided NVIDIA SDK root and reads these DLSS SuperSampling capability keys:
 
 - `SuperSampling.Available`
 - `SuperSampling.NeedsUpdatedDriver`
@@ -50,6 +50,16 @@ The 2026-06-05 runtime test showed an important boundary:
 - The official sample calls `GetCapabilityParameters` through NVIDIA's SDK wrapper library, not the bare runtime DLL surface alone.
 
 Therefore Stage 6 and real DLSS feature creation require an explicit SDK wrapper integration decision. A release build must not silently bake NVIDIA SDK wrapper code into the native bridge without the same release review used for runtime redistribution.
+
+The 2026-06-05 local SDK-wrapper research build passed Stage 6 using `NVSDK_NGX_D3D11_Init_with_ProjectID` when `DLSS.DlssApplicationId=0`. Evidence:
+
+- Native build option: `VRISINGDLSS_ENABLE_NGX_SDK_WRAPPER=ON`.
+- Local SDK root: `ref/NVIDIA-DLSS-main/`.
+- Runtime path: `ref/NVIDIA-DLSS-310.6.0/nvngx_dlss.dll`.
+- Init route: `SDK wrapper ProjectID`.
+- Result: `init=0x00000001`, `capability=0x00000001`, `available=1`, `needsUpdatedDriver=0`, `minDriver=470.0`, `featureInitResult=1`, `destroy=0x00000001`, `shutdown=0x00000001`.
+
+This proves capability query can work locally without committing NVIDIA SDK headers/libs or bundling `nvngx_dlss.dll` into the release package.
 
 ## Preset Notes
 

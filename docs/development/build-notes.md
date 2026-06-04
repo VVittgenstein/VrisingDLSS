@@ -50,6 +50,31 @@ Expected native output:
 artifacts\native-build\Release\VrisingDLSS.Native.dll
 ```
 
+## Optional NGX SDK Wrapper Research Build
+
+The default native bridge build is release-safe and does not require NVIDIA SDK headers/libs.
+
+For local research only, an MSVC build can link NVIDIA's SDK wrapper from a local SDK checkout under `ref/`:
+
+```powershell
+$env:PATH = "C:\Software\w64devkit\bin;$env:PATH"
+cmake -S src\VrisingDLSS.Native `
+  -B artifacts\native-build-msvc-wrapper `
+  -G "Visual Studio 17 2022" `
+  -A x64 `
+  -DVRISINGDLSS_ENABLE_NGX_SDK_WRAPPER=ON `
+  -DVRISINGDLSS_NGX_SDK_ROOT="Z:/VrisingDLSS/ref/NVIDIA-DLSS-main"
+cmake --build artifacts\native-build-msvc-wrapper --config Release
+```
+
+Expected wrapper output:
+
+```text
+artifacts\native-build-msvc-wrapper\Release\VrisingDLSS.Native.dll
+```
+
+This build links `nvsdk_ngx_s.lib` and uses `/MT` to match NVIDIA's static wrapper library. Do not use this output for a public package unless the NVIDIA SDK/runtime release review has approved the exact files, notices, and distribution path.
+
 ## Pre-Package Boundary Check
 
 ```powershell
