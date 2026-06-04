@@ -1,0 +1,26 @@
+bin/
+obj/
+.vs/
+.idea/
+*.user
+*.suo
+*.nupkg
+
+# Build/package output
+artifacts/
+dist/
+package/**/*.zip
+
+# Local/private conversation context. Public docs should contain distilled decisions instead.
+docs/chatlog/*.md
+!docs/chatlog/README.md
+
+# Third-party reference material is for local research only.
+ref/*
+!ref/README.md
+
+# Runtime files users may supply locally; do not commit/distribute by default.
+**/nvngx_dlss.dll
+**/sl.*.dll
+**/PDPerfPlugin.dll
+**/PerfMod.dll

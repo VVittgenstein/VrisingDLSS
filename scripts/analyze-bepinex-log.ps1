@@ -1,0 +1,187 @@
+param(
+    [string]$GamePath,
+    [string]$LogPath,
+    [switch]$FailOnProblems
+)
+
+$ErrorActionPreference = "Stop"
+
+if ([string]::IsNullOrWhiteSpace($LogPath)) {
+    if ([string]::IsNullOrWhiteSpace($GamePath)) {
+        throw "Pass -GamePath or -LogPath."
+    }
+
+    $LogPath = Join-Path $GamePath "BepInEx\LogOutput.log"
+}
+
+if (-not (Test-Path -LiteralPath $LogPath)) {
+    $result = [pscustomobject]@{
+        Stage = "Log"
+        Status = "Missing"
+        Evidence = "Log file not found: $LogPath"
+    }
+    $result
+    if ($FailOnProblems) {
+        exit 1
+    }
+    return
+}
+
+$logText = Get-Content -LiteralPath $LogPath -Raw
+
+function Test-ContainsAny {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Text,
+
+        [Parameter(Mandatory = $true)]
+        [string[]]$Patterns
+    )
+
+    foreach ($pattern in $Patterns) {
+        if ($Text.IndexOf($pattern, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Get-FirstMatchingLine {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Text,
+
+        [Parameter(Mandatory = $true)]
+        [string[]]$Patterns
+    )
+
+    foreach ($line in ($Text -split "`r?`n")) {
+        foreach ($pattern in $Patterns) {
+            if ($line.IndexOf($pattern, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                return $line.Trim()
+            }
+        }
+    }
+
+    return ""
+}
+
+function New-StageResult {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Stage,
+
+        [Parameter(Mandatory = $true)]
+        [string[]]$PassPatterns,
+
+        [string[]]$FailPatterns = @(),
+        [string[]]$BlockedPatterns = @(),
+        [string[]]$StartedPatterns = @()
+    )
+
+    $allFailPatterns = @($FailPatterns)
+    if ($allFailPatterns.Count -gt 0 -and (Test-ContainsAny -Text $logText -Patterns $allFailPatterns)) {
+        return [pscustomobject]@{
+            Stage = $Stage
+            Status = "Fail"
+            Evidence = Get-FirstMatchingLine -Text $logText -Patterns $allFailPatterns
+        }
+    }
+
+    $allBlockedPatterns = @($BlockedPatterns)
+    if ($allBlockedPatterns.Count -gt 0 -and (Test-ContainsAny -Text $logText -Patterns $allBlockedPatterns)) {
+        return [pscustomObject]@{
+            Stage = $Stage
+            Status = "Blocked"
+            Evidence = Get-FirstMatchingLine -Text $logText -Patterns $allBlockedPatterns
+        }
+    }
+
+    if (Test-ContainsAny -Text $logText -Patterns @($PassPatterns)) {
+        return [pscustomobject]@{
+            Stage = $Stage
+            Status = "Pass"
+            Evidence = Get-FirstMatchingLine -Text $logText -Patterns @($PassPatterns)
+        }
+    }
+
+    if ($StartedPatterns.Count -gt 0 -and (Test-ContainsAny -Text $logText -Patterns $StartedPatterns)) {
+        return [pscustomobject]@{
+            Stage = $Stage
+            Status = "Partial"
+            Evidence = Get-FirstMatchingLine -Text $logText -Patterns $StartedPatterns
+        }
+    }
+
+    [pscustomobject]@{
+        Stage = $Stage
+        Status = "Missing"
+        Evidence = "No matching evidence in $LogPath"
+    }
+}
+
+$results = New-Object System.Collections.Generic.List[object]
+
+$results.Add((New-StageResult `
+    -Stage "Stage 1 Loader" `
+    -PassPatterns @("VrisingDLSS 0.1.0 loaded.") `
+    -FailPatterns @("Plugin disabled by configuration.", "Could not load [VrisingDLSS", "Exception while loading [VrisingDLSS")))
+
+$results.Add((New-StageResult `
+    -Stage "Stage 2 Hook Probe" `
+    -PassPatterns @("Hook target type found: UnityEngine.Rendering.HighDefinition.CustomVignette", "Hook target type found: CustomVignette") `
+    -FailPatterns @("Hook target type not found: UnityEngine.Rendering.HighDefinition.CustomVignette") `
+    -StartedPatterns @("Running read-only HDRP hook probe.")))
+
+$results.Add((New-StageResult `
+    -Stage "Stage 3 Harmony Call Probe" `
+    -PassPatterns @("Harmony probe call #") `
+    -FailPatterns @("Harmony runtime was not found", "Harmony runtime shape was not recognized", "Harmony probe failed to patch") `
+    -StartedPatterns @("Read-only Harmony call probe patched", "Harmony probe patched:")))
+
+$results.Add((New-StageResult `
+    -Stage "Stage 4 Native Bridge" `
+    -PassPatterns @("Native bridge API version:") `
+    -FailPatterns @("Native bridge not loaded:", "Native bridge export missing:") `
+    -StartedPatterns @("Native bridge version:", "Native bridge diagnostic status:")))
+
+$results.Add((New-StageResult `
+    -Stage "Stage 5A Render Thread" `
+    -PassPatterns @("Native render-thread smoke test event reached the native callback") `
+    -FailPatterns @("native render-thread smoke test failed", "Native render-thread smoke test callback did not advance") `
+    -StartedPatterns @("Running native render-thread smoke test")))
+
+$results.Add((New-StageResult `
+    -Stage "Stage 5B D3D11 Texture" `
+    -PassPatterns @("D3D11 texture pointer probe succeeded:") `
+    -FailPatterns @("D3D11 texture pointer probe failed:", "Temporary RenderTexture returned a null native pointer") `
+    -StartedPatterns @("Running D3D11 texture pointer probe.")))
+
+$results.Add((New-StageResult `
+    -Stage "Stage 5C Frame Resources" `
+    -PassPatterns @("Frame resource arg", "Frame resource global:_CameraDepthTexture", "Frame resource global:_CameraMotionVectorsTexture") `
+    -FailPatterns @("Frame resource probe target type not found", "Frame resource probe failed to patch", "Frame resource probe prefix failed") `
+    -StartedPatterns @("Frame resource probe patched", "Frame resource probe call #")))
+
+$results.Add((New-StageResult `
+    -Stage "Stage 5D DLSS Runtime" `
+    -PassPatterns @("DLSS runtime probe succeeded:") `
+    -FailPatterns @("DLSS runtime probe failed:", "DLSS runtime probe skipped:") `
+    -StartedPatterns @("DLSS runtime probe loaded and released runtime")))
+
+$results.Add((New-StageResult `
+    -Stage "Stage 6 DLSS Init/Query" `
+    -PassPatterns @("DLSS init/query probe succeeded:") `
+    -FailPatterns @("DLSS init/query probe failed:", "DLSS init/query probe skipped:") `
+    -BlockedPatterns @("DLSS init/query probe blocked:") `
+    -StartedPatterns @("Running DLSS init/query probe.")))
+
+$results
+
+if ($FailOnProblems) {
+    $problem = $results | Where-Object { $_.Status -in @("Fail", "Blocked", "Partial", "Missing") } | Select-Object -First 1
+    if ($problem) {
+        exit 1
+    }
+}

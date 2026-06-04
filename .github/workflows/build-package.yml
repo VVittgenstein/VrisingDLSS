@@ -1,0 +1,48 @@
+name: Build Package
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-package:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 6.0.x
+
+      - name: Restore plugin
+        run: dotnet restore src\VrisingDLSS.Plugin\VrisingDLSS.Plugin.csproj
+
+      - name: Build plugin
+        run: dotnet build src\VrisingDLSS.Plugin\VrisingDLSS.Plugin.csproj -c Release --no-restore
+
+      - name: Configure native bridge
+        run: cmake -S src\VrisingDLSS.Native -B artifacts\native-build -A x64
+
+      - name: Build native bridge
+        run: cmake --build artifacts\native-build --config Release
+
+      - name: Check release boundary
+        shell: pwsh
+        run: .\scripts\check-release-boundary.ps1
+
+      - name: Package Thunderstore zip
+        shell: pwsh
+        run: .\scripts\package-thunderstore.ps1
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VrisingDLSS-thunderstore-package
+          path: dist\VrisingDLSS-*-thunderstore.zip
+          if-no-files-found: error
