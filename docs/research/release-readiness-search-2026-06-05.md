@@ -16,6 +16,11 @@ This is engineering research, not legal advice.
 8. Streamline remains a second-phase route. For the first DLSS SR MVP, direct NGX/D3D11 is still preferable because Streamline adds `sl.interposer.dll`, `sl.common.dll`, feature DLL packaging, interposer/device lifecycle constraints, and signature-validation work.
 9. Stage 8A is now specifically a RenderGraph resource-scope problem. Latest local evidence found `CameraColor`, `CameraDepthStencil`, `Motion Vectors`, and `NormalBuffer` handles, but Unity documentation confirms these handles must be used only inside a valid RenderGraph record+execute/read-write scope. The next technical route is a RenderGraph-scoped diagnostic pass or execution hook, not more ordinary method-prefix probing.
 
+2026-06-05 continuation update:
+
+- Rechecked Thunderstore's current BepInEx package-structure documentation. Required package metadata remains at the zip root, but BepInEx-loaded files should be staged under a recognized route such as `BepInEx/plugins`. The package script now emits `BepInEx/plugins/VrisingDLSS/...` instead of a generic root `VrisingDLSS/...` folder, so mod-manager and manual install paths align.
+- Rechecked NVIDIA DLSS/RTX SDK, Stunlock, and Unity RenderGraph sources. No source changed the current route decision: keep a source-safe package without bundled NVIDIA runtime by default; do not rely on PureDark binaries or ABI; continue Stage 8A through a RenderGraph-scoped execution path.
+
 ## Sources Checked
 
 - NVIDIA DLSS repository: `https://github.com/NVIDIA/DLSS`
@@ -42,6 +47,7 @@ This is engineering research, not legal advice.
   - Manifest is UTF-8 JSON with package name, description, version, dependencies, and website URL.
 - Thunderstore packaging docs: `https://wiki.thunderstore.io/mods/packaging-your-mods`
   - For BepInEx games, package folder names influence final install location; `BepInEx/plugins` is a recognized route.
+  - A generic folder in the zip root is not the right normal-user target for a BepInEx plugin; use `BepInEx/plugins/VrisingDLSS/` in the Thunderstore zip.
 - Thunderstore BepInExPack V Rising: `https://new.thunderstore.io/c/v-rising/p/BepInEx/BepInExPack_V_Rising/versions`
   - Current dependency string: `BepInEx-BepInExPack_V_Rising-1.733.2`.
   - Version `1.733.2` was uploaded on 2025-05-17.
@@ -81,6 +87,8 @@ Already aligned:
 - `.gitignore` excludes `ref/`, `dist/`, `artifacts/`, chat logs, build outputs, NVIDIA runtime DLLs, and PureDark binaries.
 - The Thunderstore manifest uses `BepInEx-BepInExPack_V_Rising-1.733.2`.
 - The package template has root metadata and a 256x256 PNG icon.
+- The package script now stages plugin files under `BepInEx/plugins/VrisingDLSS/` in the zip, matching Thunderstore's BepInEx package routing guidance.
+- The mod-folder config file target `BepInEx/plugins/VrisingDLSS/VrisingDLSS.cfg` is now implemented in the plugin, local install helper, diagnostic config helper, status helper, and Thunderstore package.
 - Local diagnostics prove plugin load, HDRP hook discovery, render-thread callback, D3D11 native texture/device access, and production DLSS runtime load/release.
 - Stage 6 now reports the SDK-wrapper gate honestly instead of treating the production runtime's missing helper exports as an ordinary runtime failure.
 - A local SDK-wrapper research build has passed Stage 6 DLSS capability query and Stage 7 DLSS feature create/release.
@@ -93,7 +101,6 @@ Still missing for MVP:
 - Runtime Stage 8A evidence from an actual local/private gameplay scene. `_CameraMotionVectorsTexture` was `null` in the all-low main-menu test, and the observed main-menu callback did not expose source/output RTHandles.
 - Persistent DLSS feature lifecycle around actual color/depth/motion-vector resources.
 - Render-scale control, mip-map bias handling, camera reset, resize handling, quality modes, overlay, and safe fallback.
-- A normal-user install path and config location under `BepInEx/plugins/VrisingDLSS/VrisingDLSS.cfg`.
 - Release review for any package that bundles `nvngx_dlss.dll`.
 
 ## Route Decision

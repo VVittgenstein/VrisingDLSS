@@ -13,6 +13,7 @@ The MVP user experience target is a normal-user package: drag the mod package in
 - A clean-room BepInEx IL2CPP plugin.
 - A clean-room native D3D11/DLSS bridge.
 - A Thunderstore-compatible package layout.
+- Thunderstore package root metadata plus BepInEx-routed payload: `BepInEx/plugins/VrisingDLSS/`.
 - No PureDark source, PureDark binaries, private membership files, or compatibility dependency on PureDark.
 - A mod-folder configuration file, intended path: `BepInEx/plugins/VrisingDLSS/VrisingDLSS.cfg`.
 - Configuration changes are applied on game restart; no in-game menu or hot config reload is required for MVP.

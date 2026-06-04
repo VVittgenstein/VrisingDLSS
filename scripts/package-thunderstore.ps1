@@ -55,7 +55,7 @@ if (Test-Path $noticesPath) {
     Copy-Item -LiteralPath $noticesPath -Destination (Join-Path $stagingRoot "ThirdPartyNotices.md")
 }
 
-$pluginFolder = Join-Path $stagingRoot "VrisingDLSS"
+$pluginFolder = Join-Path $stagingRoot "BepInEx\plugins\VrisingDLSS"
 New-Item -ItemType Directory -Force -Path $pluginFolder | Out-Null
 
 if (Test-Path $pluginDll) {

@@ -30,5 +30,6 @@ This package template is not ready for public gameplay use yet. The current sour
 - Optionally runs an SDK-wrapper DLSS feature create/release diagnostic in local research builds; release-safe builds are expected to report blocked.
 - Optionally validates real-frame color/output/depth/motion D3D11 inputs for the future DLSS evaluate path.
 - Includes a mod-folder configuration file at `BepInEx/plugins/VrisingDLSS/VrisingDLSS.cfg`.
+- Stages the plugin payload under `BepInEx/plugins/VrisingDLSS/` inside the package zip.
 - Source repository includes helper scripts for BepInExPack staging, one-stage diagnostic config generation, BepInEx log analysis, and next-step status reporting.
 - Does not evaluate DLSS yet.

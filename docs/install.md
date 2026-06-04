@@ -13,6 +13,8 @@ Use this guide once build outputs exist.
 5. Launch the game once with mods enabled.
 6. Check `BepInEx/LogOutput.log`.
 
+The package zip keeps Thunderstore metadata at the root and places the plugin payload under `BepInEx/plugins/VrisingDLSS/` so mod managers install it into the same folder used by the manual path.
+
 ## Manual Install
 
 1. Locate the game folder. For Steam, right-click V Rising, then Manage, then Browse local files.
