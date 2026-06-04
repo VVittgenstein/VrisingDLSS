@@ -72,7 +72,7 @@ This package intentionally does not include:
 - NVIDIA nvngx_dlss.dll.
 - V Rising game files.
 
-If this build supports DLSS runtime loading, init/query, or feature create/release diagnostics, follow the project README for how to provide a production nvngx_dlss.dll yourself.
+If this build supports DLSS runtime loading, init/query, feature create/release, or evaluate-input diagnostics, follow the project README for how to provide a production nvngx_dlss.dll yourself when a stage requires it.
 "@
 
 & (Join-Path $Root "scripts\check-release-boundary.ps1") -Root $Root

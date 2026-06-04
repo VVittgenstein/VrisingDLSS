@@ -30,17 +30,26 @@ internal static class FrameResourceProbe
     private static object? HarmonyInstance;
     private static Type? HarmonyType;
     private static bool Installed;
+    private static bool DlssEvaluateInputProbeEnabled;
+    private static bool DlssEvaluateInputProbeSucceeded;
 
-    internal static void Install(ManualLogSource log, NativeBridge bridge)
+    internal static void Install(ManualLogSource log, NativeBridge bridge, bool enableDlssEvaluateInputProbe = false)
     {
         if (Installed)
         {
             log.LogInfo("Frame resource probe is already installed.");
+            DlssEvaluateInputProbeEnabled = DlssEvaluateInputProbeEnabled || enableDlssEvaluateInputProbe;
             return;
         }
 
         Log = log;
         Bridge = bridge;
+        DlssEvaluateInputProbeEnabled = enableDlssEvaluateInputProbe;
+        DlssEvaluateInputProbeSucceeded = false;
+        if (DlssEvaluateInputProbeEnabled)
+        {
+            log.LogInfo("DLSS evaluate input probe enabled.");
+        }
 
         var assemblies = AppDomain.CurrentDomain.GetAssemblies();
         var harmonyType = FindRuntimeType(assemblies, "HarmonyLib.Harmony");
@@ -147,6 +156,8 @@ internal static class FrameResourceProbe
             HarmonyType = null;
             Log = null;
             Bridge = null;
+            DlssEvaluateInputProbeEnabled = false;
+            DlssEvaluateInputProbeSucceeded = false;
             lock (Sync)
             {
                 CallCounts.Clear();
@@ -193,11 +204,115 @@ internal static class FrameResourceProbe
                 var texture = TryGetGlobalTexture(globalTextureName);
                 ProbeTextureCandidate(log, bridge, $"global:{globalTextureName}", texture);
             }
+
+            TryRunDlssEvaluateInputProbe(log, bridge, __originalMethod, __args);
         }
         catch (Exception ex)
         {
             Log?.LogWarning($"Frame resource probe prefix failed: {GetExceptionMessage(ex)}");
         }
+    }
+
+    private static void TryRunDlssEvaluateInputProbe(
+        ManualLogSource log,
+        NativeBridge bridge,
+        MethodBase originalMethod,
+        object?[]? args)
+    {
+        if (!DlssEvaluateInputProbeEnabled || DlssEvaluateInputProbeSucceeded)
+        {
+            return;
+        }
+
+        var methodLabel = HookTargetCatalog.FormatMethod(originalMethod);
+        var argumentTextures = CollectArgumentTextureCandidates(originalMethod, args);
+        if (argumentTextures.Count < 2)
+        {
+            log.LogWarning($"DLSS evaluate input probe blocked: {methodLabel} did not expose two texture-like source/output arguments.");
+            return;
+        }
+
+        if (!TryGetGlobalNativeTexture("_CameraDepthTexture", out var depthTexture))
+        {
+            log.LogWarning($"DLSS evaluate input probe blocked: {methodLabel} did not expose global _CameraDepthTexture.");
+            return;
+        }
+
+        if (!TryGetGlobalNativeTexture("_CameraMotionVectorsTexture", out var motionTexture))
+        {
+            log.LogWarning($"DLSS evaluate input probe blocked: {methodLabel} did not expose global _CameraMotionVectorsTexture.");
+            return;
+        }
+
+        var colorTexture = argumentTextures[0];
+        var outputTexture = argumentTextures[1];
+        log.LogInfo(
+            $"DLSS evaluate input probe candidate: color={colorTexture.Label} 0x{colorTexture.Pointer.ToInt64():X}; output={outputTexture.Label} 0x{outputTexture.Pointer.ToInt64():X}; depth=0x{depthTexture.Pointer.ToInt64():X}; motion=0x{motionTexture.Pointer.ToInt64():X}");
+
+        var success = bridge.ProbeDlssEvaluateInputs(
+            colorTexture.Pointer,
+            outputTexture.Pointer,
+            depthTexture.Pointer,
+            motionTexture.Pointer);
+        var status = bridge.GetDlssEvaluateInputStatus();
+        if (success)
+        {
+            DlssEvaluateInputProbeSucceeded = true;
+            log.LogInfo($"DLSS evaluate input probe succeeded: {status}");
+        }
+        else
+        {
+            log.LogWarning($"DLSS evaluate input probe failed: {status}");
+        }
+    }
+
+    private static IReadOnlyList<NativeTextureCandidate> CollectArgumentTextureCandidates(MethodBase originalMethod, object?[]? args)
+    {
+        var candidates = new List<NativeTextureCandidate>();
+        if (args is null)
+        {
+            return candidates;
+        }
+
+        var parameters = originalMethod.GetParameters();
+        for (var index = 0; index < args.Length; index++)
+        {
+            var arg = args[index];
+            if (arg is null)
+            {
+                continue;
+            }
+
+            if (!TryFindNativeTexturePtr(arg, out _, out var pointer) || pointer == IntPtr.Zero)
+            {
+                continue;
+            }
+
+            var parameterName = index < parameters.Length && !string.IsNullOrWhiteSpace(parameters[index].Name)
+                ? parameters[index].Name!
+                : $"arg{index}";
+            candidates.Add(new NativeTextureCandidate(parameterName, pointer));
+        }
+
+        return candidates;
+    }
+
+    private static bool TryGetGlobalNativeTexture(string textureName, out NativeTextureCandidate candidate)
+    {
+        candidate = default;
+        var texture = TryGetGlobalTexture(textureName);
+        if (texture is null)
+        {
+            return false;
+        }
+
+        if (!TryFindNativeTexturePtr(texture, out _, out var pointer) || pointer == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        candidate = new NativeTextureCandidate(textureName, pointer);
+        return true;
     }
 
     private static void ProbeTextureCandidate(ManualLogSource log, NativeBridge bridge, string label, object? candidate)
@@ -558,4 +673,6 @@ internal static class FrameResourceProbe
     }
 
     private readonly record struct FrameProbeTarget(string TypeName, string MemberName);
+
+    private readonly record struct NativeTextureCandidate(string Label, IntPtr Pointer);
 }

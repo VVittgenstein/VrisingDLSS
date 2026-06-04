@@ -23,6 +23,8 @@ internal sealed class NativeBridge
     private GetStringPointerDelegate? _getDlssInitQueryStatus;
     private ProbeDlssFeatureCreateDelegate? _probeDlssFeatureCreate;
     private GetStringPointerDelegate? _getDlssFeatureCreateStatus;
+    private ProbeDlssEvaluateInputsDelegate? _probeDlssEvaluateInputs;
+    private GetStringPointerDelegate? _getDlssEvaluateInputStatus;
 
     internal NativeBridge(ManualLogSource log)
     {
@@ -58,6 +60,8 @@ internal sealed class NativeBridge
         _getDlssInitQueryStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetDlssInitQueryStatus");
         _probeDlssFeatureCreate = GetOptionalExport<ProbeDlssFeatureCreateDelegate>("VrisingDlss_ProbeDlssFeatureCreate");
         _getDlssFeatureCreateStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetDlssFeatureCreateStatus");
+        _probeDlssEvaluateInputs = GetOptionalExport<ProbeDlssEvaluateInputsDelegate>("VrisingDlss_ProbeDlssEvaluateInputs");
+        _getDlssEvaluateInputStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetDlssEvaluateInputStatus");
 
         return _getBridgeApiVersion is not null
             && _getBridgeVersion is not null
@@ -120,6 +124,15 @@ internal sealed class NativeBridge
 
     internal string GetDlssFeatureCreateStatus() => PtrToString(_getDlssFeatureCreateStatus?.Invoke() ?? IntPtr.Zero);
 
+    internal bool ProbeDlssEvaluateInputs(
+        IntPtr colorTexturePtr,
+        IntPtr outputTexturePtr,
+        IntPtr depthTexturePtr,
+        IntPtr motionTexturePtr) =>
+        _probeDlssEvaluateInputs?.Invoke(colorTexturePtr, outputTexturePtr, depthTexturePtr, motionTexturePtr) == 1;
+
+    internal string GetDlssEvaluateInputStatus() => PtrToString(_getDlssEvaluateInputStatus?.Invoke() ?? IntPtr.Zero);
+
     private T? GetExport<T>(string exportName) where T : Delegate
     {
         var address = NativeMethods.GetProcAddress(_library, exportName);
@@ -181,6 +194,13 @@ internal sealed class NativeBridge
         uint targetHeight,
         int perfQualityValue,
         int featureFlags);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate int ProbeDlssEvaluateInputsDelegate(
+        IntPtr colorTexturePtr,
+        IntPtr outputTexturePtr,
+        IntPtr depthTexturePtr,
+        IntPtr motionTexturePtr);
 
     private static class NativeMethods
     {

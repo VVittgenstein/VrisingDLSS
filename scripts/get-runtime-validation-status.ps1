@@ -69,6 +69,7 @@ function Get-ConfiguredStage {
         [hashtable]$Config
     )
 
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssEvaluateInputProbe") { return "dlss-evaluate-inputs" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssFeatureCreateProbe") { return "dlss-feature-create" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssInitQueryProbe") { return "dlss-init-query" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssRuntimeProbe") { return "dlss-runtime" }
@@ -184,7 +185,16 @@ function Get-NextRecommendation {
         return "Use the optional SDK-wrapper native build, then run write-diagnostic-config.ps1 -Stage dlss-feature-create."
     }
 
-    return "Stage 1-7 diagnostics are passing. Next engineering step is DLSS evaluate implementation with real frame resources."
+    $evaluateInputs = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 8A"
+    if ($evaluateInputs -eq "Blocked") {
+        return "Stage 8A evaluate-input probing is blocked until color/output/depth/motion native textures are present in the same frame; try a local/private gameplay scene or another HDRP hook point."
+    }
+
+    if ($evaluateInputs -ne "Pass") {
+        return "Run write-diagnostic-config.ps1 -Stage dlss-evaluate-inputs in a local/private gameplay scene to prove the real frame resources can enter the native evaluate ABI."
+    }
+
+    return "Stage 1-8A diagnostics are passing. Next engineering step is a guarded SDK-wrapper DLSS evaluate call with DLSS disabled by default."
 }
 
 $resolvedRoot = (Resolve-Path -LiteralPath $Root).Path

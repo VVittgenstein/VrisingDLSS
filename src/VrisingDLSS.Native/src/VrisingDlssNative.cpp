@@ -30,6 +30,7 @@ namespace
     char g_dlssRuntimeProbeStatus[512] = "DLSS runtime probe has not run";
     char g_dlssInitQueryStatus[1024] = "DLSS init/query probe has not run";
     char g_dlssFeatureCreateStatus[1024] = "DLSS feature create probe has not run";
+    char g_dlssEvaluateInputStatus[1536] = "DLSS evaluate input probe has not run";
     constexpr unsigned int kNgxResultSuccess = 0x00000001;
     constexpr unsigned int kNgxVersionApi = 0x00000015;
 
@@ -75,6 +76,132 @@ namespace
     {
         std::lock_guard<std::mutex> lock(g_probeStatusMutex);
         std::snprintf(g_dlssFeatureCreateStatus, sizeof(g_dlssFeatureCreateStatus), "%s", message);
+    }
+
+    void SetDlssEvaluateInputStatus(const char* message)
+    {
+        std::lock_guard<std::mutex> lock(g_probeStatusMutex);
+        std::snprintf(g_dlssEvaluateInputStatus, sizeof(g_dlssEvaluateInputStatus), "%s", message);
+    }
+
+    struct EvaluateTextureInfo
+    {
+        const char* label = "";
+        HRESULT queryResult = E_FAIL;
+        D3D11_RESOURCE_DIMENSION dimension = D3D11_RESOURCE_DIMENSION_UNKNOWN;
+        DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
+        UINT width = 0;
+        UINT height = 0;
+        UINT mipLevels = 0;
+        UINT arraySize = 0;
+        ID3D11Device* device = nullptr;
+    };
+
+    void ReleaseEvaluateTextureInfo(EvaluateTextureInfo* info)
+    {
+        if (info != nullptr && info->device != nullptr)
+        {
+            info->device->Release();
+            info->device = nullptr;
+        }
+    }
+
+    bool TryDescribeEvaluateTexture(
+        const char* label,
+        void* nativeTexturePtr,
+        EvaluateTextureInfo* outInfo,
+        char* error,
+        size_t errorSize)
+    {
+        if (outInfo == nullptr || error == nullptr || errorSize == 0)
+        {
+            return false;
+        }
+
+        *outInfo = {};
+        outInfo->label = label;
+
+        if (nativeTexturePtr == nullptr)
+        {
+            std::snprintf(error, errorSize, "%s pointer was null", label);
+            return false;
+        }
+
+        ID3D11Resource* resource = nullptr;
+        outInfo->queryResult = static_cast<IUnknown*>(nativeTexturePtr)->QueryInterface(
+            __uuidof(ID3D11Resource),
+            reinterpret_cast<void**>(&resource));
+        if (FAILED(outInfo->queryResult) || resource == nullptr)
+        {
+            std::snprintf(
+                error,
+                errorSize,
+                "%s QueryInterface(ID3D11Resource) returned hr=0x%08X",
+                label,
+                static_cast<unsigned int>(outInfo->queryResult));
+            return false;
+        }
+
+        resource->GetType(&outInfo->dimension);
+        if (outInfo->dimension != D3D11_RESOURCE_DIMENSION_TEXTURE2D)
+        {
+            std::snprintf(
+                error,
+                errorSize,
+                "%s resource dimension was %u instead of Texture2D",
+                label,
+                static_cast<unsigned int>(outInfo->dimension));
+            resource->Release();
+            return false;
+        }
+
+        resource->GetDevice(&outInfo->device);
+        if (outInfo->device == nullptr)
+        {
+            std::snprintf(error, errorSize, "%s resource did not return a D3D11 device", label);
+            resource->Release();
+            return false;
+        }
+
+        ID3D11Texture2D* texture2D = nullptr;
+        HRESULT textureResult = resource->QueryInterface(
+            __uuidof(ID3D11Texture2D),
+            reinterpret_cast<void**>(&texture2D));
+        if (FAILED(textureResult) || texture2D == nullptr)
+        {
+            std::snprintf(
+                error,
+                errorSize,
+                "%s QueryInterface(ID3D11Texture2D) returned hr=0x%08X",
+                label,
+                static_cast<unsigned int>(textureResult));
+            resource->Release();
+            return false;
+        }
+
+        D3D11_TEXTURE2D_DESC desc{};
+        texture2D->GetDesc(&desc);
+        outInfo->format = desc.Format;
+        outInfo->width = desc.Width;
+        outInfo->height = desc.Height;
+        outInfo->mipLevels = desc.MipLevels;
+        outInfo->arraySize = desc.ArraySize;
+
+        texture2D->Release();
+        resource->Release();
+
+        if (outInfo->width == 0 || outInfo->height == 0)
+        {
+            std::snprintf(error, errorSize, "%s texture dimensions were zero", label);
+            return false;
+        }
+
+        return true;
+    }
+
+    bool EvaluateInputDimensionsMatch(const EvaluateTextureInfo& reference, const EvaluateTextureInfo& candidate)
+    {
+        return reference.width == candidate.width && reference.height == candidate.height;
     }
 
     template <typename T>
@@ -536,7 +663,7 @@ extern "C"
 {
     int __cdecl VrisingDlss_GetBridgeApiVersion()
     {
-        return 6;
+        return 7;
     }
 
     const char* __cdecl VrisingDlss_GetBridgeVersion()
@@ -1010,5 +1137,108 @@ extern "C"
     {
         std::lock_guard<std::mutex> lock(g_probeStatusMutex);
         return g_dlssFeatureCreateStatus;
+    }
+
+    int __cdecl VrisingDlss_ProbeDlssEvaluateInputs(
+        void* colorTexturePtr,
+        void* outputTexturePtr,
+        void* depthTexturePtr,
+        void* motionTexturePtr)
+    {
+        EvaluateTextureInfo color{};
+        EvaluateTextureInfo output{};
+        EvaluateTextureInfo depth{};
+        EvaluateTextureInfo motion{};
+        char error[384] = {};
+
+        if (!TryDescribeEvaluateTexture("color", colorTexturePtr, &color, error, sizeof(error))
+            || !TryDescribeEvaluateTexture("output", outputTexturePtr, &output, error, sizeof(error))
+            || !TryDescribeEvaluateTexture("depth", depthTexturePtr, &depth, error, sizeof(error))
+            || !TryDescribeEvaluateTexture("motion", motionTexturePtr, &motion, error, sizeof(error)))
+        {
+            char message[512];
+            std::snprintf(message, sizeof(message), "DLSS evaluate input probe failed: %s", error);
+            SetDlssEvaluateInputStatus(message);
+            ReleaseEvaluateTextureInfo(&color);
+            ReleaseEvaluateTextureInfo(&output);
+            ReleaseEvaluateTextureInfo(&depth);
+            ReleaseEvaluateTextureInfo(&motion);
+            return 0;
+        }
+
+        const bool sameDevice = color.device == output.device
+            && color.device == depth.device
+            && color.device == motion.device;
+        if (!sameDevice)
+        {
+            SetDlssEvaluateInputStatus("DLSS evaluate input probe failed: color/output/depth/motion textures were not on the same D3D11 device");
+            ReleaseEvaluateTextureInfo(&color);
+            ReleaseEvaluateTextureInfo(&output);
+            ReleaseEvaluateTextureInfo(&depth);
+            ReleaseEvaluateTextureInfo(&motion);
+            return 0;
+        }
+
+        const bool depthMatchesColor = EvaluateInputDimensionsMatch(color, depth);
+        const bool motionMatchesColor = EvaluateInputDimensionsMatch(color, motion);
+        if (!depthMatchesColor || !motionMatchesColor)
+        {
+            char message[640];
+            std::snprintf(
+                message,
+                sizeof(message),
+                "DLSS evaluate input probe failed: input dimensions were not frame-aligned; color=%ux%u depth=%ux%u motion=%ux%u",
+                color.width,
+                color.height,
+                depth.width,
+                depth.height,
+                motion.width,
+                motion.height);
+            SetDlssEvaluateInputStatus(message);
+            ReleaseEvaluateTextureInfo(&color);
+            ReleaseEvaluateTextureInfo(&output);
+            ReleaseEvaluateTextureInfo(&depth);
+            ReleaseEvaluateTextureInfo(&motion);
+            return 0;
+        }
+
+        char message[1400];
+        std::snprintf(
+            message,
+            sizeof(message),
+            "DLSS evaluate input probe succeeded; sameDevice=yes; color=%ux%u fmt=%u mips=%u array=%u; output=%ux%u fmt=%u mips=%u array=%u; depth=%ux%u fmt=%u mips=%u array=%u; motion=%ux%u fmt=%u mips=%u array=%u",
+            color.width,
+            color.height,
+            static_cast<unsigned int>(color.format),
+            color.mipLevels,
+            color.arraySize,
+            output.width,
+            output.height,
+            static_cast<unsigned int>(output.format),
+            output.mipLevels,
+            output.arraySize,
+            depth.width,
+            depth.height,
+            static_cast<unsigned int>(depth.format),
+            depth.mipLevels,
+            depth.arraySize,
+            motion.width,
+            motion.height,
+            static_cast<unsigned int>(motion.format),
+            motion.mipLevels,
+            motion.arraySize);
+        SetDlssEvaluateInputStatus(message);
+
+        ReleaseEvaluateTextureInfo(&color);
+        ReleaseEvaluateTextureInfo(&output);
+        ReleaseEvaluateTextureInfo(&depth);
+        ReleaseEvaluateTextureInfo(&motion);
+        return 1;
+    }
+
+    const char* __cdecl VrisingDlss_GetDlssEvaluateInputStatus()
+    {
+        std::lock_guard<std::mutex> lock(g_probeStatusMutex);
+        return g_dlssEvaluateInputStatus;
     }
 }

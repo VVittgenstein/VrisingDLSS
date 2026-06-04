@@ -127,6 +127,20 @@ Check:
 
 If the log says `DLSS feature create probe blocked`, the current native bridge was built without the optional NVIDIA SDK wrapper path. If create succeeds but release, parameter destruction, or shutdown fails, keep DLSS disabled and preserve the full status line. This probe still does not evaluate a frame or prove image correctness.
 
+## DLSS Evaluate Input Probe Is Blocked Or Fails
+
+`EnableDlssEvaluateInputProbe` reuses the frame-resource hook to collect color/output/depth/motion native texture pointers and validate them in the native bridge. It does not load DLSS or evaluate a frame.
+
+Check:
+
+- `EnableFrameResourceProbe` can patch and call a frame-resource method.
+- A local/private gameplay scene is running, not only the main menu.
+- The log shows source/output-like frame arguments from `CustomVignette.Render`.
+- `_CameraDepthTexture` and `_CameraMotionVectorsTexture` both produce non-zero native pointers.
+- `EnableNativeBridgeSmokeTest` logs bridge API version `7` or newer.
+
+If the log says `DLSS evaluate input probe blocked`, preserve the surrounding frame-resource lines. Missing motion vectors usually means the current scene/settings/hook point is not enough for DLSS evaluate yet. If the probe fails after all four pointers are present, the native status line should identify a D3D11 resource, device, or dimension mismatch.
+
 ## Hook Targets Are Missing
 
 If the hook probe logs missing `CustomVignette`, `HDCamera`, or `HDRenderPipeline`, the current game/HDRP version likely differs from the 2022 PureDark-era assumptions.

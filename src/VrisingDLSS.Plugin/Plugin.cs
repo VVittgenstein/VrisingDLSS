@@ -40,7 +40,7 @@ public sealed class Plugin : BasePlugin
             HarmonyCallProbe.Install(_log);
         }
 
-        if (_config.EnableFrameResourceProbe.Value)
+        if (_config.EnableFrameResourceProbe.Value || _config.EnableDlssEvaluateInputProbe.Value)
         {
             RunFrameResourceProbe();
         }
@@ -152,7 +152,7 @@ public sealed class Plugin : BasePlugin
             return;
         }
 
-        FrameResourceProbe.Install(_log, bridge);
+        FrameResourceProbe.Install(_log, bridge, _config?.EnableDlssEvaluateInputProbe.Value ?? false);
     }
 
     private void RunDlssRuntimeProbe()

@@ -54,6 +54,8 @@ Result:
   - `VrisingDlss_GetDlssInitQueryStatus`
   - `VrisingDlss_ProbeDlssFeatureCreate`
   - `VrisingDlss_GetDlssFeatureCreateStatus`
+  - `VrisingDlss_ProbeDlssEvaluateInputs`
+  - `VrisingDlss_GetDlssEvaluateInputStatus`
 
 ```powershell
 $cmake = "C:\Software\w64devkit\bin\cmake.exe"
@@ -105,5 +107,6 @@ This is a distributable diagnostic scaffold package, not a playable DLSS mod. It
 - User-supplied DLSS runtime load/release probe.
 - User-supplied guarded DLSS init/query probe; full capability query still requires NVIDIA SDK wrapper integration.
 - Optional SDK-wrapper DLSS feature create/release probe; release-safe builds are expected to report blocked.
+- Real-frame DLSS evaluate input probe for color/output/depth/motion D3D11 resource validation.
 
 First DLSS evaluate is still not implemented.

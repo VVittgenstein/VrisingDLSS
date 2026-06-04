@@ -184,6 +184,13 @@ $results.Add((New-StageResult `
     -BlockedPatterns @("DLSS feature create probe blocked:") `
     -StartedPatterns @("Running DLSS feature create/release probe.")))
 
+$results.Add((New-StageResult `
+    -Stage "Stage 8A DLSS Evaluate Inputs" `
+    -PassPatterns @("DLSS evaluate input probe succeeded:") `
+    -FailPatterns @("DLSS evaluate input probe failed:") `
+    -BlockedPatterns @("DLSS evaluate input probe blocked:") `
+    -StartedPatterns @("DLSS evaluate input probe enabled.")))
+
 $results
 
 if ($FailOnProblems) {

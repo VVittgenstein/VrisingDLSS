@@ -45,7 +45,7 @@ powershell -ExecutionPolicy Bypass -File scripts\analyze-bepinex-log.ps1 -GamePa
 powershell -ExecutionPolicy Bypass -File scripts\get-runtime-validation-status.ps1 -GamePath "C:\path\to\VRising"
 ```
 
-The config helper writes `BepInEx\config\dev.vrisingdlss.plugin.cfg` for a single diagnostic stage. The analyzer reads `BepInEx\LogOutput.log` and reports pass/fail/partial/missing evidence for stages 1-7. The status helper combines preflight, config, log evidence, and the next recommended command.
+The config helper writes `BepInEx\config\dev.vrisingdlss.plugin.cfg` for a single diagnostic stage. The analyzer reads `BepInEx\LogOutput.log` and reports pass/fail/partial/missing evidence for stages 1-8A. The status helper combines preflight, config, log evidence, and the next recommended command.
 
 ## Stage 2: Hook Probe
 
@@ -271,6 +271,39 @@ Current Stage 7 status:
 
 - A local MSVC SDK-wrapper research build passed Stage 7 with ProjectID init: `render=1280x720`, `target=1920x1080`, `perfQuality=2`, `flags=0x00000040`, `create=0x00000001`, `feature=yes`, `release=0x00000001`, `destroy=0x00000001`, `shutdown=0x00000001`.
 - Release-safe builds are expected to report blocked because the NVIDIA SDK wrapper path is not enabled or packaged by default.
+
+## Stage 8A: DLSS Evaluate Input Probe
+
+Implemented as an optional real-frame diagnostic:
+
+- Config key: `Diagnostics.EnableDlssEvaluateInputProbe=false` by default.
+- Reuses the Stage 5C frame-resource Harmony patch.
+- Collects the first two texture-like native pointers from the frame hook as color/output candidates.
+- Reads global `_CameraDepthTexture` and `_CameraMotionVectorsTexture` as depth/motion candidates.
+- Passes color/output/depth/motion native pointers to `VrisingDlss_ProbeDlssEvaluateInputs`.
+- Native code validates D3D11 Texture2D resources, non-zero dimensions, same D3D11 device, and frame-aligned color/depth/motion dimensions.
+- Does not load DLSS.
+- Does not create a DLSS feature.
+- Does not evaluate DLSS.
+
+Pass criteria:
+
+- A frame hook exposes source/output resources in the same callback.
+- Depth and motion-vector global textures are present in that same callback.
+- Native input validation succeeds for all four resources.
+- The log records the color/output/depth/motion pointer set and the native texture descriptions.
+
+Evidence:
+
+- `BepInEx/LogOutput.log` line beginning with `DLSS evaluate input probe enabled`.
+- Log line beginning with `DLSS evaluate input probe succeeded`.
+- Native status includes `color=`, `output=`, `depth=`, `motion=`, and `sameDevice=yes`.
+
+Current Stage 8A status:
+
+- Implemented and build-validated.
+- Runtime evidence is still missing. The previous all-low main-menu Stage 5C run found `_CameraDepthTexture`, but `_CameraMotionVectorsTexture` was `null`.
+- The next runtime test should use a local/private gameplay scene before deciding whether a different HDRP hook point is required.
 
 ## Stage 8: First DLSS Evaluate
 

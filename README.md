@@ -12,13 +12,13 @@ The current implementation goal is a source-only, legally conservative package:
 
 - Own C# BepInEx IL2CPP plugin.
 - Own native D3D11/DLSS bridge.
-- Read-only runtime diagnostics, native render-event smoke tests, D3D11 texture pointer probes, HDRP frame resource probes, optional user-supplied DLSS runtime load/release probe, optional guarded NGX init/query probe, and optional SDK-wrapper DLSS feature create/release probe before any DLSS evaluate path.
+- Read-only runtime diagnostics, native render-event smoke tests, D3D11 texture pointer probes, HDRP frame resource probes, optional user-supplied DLSS runtime load/release probe, optional guarded NGX init/query probe, optional SDK-wrapper DLSS feature create/release probe, and optional real-frame DLSS evaluate input probe before any DLSS evaluate path.
 - No PureDark source or binaries in production code.
 - No bundled `nvngx_dlss.dll` by default.
 - Clear user-facing install, diagnostics, and risk documentation.
 - No monetization path or paid-build dependency.
 
-Latest local validation: the C# plugin and native bridge build successfully, the native export table includes the diagnostic probes through API version 6, the render-thread/D3D11/runtime probes pass locally, and a local SDK-wrapper research build passes Stage 6 DLSS init/capability query plus Stage 7 DLSS feature create/release. Release-safe builds still do not link or bundle NVIDIA SDK/runtime files. The Thunderstore zip contains only this project's own binaries and metadata. See [local runtime staging](docs/development/local-runtime-staging-2026-06-05.md).
+Latest local validation: the C# plugin and native bridge build successfully, the native export table includes the diagnostic probes through API version 7, the render-thread/D3D11/runtime probes pass locally, and a local SDK-wrapper research build passes Stage 6 DLSS init/capability query plus Stage 7 DLSS feature create/release. Stage 8A evaluate-input probing is implemented but still needs local/private gameplay evidence for color/output/depth/motion availability in the same frame. Release-safe builds still do not link or bundle NVIDIA SDK/runtime files. The Thunderstore zip contains only this project's own binaries and metadata. See [local runtime staging](docs/development/local-runtime-staging-2026-06-05.md).
 
 ## What Is In Scope
 

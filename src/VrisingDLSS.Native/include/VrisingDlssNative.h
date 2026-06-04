@@ -37,4 +37,10 @@ extern "C"
         int perfQualityValue,
         int featureFlags);
     VRISINGDLSS_API const char* __cdecl VrisingDlss_GetDlssFeatureCreateStatus();
+    VRISINGDLSS_API int __cdecl VrisingDlss_ProbeDlssEvaluateInputs(
+        void* colorTexturePtr,
+        void* outputTexturePtr,
+        void* depthTexturePtr,
+        void* motionTexturePtr);
+    VRISINGDLSS_API const char* __cdecl VrisingDlss_GetDlssEvaluateInputStatus();
 }

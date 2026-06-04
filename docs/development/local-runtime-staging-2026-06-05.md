@@ -50,7 +50,7 @@ Current validated evidence:
 
 - Stage 1 loader: pass. `VrisingDLSS 0.1.0 loaded.`
 - Stage 2 hook probe: pass. `CustomVignette` was found in `ProjectM`; `HDRenderPipeline.UpdateShaderVariablesGlobalCB(HDCamera, CommandBuffer)` was found in HDRP.
-- Stage 4 native bridge: pass. Native bridge API version `6` loaded.
+- Stage 4 native bridge: pass. Native bridge API version `7` is the current build-validated bridge API. Archived runtime logs through Stage 7 used API version `6`.
 - Stage 5A render thread: pass. `HDRenderPipeline.UpdateShaderVariablesGlobalCB` issued `CommandBuffer.IssuePluginEvent`; native callback count advanced to `1`.
 - Stage 5B D3D11 texture: pass. Temporary `RenderTexture` pointer was recognized as a D3D11 resource/device.
 - Stage 5C frame resources: pass. All-low main-menu run reached `HDRenderPipeline.UpdateShaderVariablesGlobalCB`; `_CameraDepthTexture` was found and D3D11-probed. `_CameraMotionVectorsTexture` was `null` in that scene/settings.
@@ -60,6 +60,8 @@ Current validated evidence:
   - Local MSVC SDK-wrapper research build passed with ProjectID init. Evidence: `init=0x00000001`, `capability=0x00000001`, `available=1`, `needsUpdatedDriver=0`, `minDriver=470.0`, `featureInitResult=1`, `destroy=0x00000001`, `shutdown=0x00000001`.
 - Stage 7 DLSS feature create/release:
   - Local MSVC SDK-wrapper research build created and released a DLSS SuperSampling feature without evaluating a frame. Evidence: `render=1280x720`, `target=1920x1080`, `perfQuality=2`, `flags=0x00000040`, `create=0x00000001`, `feature=yes`, `release=0x00000001`, `destroy=0x00000001`, `shutdown=0x00000001`.
+- Stage 8A DLSS evaluate inputs:
+  - Implemented and build-validated. No runtime pass yet. It validates color/output/depth/motion D3D11 inputs for the future evaluate ABI, but still does not evaluate DLSS.
 - Local GPU/driver for Stage 6/7 pass: NVIDIA GeForce RTX 5060, driver `610.47`.
 
 Archived logs:
@@ -79,5 +81,6 @@ No PureDark files were copied into the game plugin folder. The NVIDIA runtime wa
 
 Next implementation gate:
 
-- Find a reliable motion-vector source. `_CameraMotionVectorsTexture` was `null` in the all-low main-menu run, so another hook point, scene, or graphics setting may be required.
-- Implement the smallest SDK-wrapper-backed DLSS evaluate probe using real frame resources once color, output, depth, motion vectors, jitter, render size, and target size are frame-aligned.
+- Run `dlss-evaluate-inputs` in a local/private gameplay scene and capture whether color, output, depth, and motion-vector textures are present in the same callback.
+- If `_CameraMotionVectorsTexture` remains `null`, patch another HDRP hook point or inspect HDCamera motion-vector/frame-history fields before attempting evaluate.
+- Implement the smallest SDK-wrapper-backed DLSS evaluate probe only after Stage 8A proves frame resources are aligned.

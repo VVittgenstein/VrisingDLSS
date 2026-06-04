@@ -75,11 +75,12 @@ Already aligned:
 - Local diagnostics prove plugin load, HDRP hook discovery, render-thread callback, D3D11 native texture/device access, and production DLSS runtime load/release.
 - Stage 6 now reports the SDK-wrapper gate honestly instead of treating the production runtime's missing helper exports as an ordinary runtime failure.
 - A local SDK-wrapper research build has passed Stage 6 DLSS capability query and Stage 7 DLSS feature create/release.
+- Stage 8A DLSS evaluate-input probing is implemented to validate real color/output/depth/motion D3D11 resources before calling evaluate.
 
 Still missing for MVP:
 
 - Real DLSS evaluate path with game frame resources.
-- A reliable in-frame motion-vector source. `_CameraMotionVectorsTexture` was `null` in the all-low main-menu test.
+- Runtime Stage 8A evidence from an actual local/private gameplay scene. `_CameraMotionVectorsTexture` was `null` in the all-low main-menu test.
 - Persistent DLSS feature lifecycle around actual color/depth/motion-vector resources.
 - Render-scale control, mip-map bias handling, camera reset, resize handling, quality modes, overlay, and safe fallback.
 - A normal-user install path and config location under `BepInEx/plugins/VrisingDLSS/VrisingDLSS.cfg`.
@@ -92,7 +93,7 @@ Primary route for MVP:
 1. Keep using BepInEx IL2CPP and Harmony/reflective probes.
 2. Keep using the optional local NVIDIA SDK root CMake path for SDK-wrapper research builds.
 3. Keep NVIDIA SDK headers/libs out of the public repository unless a separate review approves the exact files and notices.
-4. Implement the first DLSS evaluate probe only after frame resources are aligned.
+4. Implement the first DLSS evaluate probe only after Stage 8A proves frame resources are aligned.
 5. Test motion vectors in an actual gameplay scene before assuming the main-menu all-low result is final.
 6. Use Thunderstore as the mod-manager package shape, but do not publicly upload until DLSS evaluate is proven and the README accurately describes the package.
 
@@ -128,7 +129,6 @@ Unknown/legal path:
 ## Next Engineering Steps
 
 1. Keep the optional `VRISINGDLSS_NGX_SDK_ROOT` / SDK-wrapper CMake path off by default for release-safe builds.
-2. Use the local MSVC SDK-wrapper research build for Stage 7 create/release evidence. The first ProjectID create/release pass was validated on 2026-06-05.
-3. Test frame-resource probing in an actual local/private gameplay scene, not just main menu.
-4. If motion vectors remain missing, patch additional HDRP camera/update points and inspect `HDCamera` frame history/motion-vector fields.
-5. After frame resources are proven, implement the smallest evaluate path with DLSS disabled by default until image correctness is verified.
+2. Run `dlss-evaluate-inputs` in an actual local/private gameplay scene, not just main menu.
+3. If motion vectors remain missing, patch additional HDRP camera/update points and inspect `HDCamera` frame history/motion-vector fields.
+4. After Stage 8A proves frame resources are aligned, implement the smallest evaluate path with DLSS disabled by default until image correctness is verified.
