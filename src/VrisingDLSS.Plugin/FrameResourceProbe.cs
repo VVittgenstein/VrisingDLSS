@@ -1,5 +1,6 @@
 using BepInEx.Logging;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -14,6 +15,8 @@ internal static class FrameResourceProbe
     private const int MaxInitialLogsPerMethod = 5;
     private const int MaxRenderGraphBuilderDeclarationLogs = 80;
     private const int MaxRenderGraphBuilderStackLogs = 12;
+    private const int MaxRenderGraphExecutionScopeLogs = 80;
+    private const int MaxRenderGraphScopedEvaluateAttempts = 12;
     private const int MaxRenderGraphGetTextureLogs = 40;
     private const int MaxTextureSearchDepth = 3;
     private static readonly FrameProbeTarget[] Targets =
@@ -24,6 +27,8 @@ internal static class FrameResourceProbe
     private static readonly object Sync = new();
     private static readonly Dictionary<string, int> CallCounts = new(StringComparer.Ordinal);
     private static int RenderGraphBuilderDeclarationCallCount;
+    private static int RenderGraphExecutionScopeCallCount;
+    private static int RenderGraphScopedEvaluateAttemptCount;
     private static int RenderGraphGetTextureCallCount;
     private static readonly string[] GlobalTextureNames =
     {
@@ -156,6 +161,16 @@ internal static class FrameResourceProbe
             patched += renderGraphBuilderPatched;
             log.LogInfo($"Frame resource RenderGraph builder declaration probe patched {renderGraphBuilderPatched} method(s).");
 
+            if (TryPatchRenderGraphExecutionScopeMethod(
+                log,
+                assemblies,
+                harmonyMethodConstructor,
+                patchMethod,
+                patchedMethodKeys))
+            {
+                patched++;
+            }
+
             if (TryPatchRenderGraphGetTextureMethod(
                 log,
                 assemblies,
@@ -220,6 +235,8 @@ internal static class FrameResourceProbe
             {
                 CallCounts.Clear();
                 RenderGraphBuilderDeclarationCallCount = 0;
+                RenderGraphExecutionScopeCallCount = 0;
+                RenderGraphScopedEvaluateAttemptCount = 0;
                 RenderGraphGetTextureCallCount = 0;
             }
         }
@@ -300,6 +317,52 @@ internal static class FrameResourceProbe
         catch (Exception ex)
         {
             log.LogWarning($"Frame resource RenderGraph GetTexture postfix failed to patch {HookTargetCatalog.FormatMethod(method)}: {GetExceptionMessage(ex)}");
+            return false;
+        }
+    }
+
+    private static bool TryPatchRenderGraphExecutionScopeMethod(
+        ManualLogSource log,
+        IEnumerable<Assembly> assemblies,
+        ConstructorInfo harmonyMethodConstructor,
+        MethodInfo patchMethod,
+        ISet<string> patchedMethodKeys)
+    {
+        var method = FindRenderGraphExecutionScopeMethod(assemblies);
+        var postfix = typeof(FrameResourceProbe).GetMethod(nameof(RenderGraphExecutionScopePostfix), BindingFlags.NonPublic | BindingFlags.Static);
+        if (method is null || postfix is null || !CanPatch(method))
+        {
+            log.LogWarning("Frame resource RenderGraph execution scope target was not found.");
+            return false;
+        }
+
+        if (!patchedMethodKeys.Add(GetMethodKey(method)))
+        {
+            return false;
+        }
+
+        try
+        {
+            var postfixPatch = harmonyMethodConstructor.Invoke(new object[] { postfix });
+            var arguments = new object?[patchMethod.GetParameters().Length];
+            arguments[0] = method;
+            if (arguments.Length > 2)
+            {
+                arguments[2] = postfixPatch;
+            }
+            else
+            {
+                log.LogWarning("Harmony Patch overload does not expose a postfix argument.");
+                return false;
+            }
+
+            patchMethod.Invoke(HarmonyInstance, arguments);
+            log.LogInfo($"Frame resource RenderGraph execution scope patched: {HookTargetCatalog.FormatMethod(method)}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            log.LogWarning($"Frame resource RenderGraph execution scope failed to patch {HookTargetCatalog.FormatMethod(method)}: {GetExceptionMessage(ex)}");
             return false;
         }
     }
@@ -465,6 +528,34 @@ internal static class FrameResourceProbe
             });
     }
 
+    private static MethodInfo? FindRenderGraphExecutionScopeMethod(IEnumerable<Assembly> assemblies)
+    {
+        var renderGraphType = FindRuntimeType(
+            assemblies,
+            "UnityEngine.Experimental.Rendering.RenderGraphModule.RenderGraph");
+        if (renderGraphType is null)
+        {
+            return null;
+        }
+
+        return renderGraphType
+            .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+            .FirstOrDefault(method =>
+            {
+                if (!string.Equals(method.Name, "PreRenderPassExecute", StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                var parameters = method.GetParameters();
+                return parameters.Length == 3
+                    && parameters[0].ParameterType.IsByRef
+                    && TypeNameContains(parameters[0].ParameterType.GetElementType()!, "CompiledPassInfo")
+                    && TypeNameContains(parameters[1].ParameterType, "RenderGraphPass")
+                    && TypeNameContains(parameters[2].ParameterType, "RenderGraphContext");
+            });
+    }
+
     private static IEnumerable<MethodInfo> DiscoverRenderGraphBuilderDeclarationMethods(IEnumerable<Assembly> assemblies)
     {
         var builderType = FindRuntimeType(
@@ -599,6 +690,67 @@ internal static class FrameResourceProbe
         }
     }
 
+    private static void RenderGraphExecutionScopePostfix(MethodBase __originalMethod, object? __instance, object?[]? __args)
+    {
+        try
+        {
+            if (!DlssEvaluateInputProbeEnabled)
+            {
+                return;
+            }
+
+            var log = Log;
+            var bridge = Bridge;
+            if (log is null || bridge is null || __instance is null)
+            {
+                return;
+            }
+
+            var pass = FindTypedArgument(__args, "RenderGraphPass");
+            if (pass is null)
+            {
+                return;
+            }
+
+            var registry = TryReadPropertyObject(__instance, "m_Resources")
+                ?? TryReadFieldObject(__instance, "m_Resources");
+            if (registry is null)
+            {
+                return;
+            }
+
+            int count;
+            lock (Sync)
+            {
+                RenderGraphExecutionScopeCallCount++;
+                count = RenderGraphExecutionScopeCallCount;
+            }
+
+            var passName = GetRenderGraphPassName(pass);
+            var candidates = CollectRenderGraphExecutionTextureCandidates(registry, pass);
+            if (candidates.Count == 0)
+            {
+                if (count <= MaxRenderGraphExecutionScopeLogs || count % 300 == 0)
+                {
+                    log.LogInfo($"RenderGraph execution scope #{count}: pass={passName}; candidates=none");
+                }
+
+                return;
+            }
+
+            if (count <= MaxRenderGraphExecutionScopeLogs || count % 300 == 0)
+            {
+                log.LogInfo($"RenderGraph execution scope #{count}: pass={passName}; candidates=[{FormatRenderGraphTextureCandidates(candidates)}]");
+            }
+
+            TryRunRenderGraphScopedDlssEvaluateInputProbe(log, bridge, pass, candidates);
+        }
+        catch (Exception ex)
+        {
+            Log?.LogWarning($"RenderGraph execution scope postfix failed: {GetExceptionMessage(ex)}");
+        }
+    }
+
     private static void RenderGraphGetTexturePostfix(MethodBase __originalMethod, object? __instance, object?[]? __args, object? __result)
     {
         try
@@ -710,6 +862,76 @@ internal static class FrameResourceProbe
         }
     }
 
+    private static void TryRunRenderGraphScopedDlssEvaluateInputProbe(
+        ManualLogSource log,
+        NativeBridge bridge,
+        object pass,
+        IReadOnlyList<RenderGraphTextureCandidate> candidates)
+    {
+        if (DlssEvaluateInputProbeSucceeded)
+        {
+            return;
+        }
+
+        var color = FindCandidate(candidates, static name => string.Equals(name, "CameraColor", StringComparison.Ordinal));
+        var depth = FindCandidate(candidates, static name => string.Equals(name, "CameraDepthStencil", StringComparison.Ordinal)
+            || name.IndexOf("CameraDepth", StringComparison.OrdinalIgnoreCase) >= 0);
+        var motion = FindCandidate(candidates, static name => string.Equals(name, "Motion Vectors", StringComparison.Ordinal));
+
+        if (color is null || depth is null || motion is null)
+        {
+            return;
+        }
+
+        var output = candidates
+            .Where(candidate => candidate.Pointer != IntPtr.Zero)
+            .Where(candidate => string.Equals(candidate.ResourceName, "CameraColor", StringComparison.Ordinal))
+            .OrderByDescending(candidate => candidate.Label.StartsWith("color", StringComparison.OrdinalIgnoreCase)
+                || candidate.Label.StartsWith("write", StringComparison.OrdinalIgnoreCase))
+            .FirstOrDefault();
+        var outputIsPlaceholder = output.Pointer == IntPtr.Zero;
+        if (outputIsPlaceholder)
+        {
+            output = color.Value;
+        }
+        else
+        {
+            outputIsPlaceholder = output.Pointer == color.Value.Pointer;
+        }
+
+        int attempt;
+        lock (Sync)
+        {
+            if (RenderGraphScopedEvaluateAttemptCount >= MaxRenderGraphScopedEvaluateAttempts)
+            {
+                return;
+            }
+
+            RenderGraphScopedEvaluateAttemptCount++;
+            attempt = RenderGraphScopedEvaluateAttemptCount;
+        }
+
+        var passName = GetRenderGraphPassName(pass);
+        log.LogInfo(
+            $"DLSS evaluate input probe RenderGraph-scope candidate #{attempt}: pass={passName}; color={color.Value.Label}/{color.Value.ResourceName} 0x{color.Value.Pointer.ToInt64():X}; output={output.Label}/{output.ResourceName} 0x{output.Pointer.ToInt64():X}{(outputIsPlaceholder ? " placeholder=same-as-color" : string.Empty)}; depth={depth.Value.Label}/{depth.Value.ResourceName} 0x{depth.Value.Pointer.ToInt64():X}; motion={motion.Value.Label}/{motion.Value.ResourceName} 0x{motion.Value.Pointer.ToInt64():X}");
+
+        var success = bridge.ProbeDlssEvaluateInputs(
+            color.Value.Pointer,
+            output.Pointer,
+            depth.Value.Pointer,
+            motion.Value.Pointer);
+        var status = bridge.GetDlssEvaluateInputStatus();
+        if (success)
+        {
+            DlssEvaluateInputProbeSucceeded = true;
+            log.LogInfo($"DLSS evaluate input probe succeeded from RenderGraph execution scope: {status}");
+        }
+        else
+        {
+            log.LogWarning($"DLSS evaluate input probe failed from RenderGraph execution scope: {status}");
+        }
+    }
+
     private static IReadOnlyList<NativeTextureCandidate> CollectArgumentTextureCandidates(MethodBase originalMethod, object?[]? args, object? renderGraph)
     {
         var candidates = new List<NativeTextureCandidate>();
@@ -739,6 +961,339 @@ internal static class FrameResourceProbe
         }
 
         return candidates;
+    }
+
+    private static IReadOnlyList<RenderGraphTextureCandidate> CollectRenderGraphExecutionTextureCandidates(object registry, object pass)
+    {
+        var candidates = new List<RenderGraphTextureCandidate>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        var colorBuffers = TryReadPropertyObject(pass, "colorBuffers")
+            ?? TryReadFieldObject(pass, "_colorBuffers_k__BackingField");
+        var colorIndex = 0;
+        foreach (var colorBuffer in EnumerateRuntimeSequence(colorBuffers))
+        {
+            AddTextureHandleCandidate(registry, $"color[{colorIndex}]", colorBuffer, candidates, seen);
+            colorIndex++;
+        }
+
+        var depthBuffer = TryReadPropertyObject(pass, "depthBuffer")
+            ?? TryReadFieldObject(pass, "_depthBuffer_k__BackingField");
+        AddTextureHandleCandidate(registry, "depth", depthBuffer, candidates, seen);
+
+        var resourceReadLists = TryReadPropertyObject(pass, "resourceReadLists")
+            ?? TryReadFieldObject(pass, "resourceReadLists");
+        AddResourceListCandidates(registry, "read", resourceReadLists, candidates, seen);
+
+        var resourceWriteLists = TryReadPropertyObject(pass, "resourceWriteLists")
+            ?? TryReadFieldObject(pass, "resourceWriteLists");
+        AddResourceListCandidates(registry, "write", resourceWriteLists, candidates, seen);
+
+        return candidates;
+    }
+
+    private static void AddResourceListCandidates(
+        object registry,
+        string labelPrefix,
+        object? resourceLists,
+        ICollection<RenderGraphTextureCandidate> candidates,
+        ISet<string> seen)
+    {
+        var listIndex = 0;
+        foreach (var resourceList in EnumerateRuntimeSequence(resourceLists))
+        {
+            var itemIndex = 0;
+            foreach (var resourceHandle in EnumerateRuntimeSequence(resourceList))
+            {
+                AddResourceHandleCandidate(registry, $"{labelPrefix}[{listIndex}:{itemIndex}]", resourceHandle, candidates, seen);
+                itemIndex++;
+            }
+
+            listIndex++;
+        }
+    }
+
+    private static void AddTextureHandleCandidate(
+        object registry,
+        string label,
+        object? textureHandle,
+        ICollection<RenderGraphTextureCandidate> candidates,
+        ISet<string> seen)
+    {
+        if (textureHandle is null || !TypeNameContains(textureHandle.GetType(), "TextureHandle"))
+        {
+            return;
+        }
+
+        var resourceHandle = TryGetResourceHandleFromTextureHandle(textureHandle);
+        if (resourceHandle is null)
+        {
+            return;
+        }
+
+        var resourceName = TryGetRenderGraphResourceName(registry, resourceHandle);
+        if (!IsRenderGraphDlssRelevantResource(resourceName))
+        {
+            return;
+        }
+
+        AddRenderGraphTextureCandidate(registry, label, resourceName!, textureHandle, resourceHandle, candidates, seen);
+    }
+
+    private static void AddResourceHandleCandidate(
+        object registry,
+        string label,
+        object? resourceHandle,
+        ICollection<RenderGraphTextureCandidate> candidates,
+        ISet<string> seen)
+    {
+        if (resourceHandle is null || !TypeNameContains(resourceHandle.GetType(), "ResourceHandle"))
+        {
+            return;
+        }
+
+        if (!IsTextureResourceHandle(resourceHandle))
+        {
+            return;
+        }
+
+        var resourceName = TryGetRenderGraphResourceName(registry, resourceHandle);
+        if (!IsRenderGraphDlssRelevantResource(resourceName))
+        {
+            return;
+        }
+
+        AddRenderGraphTextureCandidate(registry, label, resourceName!, null, resourceHandle, candidates, seen);
+    }
+
+    private static void AddRenderGraphTextureCandidate(
+        object registry,
+        string label,
+        string resourceName,
+        object? textureHandle,
+        object resourceHandle,
+        ICollection<RenderGraphTextureCandidate> candidates,
+        ISet<string> seen)
+    {
+        var key = $"{label}:{resourceName}:{SummarizeValue(resourceHandle)}";
+        if (!seen.Add(key))
+        {
+            return;
+        }
+
+        var status = new List<string>();
+        object? owner = null;
+        var pointer = IntPtr.Zero;
+
+        if (textureHandle is not null)
+        {
+            var texture = TryGetRenderGraphTexture(registry, textureHandle, out var textureStatus);
+            status.Add(textureStatus);
+            if (texture is not null && TryFindNativeTexturePtr(texture, out owner, out pointer) && pointer != IntPtr.Zero)
+            {
+                candidates.Add(new RenderGraphTextureCandidate(label, resourceName, pointer, $"GetTexture nativeOwner={SummarizeValue(owner ?? texture)}"));
+                return;
+            }
+        }
+
+        var graphicsResource = TryGetRenderGraphTextureResourceGraphicsResource(registry, resourceHandle, out var resourceStatus);
+        status.Add(resourceStatus);
+        if (graphicsResource is not null && TryFindNativeTexturePtr(graphicsResource, out owner, out pointer) && pointer != IntPtr.Zero)
+        {
+            candidates.Add(new RenderGraphTextureCandidate(label, resourceName, pointer, $"TextureResource.graphicsResource nativeOwner={SummarizeValue(owner ?? graphicsResource)}"));
+            return;
+        }
+
+        candidates.Add(new RenderGraphTextureCandidate(label, resourceName, IntPtr.Zero, string.Join("; ", status.Where(value => !string.IsNullOrWhiteSpace(value)))));
+    }
+
+    private static RenderGraphTextureCandidate? FindCandidate(IReadOnlyList<RenderGraphTextureCandidate> candidates, Func<string, bool> predicate)
+    {
+        var candidate = candidates
+            .Where(candidate => candidate.Pointer != IntPtr.Zero)
+            .FirstOrDefault(candidate => predicate(candidate.ResourceName));
+        return candidate.Pointer == IntPtr.Zero ? null : candidate;
+    }
+
+    private static object? TryGetResourceHandleFromTextureHandle(object textureHandle)
+    {
+        return TryReadPropertyObject(textureHandle, "handle")
+            ?? TryReadFieldObject(textureHandle, "handle");
+    }
+
+    private static object? TryGetRenderGraphTexture(object registry, object textureHandle, out string status)
+    {
+        var method = FindByRefResourceMethod(registry, "GetTexture", textureHandle);
+        if (method is null)
+        {
+            status = "GetTexture missing";
+            return null;
+        }
+
+        try
+        {
+            var texture = method.Invoke(registry, new[] { textureHandle });
+            status = texture is null ? "GetTexture returned null" : $"GetTexture returned {SummarizeValue(texture)}";
+            return texture;
+        }
+        catch (Exception ex)
+        {
+            status = $"GetTexture threw {FirstLine(GetExceptionMessage(ex))}";
+            return null;
+        }
+    }
+
+    private static object? TryGetRenderGraphTextureResourceGraphicsResource(object registry, object resourceHandle, out string status)
+    {
+        var method = FindByRefResourceMethod(registry, "GetTextureResource", resourceHandle);
+        if (method is null)
+        {
+            status = "GetTextureResource missing";
+            return null;
+        }
+
+        try
+        {
+            var textureResource = method.Invoke(registry, new[] { resourceHandle });
+            if (textureResource is null)
+            {
+                status = "GetTextureResource returned null";
+                return null;
+            }
+
+            var graphicsResource = TryReadPropertyObject(textureResource, "graphicsResource")
+                ?? TryReadFieldObject(textureResource, "graphicsResource");
+            status = graphicsResource is null
+                ? $"GetTextureResource returned {SummarizeValue(textureResource)}; graphicsResource=null"
+                : $"GetTextureResource returned {SummarizeValue(textureResource)}; graphicsResource={SummarizeValue(graphicsResource)}";
+            return graphicsResource;
+        }
+        catch (Exception ex)
+        {
+            status = $"GetTextureResource threw {FirstLine(GetExceptionMessage(ex))}";
+            return null;
+        }
+    }
+
+    private static bool IsTextureResourceHandle(object resourceHandle)
+    {
+        var type = TryReadPropertyString(resourceHandle, "type")
+            ?? TryReadFieldString(resourceHandle, "_type_k__BackingField");
+        var iType = TryReadPropertyString(resourceHandle, "iType");
+        return string.Equals(type, "Texture", StringComparison.Ordinal)
+            || string.Equals(iType, "0", StringComparison.Ordinal);
+    }
+
+    private static bool IsRenderGraphDlssRelevantResource(string? resourceName)
+    {
+        return string.Equals(resourceName, "CameraColor", StringComparison.Ordinal)
+            || string.Equals(resourceName, "CameraDepthStencil", StringComparison.Ordinal)
+            || string.Equals(resourceName, "Motion Vectors", StringComparison.Ordinal)
+            || string.Equals(resourceName, "NormalBuffer", StringComparison.Ordinal);
+    }
+
+    private static object? FindTypedArgument(object?[]? args, string typeNamePart)
+    {
+        if (args is null)
+        {
+            return null;
+        }
+
+        foreach (var arg in args)
+        {
+            if (arg is not null && TypeNameContains(arg.GetType(), typeNamePart))
+            {
+                return arg;
+            }
+        }
+
+        return null;
+    }
+
+    private static string GetRenderGraphPassName(object pass)
+    {
+        return TryReadPropertyString(pass, "name")
+            ?? TryReadFieldString(pass, "_name_k__BackingField")
+            ?? SummarizeValue(pass);
+    }
+
+    private static string FormatRenderGraphTextureCandidates(IReadOnlyList<RenderGraphTextureCandidate> candidates)
+    {
+        return string.Join("; ", candidates
+            .Take(16)
+            .Select(candidate => candidate.Pointer == IntPtr.Zero
+                ? $"{candidate.Label}/{candidate.ResourceName} nativePtr=not found ({candidate.Status})"
+                : $"{candidate.Label}/{candidate.ResourceName} nativePtr=0x{candidate.Pointer.ToInt64():X} ({candidate.Status})"));
+    }
+
+    private static IEnumerable<object?> EnumerateRuntimeSequence(object? sequence)
+    {
+        if (sequence is null || sequence is string)
+        {
+            yield break;
+        }
+
+        if (sequence is IEnumerable enumerable)
+        {
+            foreach (var item in enumerable)
+            {
+                if (item is not null)
+                {
+                    yield return item;
+                }
+            }
+
+            yield break;
+        }
+
+        if (!TryReadInt(sequence, "Count", out var count)
+            && !TryReadInt(sequence, "Length", out count))
+        {
+            yield break;
+        }
+
+        var itemProperty = sequence
+            .GetType()
+            .GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+            .FirstOrDefault(property =>
+                property.GetIndexParameters().Length == 1
+                && property.GetIndexParameters()[0].ParameterType == typeof(int)
+                && property.GetMethod is not null);
+        if (itemProperty is null)
+        {
+            yield break;
+        }
+
+        for (var index = 0; index < count; index++)
+        {
+            object? item;
+            try
+            {
+                item = itemProperty.GetValue(sequence, new object[] { index });
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (item is not null)
+            {
+                yield return item;
+            }
+        }
+    }
+
+    private static bool TryReadInt(object instance, string propertyName, out int value)
+    {
+        value = 0;
+        var raw = TryReadPropertyObject(instance, propertyName);
+        if (raw is int intValue)
+        {
+            value = intValue;
+            return true;
+        }
+
+        return raw is not null && int.TryParse(raw.ToString(), out value);
     }
 
     private static bool TryGetGlobalNativeTexture(string textureName, out NativeTextureCandidate candidate)
@@ -1571,6 +2126,8 @@ internal static class FrameResourceProbe
     private readonly record struct FrameProbeTarget(string TypeName, string MemberName);
 
     private readonly record struct NativeTextureCandidate(string Label, IntPtr Pointer);
+
+    private readonly record struct RenderGraphTextureCandidate(string Label, string ResourceName, IntPtr Pointer, string Status);
 
     private readonly record struct RenderGraphRegistryCandidate(string Label, object Instance);
 }

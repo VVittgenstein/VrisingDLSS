@@ -71,7 +71,9 @@ Current validated evidence:
   - A follow-up builder-declaration probe patched five `RenderGraphBuilder` methods: `UseColorBuffer`, `UseDepthBuffer`, `ReadTexture`, `WriteTexture`, and `ReadWriteTexture`.
   - The builder-declaration probe cleanly resolved resource names with `GetRenderGraphResourceName(ResourceHandle&)` in a 45-second main-menu run. Evidence includes `UseColorBuffer(CameraColor)`, `ReadTexture(CameraColor)`, `ReadTexture(CameraDepthStencil)`, `UseColorBuffer(Motion Vectors)`, `ReadTexture(Motion Vectors)`, and `ReadTexture(NormalBuffer)`.
   - This confirms the target resources are declared in HDRP RenderGraph passes; it still does not expose native texture pointers, so the next code path must execute inside a declared RenderGraph pass or execution delegate.
-  - Current conclusion: Stage 8A is blocked by RenderGraph resource lifetime/scope. The next implementation step should hook or inject inside a declared RenderGraph pass/read scope, not keep adding ordinary method-prefix candidates.
+  - A `RenderGraph.PreRenderPassExecute` postfix probe patched cleanly, but no execution-scope calls were observed in two 45-second main-menu runs. This route may still be worth retesting in gameplay, but the main menu does not appear to traverse that managed wrapper.
+  - A `TextureHandle` implicit-conversion postfix probe patched four conversion operators, but it immediately produced repeated IL2CPP trampoline `NullReferenceException` logs in the main menu. That probe was removed from source and should remain rejected unless a safer conversion-specific approach is proven.
+  - Current conclusion: Stage 8A is blocked by RenderGraph resource lifetime/scope. The next implementation step should inject a declared diagnostic RenderGraph pass with `SetRenderFunc`, not keep adding ordinary method-prefix or implicit-conversion candidates.
 - Local GPU/driver for Stage 6/7 pass: NVIDIA GeForce RTX 5060, driver `610.47`.
 
 Archived logs:
@@ -95,11 +97,14 @@ Archived logs:
 - `artifacts/runtime-logs/LogOutput-stage8a-gettexture-postfix-main-menu-2026-06-05-021840.log`
 - `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-builder-declarations-main-menu-2026-06-05-023132.log`
 - `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-builder-resource-names-main-menu-2026-06-05-023434.log`
+- `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-execution-scope-main-menu-2026-06-05-024534.log`
+- `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-execution-scope-observed-main-menu-2026-06-05-024714.log`
+- `artifacts/runtime-logs/LogOutput-stage8a-texturehandle-conversion-unsafe-main-menu-2026-06-05-024955.log`
 
 No PureDark files were copied into the game plugin folder. The NVIDIA runtime was copied only into `ref/` for local research and was not added to the release package.
 
 Next implementation gate:
 
-- Prototype a RenderGraph-scoped diagnostic pass or hook an execution-time delegate where `CameraColor`, `CameraDepthStencil`, and `Motion Vectors` are valid declared resources.
+- Prototype a RenderGraph-scoped diagnostic pass with `AddRenderPass`/`SetRenderFunc`, where `CameraColor`, `CameraDepthStencil`, and `Motion Vectors` are declared inputs and a diagnostic output texture is declared as a write.
 - Keep using `dlss-evaluate-inputs` in a local/private gameplay scene after the RenderGraph-scope hook exists, because gameplay may expose a fuller camera/motion-vector frame than the main menu.
 - Implement the smallest SDK-wrapper-backed DLSS evaluate probe only after Stage 8A proves frame resources are aligned and native D3D11 pointers are available in the same frame.
