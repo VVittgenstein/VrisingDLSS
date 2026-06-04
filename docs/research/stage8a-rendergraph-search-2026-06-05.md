@@ -99,6 +99,8 @@ Local follow-up evidence: a builder-declaration probe now observes named `Render
 
 Additional local negative evidence: `RenderGraph.PreRenderPassExecute` can be patched but was not observed as called in the main menu; `RenderGraphPass<T>.Execute(RenderGraphContext)` cannot be patched as an open generic method with the current Harmony route; and patching `TextureHandle` implicit conversions produced repeated IL2CPP trampoline `NullReferenceException` logs. These results make an explicit diagnostic `AddRenderPass`/`SetRenderFunc` path the preferred next implementation step.
 
+Implementation follow-up: the explicit diagnostic pass path now compiles when local V Rising interop assemblies are present. It can inject an `AddRenderPass`/`SetRenderFunc` pass with `hasRenderFunc=True` and `allowPassCulling=False` from both `DoCustomPostProcess` arguments and aggregated builder declarations. Main-menu runs configure the pass but do not call its render function, so the next validation step is a local/private gameplay scene or a later known-executing graph path.
+
 Rejected or deferred:
 
 - Calling `GetTexture(TextureHandle&)` from ordinary Harmony prefixes.

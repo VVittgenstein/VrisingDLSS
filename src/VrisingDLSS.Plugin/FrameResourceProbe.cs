@@ -627,6 +627,13 @@ internal static class FrameResourceProbe
                 CallCounts[key] = count;
             }
 
+#if VRISINGDLSS_LOCAL_INTEROP
+            if (DlssEvaluateInputProbeEnabled)
+            {
+                RenderGraphDiagnosticPass.TryInject(log, bridge, __originalMethod, __args);
+            }
+#endif
+
             if (!ShouldInspect(count))
             {
                 return;
@@ -656,6 +663,11 @@ internal static class FrameResourceProbe
         }
     }
 
+    internal static void MarkDlssEvaluateInputProbeSucceeded()
+    {
+        DlssEvaluateInputProbeSucceeded = true;
+    }
+
     private static void RenderGraphBuilderDeclarationPrefix(MethodBase __originalMethod, object? __instance, object?[]? __args)
     {
         try
@@ -672,6 +684,15 @@ internal static class FrameResourceProbe
                 RenderGraphBuilderDeclarationCallCount++;
                 count = RenderGraphBuilderDeclarationCallCount;
             }
+
+#if VRISINGDLSS_LOCAL_INTEROP
+            if (DlssEvaluateInputProbeEnabled
+                && Bridge is { } bridge
+                && TryGetRenderGraphBuilderDeclarationDetails(__instance, __args, out var textureHandle, out var resourceName))
+            {
+                RenderGraphDiagnosticPass.ObserveBuilderDeclaration(log, bridge, __instance, textureHandle, resourceName);
+            }
+#endif
 
             if (count > MaxRenderGraphBuilderDeclarationLogs && count % 300 != 0)
             {
@@ -1682,33 +1703,49 @@ internal static class FrameResourceProbe
 
     private static string DescribeRenderGraphBuilderDeclaration(object? builder, object?[]? args)
     {
-        if (builder is null || args is null)
+        if (!TryGetRenderGraphBuilderDeclarationDetails(builder, args, out _, out var resourceName))
         {
             return string.Empty;
         }
 
-        var textureHandle = args.FirstOrDefault(arg => arg is not null && TypeNameContains(arg.GetType(), "TextureHandle"));
+        return resourceName is null ? "; resourceName=unavailable" : $"; resourceName={resourceName}";
+    }
+
+    private static bool TryGetRenderGraphBuilderDeclarationDetails(
+        object? builder,
+        object?[]? args,
+        out object? textureHandle,
+        out string? resourceName)
+    {
+        textureHandle = null;
+        resourceName = null;
+        if (builder is null || args is null)
+        {
+            return false;
+        }
+
+        textureHandle = args.FirstOrDefault(arg => arg is not null && TypeNameContains(arg.GetType(), "TextureHandle"));
         if (textureHandle is null)
         {
-            return string.Empty;
+            return false;
         }
 
         var resourceHandle = TryReadPropertyObject(textureHandle, "handle")
             ?? TryReadFieldObject(textureHandle, "handle");
         if (resourceHandle is null)
         {
-            return string.Empty;
+            return true;
         }
 
         var registry = TryReadPropertyObject(builder, "m_Resources")
             ?? TryReadFieldObject(builder, "m_Resources");
         if (registry is null)
         {
-            return "; resourceName=unavailable";
+            return true;
         }
 
-        var resourceName = TryGetRenderGraphResourceName(registry, resourceHandle);
-        return resourceName is null ? "; resourceName=unavailable" : $"; resourceName={resourceName}";
+        resourceName = TryGetRenderGraphResourceName(registry, resourceHandle);
+        return true;
     }
 
     private static string? TryGetRenderGraphResourceName(object registry, object resourceHandle)

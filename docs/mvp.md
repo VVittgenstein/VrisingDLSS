@@ -62,7 +62,7 @@ The current blocker is Stage 8A frame input access. DLSS runtime load, SDK-wrapp
 
 Latest local evidence shows HDRP RenderGraph methods expose `TextureHandle` entries named `CameraColor`, `CameraDepthStencil`, `Motion Vectors`, and `NormalBuffer`, but ordinary Harmony prefixes see those handles outside a valid RenderGraph resource read scope. The next implementation path is a RenderGraph-scoped hook or diagnostic pass where those handles are declared/read while alive.
 
-The current diagnostic build therefore avoids calling `GetTexture(TextureHandle&)` from method prefixes and instead listens for engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` calls with a read-only postfix. A `TextureHandle` implicit-conversion hook was tested and rejected because it produced IL2CPP trampoline errors. The next concrete MVP step is a declared diagnostic RenderGraph pass using `AddRenderPass`/`SetRenderFunc`.
+The current diagnostic build therefore avoids calling `GetTexture(TextureHandle&)` from method prefixes and instead listens for engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` calls with a read-only postfix. A `TextureHandle` implicit-conversion hook was tested and rejected because it produced IL2CPP trampoline errors. A declared diagnostic RenderGraph pass now injects with `hasRenderFunc=True`; the next concrete MVP step is to verify that pass in a local/private gameplay scene and get color/output/depth/motion native pointers inside its render function.
 
 ## Current Non-Goals
 

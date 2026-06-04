@@ -74,7 +74,9 @@ Current validated evidence:
   - A `RenderGraph.PreRenderPassExecute` postfix probe patched cleanly, but no execution-scope calls were observed in two 45-second main-menu runs. This route may still be worth retesting in gameplay, but the main menu does not appear to traverse that managed wrapper.
   - A `RenderGraphPass<T>.Execute(RenderGraphContext)` open-generic prefix probe failed at patch time with `Type.ContainsGenericParameters`/late-bound generic field errors. That route should not be retried without a closed generic pass type.
   - A `TextureHandle` implicit-conversion postfix probe patched four conversion operators, but it immediately produced repeated IL2CPP trampoline `NullReferenceException` logs in the main menu. That probe was removed from source and should remain rejected unless a safer conversion-specific approach is proven.
-  - Current conclusion: Stage 8A is blocked by RenderGraph resource lifetime/scope. The next implementation step should inject a declared diagnostic RenderGraph pass with `SetRenderFunc`, not keep adding ordinary method-prefix or implicit-conversion candidates.
+  - A local-interop diagnostic RenderGraph pass using `AddRenderPass`/`SetRenderFunc` now injects and configures successfully. Evidence: `RenderGraph diagnostic pass configured ... hasRenderFunc=True; allowPassCulling=False`.
+  - The diagnostic pass can be injected from `DoCustomPostProcess` arguments and from aggregated `RenderGraphBuilder` declarations once `CameraColor`, `CameraDepthStencil`, and `Motion Vectors` have all been observed in the same graph.
+  - In repeated main-menu runs, the diagnostic pass is declared and configured but the render function is not observed as called. Current conclusion: Stage 8A needs a local/private gameplay-scene run or another known-executing graph path; main-menu evidence is no longer sufficient.
 - Local GPU/driver for Stage 6/7 pass: NVIDIA GeForce RTX 5060, driver `610.47`.
 
 Archived logs:
@@ -102,11 +104,17 @@ Archived logs:
 - `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-execution-scope-observed-main-menu-2026-06-05-024714.log`
 - `artifacts/runtime-logs/LogOutput-stage8a-texturehandle-conversion-unsafe-main-menu-2026-06-05-024955.log`
 - `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-generic-pass-execute-open-generic-main-menu-2026-06-05-025629.log`
+- `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-diagnostic-pass-injected-main-menu-2026-06-05-030515.log`
+- `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-diagnostic-pass-rooted-main-menu-2026-06-05-030659.log`
+- `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-diagnostic-pass-readwrite-main-menu-2026-06-05-030845.log`
+- `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-diagnostic-pass-declared-readwrite-main-menu-2026-06-05-031103.log`
+- `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-diagnostic-pass-has-renderfunc-main-menu-2026-06-05-031250.log`
+- `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-diagnostic-pass-builder-aggregate-main-menu-2026-06-05-031812.log`
 
 No PureDark files were copied into the game plugin folder. The NVIDIA runtime was copied only into `ref/` for local research and was not added to the release package.
 
 Next implementation gate:
 
-- Prototype a RenderGraph-scoped diagnostic pass with `AddRenderPass`/`SetRenderFunc`, where `CameraColor`, `CameraDepthStencil`, and `Motion Vectors` are declared inputs and a diagnostic output texture is declared as a write.
-- Keep using `dlss-evaluate-inputs` in a local/private gameplay scene after the RenderGraph-scope hook exists, because gameplay may expose a fuller camera/motion-vector frame than the main menu.
+- Run `dlss-evaluate-inputs` in a local/private gameplay scene with the diagnostic RenderGraph pass enabled, because the main-menu graph configures but does not execute the diagnostic pass.
+- If gameplay also configures without executing, move the diagnostic pass injection to a later known-executing graph path or attach it to a concrete HDRP pass output rather than the main-menu custom-post-process path.
 - Implement the smallest SDK-wrapper-backed DLSS evaluate probe only after Stage 8A proves frame resources are aligned and native D3D11 pointers are available in the same frame.

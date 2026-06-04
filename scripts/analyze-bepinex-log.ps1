@@ -186,10 +186,10 @@ $results.Add((New-StageResult `
 
 $results.Add((New-StageResult `
     -Stage "Stage 8A DLSS Evaluate Inputs" `
-    -PassPatterns @("DLSS evaluate input probe succeeded:") `
+    -PassPatterns @("DLSS evaluate input probe succeeded:", "DLSS evaluate input probe succeeded from RenderGraph diagnostic pass:") `
     -FailPatterns @("DLSS evaluate input probe failed:") `
     -BlockedPatterns @("DLSS evaluate input probe blocked:") `
-    -StartedPatterns @("DLSS evaluate input probe enabled.")))
+    -StartedPatterns @("DLSS evaluate input probe enabled.", "RenderGraph diagnostic pass injected", "RenderGraph diagnostic pass configured")))
 
 $results
 

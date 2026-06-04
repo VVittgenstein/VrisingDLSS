@@ -10,9 +10,27 @@
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
+  <PropertyGroup Condition="Exists('C:\Software\VRising\BepInEx\interop\Unity.RenderPipelines.Core.Runtime.dll')">
+    <DefineConstants>$(DefineConstants);VRISINGDLSS_LOCAL_INTEROP</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="BepInEx.Core" Version="6.0.0-be.733" IncludeAssets="compile" />
     <PackageReference Include="BepInEx.Unity.IL2CPP" Version="6.0.0-be.733" IncludeAssets="compile" />
   </ItemGroup>
-</Project>
 
+  <ItemGroup Condition="Exists('C:\Software\VRising\BepInEx\interop\Unity.RenderPipelines.Core.Runtime.dll')">
+    <Reference Include="Il2Cppmscorlib">
+      <HintPath>C:\Software\VRising\BepInEx\interop\Il2Cppmscorlib.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Unity.RenderPipelines.Core.Runtime">
+      <HintPath>C:\Software\VRising\BepInEx\interop\Unity.RenderPipelines.Core.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>C:\Software\VRising\BepInEx\interop\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>
