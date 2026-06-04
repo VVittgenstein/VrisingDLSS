@@ -6,6 +6,8 @@
 
 > 注意：本文是工程与发布风险分析，不是正式法律意见。
 
+> 2026-06-05 状态更新：本文件保留第一轮调查和 PureDark 静态研究。当前 release readiness、搜索来源复核、Stage 5A-5D 本地运行证据、Stage 6 SDK-wrapper 门槛、以及更新后的时间估算见 `release-readiness-search-2026-06-05.md` 和 `docs/development/local-runtime-staging-2026-06-05.md`。
+
 ## 结论摘要
 
 1. 官方路线不存在：Stunlock/Steam/NVIDIA 公开资料没有显示 V Rising 原生 DLSS 支持；Steam 页面显示游戏为 DirectX 11，且需要同意第三方 EULA。

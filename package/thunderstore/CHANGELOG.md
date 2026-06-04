@@ -10,7 +10,7 @@
 - Added D3D11 texture pointer probe interface.
 - Added HDRP frame resource probe for source/destination/depth/motion native texture pointers.
 - Added user-supplied DLSS runtime load/release probe interface.
-- Added user-supplied DLSS init/capability/shutdown probe interface.
+- Added guarded user-supplied DLSS init/query probe interface; full capability query requires NVIDIA SDK wrapper integration.
 - Added BepInExPack staging helper for local/offline tests.
 - Added source-side diagnostic config, log analysis, and runtime status helpers.
 - Added local install helper and third-party notices.

@@ -54,6 +54,8 @@ Third-party material lives under `ref/` for static research only. See [ref/READM
 
 See [docs/research/vrising-dlss-distributable-mod-research.md](docs/research/vrising-dlss-distributable-mod-research.md).
 
+Latest release-readiness search snapshot: [docs/research/release-readiness-search-2026-06-05.md](docs/research/release-readiness-search-2026-06-05.md).
+
 ## Local Preflight
 
 To inspect whether V Rising, BepInEx, and generated interop assemblies are available on the current machine:

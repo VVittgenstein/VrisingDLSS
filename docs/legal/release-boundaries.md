@@ -20,6 +20,18 @@ This project should remain source-only until a release review approves otherwise
 - Any file that implies endorsement by Stunlock Studios, NVIDIA, or PureDark.
 - Paid-build links or membership-gated distribution requirements.
 
+## NVIDIA SDK/Runtime Review Gate
+
+Before any package bundles `nvngx_dlss.dll`, NVIDIA SDK wrapper binaries, NVIDIA headers, or Streamline DLLs, the release review must confirm:
+
+- The exact files come from an approved NVIDIA distribution path.
+- The package has material functionality beyond the SDK/runtime files and does not distribute the SDK as a standalone product.
+- NVIDIA files are not presented as covered by this project's MIT license.
+- Required NVIDIA license notices and trademark/disclaimer language are included.
+- The package does not imply NVIDIA sponsorship or endorsement.
+- Any applicable NVIDIA notification, trademark-placement, or technical-support obligations have been considered.
+- A fallback package without NVIDIA runtime files remains available.
+
 ## User-Facing Disclaimer Requirements
 
 Every public release should state:
