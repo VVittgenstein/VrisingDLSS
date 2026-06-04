@@ -311,6 +311,7 @@ Current Stage 8A status:
 - A direct prefix call to `GetTexture(TextureHandle&)` was rejected as an unsafe diagnostic route because it produced IL2CPP trampoline error logs. The current code avoids that direct call and instead listens for engine-owned successful `GetTexture` calls through a postfix.
 - The `GetTexture` postfix patched successfully in a 45-second main-menu run without IL2CPP trampoline errors, but no successful `RenderGraph GetTexture call` was observed in that window.
 - The next implementation gate is to run inside a declared RenderGraph pass/read scope, or hook the RenderGraph execution delegate path where these handles are valid. A local/private gameplay scene is still useful, but the main blocker is now resource lifetime/scope rather than just method discovery.
+- See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.
 
 ## Stage 8: First DLSS Evaluate
 

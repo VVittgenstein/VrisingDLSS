@@ -14,6 +14,7 @@ This is engineering research, not legal advice.
 6. NVIDIA SDK/runtime redistribution is not a simple "just ship nvngx_dlss.dll" decision. The SDK license allows object-code distribution when incorporated into a materially functional application, but it also forbids standalone SDK distribution, implied NVIDIA sponsorship, and making SDK parts subject to open-source license terms. NVIDIA's RTX SDK supplement also says DLSS/NGX integrations in applications, including plugins to commercial applications, have notification/trademark/stability obligations. The fallback package without bundled NVIDIA runtime must stay available.
 7. Stunlock's current official posture is conservative for mods: no official V Rising modding tools are planned, and the EULA restricts unauthorized third-party programs, mods, add-ons, and interference with online/network play. The public README must keep saying local/private-world testing first and no official-server safety guarantee.
 8. Streamline remains a second-phase route. For the first DLSS SR MVP, direct NGX/D3D11 is still preferable because Streamline adds `sl.interposer.dll`, `sl.common.dll`, feature DLL packaging, interposer/device lifecycle constraints, and signature-validation work.
+9. Stage 8A is now specifically a RenderGraph resource-scope problem. Latest local evidence found `CameraColor`, `CameraDepthStencil`, `Motion Vectors`, and `NormalBuffer` handles, but Unity documentation confirms these handles must be used only inside a valid RenderGraph record+execute/read-write scope. The next technical route is a RenderGraph-scoped diagnostic pass or execution hook, not more ordinary method-prefix probing.
 
 ## Sources Checked
 
@@ -63,6 +64,14 @@ This is engineering research, not legal advice.
   - V Rising mods use BepInEx, IL2CPP interop wrappers, and DOTS/ECS.
   - BepInEx loads DLLs in `BepInEx/plugins/` and calls `Load()`.
   - Client mods can change UI or visuals but should not change game rules.
+- Unity Core RP TextureHandle docs: `https://docs.unity.cn/Packages/com.unity.render-pipelines.core%4017.0/api/UnityEngine.Experimental.Rendering.RenderGraphModule.TextureHandle.html`
+  - `TextureHandle` is tied to one RenderGraph record+execute phase, may not represent an allocated texture, and should not be used outside RenderGraph execution.
+- Unity Core RP 14.1 RenderGraphBuilder docs: `https://docs.unity.cn/cn/Packages-cn/com.unity.render-pipelines.core%4014.1/api/UnityEngine.Rendering.RenderGraphModule.RenderGraphBuilder.html`
+  - Documents Unity 2022-era `ReadTexture`, `ReadWriteTexture`, `UseColorBuffer`, `UseDepthBuffer`, and `SetRenderFunc` APIs.
+- Unity RenderGraph texture-use manual: `https://docs.unity.cn/6000.0/Documentation/Manual/urp/render-graph-read-write-texture.html`
+  - Documents declaring texture inputs/outputs during graph recording and using handles in `SetRenderFunc`.
+- Stage 8A focused search note: `docs/research/stage8a-rendergraph-search-2026-06-05.md`
+  - Consolidates latest runtime evidence and official RenderGraph route decision.
 
 ## Current Project Fit
 
@@ -76,6 +85,7 @@ Already aligned:
 - Stage 6 now reports the SDK-wrapper gate honestly instead of treating the production runtime's missing helper exports as an ordinary runtime failure.
 - A local SDK-wrapper research build has passed Stage 6 DLSS capability query and Stage 7 DLSS feature create/release.
 - Stage 8A DLSS evaluate-input probing is implemented to validate real color/output/depth/motion D3D11 resources before calling evaluate. A main-menu run starts the probe but blocks because source/output RTHandles are not exposed there and `_CameraMotionVectorsTexture` remains `null`.
+- A later Stage 8A RenderGraph run found the expected texture handles by name, but ordinary prefixes do not run inside a valid resource scope. The current probe avoids direct prefix `GetTexture` calls and passively hooks engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` calls.
 
 Still missing for MVP:
 
@@ -109,18 +119,19 @@ Avoid for MVP:
 
 This estimate starts from the current 2026-06-05 evidence, not from an empty repository.
 
-Fast path, if SDK-wrapper linking is straightforward and motion vectors appear in gameplay:
+Fast path, if a RenderGraph execution callback or injected pass can be added cleanly:
 
 - First SDK-wrapper-backed capability query and DLSS create/release: validated locally on 2026-06-05.
-- First DLSS evaluate visible image: 1-3 weeks.
-- Private-world playable alpha: 3-5 weeks.
-- Public Thunderstore/GitHub MVP release: 5-8 weeks.
+- First DLSS evaluate-input pass: 1-2 weeks.
+- First DLSS evaluate visible image: 2-4 weeks.
+- Private-world playable alpha: 4-6 weeks.
+- Public Thunderstore/GitHub MVP release: 6-9 weeks.
 
-Harder path, if motion vectors require a different HDRP hook point or custom generation:
+Harder path, if RenderGraph pass injection is blocked or motion vectors are not valid in gameplay:
 
-- First visible DLSS image: 3-6 weeks.
-- Private-world playable alpha: 6-9 weeks.
-- Public MVP release: 8-12+ weeks.
+- First visible DLSS image: 4-8 weeks.
+- Private-world playable alpha: 8-12 weeks.
+- Public MVP release: 10-14+ weeks.
 
 Unknown/legal path:
 
@@ -129,6 +140,7 @@ Unknown/legal path:
 ## Next Engineering Steps
 
 1. Keep the optional `VRISINGDLSS_NGX_SDK_ROOT` / SDK-wrapper CMake path off by default for release-safe builds.
-2. Run `dlss-evaluate-inputs` in an actual local/private gameplay scene, not just main menu.
-3. If motion vectors remain missing, patch additional HDRP camera/update points and inspect `HDCamera` frame history/motion-vector fields.
-4. After Stage 8A proves frame resources are aligned, implement the smallest evaluate path with DLSS disabled by default until image correctness is verified.
+2. Prototype a RenderGraph-scoped diagnostic pass or execution-stage hook where color/depth/motion handles are declared as pass inputs.
+3. Use the current `GetTexture` postfix as a passive detector while testing gameplay and any RenderGraph pass injection.
+4. Run `dlss-evaluate-inputs` in an actual local/private gameplay scene after the RenderGraph-scope path exists, not just in the main menu.
+5. After Stage 8A proves frame resources are aligned, implement the smallest evaluate path with DLSS disabled by default until image correctness is verified.
