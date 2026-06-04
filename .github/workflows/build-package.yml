@@ -53,6 +53,10 @@ jobs:
         shell: pwsh
         run: .\scripts\validate-thunderstore-package.ps1
 
+      - name: Report release readiness
+        shell: pwsh
+        run: .\scripts\get-release-readiness-status.ps1
+
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:

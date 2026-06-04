@@ -21,6 +21,7 @@ This is engineering research, not legal advice.
 - Rechecked Thunderstore's current BepInEx package-structure documentation. Required package metadata remains at the zip root, but BepInEx-loaded files should be staged under a recognized route such as `BepInEx/plugins`. The package script now emits `BepInEx/plugins/VrisingDLSS/...` instead of a generic root `VrisingDLSS/...` folder, so mod-manager and manual install paths align.
 - Added a local Thunderstore package validator that checks root metadata, 256x256 PNG icon dimensions, manifest shape, the required BepInEx plugin payload entries, and absence of forbidden PureDark/NVIDIA/runtime binaries. The packaging script now runs this validator automatically.
 - Added a GitHub Actions build/package workflow pinned to `windows-2022`/Visual Studio 2022. Current GitHub runner-image notices say `windows-latest` is moving to newer Windows/Visual Studio images in June 2026, so pinning avoids an avoidable native-build variable while the MVP is still stabilizing.
+- Added a release-readiness status script that separates upload-shaped diagnostic package readiness from true DLSS MVP readiness. The script keeps Stage 8A and release DLSS enable/default config as explicit blocked gates instead of letting package validation be mistaken for product completion.
 - Rechecked NVIDIA DLSS/RTX SDK, Stunlock, and Unity RenderGraph sources. No source changed the current route decision: keep a source-safe package without bundled NVIDIA runtime by default; do not rely on PureDark binaries or ABI; continue Stage 8A through a RenderGraph-scoped execution path.
 
 ## Sources Checked
@@ -93,6 +94,7 @@ Already aligned:
 - The mod-folder config file target `BepInEx/plugins/VrisingDLSS/VrisingDLSS.cfg` is now implemented in the plugin, local install helper, diagnostic config helper, status helper, and Thunderstore package.
 - `scripts/validate-thunderstore-package.ps1` verifies the actual zip layout and release-safe contents before a package is treated as upload-shaped.
 - `.github/workflows/build-package.yml` now builds the plugin/native bridge, runs release-boundary and package validation, and uploads the Thunderstore zip as an artifact.
+- `scripts/get-release-readiness-status.ps1` reports whether the current state is merely diagnostic-package-ready or truly MVP-ready.
 - Local diagnostics prove plugin load, HDRP hook discovery, render-thread callback, D3D11 native texture/device access, and production DLSS runtime load/release.
 - Stage 6 now reports the SDK-wrapper gate honestly instead of treating the production runtime's missing helper exports as an ordinary runtime failure.
 - A local SDK-wrapper research build has passed Stage 6 DLSS capability query and Stage 7 DLSS feature create/release.

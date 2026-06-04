@@ -1,0 +1,277 @@
+param(
+    [string]$Root = (Resolve-Path "$PSScriptRoot\..").Path,
+    [string]$PackagePath,
+    [string]$GamePath,
+    [switch]$RequireMvpReady,
+    [switch]$Json
+)
+
+$ErrorActionPreference = "Stop"
+
+function New-ReadinessItem {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Area,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Requirement,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("Pass", "Fail", "Blocked", "Missing", "NotApplicable")]
+        [string]$Status,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Evidence
+    )
+
+    [pscustomobject]@{
+        Area = $Area
+        Requirement = $Requirement
+        Status = $Status
+        Evidence = $Evidence
+    }
+}
+
+function Invoke-CapturedCommand {
+    param(
+        [Parameter(Mandatory = $true)]
+        [scriptblock]$Command
+    )
+
+    $output = New-Object System.Collections.Generic.List[string]
+    try {
+        & $Command *>&1 | ForEach-Object {
+            $output.Add($_.ToString())
+        }
+
+        return [pscustomobject]@{
+            Succeeded = $true
+            Output = ($output -join [Environment]::NewLine)
+        }
+    } catch {
+        if ($_.Exception.Message) {
+            $output.Add($_.Exception.Message)
+        }
+
+        return [pscustomobject]@{
+            Succeeded = $false
+            Output = ($output -join [Environment]::NewLine)
+        }
+    }
+}
+
+function Get-FirstStageStatus {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object[]]$StageResults,
+
+        [Parameter(Mandatory = $true)]
+        [string]$StagePrefix
+    )
+
+    $match = $StageResults | Where-Object { $_.Stage -like "$StagePrefix*" } | Select-Object -First 1
+    if ($match) {
+        return $match.Status
+    }
+
+    return "Missing"
+}
+
+$resolvedRoot = (Resolve-Path -LiteralPath $Root).Path
+$items = New-Object System.Collections.Generic.List[object]
+
+$manifestPath = Join-Path $resolvedRoot "package\thunderstore\manifest.json"
+$packageReadmePath = Join-Path $resolvedRoot "package\thunderstore\README.md"
+$thirdPartyNoticesPath = Join-Path $resolvedRoot "package\thunderstore\ThirdPartyNotices.md"
+$installDocPath = Join-Path $resolvedRoot "docs\install.md"
+$troubleshootingDocPath = Join-Path $resolvedRoot "docs\troubleshooting.md"
+$mvpDocPath = Join-Path $resolvedRoot "docs\mvp.md"
+$workflowPath = Join-Path $resolvedRoot ".github\workflows\build-package.yml"
+$configTemplatePath = Join-Path $resolvedRoot "package\thunderstore\VrisingDLSS.cfg"
+
+if ([string]::IsNullOrWhiteSpace($PackagePath) -and (Test-Path -LiteralPath $manifestPath)) {
+    $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    $PackagePath = Join-Path $resolvedRoot "dist\VrisingDLSS-$($manifest.version_number)-thunderstore.zip"
+}
+
+if (Test-Path -LiteralPath $manifestPath) {
+    $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    $expectedDependency = "BepInEx-BepInExPack_V_Rising-1.733.2"
+    $manifestOk = $manifest.name -eq "VrisingDLSS" `
+        -and $manifest.version_number -match "^\d+\.\d+\.\d+$" `
+        -and @($manifest.dependencies) -contains $expectedDependency `
+        -and $manifest.website_url -match "github\.com/VVittgenstein/VrisingDLSS"
+    $items.Add((New-ReadinessItem `
+        -Area "Package" `
+        -Requirement "Thunderstore manifest is present and points at the expected package identity/dependency." `
+        -Status $(if ($manifestOk) { "Pass" } else { "Fail" }) `
+        -Evidence "manifest.json name=$($manifest.name); version=$($manifest.version_number); dependencies=$(@($manifest.dependencies) -join ', '); website_url=$($manifest.website_url)"))
+} else {
+    $items.Add((New-ReadinessItem `
+        -Area "Package" `
+        -Requirement "Thunderstore manifest is present." `
+        -Status "Missing" `
+        -Evidence "Missing $manifestPath"))
+}
+
+foreach ($doc in @(
+        [pscustomobject]@{ Area = "Docs"; Requirement = "Install guide exists."; Path = $installDocPath },
+        [pscustomobject]@{ Area = "Docs"; Requirement = "Troubleshooting guide exists."; Path = $troubleshootingDocPath },
+        [pscustomobject]@{ Area = "Docs"; Requirement = "Third-party notices exist."; Path = $thirdPartyNoticesPath },
+        [pscustomobject]@{ Area = "Docs"; Requirement = "MVP definition exists."; Path = $mvpDocPath },
+        [pscustomobject]@{ Area = "Docs"; Requirement = "Package README exists."; Path = $packageReadmePath }
+    )) {
+    $exists = Test-Path -LiteralPath $doc.Path
+    $items.Add((New-ReadinessItem `
+        -Area $doc.Area `
+        -Requirement $doc.Requirement `
+        -Status $(if ($exists) { "Pass" } else { "Missing" }) `
+        -Evidence $(if ($exists) { $doc.Path } else { "Missing $($doc.Path)" })))
+}
+
+if (Test-Path -LiteralPath $configTemplatePath) {
+    $configText = Get-Content -LiteralPath $configTemplatePath -Raw
+    $hasModFolderConfig = $configText -match "\[General\]" -and $configText -match "\[Diagnostics\]" -and $configText -match "\[DLSS\]"
+    $items.Add((New-ReadinessItem `
+        -Area "Package" `
+        -Requirement "Mod-folder config template exists with General/Diagnostics/DLSS sections." `
+        -Status $(if ($hasModFolderConfig) { "Pass" } else { "Fail" }) `
+        -Evidence $configTemplatePath))
+} else {
+    $items.Add((New-ReadinessItem `
+        -Area "Package" `
+        -Requirement "Mod-folder config template exists." `
+        -Status "Missing" `
+        -Evidence "Missing $configTemplatePath"))
+}
+
+$boundaryCheck = Invoke-CapturedCommand -Command {
+    & (Join-Path $resolvedRoot "scripts\check-release-boundary.ps1") -Root $resolvedRoot
+}
+$items.Add((New-ReadinessItem `
+    -Area "Compliance" `
+    -Requirement "Release boundary check passes with no forbidden PureDark/NVIDIA/runtime binaries." `
+    -Status $(if ($boundaryCheck.Succeeded) { "Pass" } else { "Fail" }) `
+    -Evidence $(if ([string]::IsNullOrWhiteSpace($boundaryCheck.Output)) { "No output." } else { $boundaryCheck.Output })))
+
+if (Test-Path -LiteralPath $PackagePath) {
+    $packageCheck = Invoke-CapturedCommand -Command {
+        & (Join-Path $resolvedRoot "scripts\validate-thunderstore-package.ps1") -Root $resolvedRoot -PackagePath $PackagePath
+    }
+    $items.Add((New-ReadinessItem `
+        -Area "Package" `
+        -Requirement "Thunderstore zip has upload-shaped metadata, BepInEx plugin route, and release-safe contents." `
+        -Status $(if ($packageCheck.Succeeded) { "Pass" } else { "Fail" }) `
+        -Evidence $(if ([string]::IsNullOrWhiteSpace($packageCheck.Output)) { $PackagePath } else { $packageCheck.Output })))
+} else {
+    $items.Add((New-ReadinessItem `
+        -Area "Package" `
+        -Requirement "Thunderstore zip exists." `
+        -Status "Missing" `
+        -Evidence "Missing $PackagePath"))
+}
+
+if (Test-Path -LiteralPath $workflowPath) {
+    $workflowText = Get-Content -LiteralPath $workflowPath -Raw
+    $workflowOk = $workflowText -match "windows-2022" `
+        -and $workflowText -match "validate-thunderstore-package\.ps1" `
+        -and $workflowText -match "package-thunderstore\.ps1" `
+        -and $workflowText -match "actions/upload-artifact@v4"
+    $items.Add((New-ReadinessItem `
+        -Area "Automation" `
+        -Requirement "GitHub Actions builds and validates the package artifact on a pinned Windows runner." `
+        -Status $(if ($workflowOk) { "Pass" } else { "Fail" }) `
+        -Evidence $workflowPath))
+} else {
+    $items.Add((New-ReadinessItem `
+        -Area "Automation" `
+        -Requirement "GitHub Actions package workflow exists." `
+        -Status "Missing" `
+        -Evidence "Missing $workflowPath"))
+}
+
+if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
+    $runtimeStatus = & (Join-Path $resolvedRoot "scripts\get-runtime-validation-status.ps1") -Root $resolvedRoot -GamePath $GamePath
+    $stageResults = @($runtimeStatus.StageResults)
+    $stage8A = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 8A"
+    $stage7 = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 7"
+    $stage6 = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 6"
+    $loader = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 1"
+
+    $items.Add((New-ReadinessItem `
+        -Area "Runtime" `
+        -Requirement "Local staged install has loaded the plugin at least once." `
+        -Status $(if ($loader -eq "Pass") { "Pass" } elseif ($loader -eq "Missing") { "Missing" } else { "Fail" }) `
+        -Evidence "Stage 1 Loader=$loader; Log=$($runtimeStatus.LogPath)"))
+    $items.Add((New-ReadinessItem `
+        -Area "Runtime" `
+        -Requirement "SDK-wrapper init/query and feature-create diagnostics have local proof." `
+        -Status $(if ($stage6 -eq "Pass" -and $stage7 -eq "Pass") { "Pass" } else { "Blocked" }) `
+        -Evidence "Stage 6=$stage6; Stage 7=$stage7"))
+    $items.Add((New-ReadinessItem `
+        -Area "Runtime" `
+        -Requirement "Stage 8A proves same-frame color/output/depth/motion D3D11 inputs for DLSS evaluate." `
+        -Status $(if ($stage8A -eq "Pass") { "Pass" } elseif ($stage8A -eq "Fail") { "Fail" } elseif ($stage8A -eq "Missing") { "Missing" } else { "Blocked" }) `
+        -Evidence "Stage 8A=$stage8A; Next=$($runtimeStatus.NextRecommendation)"))
+} else {
+    $items.Add((New-ReadinessItem `
+        -Area "Runtime" `
+        -Requirement "Stage 8A proves same-frame color/output/depth/motion D3D11 inputs for DLSS evaluate." `
+        -Status "Missing" `
+        -Evidence "Pass -GamePath to include runtime validation evidence."))
+}
+
+$configTemplateText = if (Test-Path -LiteralPath $configTemplatePath) {
+    Get-Content -LiteralPath $configTemplatePath -Raw
+} else {
+    ""
+}
+$releaseConfigReady = $configTemplateText -match "EnableDLSS" -and $configTemplateText -match "PresetMode" -and $configTemplateText -match "RenderScaleOverride"
+$items.Add((New-ReadinessItem `
+    -Area "MVP" `
+    -Requirement "Normal-user DLSS enable/disable and release defaults are implemented in config." `
+    -Status $(if ($releaseConfigReady) { "Pass" } else { "Blocked" }) `
+    -Evidence $(if ($releaseConfigReady) { $configTemplatePath } else { "Current config remains diagnostic; release DLSS defaults are documented in docs/mvp.md but not implemented." })))
+
+$mvpBlockingStatuses = @("Fail", "Blocked", "Missing")
+$hardFailures = @($items | Where-Object { $_.Status -eq "Fail" })
+$diagnosticPackageReady = -not @($items | Where-Object {
+        ($_.Area -in @("Package", "Compliance", "Automation", "Docs")) -and $_.Status -in @("Fail", "Missing")
+    })
+$mvpReady = -not @($items | Where-Object { $mvpBlockingStatuses -contains $_.Status })
+$overallStatus = if ($mvpReady) {
+    "MvpReady"
+} elseif ($hardFailures.Count -gt 0) {
+    "Fail"
+} elseif ($diagnosticPackageReady) {
+    "DiagnosticPackageReady_MvpBlocked"
+} else {
+    "NotReady"
+}
+
+$summary = [pscustomobject]@{
+    OverallStatus = $overallStatus
+    DiagnosticPackageReady = $diagnosticPackageReady
+    MvpReady = $mvpReady
+    PackagePath = $PackagePath
+    GamePath = $GamePath
+    Items = $items
+    NextRecommendation = if ($mvpReady) {
+        "MVP evidence is complete. Prepare a final release review."
+    } elseif (@($items | Where-Object { $_.Requirement -like "Stage 8A*" -and $_.Status -ne "Pass" }).Count -gt 0) {
+        "Run dlss-evaluate-inputs in a local/private gameplay scene and get Stage 8A to Pass before implementing the guarded DLSS evaluate path."
+    } else {
+        "Resolve blocked/missing readiness items before public release."
+    }
+    LaunchesGame = $false
+}
+
+if ($Json) {
+    $summary | ConvertTo-Json -Depth 6
+} else {
+    $summary
+}
+
+if ($RequireMvpReady -and -not $mvpReady) {
+    exit 1
+}

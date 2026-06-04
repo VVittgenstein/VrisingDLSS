@@ -75,6 +75,7 @@ To check that source/package trees do not contain forbidden third-party binaries
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\check-release-boundary.ps1
+powershell -ExecutionPolicy Bypass -File scripts\get-release-readiness-status.ps1
 ```
 
 ## Release Packaging
@@ -101,6 +102,7 @@ To write a one-stage diagnostic config and analyze a BepInEx log:
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage d3d11
 powershell -ExecutionPolicy Bypass -File scripts\analyze-bepinex-log.ps1 -GamePath "C:\path\to\VRising"
 powershell -ExecutionPolicy Bypass -File scripts\get-runtime-validation-status.ps1 -GamePath "C:\path\to\VRising"
+powershell -ExecutionPolicy Bypass -File scripts\get-release-readiness-status.ps1 -GamePath "C:\path\to\VRising"
 ```
 
 To install the declared BepInExPack dependency into a local test folder without launching the game:

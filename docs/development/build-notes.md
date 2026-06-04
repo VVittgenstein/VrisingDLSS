@@ -93,6 +93,14 @@ powershell -ExecutionPolicy Bypass -File scripts\package-thunderstore.ps1
 
 The package script also runs `scripts\validate-thunderstore-package.ps1`, which verifies the actual zip layout, Thunderstore metadata, 256x256 PNG icon, BepInEx plugin route, and forbidden third-party/runtime binaries.
 
+To summarize release readiness without launching or modifying the game:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\get-release-readiness-status.ps1
+```
+
+Pass `-GamePath` to include local runtime evidence, and pass `-RequireMvpReady` only when the command should fail if any MVP gate is still missing or blocked.
+
 For metadata-only dry runs before build outputs exist:
 
 ```powershell
@@ -101,7 +109,7 @@ powershell -ExecutionPolicy Bypass -File scripts\package-thunderstore.ps1 -Allow
 
 ## GitHub Actions
 
-The repository workflow uses `windows-2022` with Visual Studio 2022 to avoid runner-image churn while `windows-latest` transitions to newer Visual Studio images. The workflow builds the C# plugin, configures the native bridge with the Visual Studio 17 2022 x64 generator, builds the native DLL, checks release boundaries, packages the Thunderstore artifact, validates the zip, and uploads the zip as an Actions artifact.
+The repository workflow uses `windows-2022` with Visual Studio 2022 to avoid runner-image churn while `windows-latest` transitions to newer Visual Studio images. The workflow builds the C# plugin, configures the native bridge with the Visual Studio 17 2022 x64 generator, builds the native DLL, checks release boundaries, packages the Thunderstore artifact, validates the zip, reports release readiness, and uploads the zip as an Actions artifact.
 
 ## Local Game Preflight
 
