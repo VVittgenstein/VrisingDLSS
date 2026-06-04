@@ -217,7 +217,7 @@ $pluginDll = Join-Path $pluginDir "VrisingDLSS.Plugin.dll"
 $nativeDll = Join-Path $pluginDir "VrisingDLSS.Native.dll"
 $pluginInstalled = (Test-Path -LiteralPath $pluginDll) -and (Test-Path -LiteralPath $nativeDll)
 
-$configPath = Join-Path $inspect.GamePath "BepInEx\config\dev.vrisingdlss.plugin.cfg"
+$configPath = Join-Path $inspect.GamePath "BepInEx\plugins\VrisingDLSS\VrisingDLSS.cfg"
 $configExists = Test-Path -LiteralPath $configPath
 $config = Get-ConfigValueMap -Path $configPath
 $configuredStage = if ($configExists) { Get-ConfiguredStage -Config $config } else { "missing" }

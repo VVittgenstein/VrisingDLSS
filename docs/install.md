@@ -22,17 +22,18 @@ Use this guide once build outputs exist.
 5. Copy these build outputs into that folder:
    - `VrisingDLSS.Plugin.dll`
    - `VrisingDLSS.Native.dll`
-6. Launch the game again.
-7. Confirm the log contains `VrisingDLSS 0.1.0 loaded`.
-8. Keep `Diagnostics.EnableHarmonyCallProbe=false` for the first run.
-9. After the basic hook probe finds candidate methods, enable `Diagnostics.EnableHarmonyCallProbe=true` for one diagnostic run, then disable it again.
-10. After the native bridge smoke test passes, enable `Diagnostics.EnableRenderThreadSmokeTest=true` for one diagnostic run, then disable it again.
-11. After the render-thread smoke test passes, enable `Diagnostics.EnableD3D11TextureProbe=true` for one diagnostic run, then disable it again.
-12. After the D3D11 probe passes, enable `Diagnostics.EnableFrameResourceProbe=true` for one diagnostic run, then disable it again.
-13. After the frame resource probe finds usable D3D11 frame resources, optionally set `DLSS.DlssRuntimePath` to a user-supplied production `nvngx_dlss.dll`, enable `Diagnostics.EnableDlssRuntimeProbe=true` for one diagnostic run, then disable it again.
-14. After the runtime load probe passes, optionally set `DLSS.DlssApplicationId`, enable `Diagnostics.EnableDlssInitQueryProbe=true` for one diagnostic run, then disable it again.
-15. For local SDK-wrapper research builds only, after the init/query probe passes, enable `Diagnostics.EnableDlssFeatureCreateProbe=true` for one diagnostic run, then disable it again.
-16. In a local/private gameplay scene, enable `Diagnostics.EnableDlssEvaluateInputProbe=true` for one diagnostic run to verify color/output/depth/motion native texture inputs before any DLSS evaluate work.
+6. Copy or generate `VrisingDLSS.cfg` in the same folder.
+7. Launch the game again.
+8. Confirm the log contains `VrisingDLSS 0.1.0 loaded`.
+9. Keep `Diagnostics.EnableHarmonyCallProbe=false` for the first run.
+10. After the basic hook probe finds candidate methods, enable `Diagnostics.EnableHarmonyCallProbe=true` for one diagnostic run, then disable it again.
+11. After the native bridge smoke test passes, enable `Diagnostics.EnableRenderThreadSmokeTest=true` for one diagnostic run, then disable it again.
+12. After the render-thread smoke test passes, enable `Diagnostics.EnableD3D11TextureProbe=true` for one diagnostic run, then disable it again.
+13. After the D3D11 probe passes, enable `Diagnostics.EnableFrameResourceProbe=true` for one diagnostic run, then disable it again.
+14. After the frame resource probe finds usable D3D11 frame resources, optionally set `DLSS.DlssRuntimePath` to a user-supplied production `nvngx_dlss.dll`, enable `Diagnostics.EnableDlssRuntimeProbe=true` for one diagnostic run, then disable it again.
+15. After the runtime load probe passes, optionally set `DLSS.DlssApplicationId`, enable `Diagnostics.EnableDlssInitQueryProbe=true` for one diagnostic run, then disable it again.
+16. For local SDK-wrapper research builds only, after the init/query probe passes, enable `Diagnostics.EnableDlssFeatureCreateProbe=true` for one diagnostic run, then disable it again.
+17. In a local/private gameplay scene, enable `Diagnostics.EnableDlssEvaluateInputProbe=true` for one diagnostic run to verify color/output/depth/motion native texture inputs before any DLSS evaluate work.
 
 ## Local Install Helper
 
@@ -43,7 +44,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install-local-package.ps1 -Game
 powershell -ExecutionPolicy Bypass -File scripts\install-local-package.ps1 -GamePath "C:\path\to\VRising"
 ```
 
-The helper only copies this project's own plugin/native DLLs and `README-runtime.txt` into `BepInEx\plugins\VrisingDLSS`. It does not install BepInEx, launch V Rising, modify game files, or copy any NVIDIA/PureDark files.
+The helper only copies this project's own plugin/native DLLs, `VrisingDLSS.cfg`, and `README-runtime.txt` into `BepInEx\plugins\VrisingDLSS`. It does not install BepInEx, launch V Rising, modify game files, or copy any NVIDIA/PureDark files.
 
 ## BepInExPack Helper
 
@@ -58,7 +59,7 @@ The helper copies only the contents of the public `BepInExPack_V_Rising` payload
 
 ## Diagnostic Config Helper
 
-After BepInEx has generated a config folder, you can write a one-stage diagnostic config without launching the game:
+After the mod folder exists, you can write a one-stage diagnostic config without launching the game:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage loader

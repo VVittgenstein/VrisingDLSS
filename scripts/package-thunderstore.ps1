@@ -14,8 +14,9 @@ $iconPath = Join-Path $packageRoot "icon.png"
 $readmePath = Join-Path $packageRoot "README.md"
 $changelogPath = Join-Path $packageRoot "CHANGELOG.md"
 $noticesPath = Join-Path $packageRoot "ThirdPartyNotices.md"
+$configTemplatePath = Join-Path $packageRoot "VrisingDLSS.cfg"
 
-foreach ($requiredPath in @($manifestPath, $iconPath, $readmePath)) {
+foreach ($requiredPath in @($manifestPath, $iconPath, $readmePath, $configTemplatePath)) {
     if (-not (Test-Path $requiredPath)) {
         throw "Missing required Thunderstore package file: $requiredPath"
     }
@@ -63,6 +64,7 @@ if (Test-Path $pluginDll) {
 if (Test-Path $nativeDll) {
     Copy-Item -LiteralPath $nativeDll -Destination (Join-Path $pluginFolder "VrisingDLSS.Native.dll")
 }
+Copy-Item -LiteralPath $configTemplatePath -Destination (Join-Path $pluginFolder "VrisingDLSS.cfg")
 
 Set-Content -LiteralPath (Join-Path $pluginFolder "README-runtime.txt") -Encoding UTF8 -Value @"
 VrisingDLSS runtime folder.

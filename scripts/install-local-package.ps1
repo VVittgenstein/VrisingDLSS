@@ -51,6 +51,10 @@ $nativeDll = Resolve-RequiredPath `
     -Path (Join-Path $resolvedRoot "artifacts\native-build\$Configuration\VrisingDLSS.Native.dll") `
     -Description "native bridge build output"
 
+$configTemplate = Resolve-RequiredPath `
+    -Path (Join-Path $resolvedRoot "package\thunderstore\VrisingDLSS.cfg") `
+    -Description "default plugin config template"
+
 $pluginsPath = Join-Path $resolvedGamePath "BepInEx\plugins"
 $targetPath = Join-Path $pluginsPath "VrisingDLSS"
 
@@ -111,6 +115,11 @@ New-Item -ItemType Directory -Force -Path $targetPath | Out-Null
 
 foreach ($item in $copyPlan) {
     Copy-Item -LiteralPath $item.Source -Destination $item.Destination -Force
+}
+
+$targetConfig = Join-Path $targetPath "VrisingDLSS.cfg"
+if (-not (Test-Path -LiteralPath $targetConfig)) {
+    Copy-Item -LiteralPath $configTemplate -Destination $targetConfig
 }
 
 Set-Content -LiteralPath (Join-Path $targetPath "README-runtime.txt") -Encoding UTF8 -Value $runtimeReadme

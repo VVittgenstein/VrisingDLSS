@@ -21,14 +21,12 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$pluginGuid = "dev.vrisingdlss.plugin"
-
 if ([string]::IsNullOrWhiteSpace($OutputPath)) {
     if ([string]::IsNullOrWhiteSpace($GamePath)) {
         throw "Pass -GamePath or -OutputPath."
     }
 
-    $OutputPath = Join-Path $GamePath "BepInEx\config\$pluginGuid.cfg"
+    $OutputPath = Join-Path $GamePath "BepInEx\plugins\VrisingDLSS\VrisingDLSS.cfg"
 }
 
 function New-ConfigMap {

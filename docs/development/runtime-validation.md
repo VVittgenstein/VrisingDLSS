@@ -10,7 +10,7 @@ Current local preflight:
 - The player assembly list includes HDRP, Core RP, `ProjectM`, `ProjectM.Camera`, and `UnityEngine.NVIDIAModule`.
 - BepInExPack V Rising `1.733.2` has been staged into `C:\Software\VRising`.
 - `VrisingDLSS.Plugin.dll` and `VrisingDLSS.Native.dll` have been copied into `C:\Software\VRising\BepInEx\plugins\VrisingDLSS`.
-- A loader-stage config has been written to `C:\Software\VRising\BepInEx\config\dev.vrisingdlss.plugin.cfg`.
+- A loader-stage config has been written to `C:\Software\VRising\BepInEx\plugins\VrisingDLSS\VrisingDLSS.cfg`.
 - The game has been launched locally with BepInEx; `BepInEx\interop` has been generated.
 - Stage 1, Stage 2, Stage 4, Stage 5A, Stage 5B, Stage 5C, and Stage 5D have direct local log evidence archived under `artifacts/runtime-logs`.
 - Use only authorized/offline test installs. Do not use third-party package markers, cracked Steam files, or online-service bypasses as part of validation.
@@ -45,7 +45,7 @@ powershell -ExecutionPolicy Bypass -File scripts\analyze-bepinex-log.ps1 -GamePa
 powershell -ExecutionPolicy Bypass -File scripts\get-runtime-validation-status.ps1 -GamePath "C:\path\to\VRising"
 ```
 
-The config helper writes `BepInEx\config\dev.vrisingdlss.plugin.cfg` for a single diagnostic stage. The analyzer reads `BepInEx\LogOutput.log` and reports pass/fail/partial/missing evidence for stages 1-8A. The status helper combines preflight, config, log evidence, and the next recommended command.
+The config helper writes `BepInEx\plugins\VrisingDLSS\VrisingDLSS.cfg` for a single diagnostic stage. The analyzer reads `BepInEx\LogOutput.log` and reports pass/fail/partial/missing evidence for stages 1-8A. The status helper combines preflight, config, log evidence, and the next recommended command.
 
 ## Stage 2: Hook Probe
 

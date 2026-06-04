@@ -34,7 +34,7 @@ Result:
 
 - `VrisingDLSS.Plugin.dll` copied to `C:\Software\VRising\BepInEx\plugins\VrisingDLSS`.
 - `VrisingDLSS.Native.dll` copied to `C:\Software\VRising\BepInEx\plugins\VrisingDLSS`.
-- Loader-stage config written to `C:\Software\VRising\BepInEx\config\dev.vrisingdlss.plugin.cfg`.
+- Loader-stage config written to `C:\Software\VRising\BepInEx\plugins\VrisingDLSS\VrisingDLSS.cfg`.
 - `BepInExInstalled=True`.
 - `PluginInstalled=True`.
 - `ConfiguredStage=loader`.

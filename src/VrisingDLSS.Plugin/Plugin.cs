@@ -1,4 +1,5 @@
 using BepInEx;
+using BepInEx.Configuration;
 using BepInEx.Logging;
 using BepInEx.Unity.IL2CPP;
 using System;
@@ -10,6 +11,7 @@ namespace VrisingDLSS.Plugin;
 [BepInPlugin(PluginInfo.Guid, PluginInfo.Name, PluginInfo.Version)]
 public sealed class Plugin : BasePlugin
 {
+    private const string ModConfigFileName = "VrisingDLSS.cfg";
     private ManualLogSource? _log;
     private ModConfig? _config;
     private NativeBridge? _nativeBridge;
@@ -17,7 +19,7 @@ public sealed class Plugin : BasePlugin
     public override void Load()
     {
         _log = Log;
-        _config = new ModConfig(Config);
+        _config = new ModConfig(CreateModConfigFile());
 
         _log.LogInfo($"{PluginInfo.Name} {PluginInfo.Version} loaded.");
         _log.LogInfo("This is a clean-room scaffold. DLSS evaluation is not implemented yet.");
@@ -153,6 +155,13 @@ public sealed class Plugin : BasePlugin
         }
 
         FrameResourceProbe.Install(_log, bridge, _config?.EnableDlssEvaluateInputProbe.Value ?? false);
+    }
+
+    private ConfigFile CreateModConfigFile()
+    {
+        var configPath = Path.Combine(ResolvePluginDirectory(), ModConfigFileName);
+        _log?.LogInfo($"Using mod config: {configPath}");
+        return new ConfigFile(configPath, true);
     }
 
     private void RunDlssRuntimeProbe()
