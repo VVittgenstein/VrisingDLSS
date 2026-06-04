@@ -81,7 +81,7 @@ powershell -ExecutionPolicy Bypass -File scripts\check-release-boundary.ps1
 
 Current packages are diagnostic artifacts, not the MVP playable DLSS release.
 
-The GitHub Actions workflow builds the plugin/native bridge, checks the release boundary, packages the Thunderstore zip, and uploads it as a workflow artifact. It does not create a public GitHub Release automatically.
+The GitHub Actions workflow builds the plugin/native bridge on `windows-2022`, checks the release boundary, packages the Thunderstore zip, validates the zip layout, and uploads it as a workflow artifact. It does not create a public GitHub Release automatically.
 
 For local packaging:
 

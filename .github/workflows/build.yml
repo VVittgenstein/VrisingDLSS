@@ -1,0 +1,56 @@
+name: build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-package:
+    name: Build and package
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 6.0.x
+
+      - name: Build plugin
+        shell: pwsh
+        run: dotnet build src\VrisingDLSS.Plugin\VrisingDLSS.Plugin.csproj -c Release
+
+      - name: Configure native bridge
+        shell: pwsh
+        run: >
+          cmake -S src\VrisingDLSS.Native
+          -B artifacts\native-build
+          -G "Visual Studio 17 2022"
+          -A x64
+          -DVRISINGDLSS_ENABLE_NGX_SDK_WRAPPER=OFF
+
+      - name: Build native bridge
+        shell: pwsh
+        run: cmake --build artifacts\native-build --config Release
+
+      - name: Check release boundary
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check-release-boundary.ps1
+
+      - name: Package Thunderstore artifact
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\package-thunderstore.ps1
+
+      - name: Upload Thunderstore package
+        uses: actions/upload-artifact@v4
+        with:
+          name: VrisingDLSS-thunderstore
+          path: dist/*-thunderstore.zip
+          if-no-files-found: error
