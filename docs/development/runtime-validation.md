@@ -302,7 +302,7 @@ Evidence:
 Current Stage 8A status:
 
 - Implemented and build-validated.
-- Runtime evidence is still missing. The previous all-low main-menu Stage 5C run found `_CameraDepthTexture`, but `_CameraMotionVectorsTexture` was `null`.
+- Main-menu runtime evidence is `Blocked`: `CustomVignette.Render` was patched but not observed as called; `HDRenderPipeline.UpdateShaderVariablesGlobalCB` was called but only exposed HDCamera/CommandBuffer, not source/output RTHandles. `_CameraDepthTexture` appeared as a D3D11 texture, while `_CameraMotionVectorsTexture` remained `null`.
 - The next runtime test should use a local/private gameplay scene before deciding whether a different HDRP hook point is required.
 
 ## Stage 8: First DLSS Evaluate

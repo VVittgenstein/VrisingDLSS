@@ -75,12 +75,12 @@ Already aligned:
 - Local diagnostics prove plugin load, HDRP hook discovery, render-thread callback, D3D11 native texture/device access, and production DLSS runtime load/release.
 - Stage 6 now reports the SDK-wrapper gate honestly instead of treating the production runtime's missing helper exports as an ordinary runtime failure.
 - A local SDK-wrapper research build has passed Stage 6 DLSS capability query and Stage 7 DLSS feature create/release.
-- Stage 8A DLSS evaluate-input probing is implemented to validate real color/output/depth/motion D3D11 resources before calling evaluate.
+- Stage 8A DLSS evaluate-input probing is implemented to validate real color/output/depth/motion D3D11 resources before calling evaluate. A main-menu run starts the probe but blocks because source/output RTHandles are not exposed there and `_CameraMotionVectorsTexture` remains `null`.
 
 Still missing for MVP:
 
 - Real DLSS evaluate path with game frame resources.
-- Runtime Stage 8A evidence from an actual local/private gameplay scene. `_CameraMotionVectorsTexture` was `null` in the all-low main-menu test.
+- Runtime Stage 8A evidence from an actual local/private gameplay scene. `_CameraMotionVectorsTexture` was `null` in the all-low main-menu test, and the observed main-menu callback did not expose source/output RTHandles.
 - Persistent DLSS feature lifecycle around actual color/depth/motion-vector resources.
 - Render-scale control, mip-map bias handling, camera reset, resize handling, quality modes, overlay, and safe fallback.
 - A normal-user install path and config location under `BepInEx/plugins/VrisingDLSS/VrisingDLSS.cfg`.
