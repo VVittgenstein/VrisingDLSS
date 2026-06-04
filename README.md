@@ -90,7 +90,10 @@ dotnet build src\VrisingDLSS.Plugin\VrisingDLSS.Plugin.csproj -c Release
 cmake -S src\VrisingDLSS.Native -B artifacts\native-build -A x64
 cmake --build artifacts\native-build --config Release
 powershell -ExecutionPolicy Bypass -File scripts\package-thunderstore.ps1
+powershell -ExecutionPolicy Bypass -File scripts\validate-thunderstore-package.ps1
 ```
+
+The packaging script runs the Thunderstore package validator automatically. The standalone validator is useful when checking an existing zip.
 
 To write a one-stage diagnostic config and analyze a BepInEx log:
 

@@ -85,4 +85,5 @@ if (Test-Path $zipPath) {
 }
 
 Compress-Archive -Path (Join-Path $stagingRoot "*") -DestinationPath $zipPath -Force
+& (Join-Path $Root "scripts\validate-thunderstore-package.ps1") -Root $Root -PackagePath $zipPath
 Write-Host "Created package: $zipPath"
