@@ -75,6 +75,7 @@ internal static class FrameResourceProbe
         HarmonyType = harmonyType;
 
         var patched = 0;
+        var patchedMethodKeys = new HashSet<string>(StringComparer.Ordinal);
         foreach (var target in Targets)
         {
             var targetType = HookTargetCatalog.FindType(assemblies, target.TypeName);
@@ -86,27 +87,40 @@ internal static class FrameResourceProbe
 
             foreach (var method in HookTargetCatalog.FindMethods(targetType, target.MemberName))
             {
-                if (!CanPatch(method))
+                if (TryPatchFrameResourceMethod(
+                    log,
+                    method,
+                    harmonyMethodConstructor,
+                    patchMethod,
+                    prefix,
+                    patchedMethodKeys,
+                    "Frame resource probe"))
                 {
-                    log.LogWarning($"Frame resource probe skipped unsupported method: {HookTargetCatalog.FormatMethod(method)}");
-                    continue;
-                }
-
-                try
-                {
-                    var prefixPatch = harmonyMethodConstructor.Invoke(new object[] { prefix });
-                    var arguments = new object?[patchMethod.GetParameters().Length];
-                    arguments[0] = method;
-                    arguments[1] = prefixPatch;
-                    patchMethod.Invoke(HarmonyInstance, arguments);
                     patched++;
-                    log.LogInfo($"Frame resource probe patched: {HookTargetCatalog.FormatMethod(method)}");
-                }
-                catch (Exception ex)
-                {
-                    log.LogWarning($"Frame resource probe failed to patch {HookTargetCatalog.FormatMethod(method)}: {GetExceptionMessage(ex)}");
                 }
             }
+        }
+
+        if (DlssEvaluateInputProbeEnabled)
+        {
+            var extendedPatched = 0;
+            foreach (var method in DiscoverExtendedFrameResourceMethods(assemblies))
+            {
+                if (TryPatchFrameResourceMethod(
+                    log,
+                    method,
+                    harmonyMethodConstructor,
+                    patchMethod,
+                    prefix,
+                    patchedMethodKeys,
+                    "Frame resource extended candidate"))
+                {
+                    patched++;
+                    extendedPatched++;
+                }
+            }
+
+            log.LogInfo($"Frame resource extended candidate probe patched {extendedPatched} method(s).");
         }
 
         Installed = patched > 0;
@@ -163,6 +177,98 @@ internal static class FrameResourceProbe
                 CallCounts.Clear();
             }
         }
+    }
+
+    private static bool TryPatchFrameResourceMethod(
+        ManualLogSource log,
+        MethodInfo method,
+        ConstructorInfo harmonyMethodConstructor,
+        MethodInfo patchMethod,
+        MethodInfo prefix,
+        ISet<string> patchedMethodKeys,
+        string logPrefix)
+    {
+        if (!CanPatch(method))
+        {
+            log.LogWarning($"{logPrefix} skipped unsupported method: {HookTargetCatalog.FormatMethod(method)}");
+            return false;
+        }
+
+        if (!patchedMethodKeys.Add(GetMethodKey(method)))
+        {
+            return false;
+        }
+
+        try
+        {
+            var prefixPatch = harmonyMethodConstructor.Invoke(new object[] { prefix });
+            var arguments = new object?[patchMethod.GetParameters().Length];
+            arguments[0] = method;
+            arguments[1] = prefixPatch;
+            patchMethod.Invoke(HarmonyInstance, arguments);
+            log.LogInfo($"{logPrefix} patched: {HookTargetCatalog.FormatMethod(method)}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            log.LogWarning($"{logPrefix} failed to patch {HookTargetCatalog.FormatMethod(method)}: {GetExceptionMessage(ex)}");
+            return false;
+        }
+    }
+
+    private static IEnumerable<MethodInfo> DiscoverExtendedFrameResourceMethods(IEnumerable<Assembly> assemblies)
+    {
+        foreach (var assembly in assemblies)
+        {
+            if (!IsExtendedProbeAssembly(assembly))
+            {
+                continue;
+            }
+
+            foreach (var type in SafeGetTypes(assembly))
+            {
+                foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly))
+                {
+                    if (IsExtendedFrameResourceMethod(method))
+                    {
+                        yield return method;
+                    }
+                }
+            }
+        }
+    }
+
+    private static bool IsExtendedProbeAssembly(Assembly assembly)
+    {
+        var name = assembly.GetName().Name ?? string.Empty;
+        return name.Equals("Unity.RenderPipelines.HighDefinition.Runtime", StringComparison.Ordinal)
+            || name.Equals("ProjectM", StringComparison.Ordinal)
+            || name.Equals("ProjectM.Camera", StringComparison.Ordinal)
+            || name.Equals("ProjectM.Presentation.Systems", StringComparison.Ordinal);
+    }
+
+    private static bool IsExtendedFrameResourceMethod(MethodInfo method)
+    {
+        if (!string.Equals(method.Name, "Render", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var parameters = method.GetParameters();
+        return parameters.Any(parameter => TypeNameContains(parameter.ParameterType, "CommandBuffer"))
+            && parameters.Any(parameter => TypeNameContains(parameter.ParameterType, "HDCamera"))
+            && parameters.Count(parameter => TypeNameContains(parameter.ParameterType, "RTHandle")) >= 2;
+    }
+
+    private static string GetMethodKey(MethodInfo method)
+    {
+        return $"{method.Module.ModuleVersionId:N}:{method.MetadataToken}";
+    }
+
+    private static bool TypeNameContains(Type type, string value)
+    {
+        var name = type.FullName ?? type.Name;
+        return name.IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     private static void ProbePrefix(MethodBase __originalMethod, object? __instance, object?[]? __args)
@@ -560,6 +666,22 @@ internal static class FrameResourceProbe
         }
 
         return null;
+    }
+
+    private static IEnumerable<Type> SafeGetTypes(Assembly assembly)
+    {
+        try
+        {
+            return assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException ex)
+        {
+            return ex.Types.Where(type => type is not null).Cast<Type>();
+        }
+        catch
+        {
+            return Array.Empty<Type>();
+        }
     }
 
     private static MethodInfo? FindPatchMethod(Type harmonyType)

@@ -279,6 +279,7 @@ Implemented as an optional real-frame diagnostic:
 - Config key: `Diagnostics.EnableDlssEvaluateInputProbe=false` by default.
 - Reuses the Stage 5C frame-resource Harmony patch.
 - Collects the first two texture-like native pointers from the frame hook as color/output candidates.
+- When Stage 8A is enabled, also discovers and patches loaded non-abstract `Render(CommandBuffer, HDCamera, RTHandle, RTHandle)` methods in HDRP and ProjectM assemblies.
 - Reads global `_CameraDepthTexture` and `_CameraMotionVectorsTexture` as depth/motion candidates.
 - Passes color/output/depth/motion native pointers to `VrisingDlss_ProbeDlssEvaluateInputs`.
 - Native code validates D3D11 Texture2D resources, non-zero dimensions, same D3D11 device, and frame-aligned color/depth/motion dimensions.
@@ -302,7 +303,7 @@ Evidence:
 Current Stage 8A status:
 
 - Implemented and build-validated.
-- Main-menu runtime evidence is `Blocked`: `CustomVignette.Render` was patched but not observed as called; `HDRenderPipeline.UpdateShaderVariablesGlobalCB` was called but only exposed HDCamera/CommandBuffer, not source/output RTHandles. `_CameraDepthTexture` appeared as a D3D11 texture, while `_CameraMotionVectorsTexture` remained `null`.
+- Main-menu runtime evidence is `Blocked`: `CustomVignette.Render` plus nine extended `Render(CommandBuffer, HDCamera, RTHandle, RTHandle)` candidates were patched but not observed as called; `HDRenderPipeline.UpdateShaderVariablesGlobalCB` was called but only exposed HDCamera/CommandBuffer, not source/output RTHandles. `_CameraDepthTexture` appeared as a D3D11 texture, while `_CameraMotionVectorsTexture` remained `null`.
 - The next runtime test should use a local/private gameplay scene before deciding whether a different HDRP hook point is required.
 
 ## Stage 8: First DLSS Evaluate

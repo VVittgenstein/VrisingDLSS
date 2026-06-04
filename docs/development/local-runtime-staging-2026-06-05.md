@@ -62,6 +62,7 @@ Current validated evidence:
   - Local MSVC SDK-wrapper research build created and released a DLSS SuperSampling feature without evaluating a frame. Evidence: `render=1280x720`, `target=1920x1080`, `perfQuality=2`, `flags=0x00000040`, `create=0x00000001`, `feature=yes`, `release=0x00000001`, `destroy=0x00000001`, `shutdown=0x00000001`.
 - Stage 8A DLSS evaluate inputs:
   - Main-menu runtime test started and was correctly classified as `Blocked`. The frame-resource hook patched `CustomVignette.Render` and `HDRenderPipeline.UpdateShaderVariablesGlobalCB`, but only `UpdateShaderVariablesGlobalCB(HDCamera, CommandBuffer)` was called in the observed main-menu run. That callback exposed an HDCamera exposure texture and a CommandBuffer, not two source/output render targets. `_CameraDepthTexture` appeared as a 720x720 D3D11 texture after the first callback; `_CameraMotionVectorsTexture` remained `null`.
+  - The extended Stage 8A hook scanner found and patched nine additional `Render(CommandBuffer, HDCamera, RTHandle, RTHandle)` candidates in the main-menu run: `VisualLineOfSightDebug`, `LineOfSightVision`, `BatFormFog`, `DarkForeground`, `LineOfSight`, `ProjectM.ContestAreaEffect`, HDRP `CustomPostProcessVolumeComponent`, `Compositor.AlphaInjection`, and `Compositor.ChromaKeying`. None of those candidates were observed as called before the main-menu run was stopped.
 - Local GPU/driver for Stage 6/7 pass: NVIDIA GeForce RTX 5060, driver `610.47`.
 
 Archived logs:
@@ -77,11 +78,12 @@ Archived logs:
 - `artifacts/runtime-logs/LogOutput-stage6-sdk-wrapper-projectid-2026-06-05.log`
 - `artifacts/runtime-logs/LogOutput-stage7-dlss-feature-create-2026-06-05.log`
 - `artifacts/runtime-logs/LogOutput-stage8a-dlss-evaluate-inputs-main-menu-2026-06-05.log`
+- `artifacts/runtime-logs/LogOutput-stage8a-extended-frame-resource-main-menu-2026-06-05.log`
 
 No PureDark files were copied into the game plugin folder. The NVIDIA runtime was copied only into `ref/` for local research and was not added to the release package.
 
 Next implementation gate:
 
-- Run `dlss-evaluate-inputs` in a local/private gameplay scene and capture whether `CustomVignette.Render` is called with source/output RTHandles.
-- If `CustomVignette.Render` still does not run or `_CameraMotionVectorsTexture` remains `null`, patch another HDRP hook point or inspect HDCamera motion-vector/frame-history fields before attempting evaluate.
+- Run `dlss-evaluate-inputs` in a local/private gameplay scene and capture whether any extended `Render(CommandBuffer, HDCamera, RTHandle, RTHandle)` candidate is called with source/output RTHandles.
+- If the extended candidates still do not run or `_CameraMotionVectorsTexture` remains `null`, patch another HDRP/RenderGraph hook point or inspect HDCamera motion-vector/frame-history fields before attempting evaluate.
 - Implement the smallest SDK-wrapper-backed DLSS evaluate probe only after Stage 8A proves frame resources are aligned.
