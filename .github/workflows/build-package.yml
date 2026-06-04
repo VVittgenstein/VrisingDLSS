@@ -7,9 +7,12 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build-package:
-    runs-on: windows-latest
+    runs-on: windows-2022
 
     steps:
       - name: Checkout
@@ -27,7 +30,13 @@ jobs:
         run: dotnet build src\VrisingDLSS.Plugin\VrisingDLSS.Plugin.csproj -c Release --no-restore
 
       - name: Configure native bridge
-        run: cmake -S src\VrisingDLSS.Native -B artifacts\native-build -A x64
+        shell: pwsh
+        run: >
+          cmake -S src\VrisingDLSS.Native
+          -B artifacts\native-build
+          -G "Visual Studio 17 2022"
+          -A x64
+          -DVRISINGDLSS_ENABLE_NGX_SDK_WRAPPER=OFF
 
       - name: Build native bridge
         run: cmake --build artifacts\native-build --config Release
@@ -39,6 +48,10 @@ jobs:
       - name: Package Thunderstore zip
         shell: pwsh
         run: .\scripts\package-thunderstore.ps1
+
+      - name: Validate Thunderstore zip
+        shell: pwsh
+        run: .\scripts\validate-thunderstore-package.ps1
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4

@@ -92,7 +92,7 @@ Already aligned:
 - The package script now stages plugin files under `BepInEx/plugins/VrisingDLSS/` in the zip, matching Thunderstore's BepInEx package routing guidance.
 - The mod-folder config file target `BepInEx/plugins/VrisingDLSS/VrisingDLSS.cfg` is now implemented in the plugin, local install helper, diagnostic config helper, status helper, and Thunderstore package.
 - `scripts/validate-thunderstore-package.ps1` verifies the actual zip layout and release-safe contents before a package is treated as upload-shaped.
-- `.github/workflows/build.yml` now builds the plugin/native bridge, runs release-boundary and package validation, and uploads the Thunderstore zip as an artifact.
+- `.github/workflows/build-package.yml` now builds the plugin/native bridge, runs release-boundary and package validation, and uploads the Thunderstore zip as an artifact.
 - Local diagnostics prove plugin load, HDRP hook discovery, render-thread callback, D3D11 native texture/device access, and production DLSS runtime load/release.
 - Stage 6 now reports the SDK-wrapper gate honestly instead of treating the production runtime's missing helper exports as an ordinary runtime failure.
 - A local SDK-wrapper research build has passed Stage 6 DLSS capability query and Stage 7 DLSS feature create/release.
