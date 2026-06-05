@@ -7,6 +7,8 @@ param(
     [int]$MinimumHeight = 720,
     [double]$MaxNearBlackRatio = 0.95,
     [double]$MaxNearWhiteRatio = 0.95,
+    [ValidateSet("Any", "dlss-visible-writeback", "dlss-user-rendering")]
+    [string]$RequiredCandidateStage = "Any",
     [switch]$Json,
     [switch]$RequirePass
 )
@@ -136,6 +138,55 @@ function Get-DeltaPercent {
     return [Math]::Round((([double]$Candidate - [double]$Baseline) / [double]$Baseline * 100.0), 3)
 }
 
+function Get-VisualComparisonPattern {
+    param(
+        [string]$Label,
+        [string]$Stage
+    )
+
+    $stageSuffix = switch ($Stage) {
+        "dlss-visible-writeback" { "stage10a" }
+        "dlss-user-rendering" { "user-rendering" }
+        default { "*" }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Label)) {
+        return "*baseline-vs-$stageSuffix.txt"
+    }
+
+    $labelPrefix = $Label -replace "[^A-Za-z0-9_.-]", "-"
+    return "$labelPrefix-baseline-vs-$stageSuffix.txt"
+}
+
+function Get-VisualNextRecommendation {
+    param(
+        [string]$Stage,
+        [string]$ReviewPath
+    )
+
+    if ($Stage -eq "dlss-user-rendering") {
+        if ([string]::IsNullOrWhiteSpace($ReviewPath)) {
+            return "Run scripts\run-vrising-visual-comparison.ps1 -CandidateStage dlss-user-rendering -FsrMode Performance in a stable gameplay scene, capture performance, then add a matching human review file."
+        }
+
+        return "Run scripts\run-vrising-visual-comparison.ps1 -CandidateStage dlss-user-rendering -FsrMode Performance in a stable gameplay scene, capture performance, then create $ReviewPath after human review with matching image SHA256 values."
+    }
+
+    if ($Stage -eq "dlss-visible-writeback") {
+        if ([string]::IsNullOrWhiteSpace($ReviewPath)) {
+            return "Run scripts\run-vrising-visual-comparison.ps1 -CandidateStage dlss-visible-writeback in a stable gameplay scene, capture performance, then add a matching human review file."
+        }
+
+        return "Run scripts\run-vrising-visual-comparison.ps1 -CandidateStage dlss-visible-writeback in a stable gameplay scene, capture performance, then create $ReviewPath after human review with matching image SHA256 values."
+    }
+
+    if ([string]::IsNullOrWhiteSpace($ReviewPath)) {
+        return "Run scripts\run-vrising-visual-comparison.ps1 in Paired mode for a stable gameplay scene, capture performance, then add a matching human review file."
+    }
+
+    return "Run a paired gameplay visual comparison at gameplay resolution, capture baseline and candidate performance, then create $ReviewPath after human review with matching image SHA256 values."
+}
+
 function New-Status {
     param(
         [string]$Status,
@@ -156,6 +207,7 @@ function New-Status {
         CandidatePath = $(if ($Details.ContainsKey("CandidatePath")) { $Details.CandidatePath } else { "" })
         BaselineSha256 = $(if ($Details.ContainsKey("BaselineSha256")) { $Details.BaselineSha256 } else { "" })
         CandidateSha256 = $(if ($Details.ContainsKey("CandidateSha256")) { $Details.CandidateSha256 } else { "" })
+        RequiredCandidateStage = $(if ($Details.ContainsKey("RequiredCandidateStage")) { $Details.RequiredCandidateStage } else { $RequiredCandidateStage })
         Width = $(if ($Details.ContainsKey("Width")) { $Details.Width } else { 0 })
         Height = $(if ($Details.ContainsKey("Height")) { $Details.Height } else { 0 })
         MeanAbsRgbDelta = $(if ($Details.ContainsKey("MeanAbsRgbDelta")) { $Details.MeanAbsRgbDelta } else { $null })
@@ -207,17 +259,13 @@ if ([string]::IsNullOrWhiteSpace($comparisonResolved)) {
         $result = New-Status `
             -Status "Missing" `
             -Evidence "No visual-validation artifact directory exists: $visualRoot" `
-            -NextRecommendation "Run scripts\run-vrising-visual-comparison.ps1 in a stable gameplay scene, then visually review the candidate output."
+            -NextRecommendation (Get-VisualNextRecommendation -Stage $RequiredCandidateStage -ReviewPath "")
         if ($Json) { $result | ConvertTo-Json -Depth 5 } else { $result }
         if ($RequirePass) { exit 1 }
         return
     }
 
-    $pattern = if ([string]::IsNullOrWhiteSpace($ArtifactLabel)) {
-        "*baseline-vs-*.txt"
-    } else {
-        "$($ArtifactLabel -replace '[^A-Za-z0-9_.-]', '-')-baseline-vs-*.txt"
-    }
+    $pattern = Get-VisualComparisonPattern -Label $ArtifactLabel -Stage $RequiredCandidateStage
 
     $latest = Get-ChildItem -LiteralPath $visualRoot -Filter $pattern -File -ErrorAction SilentlyContinue |
         Sort-Object LastWriteTime -Descending |
@@ -227,7 +275,7 @@ if ([string]::IsNullOrWhiteSpace($comparisonResolved)) {
         $result = New-Status `
             -Status "Missing" `
             -Evidence "No baseline-vs comparison artifact matched '$pattern' in $visualRoot" `
-            -NextRecommendation "Run scripts\run-vrising-visual-comparison.ps1 in Paired mode for a stable gameplay scene."
+            -NextRecommendation (Get-VisualNextRecommendation -Stage $RequiredCandidateStage -ReviewPath "")
         if ($Json) { $result | ConvertTo-Json -Depth 5 } else { $result }
         if ($RequirePass) { exit 1 }
         return
@@ -240,7 +288,7 @@ if (-not (Test-Path -LiteralPath $comparisonResolved)) {
     $result = New-Status `
         -Status "Missing" `
         -Evidence "Comparison artifact does not exist: $comparisonResolved" `
-        -NextRecommendation "Run scripts\run-vrising-visual-comparison.ps1 in Paired mode for a stable gameplay scene."
+        -NextRecommendation (Get-VisualNextRecommendation -Stage $RequiredCandidateStage -ReviewPath "")
     if ($Json) { $result | ConvertTo-Json -Depth 5 } else { $result }
     if ($RequirePass) { exit 1 }
     return
@@ -286,6 +334,7 @@ $details = @{
     CandidatePath = $candidatePath
     BaselineSha256 = $baselineSha
     CandidateSha256 = $candidateSha
+    RequiredCandidateStage = $RequiredCandidateStage
     Width = Get-MapInt -Map $comparison -Key "ComparedWidth"
     Height = Get-MapInt -Map $comparison -Key "ComparedHeight"
     MeanAbsRgbDelta = Get-MapDouble -Map $comparison -Key "MeanAbsRgbDelta"
@@ -299,8 +348,8 @@ $details = @{
     UserRenderingProved = $false
     BaselinePerformanceSummaryPath = $baselinePerformanceSummaryPath
     CandidatePerformanceSummaryPath = $candidatePerformanceSummaryPath
-    BaselinePerformanceSummaryPresent = $false
-    CandidatePerformanceSummaryPresent = $false
+    BaselinePerformanceSummaryPresent = -not [string]::IsNullOrWhiteSpace($baselinePerformanceSummaryPath) -and (Test-Path -LiteralPath $baselinePerformanceSummaryPath)
+    CandidatePerformanceSummaryPresent = -not [string]::IsNullOrWhiteSpace($candidatePerformanceSummaryPath) -and (Test-Path -LiteralPath $candidatePerformanceSummaryPath)
     BaselineAverageFps = $baselineAverageFps
     CandidateAverageFps = $candidateAverageFps
     AverageFpsDelta = Get-Delta -Baseline $baselineAverageFps -Candidate $candidateAverageFps
@@ -312,6 +361,19 @@ $details = @{
     CandidateP95FrameMs = $candidateP95FrameMs
     P95FrameMsDelta = Get-Delta -Baseline $baselineP95FrameMs -Candidate $candidateP95FrameMs
     HumanReviewStatus = ""
+}
+
+if ($RequiredCandidateStage -ne "Any" -and $candidateStage -ne $RequiredCandidateStage) {
+    $issue = "Comparison candidate stage is $candidateStage, required $RequiredCandidateStage."
+    $result = New-Status `
+        -Status "Blocked" `
+        -Evidence "Comparison artifact candidate stage does not satisfy the requested visual gate: $comparisonResolved" `
+        -NextRecommendation (Get-VisualNextRecommendation -Stage $RequiredCandidateStage -ReviewPath "") `
+        -Issues @($issue) `
+        -Details $details
+    if ($Json) { $result | ConvertTo-Json -Depth 5 } else { $result }
+    if ($RequirePass) { exit 1 }
+    return
 }
 
 $issues = New-Object System.Collections.Generic.List[string]
@@ -423,7 +485,7 @@ if (-not (Test-Path -LiteralPath $reviewResolved)) {
     }
 }
 
-$nextRecommendation = "Run a paired gameplay visual comparison at gameplay resolution, capture baseline and candidate performance, then create $reviewResolved after human review with matching image SHA256 values."
+$nextRecommendation = Get-VisualNextRecommendation -Stage $RequiredCandidateStage -ReviewPath $reviewResolved
 if (Test-Path -LiteralPath $reviewResolved) {
     if ($details.HumanReviewStatus -eq "Pending") {
         $nextRecommendation = "Complete human visual review for $reviewResolved, then mark it Pass only if the candidate image is correct enough for MVP evidence."

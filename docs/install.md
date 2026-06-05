@@ -143,6 +143,12 @@ Performance capture is optional and uses a local PresentMon console executable, 
 
 Use `-DryRun` first to inspect artifact paths and timing without launching the game.
 
+Check the normal-user MVP visual gate explicitly after a paired run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\get-visual-validation-status.ps1 -RequiredCandidateStage dlss-user-rendering
+```
+
 ## Log Analyzer
 
 After a diagnostic run, summarize the BepInEx log:
@@ -152,7 +158,7 @@ powershell -ExecutionPolicy Bypass -File scripts\analyze-bepinex-log.ps1 -GamePa
 powershell -ExecutionPolicy Bypass -File scripts\get-runtime-validation-status.ps1 -GamePath "C:\path\to\VRising"
 ```
 
-By default, the analyzer and status script read `BepInEx\LogOutput.log`. Pass `-LogPath "path\to\archived.log"` to analyze an archived diagnostic log after restoring the game folder to the safe loader config. `get-runtime-validation-status.ps1` also supports `-IncludeArchivedLogs`, which merges the current game log with `artifacts\runtime-logs\Analysis-*.txt` so readiness does not lose earlier Stage 8/9/10 proof when a later loader or negative-control run overwrites `BepInEx\LogOutput.log`. `get-release-readiness-status.ps1 -GamePath ...` uses that archived-evidence mode. The status scripts combine install preflight, current diagnostic config, log analysis, and next recommended commands. They do not launch or modify the game.
+By default, the analyzer and status script read `BepInEx\LogOutput.log`. Pass `-LogPath "path\to\archived.log"` to analyze an archived diagnostic log after restoring the game folder to the safe loader config. `get-runtime-validation-status.ps1` also supports `-IncludeArchivedLogs`, which merges the current game log with `artifacts\runtime-logs\Analysis-*.txt` so readiness does not lose earlier Stage 8/9/10 proof when a later loader or negative-control run overwrites `BepInEx\LogOutput.log`. `get-release-readiness-status.ps1 -GamePath ...` uses that archived-evidence mode and requires a `dlss-user-rendering` visual/performance comparison for the MVP visual gate. The status scripts combine install preflight, current diagnostic config, log analysis, and next recommended commands. They do not launch or modify the game.
 
 ## DLSS Runtime
 

@@ -29,7 +29,7 @@ Useful implications for this project:
 
 ## Evidence Gates
 
-The MVP visual/performance gate is intentionally stricter than the existing diagnostic package gate.
+The MVP visual/performance gate is intentionally stricter than the existing diagnostic package gate. Release readiness requires the normal-user `dlss-user-rendering` route; Stage 10A visual comparisons remain diagnostic evidence and cannot satisfy the MVP visual gate by themselves.
 
 Required evidence:
 
@@ -65,7 +65,11 @@ Review file shape:
 }
 ```
 
-Use `scripts/get-visual-validation-status.ps1` to inspect the latest paired visual comparison. It returns `Pass` only when the comparison artifact, candidate evidence log, baseline/candidate performance summaries, gameplay-resolution captures, and matching human review are all present. The script recognizes both Stage 10A `baseline-vs-stage10a` artifacts and normal-user `baseline-vs-user-rendering` artifacts.
+Use `scripts/get-visual-validation-status.ps1` to inspect paired visual comparisons. It returns `Pass` only when the comparison artifact, candidate evidence log, baseline/candidate performance summaries, gameplay-resolution captures, and matching human review are all present. The script recognizes both Stage 10A `baseline-vs-stage10a` artifacts and normal-user `baseline-vs-user-rendering` artifacts; pass `-RequiredCandidateStage dlss-user-rendering` for the MVP release gate.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\get-visual-validation-status.ps1 -RequiredCandidateStage dlss-user-rendering
+```
 
 The same status output reports baseline/candidate `AverageFps`, `OnePercentLowFps`, `P95FrameMs`, and simple deltas when both performance summaries exist. These values are evidence, not an automatic pass threshold; a surprising or negative delta should be repeated and inspected before deciding whether the DLSS route is useful.
 

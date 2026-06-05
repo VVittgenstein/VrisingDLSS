@@ -361,7 +361,7 @@ $items.Add((New-ReadinessItem `
     -Status $(if ($releaseConfigSurfaceReady) { "Pass" } else { "Blocked" }) `
     -Evidence $(if ($releaseConfigSurfaceReady) { $configTemplatePath } else { "Release DLSS defaults are documented in docs/mvp.md but the package config does not expose every key yet." })))
 
-$visualStatus = & (Join-Path $resolvedRoot "scripts\get-visual-validation-status.ps1") -Root $resolvedRoot
+$visualStatus = & (Join-Path $resolvedRoot "scripts\get-visual-validation-status.ps1") -Root $resolvedRoot -RequiredCandidateStage dlss-user-rendering
 $visualNextRecommendation = $visualStatus.NextRecommendation
 $visualEvidence = "$($visualStatus.Evidence)"
 if (@($visualStatus.Issues).Count -gt 0) {
@@ -369,7 +369,7 @@ if (@($visualStatus.Issues).Count -gt 0) {
 }
 $items.Add((New-ReadinessItem `
     -Area "MVP" `
-    -Requirement "Gameplay visual comparison proves the selected DLSS candidate is image-correct enough for normal-user DLSS integration." `
+    -Requirement "Normal-user dlss-user-rendering gameplay visual/performance comparison proves the DLSS candidate is image-correct enough for MVP integration." `
     -Status $visualStatus.Status `
     -Evidence $visualEvidence))
 
@@ -405,7 +405,7 @@ $summary = [pscustomobject]@{
     NextRecommendation = if ($mvpReady) {
         "MVP evidence is complete. Prepare a final release review."
     } elseif ([string]::IsNullOrWhiteSpace($GamePath)) {
-        "Pass -GamePath to include local runtime evidence. Current MVP next step is resolving the visual gate, then capturing visual/performance evidence for the experimental DLSS.EnableDLSS user-rendering candidate."
+        "Pass -GamePath to include local runtime evidence. Current MVP next step is capturing normal-user dlss-user-rendering visual/performance evidence and completing the matching human review."
     } elseif ($visualStatus.Status -ne "Pass" -and $visualStatus.HumanReviewStatus -eq "Pending") {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
@@ -468,7 +468,7 @@ $summary = [pscustomobject]@{
         }
     } elseif (@($items | Where-Object { $_.Requirement -like "Experimental EnableDLSS user-rendering*" -and $_.Status -ne "Pass" }).Count -gt 0) {
         "Run scripts\run-vrising-diagnostic.ps1 -Stage dlss-user-rendering -UseSdkWrapperNative with a local DLSS runtime path, then capture visual/performance evidence for that normal-user candidate route."
-    } elseif (@($items | Where-Object { $_.Requirement -like "Gameplay visual comparison*" -and $_.Status -ne "Pass" }).Count -gt 0) {
+    } elseif (@($items | Where-Object { $_.Requirement -like "Normal-user dlss-user-rendering gameplay visual/performance comparison*" -and $_.Status -ne "Pass" }).Count -gt 0) {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
         } else {

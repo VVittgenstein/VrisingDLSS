@@ -592,7 +592,7 @@ Current Stage 10A status:
 - Evidence: first visible-path callback created the sequence with `recreated=yes`, `sequenceCreates=1`, `sequenceEvaluates=1`, `evaluateSuccesses=1`, `render=426x284`, `target=720x480`, `feature=yes`, and `evaluateLast=0x00000001`.
 - Evidence: later callbacks reported `recreated=no`, then reached `sequenceEvaluates=30` and `evaluateSuccesses=30`.
 - Evidence: shutdown succeeded with `hadSession=yes`, `sequenceCreates=1`, `sequenceEvaluates=30`, `evaluateSuccesses=30`, `release=0x00000001`, `destroy=0x00000001`, and `shutdown=0x00000001`.
-- Follow-up evidence observed `Edge Adaptive Spatial Upsampling` with the same native pointer after the visible write-back candidate and D3D11 probe success. This proves the guarded visible-path candidate can repeatedly evaluate into the selected SR output target. A later 4K gameplay comparison produced valid baseline/candidate screenshots, but the visual gate remains blocked on human image-quality review and experimental `DLSS.EnableDLSS` validation.
+- Follow-up evidence observed `Edge Adaptive Spatial Upsampling` with the same native pointer after the visible write-back candidate and D3D11 probe success. This proves the guarded visible-path candidate can repeatedly evaluate into the selected SR output target. A later 4K Stage 10A gameplay comparison produced valid baseline/candidate screenshots, but the MVP visual gate remains blocked on a normal-user `dlss-user-rendering` gameplay visual/performance comparison plus matching human review.
 
 ## Visual Validation Helpers
 
@@ -600,7 +600,7 @@ Added local-only helpers for the next validation step:
 
 - `scripts\capture-vrising-window.ps1` captures the current V Rising client window to `artifacts\visual-validation`.
 - `scripts\compare-image-artifacts.ps1` compares two captured PNGs and writes a bounded summary with dimensions, sampled RGB/luma deltas, near-black/near-white ratios, and hashes.
-- `scripts\get-visual-validation-status.ps1` reads the latest paired comparison and reports whether it is strong enough for the MVP visual gate. It requires gameplay-resolution captures, candidate DLSS evidence log, baseline/candidate performance summaries, and a matching human review JSON before returning `Pass`. It recognizes both Stage 10A `baseline-vs-stage10a` comparisons and normal-user `baseline-vs-user-rendering` comparisons.
+- `scripts\get-visual-validation-status.ps1` reads paired comparisons and reports whether they are strong enough for the requested visual gate. It requires gameplay-resolution captures, candidate DLSS evidence log, baseline/candidate performance summaries, and a matching human review JSON before returning `Pass`. It recognizes both Stage 10A `baseline-vs-stage10a` comparisons and normal-user `baseline-vs-user-rendering` comparisons; use `-RequiredCandidateStage dlss-user-rendering` for release readiness.
 - `scripts\write-visual-review.ps1` generates that human review JSON from a comparison artifact, binding the review to the exact baseline/candidate image SHA-256 values.
 - `docs\development\measurement-plan.md` records the source-backed measurement rules and review-file template.
 
@@ -661,15 +661,15 @@ Create the ready file from another PowerShell session, or let Codex create it af
 New-Item -ItemType File -Force -Path "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt"
 ```
 
-This helper still does not make the mod MVP-ready. It is the controlled evidence path for deciding whether Stage 10A is actually visible and image-correct in gameplay before validating the experimental normal-user `DLSS.EnableDLSS=true` route.
+This helper still does not make the mod MVP-ready. Stage 10A runs are controlled diagnostic evidence for the visible write-back candidate; the MVP visual/performance gate now requires a normal-user `dlss-user-rendering` paired gameplay comparison.
 
 After a paired run, inspect readiness with:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\get-visual-validation-status.ps1
+powershell -ExecutionPolicy Bypass -File scripts\get-visual-validation-status.ps1 -RequiredCandidateStage dlss-user-rendering
 ```
 
-The current readiness gate intentionally treats the existing `480x320` main-menu smoke comparisons as `Blocked`, not `Pass`, because they are harness smoke evidence rather than gameplay image-correctness evidence.
+The current readiness gate intentionally treats the existing Stage 10A and `480x320` main-menu smoke comparisons as insufficient for MVP, because they are diagnostic or harness smoke evidence rather than normal-user `DLSS.EnableDLSS=true` gameplay image-correctness evidence.
 
 Current helper smoke status:
 

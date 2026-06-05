@@ -249,8 +249,13 @@ function Get-NextRecommendation {
     $superResolutionPersistentEvaluate = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 8G"
     $superResolutionFrameSequence = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 9A"
     $visibleWriteback = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 10A"
+    $userRendering = Get-FirstStageStatus -Results $LogResults -StagePrefix "DLSS User Rendering Candidate"
+    if ($userRendering -eq "Pass") {
+        return "DLSS user-rendering candidate passed. Next engineering step is a paired dlss-user-rendering gameplay visual/performance comparison, human image-quality review, resize/reset handling, and fallback validation."
+    }
+
     if ($visibleWriteback -eq "Pass") {
-        return "Stage 10A visible write-back candidate passed. Next engineering step is image-correctness validation, screenshot/visual comparison, resize/reset handling, and fallback behavior in local/private gameplay."
+        return "Stage 10A visible write-back candidate passed. Next engineering step is scripts\run-vrising-diagnostic.ps1 -GamePath `"$($Inspect.GamePath)`" -Stage dlss-user-rendering with the local SDK-wrapper native build, then paired gameplay visual/performance validation."
     }
 
     if ($persistentEvaluate -eq "Pass") {
