@@ -183,6 +183,20 @@ Check:
 
 If this stage passes but DLSS is still not visible, that is expected. Stage 8G proves repeated evaluates on one DLSS feature for the SR-sized tuple, not the normal-user visible rendering path.
 
+## DLSS Super Resolution Frame-Sequence Evaluate Probe Is Blocked Or Fails
+
+`EnableDlssSuperResolutionFrameSequenceEvaluateProbe` waits for Stage 8E, then runs guarded SDK-wrapper DLSS evaluates across multiple RenderGraph callbacks while keeping one DLSS feature alive. It is disabled by default and requires a local/private SDK-wrapper research build.
+
+Check:
+
+- Stage 8E passes first in the same run.
+- `DLSS.DlssRuntimePath` points to a local research `nvngx_dlss.dll`.
+- `EnableNativeBridgeSmokeTest` logs bridge API version `11` or newer.
+- The log shows `DLSS super-resolution frame-sequence evaluate probe candidate #`.
+- A passing status should include `sequenceCreates=1`, `sequenceEvaluates=3`, `evaluateSuccesses=3`, `recreated=no` on later callbacks, `feature=yes`, `evaluateLast=0x00000001`, and a later `DLSS super-resolution frame-sequence shutdown succeeded` line with release/destroy/shutdown all `0x00000001`.
+
+If this stage passes but DLSS is still not visible, that is expected. Stage 9A proves cross-callback feature reuse for the SR-sized tuple, not the normal-user visible rendering path.
+
 ## DLSSPass Resource Helper Probe
 
 `EnableDlssPassResourceProbe` is disabled by default. It patches only `DLSSPass.GetViewResources` and `DLSSPass.GetCameraResources`, then logs any returned source/output/depth/motion-vector `Texture` native pointers. It does not patch `DLSSPass.Render`, does not load DLSS, and does not evaluate a frame.

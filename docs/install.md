@@ -80,10 +80,11 @@ powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -Ga
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-init-query -DlssRuntimePath "C:\path\to\nvngx_dlss.dll" -DlssApplicationId "0"
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-feature-create -DlssRuntimePath "C:\path\to\nvngx_dlss.dll" -DlssApplicationId "0"
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-super-resolution-persistent-evaluate -DlssRuntimePath "C:\path\to\nvngx_dlss.dll" -DlssApplicationId "0"
+powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-super-resolution-frame-sequence -DlssRuntimePath "C:\path\to\nvngx_dlss.dll" -DlssApplicationId "0"
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-persistent-evaluate -DlssRuntimePath "C:\path\to\nvngx_dlss.dll" -DlssApplicationId "0"
 ```
 
-Supported stages are `loader`, `native`, `harmony-call`, `render-thread`, `d3d11`, `frame-resource`, `upscaler-state`, `dlss-runtime`, `dlss-init-query`, `dlss-feature-create`, `dlss-evaluate-inputs`, `dlss-super-resolution-inputs`, `dlss-super-resolution-evaluate`, `dlss-super-resolution-persistent-evaluate`, `dlss-evaluate`, `dlss-persistent-evaluate`, and `dlsspass-resource`.
+Supported stages are `loader`, `native`, `harmony-call`, `render-thread`, `d3d11`, `frame-resource`, `upscaler-state`, `dlss-runtime`, `dlss-init-query`, `dlss-feature-create`, `dlss-evaluate-inputs`, `dlss-super-resolution-inputs`, `dlss-super-resolution-evaluate`, `dlss-super-resolution-persistent-evaluate`, `dlss-super-resolution-frame-sequence`, `dlss-evaluate`, `dlss-persistent-evaluate`, and `dlsspass-resource`.
 
 ## Diagnostic Run Helper
 
@@ -108,7 +109,7 @@ powershell -ExecutionPolicy Bypass -File scripts\analyze-bepinex-log.ps1 -GamePa
 powershell -ExecutionPolicy Bypass -File scripts\get-runtime-validation-status.ps1 -GamePath "C:\path\to\VRising"
 ```
 
-The analyzer only reads `BepInEx\LogOutput.log`. The status script combines install preflight, current diagnostic config, log analysis, and a next recommended command. Neither script launches or modifies the game.
+By default, the analyzer and status script read `BepInEx\LogOutput.log`. Pass `-LogPath "path\to\archived.log"` to analyze an archived diagnostic log after restoring the game folder to the safe loader config. The status script combines install preflight, current diagnostic config, log analysis, and a next recommended command. Neither script launches or modifies the game.
 
 ## DLSS Runtime
 
@@ -132,9 +133,11 @@ For local SDK-wrapper research builds, `Diagnostics.EnableDlssFeatureCreateProbe
 
 `Diagnostics.EnableDlssSuperResolutionPersistentEvaluateProbe=true` is the Stage 8G local research switch. It waits for Stage 8E, then asks the local SDK-wrapper native path to create one DLSS feature, run multiple guarded evaluates against that SR tuple, and release/shutdown. Release-safe builds report blocked. Use `scripts\run-vrising-diagnostic.ps1 -Stage dlss-super-resolution-persistent-evaluate` only in local/private testing with `DLSS.DlssRuntimePath` set.
 
+`Diagnostics.EnableDlssSuperResolutionFrameSequenceEvaluateProbe=true` is the Stage 9A local research switch. It waits for Stage 8E, then asks the local SDK-wrapper native path to keep one DLSS feature alive across multiple RenderGraph callbacks for that SR tuple before shutdown. Release-safe builds report blocked. Use `scripts\run-vrising-diagnostic.ps1 -Stage dlss-super-resolution-frame-sequence` only in local/private testing with `DLSS.DlssRuntimePath` set.
+
 `Diagnostics.EnableDlssEvaluateProbe=true` is the Stage 8B local research switch. It reuses a successful Stage 8A tuple, then asks a local SDK-wrapper native build to create a DLSS feature, call one guarded D3D11 DLSS evaluate, and release/shutdown immediately. After a successful evaluate, the plugin also performs Stage 8C output follow-up by watching later engine-owned `GetTexture` callbacks for the selected output resource/pointer and re-probing it as D3D11. Release-safe builds report blocked. Use `scripts\run-vrising-diagnostic.ps1 -Stage dlss-evaluate` only in local/private testing with `DLSS.DlssRuntimePath` set; this is still not the normal-user `DLSS.EnableDLSS` path.
 
-`Diagnostics.EnableDlssPersistentEvaluateProbe=true` is the Stage 8D local research switch. It reuses the same accepted Stage 8A tuple, creates one DLSS feature, runs multiple guarded evaluate calls, then releases/destroys/shuts down. The helper also enables Stage 8E, Stage 8F, and Stage 8G so the same run can preserve evaluate lifecycle, Super Resolution input-size, Super Resolution evaluate, and Super Resolution persistent-evaluate evidence together. Release-safe builds report blocked. Use `scripts\run-vrising-diagnostic.ps1 -Stage dlss-persistent-evaluate` only in local/private testing with a local SDK-wrapper native build and `DLSS.DlssRuntimePath` set.
+`Diagnostics.EnableDlssPersistentEvaluateProbe=true` is the Stage 8D local research switch. It reuses the same accepted Stage 8A tuple, creates one DLSS feature, runs multiple guarded evaluate calls, then releases/destroys/shuts down. The helper also enables Stage 8E, Stage 8F, Stage 8G, and Stage 9A so the same run can preserve evaluate lifecycle, Super Resolution input-size, Super Resolution evaluate, Super Resolution persistent-evaluate, and frame-sequence evidence together. Release-safe builds report blocked. Use `scripts\run-vrising-diagnostic.ps1 -Stage dlss-persistent-evaluate` only in local/private testing with a local SDK-wrapper native build and `DLSS.DlssRuntimePath` set.
 
 `Diagnostics.EnableDlssPassResourceProbe=true` is a separate research switch for the HDRP DLSSPass resource-helper route. It patches `DLSSPass.GetViewResources` and `DLSSPass.GetCameraResources`, not `DLSSPass.Render`, and logs source/output/depth/motion-vector texture pointers when those helpers return real `Texture` objects. Use `scripts\write-diagnostic-config.ps1 -Stage dlsspass-resource` for this isolated test; it is not enabled by the ordinary `dlss-evaluate-inputs` helper.
 

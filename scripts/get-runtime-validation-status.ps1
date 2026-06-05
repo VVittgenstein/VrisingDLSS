@@ -2,6 +2,8 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$GamePath,
 
+    [string]$LogPath,
+
     [string]$Root
 )
 
@@ -71,6 +73,7 @@ function Get-ConfiguredStage {
 
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssPersistentEvaluateProbe") { return "dlss-persistent-evaluate" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssEvaluateProbe") { return "dlss-evaluate" }
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssSuperResolutionFrameSequenceEvaluateProbe") { return "dlss-super-resolution-frame-sequence" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssSuperResolutionPersistentEvaluateProbe") { return "dlss-super-resolution-persistent-evaluate" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssSuperResolutionEvaluateProbe") { return "dlss-super-resolution-evaluate" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssSuperResolutionInputProbe") { return "dlss-super-resolution-inputs" }
@@ -152,9 +155,14 @@ function Get-NextRecommendation {
     $superResolutionInputs = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 8E"
     $superResolutionEvaluate = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 8F"
     $superResolutionPersistentEvaluate = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 8G"
+    $superResolutionFrameSequence = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 9A"
     if ($persistentEvaluate -eq "Pass") {
+        if ($superResolutionInputs -eq "Pass" -and $superResolutionEvaluate -eq "Pass" -and $superResolutionPersistentEvaluate -eq "Pass" -and $superResolutionFrameSequence -eq "Pass") {
+            return "Stage 8D persistent DLSS evaluate, Stage 8E Super Resolution input sizing, Stage 8F Super Resolution evaluate, Stage 8G Super Resolution persistent evaluate, and Stage 9A frame-sequence evaluate passed. Next engineering step is guarded visible write-back, image-correctness validation, resize/reset handling, and fallback behavior in local/private gameplay."
+        }
+
         if ($superResolutionInputs -eq "Pass" -and $superResolutionEvaluate -eq "Pass" -and $superResolutionPersistentEvaluate -eq "Pass") {
-            return "Stage 8D persistent DLSS evaluate, Stage 8E Super Resolution input sizing, Stage 8F Super Resolution evaluate, and Stage 8G Super Resolution persistent evaluate passed. Next engineering step is guarded visible write-back, image-correctness validation, resize/reset handling, and fallback behavior in local/private gameplay."
+            return "Stage 8D persistent DLSS evaluate, Stage 8E Super Resolution input sizing, Stage 8F Super Resolution evaluate, and Stage 8G Super Resolution persistent evaluate passed. Next engineering step is scripts\run-vrising-diagnostic.ps1 -GamePath `"$($Inspect.GamePath)`" -Stage dlss-super-resolution-frame-sequence with the local SDK-wrapper native build, then guarded visible write-back."
         }
 
         if ($superResolutionInputs -eq "Pass" -and $superResolutionEvaluate -eq "Pass") {
@@ -293,7 +301,16 @@ $configExists = Test-Path -LiteralPath $configPath
 $config = Get-ConfigValueMap -Path $configPath
 $configuredStage = if ($configExists) { Get-ConfiguredStage -Config $config } else { "missing" }
 
-$logResults = @(& $analyzeScript -GamePath $inspect.GamePath)
+$effectiveLogPath = if ([string]::IsNullOrWhiteSpace($LogPath)) {
+    $inspect.LogPath
+} else {
+    $LogPath
+}
+$effectiveLogExists = -not [string]::IsNullOrWhiteSpace($effectiveLogPath) -and (Test-Path -LiteralPath $effectiveLogPath)
+$inspect.LogPath = $effectiveLogPath
+$inspect.LogExists = $effectiveLogExists
+
+$logResults = @(& $analyzeScript -GamePath $inspect.GamePath -LogPath $effectiveLogPath)
 $recommendation = Get-NextRecommendation `
     -Inspect $inspect `
     -PluginInstalled $pluginInstalled `
@@ -309,8 +326,8 @@ $recommendation = Get-NextRecommendation `
     ConfigExists = $configExists
     ConfiguredStage = $configuredStage
     InteropGenerated = $inspect.InteropGenerated
-    LogExists = $inspect.LogExists
-    LogPath = $inspect.LogPath
+    LogExists = $effectiveLogExists
+    LogPath = $effectiveLogPath
     StageResults = $logResults
     NextRecommendation = $recommendation
     LaunchesGame = $false

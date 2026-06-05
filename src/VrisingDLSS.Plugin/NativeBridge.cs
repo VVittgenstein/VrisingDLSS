@@ -31,6 +31,9 @@ internal sealed class NativeBridge
     private GetStringPointerDelegate? _getDlssEvaluateStatus;
     private ProbeDlssPersistentEvaluateDelegate? _probeDlssPersistentEvaluate;
     private GetStringPointerDelegate? _getDlssPersistentEvaluateStatus;
+    private ProbeDlssEvaluateDelegate? _evaluateDlssFrameSequence;
+    private GetIntDelegate? _shutdownDlssFrameSequence;
+    private GetStringPointerDelegate? _getDlssFrameSequenceStatus;
 
     internal NativeBridge(ManualLogSource log)
     {
@@ -74,6 +77,9 @@ internal sealed class NativeBridge
         _getDlssEvaluateStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetDlssEvaluateStatus");
         _probeDlssPersistentEvaluate = GetOptionalExport<ProbeDlssPersistentEvaluateDelegate>("VrisingDlss_ProbeDlssPersistentEvaluate");
         _getDlssPersistentEvaluateStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetDlssPersistentEvaluateStatus");
+        _evaluateDlssFrameSequence = GetOptionalExport<ProbeDlssEvaluateDelegate>("VrisingDlss_EvaluateDlssFrameSequence");
+        _shutdownDlssFrameSequence = GetOptionalExport<GetIntDelegate>("VrisingDlss_ShutdownDlssFrameSequence");
+        _getDlssFrameSequenceStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetDlssFrameSequenceStatus");
 
         return _getBridgeApiVersion is not null
             && _getBridgeVersion is not null
@@ -225,6 +231,43 @@ internal sealed class NativeBridge
             evaluateCount) == 1;
 
     internal string GetDlssPersistentEvaluateStatus() => PtrToString(_getDlssPersistentEvaluateStatus?.Invoke() ?? IntPtr.Zero);
+
+    internal bool EvaluateDlssFrameSequence(
+        IntPtr colorTexturePtr,
+        IntPtr outputTexturePtr,
+        IntPtr depthTexturePtr,
+        IntPtr motionTexturePtr,
+        string runtimePath,
+        string applicationDataPath,
+        ulong applicationId,
+        int perfQualityValue,
+        int featureFlags,
+        float jitterOffsetX,
+        float jitterOffsetY,
+        float motionVectorScaleX,
+        float motionVectorScaleY,
+        float sharpness,
+        int reset) =>
+        _evaluateDlssFrameSequence?.Invoke(
+            colorTexturePtr,
+            outputTexturePtr,
+            depthTexturePtr,
+            motionTexturePtr,
+            runtimePath,
+            applicationDataPath,
+            applicationId,
+            perfQualityValue,
+            featureFlags,
+            jitterOffsetX,
+            jitterOffsetY,
+            motionVectorScaleX,
+            motionVectorScaleY,
+            sharpness,
+            reset) == 1;
+
+    internal bool ShutdownDlssFrameSequence() => _shutdownDlssFrameSequence?.Invoke() == 1;
+
+    internal string GetDlssFrameSequenceStatus() => PtrToString(_getDlssFrameSequenceStatus?.Invoke() ?? IntPtr.Zero);
 
     private T? GetExport<T>(string exportName) where T : Delegate
     {

@@ -238,6 +238,13 @@ $results.Add((New-StageResult `
     -BlockedPatterns @("DLSS super-resolution persistent evaluate probe blocked:", "DLSS super-resolution persistent evaluate probe blocked from") `
     -StartedPatterns @("DLSS super-resolution persistent evaluate probe enabled.", "DLSS super-resolution persistent evaluate probe candidate #")))
 
+$results.Add((New-StageResult `
+    -Stage "Stage 9A DLSS Super Resolution Frame Sequence Evaluate" `
+    -PassPatterns @("DLSS super-resolution frame-sequence evaluate probe succeeded:", "DLSS super-resolution frame-sequence evaluate probe succeeded from") `
+    -FailPatterns @("DLSS super-resolution frame-sequence evaluate probe failed:", "DLSS super-resolution frame-sequence evaluate probe failed from", "DLSS super-resolution frame-sequence evaluate probe skipped:", "DLSS super-resolution frame-sequence evaluate probe skipped from", "DLSS super-resolution frame-sequence shutdown failed:") `
+    -BlockedPatterns @("DLSS super-resolution frame-sequence evaluate probe blocked:", "DLSS super-resolution frame-sequence evaluate probe blocked from") `
+    -StartedPatterns @("DLSS super-resolution frame-sequence evaluate probe enabled.", "DLSS super-resolution frame-sequence evaluate probe candidate #")))
+
 $results
 
 if ($FailOnProblems) {

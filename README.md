@@ -12,13 +12,13 @@ The current implementation goal is a source-only, legally conservative package:
 
 - Own C# BepInEx IL2CPP plugin.
 - Own native D3D11/DLSS bridge.
-- Read-only runtime diagnostics, HDRP DLSS/FSR/upscale route discovery, optional FSR/upscale state snapshots, native render-event smoke tests, D3D11 texture pointer probes, HDRP frame resource probes, optional user-supplied DLSS runtime load/release probe, optional guarded NGX init/query probe, optional SDK-wrapper DLSS feature create/release probe, optional real-frame DLSS evaluate input probe, optional Super Resolution input-size probe, optional guarded Super Resolution evaluate probe, optional guarded Super Resolution persistent-evaluate probe, output follow-up probe, and persistent-feature repeated-evaluate probe before any normal-user DLSS path.
+- Read-only runtime diagnostics, HDRP DLSS/FSR/upscale route discovery, optional FSR/upscale state snapshots, native render-event smoke tests, D3D11 texture pointer probes, HDRP frame resource probes, optional user-supplied DLSS runtime load/release probe, optional guarded NGX init/query probe, optional SDK-wrapper DLSS feature create/release probe, optional real-frame DLSS evaluate input probe, optional Super Resolution input-size probe, optional guarded Super Resolution evaluate probe, optional guarded Super Resolution persistent-evaluate probe, optional guarded Super Resolution frame-sequence evaluate probe, output follow-up probe, and persistent-feature repeated-evaluate probe before any normal-user DLSS path.
 - No PureDark source or binaries in production code.
 - No bundled `nvngx_dlss.dll` by default.
 - Clear user-facing install, diagnostics, and risk documentation.
 - No monetization path or paid-build dependency.
 
-Latest local validation: the C# plugin and native bridge build successfully, the native export table includes the diagnostic probes through API version 10, the render-thread/D3D11/runtime probes pass locally, and a local SDK-wrapper research build passes Stage 6 DLSS init/capability query plus Stage 7 DLSS feature create/release. Stage 8A passes through engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` postfix aggregation; Stage 8B/8C/8D pass in a scripted local V Rising run; Stage 8E proves a real Super Resolution-sized tuple where `CameraColor`, `CameraDepthStencil`, and `Motion Vectors` are `426x284` while `Edge Adaptive Spatial Upsampling` is `720x480`; Stage 8F proves NGX can evaluate that `426x284 -> 720x480` tuple successfully; and Stage 8G proves one DLSS feature can persist across three evaluates on that same SR-sized tuple. Release-safe builds still do not link or bundle NVIDIA SDK/runtime files, and `DLSS.EnableDLSS=true` is not yet a normal-user rendering path. The Thunderstore zip contains only this project's own binaries and metadata. See [local runtime staging](docs/development/local-runtime-staging-2026-06-05.md).
+Latest local validation: the C# plugin and native bridge build successfully, the native export table includes the diagnostic probes through API version 11, the render-thread/D3D11/runtime probes pass locally, and a local SDK-wrapper research build passes Stage 6 DLSS init/capability query plus Stage 7 DLSS feature create/release. Stage 8A passes through engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` postfix aggregation; Stage 8B/8C/8D pass in a scripted local V Rising run; Stage 8E proves a real Super Resolution-sized tuple where `CameraColor`, `CameraDepthStencil`, and `Motion Vectors` are `426x284` while `Edge Adaptive Spatial Upsampling` is `720x480`; Stage 8F proves NGX can evaluate that `426x284 -> 720x480` tuple successfully; Stage 8G proves one DLSS feature can persist across three immediate evaluates on that same SR-sized tuple; and Stage 9A proves one DLSS feature can persist across three RenderGraph callbacks for the SR tuple. Release-safe builds still do not link or bundle NVIDIA SDK/runtime files, and `DLSS.EnableDLSS=true` is not yet a normal-user rendering path. The Thunderstore zip contains only this project's own binaries and metadata. See [local runtime staging](docs/development/local-runtime-staging-2026-06-05.md).
 
 ## What Is In Scope
 
@@ -104,6 +104,8 @@ powershell -ExecutionPolicy Bypass -File scripts\analyze-bepinex-log.ps1 -GamePa
 powershell -ExecutionPolicy Bypass -File scripts\get-runtime-validation-status.ps1 -GamePath "C:\path\to\VRising"
 powershell -ExecutionPolicy Bypass -File scripts\get-release-readiness-status.ps1 -GamePath "C:\path\to\VRising"
 ```
+
+Both status scripts can also read archived diagnostic evidence with `-LogPath "path\to\LogOutput-*.log"` after the game folder has been restored to the safe loader config.
 
 To install the declared BepInExPack dependency into a local test folder without launching the game:
 
