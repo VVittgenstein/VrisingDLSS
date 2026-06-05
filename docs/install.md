@@ -127,6 +127,12 @@ For an operator-controlled capture, use `-ManualCapture` and create the ready fi
 powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\path\to\VRising" -CandidateStage dlss-user-rendering -FsrMode Performance -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -CapturePerformance:$true -WaitForUserRendering:$true -DlssRuntimePath "C:\path\to\nvngx_dlss.dll"
 ```
 
+When coordinating a tester-launched game or checking whether Codex can see the game before capture, run the lightweight visibility preflight. It does not launch or modify the game. Continue only when `Status` is `VisibleGameWindow`; `Missing` or `ProcessOnly` means the capture would likely fail or grab the wrong window.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\inspect-vrising-visibility.ps1 -GamePath "C:\path\to\VRising" -Json
+```
+
 After the scene is ready, create the ready file from another PowerShell session, or have Codex create it:
 
 ```powershell

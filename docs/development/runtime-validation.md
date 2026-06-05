@@ -599,6 +599,7 @@ Current Stage 10A status:
 Added local-only helpers for the next validation step:
 
 - `scripts\capture-vrising-window.ps1` captures the current V Rising client window to `artifacts\visual-validation`.
+- `scripts\inspect-vrising-visibility.ps1` performs a lightweight read-only preflight that reports whether the `VRising` process is missing, process-only, or likely exposing a visible game window before a coordinated capture.
 - `scripts\compare-image-artifacts.ps1` compares two captured PNGs and writes a bounded summary with dimensions, sampled RGB/luma deltas, near-black/near-white ratios, and hashes.
 - `scripts\get-visual-validation-status.ps1` reads paired comparisons and reports whether they are strong enough for the requested visual gate. It requires gameplay-resolution captures, candidate DLSS evidence log, baseline/candidate performance summaries, and a matching human review JSON before returning `Pass`. It recognizes both Stage 10A `baseline-vs-stage10a` comparisons and normal-user `baseline-vs-user-rendering` comparisons; use `-RequiredCandidateStage dlss-user-rendering` for release readiness.
 - `scripts\write-visual-review.ps1` generates that human review JSON from a comparison artifact, binding the review to the exact baseline/candidate image SHA-256 values.
@@ -660,6 +661,14 @@ Create the ready file from another PowerShell session, or let Codex create it af
 ```powershell
 New-Item -ItemType File -Force -Path "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt"
 ```
+
+For tester-coordinated runs, check visibility before creating the ready file:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\inspect-vrising-visibility.ps1 -GamePath "C:\Software\VRising" -Json
+```
+
+If `Status` is not `VisibleGameWindow`, do not capture yet; fix focus/process visibility first so the screenshot and PresentMon sample bind to the actual game.
 
 This helper still does not make the mod MVP-ready. Stage 10A runs are controlled diagnostic evidence for the visible write-back candidate; the MVP visual/performance gate now requires a normal-user `dlss-user-rendering` paired gameplay comparison.
 

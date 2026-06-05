@@ -91,6 +91,14 @@ Recommended normal-user candidate command shape:
 powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\path\to\VRising" -CandidateStage dlss-user-rendering -FsrMode Performance -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -CapturePerformance:$true -WaitForUserRendering:$true -DlssRuntimePath "C:\path\to\nvngx_dlss.dll"
 ```
 
+Before creating the ready file for a tester-coordinated capture, confirm Codex can see the game process and likely game window:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\inspect-vrising-visibility.ps1 -GamePath "C:\path\to\VRising" -Json
+```
+
+Proceed only when the preflight returns `Status=VisibleGameWindow`. `Missing` means no `VRising` process is visible to the capture machine, and `ProcessOnly` means the process exists but its main window does not look like the game window.
+
 Recommended capture shape:
 
 - Warm up in the scene before starting the capture.
