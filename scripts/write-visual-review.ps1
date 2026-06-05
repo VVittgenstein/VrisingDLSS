@@ -68,9 +68,9 @@ if ([string]::IsNullOrWhiteSpace($comparisonResolved)) {
     }
 
     $pattern = if ([string]::IsNullOrWhiteSpace($ArtifactLabel)) {
-        "*baseline-vs-stage10a*.txt"
+        "*baseline-vs-*.txt"
     } else {
-        "$($ArtifactLabel -replace '[^A-Za-z0-9_.-]', '-')-baseline-vs-stage10a*.txt"
+        "$($ArtifactLabel -replace '[^A-Za-z0-9_.-]', '-')-baseline-vs-*.txt"
     }
 
     $latest = Get-ChildItem -LiteralPath $visualRoot -Filter $pattern -File -ErrorAction SilentlyContinue |
@@ -78,7 +78,7 @@ if ([string]::IsNullOrWhiteSpace($comparisonResolved)) {
         Select-Object -First 1
 
     if (-not $latest) {
-        throw "No baseline-vs-stage10a comparison artifact matched '$pattern' in $visualRoot"
+        throw "No baseline-vs comparison artifact matched '$pattern' in $visualRoot"
     }
 
     $comparisonResolved = $latest.FullName
@@ -146,7 +146,7 @@ $review = [ordered]@{
         "baseline and candidate captures are from the same stable gameplay scene",
         "candidate capture is not black, white, wrong-window, or menu-only unless deliberately testing menu behavior",
         "candidate image has no severe blur, ghosting, unstable UI, or obvious temporal artifacts",
-        "Stage 10A log and baseline/candidate performance summaries are present when get-visual-validation-status.ps1 is run"
+        "candidate DLSS evidence log and baseline/candidate performance summaries are present when get-visual-validation-status.ps1 is run"
     )
     launchesGame = $false
 }

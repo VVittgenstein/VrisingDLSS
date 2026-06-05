@@ -1,6 +1,6 @@
 # Install Guide
 
-Current status: experimental scaffold. `DLSS.EnableDLSS=true` starts an unvalidated one-evaluate-per-frame candidate, but the package is not ready for public gameplay use yet.
+Current status: experimental scaffold. `DLSS.EnableDLSS=true` starts an unvalidated one-evaluate-per-accepted-frame candidate, but the package is not ready for public gameplay use yet.
 
 Use this guide once build outputs exist.
 
@@ -109,16 +109,22 @@ powershell -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -Gam
 
 Use `-SdkWrapperNativePath` only when the local wrapper build is not at `artifacts\native-build-msvc-wrapper\Release\VrisingDLSS.Native.dll`.
 
-For paired local/private gameplay visual comparison after Stage 10A research builds are available, use the visual helper. It runs a baseline loader capture and a Stage 10A `dlss-visible-writeback` capture, gives you time to enter the same scene before each screenshot, archives logs, compares the PNGs, and restores the release-safe loader config/native DLL after each run.
+For paired local/private gameplay visual comparison after SDK-wrapper research builds are available, use the visual helper. It runs a baseline loader capture and a candidate capture, gives you time to enter the same scene before each screenshot, archives logs, compares the PNGs, and restores the release-safe loader config/native DLL after each run.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\path\to\VRising" -DurationSeconds 240 -CaptureAtSeconds 170 -CapturePerformance:$true -WaitForStage10A:$true -KeepCandidateWritebackRunning:$true -DlssRuntimePath "C:\path\to\nvngx_dlss.dll"
 ```
 
-For an operator-controlled capture, use `-ManualCapture` and create the ready file after entering the target local/private gameplay scene. The helper removes the ready file before each run, waits for it, and does not capture before `-CaptureAtSeconds`. Candidate runs also wait for Stage 10A `sequenceSuccesses=30/30` by default while `KeepDlssVisibleWritebackProbeRunning=true` keeps the candidate evaluating until cleanup.
+For the normal-user candidate route, pass `-CandidateStage dlss-user-rendering`. This waits for a `DLSS user rendering evaluate succeeded` log line before screenshot/FPS capture, and it does not enable the Stage 10A hold/proof loop.
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\path\to\VRising" -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -CapturePerformance:$true -WaitForStage10A:$true -KeepCandidateWritebackRunning:$true -DlssRuntimePath "C:\path\to\nvngx_dlss.dll"
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\path\to\VRising" -CandidateStage dlss-user-rendering -DurationSeconds 240 -CaptureAtSeconds 170 -CapturePerformance:$true -WaitForUserRendering:$true -DlssRuntimePath "C:\path\to\nvngx_dlss.dll"
+```
+
+For an operator-controlled capture, use `-ManualCapture` and create the ready file after entering the target local/private gameplay scene. The helper removes the ready file before each run, waits for it, and does not capture before `-CaptureAtSeconds`. Stage 10A candidate runs wait for `sequenceSuccesses=30/30` by default while `KeepDlssVisibleWritebackProbeRunning=true` keeps the diagnostic candidate evaluating until cleanup. User-rendering candidate runs wait for a successful user-rendering evaluate by default.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\path\to\VRising" -CandidateStage dlss-user-rendering -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -CapturePerformance:$true -WaitForUserRendering:$true -DlssRuntimePath "C:\path\to\nvngx_dlss.dll"
 ```
 
 After the scene is ready, create the ready file from another PowerShell session, or have Codex create it:

@@ -21,8 +21,12 @@ param(
     [string]$PresentMonPath = "C:\Software\PresentMon\PresentMon-2.4.1-x64.exe",
     [string]$NvidiaSmiPath = "nvidia-smi.exe",
     [switch]$SkipSystemMetrics,
+    [ValidateSet("dlss-visible-writeback", "dlss-user-rendering")]
+    [string]$CandidateStage = "dlss-visible-writeback",
     $WaitForStage10A = $true,
     [int]$Stage10ATimeoutSeconds = 600,
+    $WaitForUserRendering = $true,
+    [int]$UserRenderingTimeoutSeconds = 600,
     $KeepCandidateWritebackRunning = $true,
     [string]$DlssRuntimePath = "",
     [string]$DlssApplicationId = "0",
@@ -66,6 +70,7 @@ function Convert-ToBooleanOption {
 
 $capturePerformanceEnabled = Convert-ToBooleanOption -Value $CapturePerformance -Name "CapturePerformance"
 $waitForStage10AEnabled = Convert-ToBooleanOption -Value $WaitForStage10A -Name "WaitForStage10A"
+$waitForUserRenderingEnabled = Convert-ToBooleanOption -Value $WaitForUserRendering -Name "WaitForUserRendering"
 $keepCandidateWritebackRunningEnabled = Convert-ToBooleanOption -Value $KeepCandidateWritebackRunning -Name "KeepCandidateWritebackRunning"
 
 if ($DurationSeconds -lt 30) {
@@ -102,6 +107,10 @@ if ($PerformanceMetricsIntervalMs -lt 250) {
 
 if ($Stage10ATimeoutSeconds -lt 30) {
     throw "Stage10ATimeoutSeconds must be at least 30."
+}
+
+if ($UserRenderingTimeoutSeconds -lt 30) {
+    throw "UserRenderingTimeoutSeconds must be at least 30."
 }
 
 if ([string]::IsNullOrWhiteSpace($Root)) {
@@ -417,6 +426,58 @@ function Wait-ForStage10AVisibleWriteback {
     }
 }
 
+function Wait-ForDlssUserRenderingSuccess {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Diagnostics.Process]$Process,
+
+        [Parameter(Mandatory = $true)]
+        [long]$LogStartOffset
+    )
+
+    Write-Host "Waiting for DLSS user-rendering evaluate success in BepInEx log."
+
+    $deadline = (Get-Date).AddSeconds($UserRenderingTimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        if (-not (Get-Process -Id $Process.Id -ErrorAction SilentlyContinue)) {
+            return [pscustomobject]@{
+                Ready = $false
+                TimedOut = $false
+                ProcessExited = $true
+                DetectedAt = $null
+            }
+        }
+
+        $text = Read-LogSinceOffset -Path $logPath -Offset $LogStartOffset
+        if ($text -match "DLSS user rendering evaluate succeeded from" -and $text -match "sequenceSuccesses=\d+") {
+            return [pscustomobject]@{
+                Ready = $true
+                TimedOut = $false
+                ProcessExited = $false
+                DetectedAt = Get-Date
+            }
+        }
+
+        if ($text -match "DLSS user rendering evaluate (blocked|failed|skipped) from" -or $text -match "DLSS user rendering shutdown failed:") {
+            return [pscustomobject]@{
+                Ready = $false
+                TimedOut = $false
+                ProcessExited = $false
+                DetectedAt = $null
+            }
+        }
+
+        Start-Sleep -Seconds 2
+    }
+
+    [pscustomobject]@{
+        Ready = $false
+        TimedOut = $true
+        ProcessExited = $false
+        DetectedAt = $null
+    }
+}
+
 function Invoke-PerformanceCapture {
     param(
         [Parameter(Mandatory = $true)]
@@ -478,7 +539,10 @@ function Invoke-VisualRun {
     $manualReadyDetectedAt = $null
     $stage10AReadyTimedOut = $false
     $stage10ADetectedAt = $null
+    $userRenderingReadyTimedOut = $false
+    $userRenderingDetectedAt = $null
     $waitedForStage10A = $waitForStage10AEnabled -and $UseSdkWrapperNative -and $Stage -eq "dlss-visible-writeback"
+    $waitedForUserRendering = $waitForUserRenderingEnabled -and $UseSdkWrapperNative -and $Stage -eq "dlss-user-rendering"
 
     try {
         if ($AttachExistingProcess) {
@@ -560,7 +624,17 @@ function Invoke-VisualRun {
             }
         }
 
-        if (-not $exitedBeforeCapture -and -not $captureReadyTimedOut -and -not $stage10AReadyTimedOut) {
+        if (-not $exitedBeforeCapture -and -not $captureReadyTimedOut -and $waitedForUserRendering) {
+            $userRendering = Wait-ForDlssUserRenderingSuccess -Process $process -LogStartOffset $logStartOffset
+            $userRenderingDetectedAt = $userRendering.DetectedAt
+            $userRenderingReadyTimedOut = $userRendering.TimedOut -or (-not $userRendering.Ready -and -not $userRendering.ProcessExited)
+            $exitedBeforeCapture = $userRendering.ProcessExited
+            if (-not $userRendering.Ready) {
+                Write-Warning "DLSS user-rendering evaluate success was not observed before capture for ${Label}; TimedOut=$($userRendering.TimedOut); ProcessExited=$($userRendering.ProcessExited)"
+            }
+        }
+
+        if (-not $exitedBeforeCapture -and -not $captureReadyTimedOut -and -not $stage10AReadyTimedOut -and -not $userRenderingReadyTimedOut) {
             $capture = Invoke-ProjectScript -RelativePath "scripts\capture-vrising-window.ps1" -Parameters @{
                 ArtifactLabel = $Label
                 WaitSeconds = $CaptureWaitSeconds
@@ -568,7 +642,7 @@ function Invoke-VisualRun {
             $capture | Format-List | Out-String -Width 220 | Write-Host
         }
 
-        if (-not $exitedBeforeCapture -and -not $captureReadyTimedOut -and -not $stage10AReadyTimedOut) {
+        if (-not $exitedBeforeCapture -and -not $captureReadyTimedOut -and -not $stage10AReadyTimedOut -and -not $userRenderingReadyTimedOut) {
             $performance = Invoke-PerformanceCapture -Process $process -Label $Label
         }
 
@@ -607,6 +681,9 @@ function Invoke-VisualRun {
         WaitedForStage10A = $waitedForStage10A
         Stage10ADetectedAt = $(if ($stage10ADetectedAt) { $stage10ADetectedAt.ToString("o") } else { "" })
         Stage10AReadyTimedOut = $stage10AReadyTimedOut
+        WaitedForUserRendering = $waitedForUserRendering
+        UserRenderingDetectedAt = $(if ($userRenderingDetectedAt) { $userRenderingDetectedAt.ToString("o") } else { "" })
+        UserRenderingReadyTimedOut = $userRenderingReadyTimedOut
         KeepCandidateWritebackRunning = $(if ($UseSdkWrapperNative -and $Stage -eq "dlss-visible-writeback") { $keepCandidateWritebackRunningEnabled } else { $false })
         Width = $(if ($capture) { $capture.Width } else { 0 })
         Height = $(if ($capture) { $capture.Height } else { 0 })
@@ -635,9 +712,11 @@ if ($existingProcess -and (-not $AttachExistingBaseline -or $Mode -eq "Candidate
     throw "VRising is already running (pid=$($existingProcess.Id)). Close it before running visual comparison."
 }
 
+$candidateLabelSuffix = if ($CandidateStage -eq "dlss-visible-writeback") { "stage10a-visible-writeback" } else { "user-rendering" }
+$comparisonLabelSuffix = if ($CandidateStage -eq "dlss-visible-writeback") { "stage10a" } else { "user-rendering" }
 $baselineLabel = "$ArtifactLabel-baseline-loader"
-$candidateLabel = "$ArtifactLabel-stage10a-visible-writeback"
-$comparisonLabel = "$ArtifactLabel-baseline-vs-stage10a"
+$candidateLabel = "$ArtifactLabel-$candidateLabelSuffix"
+$comparisonLabel = "$ArtifactLabel-baseline-vs-$comparisonLabelSuffix"
 $baselinePath = Join-Path $visualRoot "$baselineLabel.png"
 $candidatePath = Join-Path $visualRoot "$candidateLabel.png"
 $comparisonPath = Join-Path $visualRoot "$comparisonLabel.txt"
@@ -658,9 +737,12 @@ $plan = [pscustomobject]@{
     PerformanceMetricsIntervalMs = $(if ($capturePerformanceEnabled) { $PerformanceMetricsIntervalMs } else { 0 })
     PresentMonPath = $(if ($capturePerformanceEnabled) { $PresentMonPath } else { "" })
     NvidiaSmiPath = $(if ($capturePerformanceEnabled -and -not $SkipSystemMetrics) { $NvidiaSmiPath } else { "" })
-    WaitForStage10A = $waitForStage10AEnabled
-    Stage10ATimeoutSeconds = $(if ($Mode -ne "BaselineOnly" -and $waitForStage10AEnabled) { $Stage10ATimeoutSeconds } else { 0 })
-    KeepCandidateWritebackRunning = $(if ($Mode -ne "BaselineOnly") { $keepCandidateWritebackRunningEnabled } else { $false })
+    CandidateStage = $CandidateStage
+    WaitForStage10A = ($CandidateStage -eq "dlss-visible-writeback" -and $waitForStage10AEnabled)
+    Stage10ATimeoutSeconds = $(if ($Mode -ne "BaselineOnly" -and $CandidateStage -eq "dlss-visible-writeback" -and $waitForStage10AEnabled) { $Stage10ATimeoutSeconds } else { 0 })
+    WaitForUserRendering = ($CandidateStage -eq "dlss-user-rendering" -and $waitForUserRenderingEnabled)
+    UserRenderingTimeoutSeconds = $(if ($Mode -ne "BaselineOnly" -and $CandidateStage -eq "dlss-user-rendering" -and $waitForUserRenderingEnabled) { $UserRenderingTimeoutSeconds } else { 0 })
+    KeepCandidateWritebackRunning = $(if ($Mode -ne "BaselineOnly" -and $CandidateStage -eq "dlss-visible-writeback") { $keepCandidateWritebackRunningEnabled } else { $false })
     ArtifactLabel = $ArtifactLabel
     BaselineCapture = $(if ($Mode -ne "CandidateOnly") { $baselinePath } else { "" })
     CandidateCapture = $(if ($Mode -ne "BaselineOnly") { $candidatePath } else { "" })
@@ -685,13 +767,13 @@ if ($Mode -ne "CandidateOnly") {
 }
 
 if ($Mode -ne "BaselineOnly") {
-    $results.Add((Invoke-VisualRun -Stage "dlss-visible-writeback" -Label $candidateLabel -UseSdkWrapperNative $true))
+    $results.Add((Invoke-VisualRun -Stage $CandidateStage -Label $candidateLabel -UseSdkWrapperNative $true))
 }
 
 $comparison = $null
 if ($Mode -eq "Paired") {
     $baseline = $results | Where-Object { $_.Stage -eq "loader" } | Select-Object -First 1
-    $candidate = $results | Where-Object { $_.Stage -eq "dlss-visible-writeback" } | Select-Object -First 1
+    $candidate = $results | Where-Object { $_.Stage -eq $CandidateStage } | Select-Object -First 1
     if ($baseline -and $candidate -and
         -not [string]::IsNullOrWhiteSpace($baseline.CapturePath) -and
         -not [string]::IsNullOrWhiteSpace($candidate.CapturePath)) {
@@ -707,6 +789,7 @@ if ($Mode -eq "Paired") {
     Mode = "Completed"
     GamePath = $resolvedGamePath
     ArtifactLabel = $ArtifactLabel
+    CandidateStage = $CandidateStage
     Results = $results
     ComparisonArtifact = $(if ($comparison) { $comparison.OutputPath } else { "" })
     MeanAbsRgbDelta = $(if ($comparison) { $comparison.MeanAbsRgbDelta } else { $null })

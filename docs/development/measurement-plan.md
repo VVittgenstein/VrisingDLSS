@@ -34,7 +34,7 @@ The MVP visual/performance gate is intentionally stricter than the existing diag
 Required evidence:
 
 1. Paired baseline and candidate captures from the same stable gameplay scene.
-2. Candidate run log proving Stage 10A visible write-back success with `sequenceSuccesses=30/30`.
+2. Candidate run log proving the selected DLSS route succeeded. For the normal-user MVP candidate this means `dlss-user-rendering` with `DLSS user rendering evaluate succeeded` and `sequenceSuccesses=...`; Stage 10A diagnostic comparisons still use visible write-back success with `sequenceSuccesses=30/30`.
 3. Baseline and candidate performance summaries from `scripts/capture-vrising-fps.ps1`.
 4. Valid screenshots at gameplay resolution. The readiness gate currently requires at least 1280x720.
 5. Human review tied to the exact image hashes, because automated pixel-difference statistics can catch gross capture failures but cannot prove temporal image quality.
@@ -65,7 +65,7 @@ Review file shape:
 }
 ```
 
-Use `scripts/get-visual-validation-status.ps1` to inspect the latest paired visual comparison. It returns `Pass` only when the comparison artifact, Stage 10A log, baseline/candidate performance summaries, gameplay-resolution captures, and matching human review are all present.
+Use `scripts/get-visual-validation-status.ps1` to inspect the latest paired visual comparison. It returns `Pass` only when the comparison artifact, candidate evidence log, baseline/candidate performance summaries, gameplay-resolution captures, and matching human review are all present. The script recognizes both Stage 10A `baseline-vs-stage10a` artifacts and normal-user `baseline-vs-user-rendering` artifacts.
 
 The same status output reports baseline/candidate `AverageFps`, `OnePercentLowFps`, `P95FrameMs`, and simple deltas when both performance summaries exist. These values are evidence, not an automatic pass threshold; a surprising or negative delta should be repeated and inspected before deciding whether the DLSS route is useful.
 
@@ -79,7 +79,13 @@ Do not confuse the mod's intended DLSS defaults with V Rising's built-in FSR set
 
 Use `scripts/set-vrising-fsr-mode.ps1` for local test setup when changing V Rising's built-in FSR mode. It backs up `ClientSettings.json` under ignored local artifacts before writing and does not launch the game.
 
-When `KeepDlssVisibleWritebackProbeRunning=true` is used, candidate performance captures measure diagnostic hold-mode overhead. A large negative FPS delta under that mode means the proof loop is too expensive, not that a future normal-user DLSS path will necessarily be slow. Use those numbers to decide what to remove from diagnostics before MVP rendering integration: one persistent feature, one evaluate per frame, no repeated proof loop, and explicit cleanup on resize/settings changes.
+When `KeepDlssVisibleWritebackProbeRunning=true` is used, candidate performance captures measure diagnostic hold-mode overhead. A large negative FPS delta under that mode means the proof loop is too expensive, not that the normal-user DLSS path is necessarily slow. Use `-CandidateStage dlss-user-rendering` for the MVP performance question: one persistent feature, one evaluate per accepted frame, no repeated proof loop, and explicit cleanup on resize/settings changes.
+
+Recommended normal-user candidate command shape:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\path\to\VRising" -CandidateStage dlss-user-rendering -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -CapturePerformance:$true -WaitForUserRendering:$true -DlssRuntimePath "C:\path\to\nvngx_dlss.dll"
+```
 
 Recommended capture shape:
 

@@ -160,8 +160,13 @@ function New-Status {
         Height = $(if ($Details.ContainsKey("Height")) { $Details.Height } else { 0 })
         MeanAbsRgbDelta = $(if ($Details.ContainsKey("MeanAbsRgbDelta")) { $Details.MeanAbsRgbDelta } else { $null })
         ChangedRatioGt10 = $(if ($Details.ContainsKey("ChangedRatioGt10")) { $Details.ChangedRatioGt10 } else { $null })
+        CandidateStage = $(if ($Details.ContainsKey("CandidateStage")) { $Details.CandidateStage } else { "" })
+        CandidateEvidenceLogPath = $(if ($Details.ContainsKey("CandidateEvidenceLogPath")) { $Details.CandidateEvidenceLogPath } else { "" })
+        CandidateEvidenceProved = $(if ($Details.ContainsKey("CandidateEvidenceProved")) { $Details.CandidateEvidenceProved } else { $false })
         Stage10ALogPath = $(if ($Details.ContainsKey("Stage10ALogPath")) { $Details.Stage10ALogPath } else { "" })
         Stage10AProved = $(if ($Details.ContainsKey("Stage10AProved")) { $Details.Stage10AProved } else { $false })
+        UserRenderingLogPath = $(if ($Details.ContainsKey("UserRenderingLogPath")) { $Details.UserRenderingLogPath } else { "" })
+        UserRenderingProved = $(if ($Details.ContainsKey("UserRenderingProved")) { $Details.UserRenderingProved } else { $false })
         PerformanceSummaryPath = $(if ($Details.ContainsKey("CandidatePerformanceSummaryPath")) { $Details.CandidatePerformanceSummaryPath } elseif ($Details.ContainsKey("PerformanceSummaryPath")) { $Details.PerformanceSummaryPath } else { "" })
         PerformanceSummaryPresent = $(if ($Details.ContainsKey("CandidatePerformanceSummaryPresent")) { $Details.CandidatePerformanceSummaryPresent } elseif ($Details.ContainsKey("PerformanceSummaryPresent")) { $Details.PerformanceSummaryPresent } else { $false })
         BaselinePerformanceSummaryPath = $(if ($Details.ContainsKey("BaselinePerformanceSummaryPath")) { $Details.BaselinePerformanceSummaryPath } else { "" })
@@ -209,9 +214,9 @@ if ([string]::IsNullOrWhiteSpace($comparisonResolved)) {
     }
 
     $pattern = if ([string]::IsNullOrWhiteSpace($ArtifactLabel)) {
-        "*baseline-vs-stage10a*.txt"
+        "*baseline-vs-*.txt"
     } else {
-        "$($ArtifactLabel -replace '[^A-Za-z0-9_.-]', '-')-baseline-vs-stage10a*.txt"
+        "$($ArtifactLabel -replace '[^A-Za-z0-9_.-]', '-')-baseline-vs-*.txt"
     }
 
     $latest = Get-ChildItem -LiteralPath $visualRoot -Filter $pattern -File -ErrorAction SilentlyContinue |
@@ -221,7 +226,7 @@ if ([string]::IsNullOrWhiteSpace($comparisonResolved)) {
     if (-not $latest) {
         $result = New-Status `
             -Status "Missing" `
-            -Evidence "No baseline-vs-stage10a comparison artifact matched '$pattern' in $visualRoot" `
+            -Evidence "No baseline-vs comparison artifact matched '$pattern' in $visualRoot" `
             -NextRecommendation "Run scripts\run-vrising-visual-comparison.ps1 in Paired mode for a stable gameplay scene."
         if ($Json) { $result | ConvertTo-Json -Depth 5 } else { $result }
         if ($RequirePass) { exit 1 }
@@ -248,7 +253,14 @@ $baselineSha = Get-MapString -Map $comparison -Key "BaselineSha256"
 $candidateSha = Get-MapString -Map $comparison -Key "CandidateSha256"
 $baselineLabel = if ([string]::IsNullOrWhiteSpace($baselinePath)) { "" } else { [System.IO.Path]::GetFileNameWithoutExtension($baselinePath) }
 $candidateLabel = if ([string]::IsNullOrWhiteSpace($candidatePath)) { "" } else { [System.IO.Path]::GetFileNameWithoutExtension($candidatePath) }
-$stage10ALogPath = if ([string]::IsNullOrWhiteSpace($candidateLabel)) { "" } else { Join-Path $runtimeLogRoot "LogOutput-$candidateLabel.log" }
+$candidateStage = if ($candidateLabel -match "user-rendering" -or [System.IO.Path]::GetFileNameWithoutExtension($comparisonResolved) -match "baseline-vs-user-rendering") {
+    "dlss-user-rendering"
+} else {
+    "dlss-visible-writeback"
+}
+$candidateEvidenceLogPath = if ([string]::IsNullOrWhiteSpace($candidateLabel)) { "" } else { Join-Path $runtimeLogRoot "LogOutput-$candidateLabel.log" }
+$stage10ALogPath = if ($candidateStage -eq "dlss-visible-writeback") { $candidateEvidenceLogPath } else { "" }
+$userRenderingLogPath = if ($candidateStage -eq "dlss-user-rendering") { $candidateEvidenceLogPath } else { "" }
 $baselinePerformanceSummaryPath = if ([string]::IsNullOrWhiteSpace($baselineLabel)) { "" } else { Join-Path $fpsRoot "$baselineLabel.txt" }
 $candidatePerformanceSummaryPath = if ([string]::IsNullOrWhiteSpace($candidateLabel)) { "" } else { Join-Path $fpsRoot "$candidateLabel.txt" }
 $baselinePerformance = if (-not [string]::IsNullOrWhiteSpace($baselinePerformanceSummaryPath) -and (Test-Path -LiteralPath $baselinePerformanceSummaryPath)) {
@@ -278,8 +290,13 @@ $details = @{
     Height = Get-MapInt -Map $comparison -Key "ComparedHeight"
     MeanAbsRgbDelta = Get-MapDouble -Map $comparison -Key "MeanAbsRgbDelta"
     ChangedRatioGt10 = Get-MapDouble -Map $comparison -Key "ChangedRatioGt10"
+    CandidateStage = $candidateStage
+    CandidateEvidenceLogPath = $candidateEvidenceLogPath
+    CandidateEvidenceProved = $false
     Stage10ALogPath = $stage10ALogPath
     Stage10AProved = $false
+    UserRenderingLogPath = $userRenderingLogPath
+    UserRenderingProved = $false
     BaselinePerformanceSummaryPath = $baselinePerformanceSummaryPath
     CandidatePerformanceSummaryPath = $candidatePerformanceSummaryPath
     BaselinePerformanceSummaryPresent = $false
@@ -325,13 +342,23 @@ foreach ($prefix in @("Baseline", "Candidate")) {
     }
 }
 
-if (Test-Path -LiteralPath $stage10ALogPath) {
-    $logText = Get-Content -LiteralPath $stage10ALogPath -Raw
-    $details.Stage10AProved = $logText -match "DLSS visible write-back probe succeeded" -and $logText -match "sequenceSuccesses=30/30"
+if (-not [string]::IsNullOrWhiteSpace($candidateEvidenceLogPath) -and (Test-Path -LiteralPath $candidateEvidenceLogPath)) {
+    $logText = Get-Content -LiteralPath $candidateEvidenceLogPath -Raw
+    if ($candidateStage -eq "dlss-user-rendering") {
+        $details.UserRenderingProved = $logText -match "DLSS user rendering evaluate succeeded from" -and $logText -match "sequenceSuccesses=\d+"
+        $details.CandidateEvidenceProved = $details.UserRenderingProved
+    } else {
+        $details.Stage10AProved = $logText -match "DLSS visible write-back probe succeeded" -and $logText -match "sequenceSuccesses=30/30"
+        $details.CandidateEvidenceProved = $details.Stage10AProved
+    }
 }
 
-if (-not $details.Stage10AProved) {
-    $issues.Add("Candidate log does not prove Stage 10A visible write-back success with sequenceSuccesses=30/30.")
+if (-not $details.CandidateEvidenceProved) {
+    if ($candidateStage -eq "dlss-user-rendering") {
+        $issues.Add("Candidate log does not prove DLSS user-rendering evaluate success with sequenceSuccesses.")
+    } else {
+        $issues.Add("Candidate log does not prove Stage 10A visible write-back success with sequenceSuccesses=30/30.")
+    }
 }
 
 $details.BaselinePerformanceSummaryPresent = -not [string]::IsNullOrWhiteSpace($baselinePerformanceSummaryPath) -and (Test-Path -LiteralPath $baselinePerformanceSummaryPath)
@@ -362,7 +389,7 @@ if (-not (Test-Path -LiteralPath $reviewResolved)) {
             $result = New-Status `
                 -Status "Fail" `
                 -Evidence "Human visual review failed: $reviewResolved" `
-                -NextRecommendation "Fix the candidate image path, rerun Stage 10A visual comparison, then review a fresh artifact pair." `
+                -NextRecommendation "Fix the candidate image path, rerun the paired candidate visual comparison, then review a fresh artifact pair." `
                 -Issues $issues.ToArray() `
                 -Details $details
             if ($Json) { $result | ConvertTo-Json -Depth 5 } else { $result }
@@ -396,7 +423,7 @@ if (-not (Test-Path -LiteralPath $reviewResolved)) {
     }
 }
 
-$nextRecommendation = "Run a paired Stage 10A gameplay visual comparison at gameplay resolution, capture baseline and candidate performance, then create $reviewResolved after human review with matching image SHA256 values."
+$nextRecommendation = "Run a paired gameplay visual comparison at gameplay resolution, capture baseline and candidate performance, then create $reviewResolved after human review with matching image SHA256 values."
 if (Test-Path -LiteralPath $reviewResolved) {
     if ($details.HumanReviewStatus -eq "Pending") {
         $nextRecommendation = "Complete human visual review for $reviewResolved, then mark it Pass only if the candidate image is correct enough for MVP evidence."
@@ -415,8 +442,8 @@ if ($issues.Count -gt 0) {
 } else {
     $result = New-Status `
         -Status "Pass" `
-        -Evidence "Gameplay visual comparison, Stage 10A log, baseline/candidate performance summaries, and matching human review passed: $comparisonResolved" `
-        -NextRecommendation "Use this visual evidence while validating the experimental normal-user DLSS.EnableDLSS candidate, resize/reset handling, and fallback behavior." `
+        -Evidence "Gameplay visual comparison, candidate DLSS evidence log, baseline/candidate performance summaries, and matching human review passed: $comparisonResolved" `
+        -NextRecommendation "Use this visual evidence while validating resize/reset handling and fallback behavior." `
         -Issues @() `
         -Details $details
 }

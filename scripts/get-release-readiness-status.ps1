@@ -363,7 +363,7 @@ if (@($visualStatus.Issues).Count -gt 0) {
 }
 $items.Add((New-ReadinessItem `
     -Area "MVP" `
-    -Requirement "Gameplay visual comparison proves the Stage 10A candidate is image-correct enough for normal-user DLSS integration." `
+    -Requirement "Gameplay visual comparison proves the selected DLSS candidate is image-correct enough for normal-user DLSS integration." `
     -Status $visualStatus.Status `
     -Evidence $visualEvidence))
 
@@ -466,7 +466,7 @@ $summary = [pscustomobject]@{
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
         } else {
-            "Run a paired Stage 10A gameplay visual comparison, capture performance, and add a matching human review file."
+            "Run a paired dlss-user-rendering gameplay visual comparison, capture performance, and add a matching human review file."
         }
     } else {
         "Validate image correctness, output selection, resize/reset handling, and fallback behavior before public release."

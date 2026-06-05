@@ -1,6 +1,6 @@
 # Local Runtime Staging - 2026-06-05
 
-This records local staging progress for runtime validation. Stage 8B guarded DLSS evaluate, Stage 8C output follow-up, Stage 8D persistent repeated evaluate, Stage 8E Super Resolution input sizing, Stage 8F Super Resolution evaluate, Stage 8G Super Resolution persistent repeated evaluate, Stage 9A Super Resolution frame-sequence evaluate, and Stage 10A visible write-back candidate now have local proof. Normal-user DLSS rendering now has an experimental one-evaluate-per-frame candidate, but it is not MVP-validated yet.
+This records local staging progress for runtime validation. Stage 8B guarded DLSS evaluate, Stage 8C output follow-up, Stage 8D persistent repeated evaluate, Stage 8E Super Resolution input sizing, Stage 8F Super Resolution evaluate, Stage 8G Super Resolution persistent repeated evaluate, Stage 9A Super Resolution frame-sequence evaluate, and Stage 10A visible write-back candidate now have local proof. Normal-user DLSS rendering now has an experimental one-evaluate-per-accepted-frame candidate, but it is not MVP-validated yet.
 
 ## Inputs
 
