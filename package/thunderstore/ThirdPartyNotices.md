@@ -20,6 +20,10 @@ This package declares a Thunderstore dependency on:
 
 BepInEx is installed by the mod manager or by the user from its own package. It is not bundled in this package.
 
+## V Rising Files And Server Use
+
+This package does not include V Rising game files, modified game files, decompiled game source, or generated interop DLLs. It is an unofficial client-side graphics experiment. Official/public server use is not guaranteed to be allowed, and users are responsible for complying with V Rising's EULA, Terms of Service, and server rules.
+
 ## Own Binaries
 
 The following binaries are built from this repository:

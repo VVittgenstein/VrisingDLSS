@@ -17,7 +17,14 @@ $forbiddenPatterns = @(
     "sl.interposer.dll",
     "sl.common.dll",
     "sl.dlss.dll",
-    "nvngx_dlssg.dll"
+    "nvngx_dlssg.dll",
+    "Assembly-CSharp.dll",
+    "GameAssembly.dll",
+    "UnityPlayer.dll",
+    "UnityEngine.CoreModule.dll",
+    "Unity.RenderPipelines.Core.Runtime.dll",
+    "Unity.RenderPipelines.HighDefinition.Runtime.dll",
+    "ProjectM.dll"
 )
 
 $forbiddenExtensions = @(".exe", ".zip", ".7z", ".rar")

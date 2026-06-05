@@ -159,7 +159,14 @@ $forbiddenFileNames = @(
     "sl.interposer.dll",
     "sl.common.dll",
     "sl.dlss.dll",
-    "nvngx_dlssg.dll"
+    "nvngx_dlssg.dll",
+    "Assembly-CSharp.dll",
+    "GameAssembly.dll",
+    "UnityPlayer.dll",
+    "UnityEngine.CoreModule.dll",
+    "Unity.RenderPipelines.Core.Runtime.dll",
+    "Unity.RenderPipelines.HighDefinition.Runtime.dll",
+    "ProjectM.dll"
 )
 $forbiddenExtensions = @(".exe", ".zip", ".7z", ".rar")
 
@@ -252,7 +259,9 @@ try {
                 "experimental",
                 "not ready for public gameplay use",
                 "local/private",
-                "nvngx_dlss.dll"
+                "nvngx_dlss.dll",
+                "official/public server",
+                "EULA"
             )) {
                 if (-not (Test-TextContains -Text $readmeText -Needle $requiredReadmePhrase)) {
                     Add-Violation -Violations $violations -Message "README.md must include diagnostic release boundary phrase: $requiredReadmePhrase"
@@ -263,7 +272,9 @@ try {
                 "enables DLSS today",
                 "working DLSS release",
                 "is ready for public gameplay",
-                "ready for public gameplay release"
+                "ready for public gameplay release",
+                "safe on official servers",
+                "allowed on official servers"
             )) {
                 if (Test-TextContains -Text $readmeText -Needle $forbiddenReadmePhrase) {
                     Add-Violation -Violations $violations -Message "README.md contains misleading pre-MVP claim: $forbiddenReadmePhrase"

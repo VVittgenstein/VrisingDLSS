@@ -10,6 +10,8 @@ This package template is not ready for public gameplay use yet. The current sour
 - This package must not include PureDark binaries.
 - This package must not include `nvngx_dlss.dll` until the distribution review approves a specific release path.
 - Test only in local/private environments until compatibility and server-policy risks are understood.
+- Official/public server use is not guaranteed to be allowed and may violate server rules or the V Rising EULA.
+- This package should not be used to gain gameplay, network, automation, anti-cheat, or server advantages.
 - See `ThirdPartyNotices.md` for packaging and runtime dependency boundaries.
 
 ## Dependency
