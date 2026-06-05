@@ -52,7 +52,7 @@ public sealed class Plugin : BasePlugin
             HarmonyCallProbe.Install(_log);
         }
 
-        if (_config.EnableFrameResourceProbe.Value || _config.EnableDlssEvaluateInputProbe.Value)
+        if (_config.EnableFrameResourceProbe.Value || _config.EnableDlssEvaluateInputProbe.Value || _config.EnableDlssPassResourceProbe.Value)
         {
             RunFrameResourceProbe();
         }
@@ -168,10 +168,12 @@ public sealed class Plugin : BasePlugin
         FrameResourceProbe.Install(
             _log,
             bridge,
+            _config?.EnableFrameResourceProbe.Value ?? false,
             _config?.EnableDlssEvaluateInputProbe.Value ?? false,
             _config?.EnableRenderGraphDiagnosticPass.Value ?? false,
             _config?.EnableExistingRenderFuncProbe.Value ?? false,
-            _config?.EnableResourceMaterializationProbe.Value ?? false);
+            _config?.EnableResourceMaterializationProbe.Value ?? false,
+            _config?.EnableDlssPassResourceProbe.Value ?? false);
     }
 
     private ConfigFile CreateModConfigFile()

@@ -110,6 +110,8 @@ For local SDK-wrapper research builds, `Diagnostics.EnableDlssFeatureCreateProbe
 
 `Diagnostics.EnableDlssEvaluateInputProbe=true` validates whether real color/output/depth/motion frame resources are present and D3D11-compatible in the same hook callback. This does not require a DLSS runtime and still does not evaluate a frame. The `dlss-evaluate-inputs` helper also enables `Diagnostics.EnableResourceMaterializationProbe=true` and `Diagnostics.EnableUpscalerStateProbe=true`, but leaves `Diagnostics.EnableHarmonyCallProbe=false` so broad call logging does not interfere with Stage 8A. The ordinary diagnostic does not patch compiler-generated HDRP render functions; that rejected route is gated separately by `Diagnostics.EnableExistingRenderFuncProbe=false`.
 
+`Diagnostics.EnableDlssPassResourceProbe=true` is a separate research switch for the HDRP DLSSPass resource-helper route. It patches `DLSSPass.GetViewResources` and `DLSSPass.GetCameraResources`, not `DLSSPass.Render`, and logs source/output/depth/motion-vector texture pointers when those helpers return real `Texture` objects. Use `scripts\write-diagnostic-config.ps1 -Stage dlsspass-resource` for this isolated test; it is not enabled by the ordinary `dlss-evaluate-inputs` helper.
+
 `Diagnostics.EnableUpscalerStateProbe=true` logs read-only HDRP FSR/upscale and dynamic-resolution state snapshots. It helps confirm whether V Rising's built-in FSR/upscale route is active, but it does not change the upscale filter and does not replace the DLSS depth/motion-vector requirement.
 
 Do not copy PureDark package files into this mod folder.

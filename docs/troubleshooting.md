@@ -141,6 +141,18 @@ Check:
 
 If the log says `DLSS evaluate input probe blocked`, preserve the surrounding frame-resource lines. Missing motion vectors usually means the current scene/settings/hook point is not enough for DLSS evaluate yet. If the probe fails after all four pointers are present, the native status line should identify a D3D11 resource, device, or dimension mismatch.
 
+## DLSSPass Resource Helper Probe
+
+`EnableDlssPassResourceProbe` is disabled by default. It patches only `DLSSPass.GetViewResources` and `DLSSPass.GetCameraResources`, then logs any returned source/output/depth/motion-vector `Texture` native pointers. It does not patch `DLSSPass.Render`, does not load DLSS, and does not evaluate a frame.
+
+Use this only as a deliberate short local/private test:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage dlsspass-resource
+```
+
+If the game closes immediately after patching these helper methods, leave `EnableDlssPassResourceProbe=false` and keep using the safer RenderGraph materialization route. If the log shows all four resource-helper pointers, preserve those lines before trying any run that also enables `EnableDlssEvaluateInputProbe`.
+
 ## Hook Targets Are Missing
 
 If the hook probe logs missing `CustomVignette`, `HDCamera`, or `HDRenderPipeline`, the current game/HDRP version likely differs from the 2022 PureDark-era assumptions.

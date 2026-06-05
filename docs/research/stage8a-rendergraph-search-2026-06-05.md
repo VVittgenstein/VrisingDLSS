@@ -145,6 +145,8 @@ DLSSPass static structure finding: generated interop for `UnityEngine.Rendering.
 
 DLSSPass runtime hook rejection: a targeted prefix on `DLSSPass.Render(Parameters, CameraResources, CommandBuffer)` was tested because the broad call probe had shown that method is called in the main menu. V Rising crashed in `UnityPlayer.dll` with `0x80000003` immediately after patching and before any prefix call logged. This makes `DLSSPass.Render` an unsafe Harmony hook point in the current IL2CPP build even though its data structure is useful as a map.
 
+Implementation follow-up: a new isolated `Diagnostics.EnableDlssPassResourceProbe=false` route now patches only `DLSSPass.GetViewResources` and `DLSSPass.GetCameraResources`. These helpers are interesting because Unity's source shows they convert HDRP DLSS `TextureHandle` groups into real `Texture` resources before the NVIDIA render path consumes them. The route does not patch the rejected `DLSSPass.Render` method and is not enabled by the ordinary `dlss-evaluate-inputs` helper. It is build-validated only; runtime stability and usefulness still need a short local/private test with `write-diagnostic-config.ps1 -Stage dlsspass-resource`.
+
 Additional FSR evidence: local metadata and interop inspection confirm V Rising exposes `AMD FSR 1.0`, `SetFSRParameters(float, bool)`, `GetUpscaleRes()`, `SetUpscaleFilter(DynamicResUpscaleFilter, float)`, `GetUpscaleFilter()`, `SetupDLSSForCameraDataAndDynamicResHandler(...)`, `GetPostprocessUpsampledOutputHandle(...)`, `DoDLSSPasses(...)`, and `DoDLSSPass(...)`. FSR1 helps identify the existing dynamic-resolution/upscale controls, but it remains a spatial upscaler and does not remove DLSS's requirement for depth and motion-vector inputs.
 
 Rejected or deferred:
@@ -156,6 +158,7 @@ Rejected or deferred:
 - Patching compiler-generated HDRP RenderGraph render-function delegates as part of ordinary `dlss-evaluate-inputs`; this reproduced the same CoreCLR access-violation crash before the postfix logged.
 - Combining ordinary `dlss-evaluate-inputs` with broad Harmony call logging; this patched `DLSSPass.Render` and produced a CoreCLR stack-overflow crash.
 - Patching `DLSSPass.Render(Parameters, CameraResources, CommandBuffer)` directly, even with a single targeted prefix; this produced a UnityPlayer breakpoint crash before the prefix logged.
+- Enabling the new `DLSSPass.GetViewResources`/`GetCameraResources` helper probe as part of ordinary Stage 8A before it has separate runtime stability evidence.
 - Treating FSR1 as a DLSS replacement instead of an upscale-path landmark.
 - Evaluating DLSS from main-menu HDCamera exposure/global texture evidence.
 - Replacing the primary route with Streamline before first direct-NGX evaluate.

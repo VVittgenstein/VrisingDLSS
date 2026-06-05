@@ -281,6 +281,7 @@ try {
             "EnableRenderGraphDiagnosticPass = false",
             "EnableExistingRenderFuncProbe = false",
             "EnableResourceMaterializationProbe = false",
+            "EnableDlssPassResourceProbe = false",
             "EnableUpscalerStateProbe = false",
             "EnableHookProbe = true"
         )) {

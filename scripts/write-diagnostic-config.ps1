@@ -10,7 +10,8 @@ param(
         "dlss-runtime",
         "dlss-init-query",
         "dlss-feature-create",
-        "dlss-evaluate-inputs"
+        "dlss-evaluate-inputs",
+        "dlsspass-resource"
     )]
     [string]$Stage = "loader",
 
@@ -48,6 +49,7 @@ function New-ConfigMap {
             EnableRenderGraphDiagnosticPass = "false"
             EnableExistingRenderFuncProbe = "false"
             EnableResourceMaterializationProbe = "false"
+            EnableDlssPassResourceProbe = "false"
             EnableUpscalerStateProbe = "false"
             EnableHookProbe = "true"
             EnableHarmonyCallProbe = "false"
@@ -131,6 +133,12 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableFrameResourceProbe = "true"
             $Config.Diagnostics.EnableDlssEvaluateInputProbe = "true"
             $Config.Diagnostics.EnableResourceMaterializationProbe = "true"
+            $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+        }
+        "dlsspass-resource" {
+            $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
+            $Config.Diagnostics.EnableD3D11TextureProbe = "true"
+            $Config.Diagnostics.EnableDlssPassResourceProbe = "true"
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"
         }
     }

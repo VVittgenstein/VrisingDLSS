@@ -23,6 +23,8 @@ internal static class FrameResourceProbe
     private const int MaxRenderGraphResourceMaterializationLogs = 80;
     private const int MaxRenderGraphResourceMaterializationEvaluateAttempts = 12;
     private const int MaxRenderGraphGetTextureLogs = 40;
+    private const int MaxDlssPassResourceHelperLogs = 40;
+    private const int MaxDlssPassResourceEvaluateAttempts = 12;
     private const int MaxTextureSearchDepth = 3;
     private static readonly FrameProbeTarget[] Targets =
     {
@@ -41,6 +43,8 @@ internal static class FrameResourceProbe
     private static int RenderGraphResourceMaterializationEvaluateAttemptCount;
     private static int RenderGraphResourceMaterializationEpoch;
     private static int RenderGraphGetTextureCallCount;
+    private static int DlssPassResourceHelperCallCount;
+    private static int DlssPassResourceEvaluateAttemptCount;
     private static readonly Dictionary<string, RenderGraphTextureCandidate> RenderGraphResourceMaterializationCandidates = new(StringComparer.OrdinalIgnoreCase);
     private static readonly string[] GlobalTextureNames =
     {
@@ -57,15 +61,18 @@ internal static class FrameResourceProbe
     private static bool RenderGraphDiagnosticPassEnabled;
     private static bool ExistingRenderFuncProbeEnabled;
     private static bool ResourceMaterializationProbeEnabled;
+    private static bool DlssPassResourceProbeEnabled;
     private static bool DlssEvaluateInputProbeSucceeded;
 
     internal static void Install(
         ManualLogSource log,
         NativeBridge bridge,
+        bool enableFrameResourceProbe = false,
         bool enableDlssEvaluateInputProbe = false,
         bool enableRenderGraphDiagnosticPass = false,
         bool enableExistingRenderFuncProbe = false,
-        bool enableResourceMaterializationProbe = false)
+        bool enableResourceMaterializationProbe = false,
+        bool enableDlssPassResourceProbe = false)
     {
         if (Installed)
         {
@@ -74,6 +81,7 @@ internal static class FrameResourceProbe
             RenderGraphDiagnosticPassEnabled = RenderGraphDiagnosticPassEnabled || enableRenderGraphDiagnosticPass;
             ExistingRenderFuncProbeEnabled = ExistingRenderFuncProbeEnabled || enableExistingRenderFuncProbe;
             ResourceMaterializationProbeEnabled = ResourceMaterializationProbeEnabled || enableResourceMaterializationProbe;
+            DlssPassResourceProbeEnabled = DlssPassResourceProbeEnabled || enableDlssPassResourceProbe;
             return;
         }
 
@@ -83,6 +91,7 @@ internal static class FrameResourceProbe
         RenderGraphDiagnosticPassEnabled = enableRenderGraphDiagnosticPass;
         ExistingRenderFuncProbeEnabled = enableExistingRenderFuncProbe;
         ResourceMaterializationProbeEnabled = enableResourceMaterializationProbe;
+        DlssPassResourceProbeEnabled = enableDlssPassResourceProbe;
         DlssEvaluateInputProbeSucceeded = false;
         if (DlssEvaluateInputProbeEnabled)
         {
@@ -99,6 +108,10 @@ internal static class FrameResourceProbe
         if (ResourceMaterializationProbeEnabled)
         {
             log.LogInfo("RenderGraph resource materialization probe enabled.");
+        }
+        if (DlssPassResourceProbeEnabled)
+        {
+            log.LogWarning("High-risk DLSSPass resource helper probe is enabled. It patches GetViewResources/GetCameraResources only, not DLSSPass.Render; use only for deliberate Stage 8A resource testing.");
         }
 
         var assemblies = AppDomain.CurrentDomain.GetAssemblies();
@@ -126,29 +139,36 @@ internal static class FrameResourceProbe
 
         var patched = 0;
         var patchedMethodKeys = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var target in Targets)
+        if (enableFrameResourceProbe || enableDlssEvaluateInputProbe)
         {
-            var targetType = HookTargetCatalog.FindType(assemblies, target.TypeName);
-            if (targetType is null)
+            foreach (var target in Targets)
             {
-                log.LogWarning($"Frame resource probe target type not found: {target.TypeName}");
-                continue;
-            }
-
-            foreach (var method in HookTargetCatalog.FindMethods(targetType, target.MemberName))
-            {
-                if (TryPatchFrameResourceMethod(
-                    log,
-                    method,
-                    harmonyMethodConstructor,
-                    patchMethod,
-                    prefix,
-                    patchedMethodKeys,
-                    "Frame resource probe"))
+                var targetType = HookTargetCatalog.FindType(assemblies, target.TypeName);
+                if (targetType is null)
                 {
-                    patched++;
+                    log.LogWarning($"Frame resource probe target type not found: {target.TypeName}");
+                    continue;
+                }
+
+                foreach (var method in HookTargetCatalog.FindMethods(targetType, target.MemberName))
+                {
+                    if (TryPatchFrameResourceMethod(
+                        log,
+                        method,
+                        harmonyMethodConstructor,
+                        patchMethod,
+                        prefix,
+                        patchedMethodKeys,
+                        "Frame resource probe"))
+                    {
+                        patched++;
+                    }
                 }
             }
+        }
+        else
+        {
+            log.LogInfo("Frame resource base probe skipped.");
         }
 
         if (DlssEvaluateInputProbeEnabled)
@@ -253,6 +273,18 @@ internal static class FrameResourceProbe
             }
         }
 
+        if (DlssPassResourceProbeEnabled)
+        {
+            var dlssPassResourceHelperPatched = TryPatchDlssPassResourceHelperMethods(
+                log,
+                assemblies,
+                harmonyMethodConstructor,
+                patchMethod,
+                patchedMethodKeys);
+            patched += dlssPassResourceHelperPatched;
+            log.LogInfo($"DLSSPass resource helper probe patched {dlssPassResourceHelperPatched} method(s).");
+        }
+
         Installed = patched > 0;
         log.LogInfo($"Frame resource probe patched {patched} method(s).");
     }
@@ -304,6 +336,7 @@ internal static class FrameResourceProbe
             RenderGraphDiagnosticPassEnabled = false;
             ExistingRenderFuncProbeEnabled = false;
             ResourceMaterializationProbeEnabled = false;
+            DlssPassResourceProbeEnabled = false;
             DlssEvaluateInputProbeSucceeded = false;
             lock (Sync)
             {
@@ -319,6 +352,8 @@ internal static class FrameResourceProbe
                 RenderGraphResourceMaterializationEvaluateAttemptCount = 0;
                 RenderGraphResourceMaterializationEpoch = 0;
                 RenderGraphGetTextureCallCount = 0;
+                DlssPassResourceHelperCallCount = 0;
+                DlssPassResourceEvaluateAttemptCount = 0;
             }
         }
     }
@@ -530,6 +565,59 @@ internal static class FrameResourceProbe
         }
 
         return patched;
+    }
+
+    private static int TryPatchDlssPassResourceHelperMethods(
+        ManualLogSource log,
+        IEnumerable<Assembly> assemblies,
+        ConstructorInfo harmonyMethodConstructor,
+        MethodInfo patchMethod,
+        ISet<string> patchedMethodKeys)
+    {
+        var postfix = typeof(FrameResourceProbe).GetMethod(nameof(DlssPassResourceHelperPostfix), BindingFlags.NonPublic | BindingFlags.Static);
+        if (postfix is null)
+        {
+            log.LogWarning("DLSSPass resource helper postfix target was not found.");
+            return 0;
+        }
+
+        var dlssPassType = HookTargetCatalog.FindType(assemblies, "UnityEngine.Rendering.HighDefinition.DLSSPass");
+        if (dlssPassType is null)
+        {
+            log.LogWarning("DLSSPass resource helper target type was not found.");
+            return 0;
+        }
+
+        var patched = 0;
+        foreach (var method in dlssPassType
+            .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.DeclaredOnly)
+            .Where(IsDlssPassResourceHelperMethod))
+        {
+            if (TryPatchPostfixMethod(
+                log,
+                method,
+                harmonyMethodConstructor,
+                patchMethod,
+                postfix,
+                patchedMethodKeys,
+                "DLSSPass resource helper"))
+            {
+                patched++;
+            }
+        }
+
+        return patched;
+    }
+
+    private static bool IsDlssPassResourceHelperMethod(MethodInfo method)
+    {
+        if (method.ContainsGenericParameters)
+        {
+            return false;
+        }
+
+        return string.Equals(method.Name, "GetViewResources", StringComparison.Ordinal)
+            || string.Equals(method.Name, "GetCameraResources", StringComparison.Ordinal);
     }
 
     private static bool TryPatchFrameResourceMethod(
@@ -1204,6 +1292,67 @@ internal static class FrameResourceProbe
         }
     }
 
+    private static void DlssPassResourceHelperPostfix(MethodBase __originalMethod, object? __result)
+    {
+        try
+        {
+            if (!DlssPassResourceProbeEnabled)
+            {
+                return;
+            }
+
+            var log = Log;
+            var bridge = Bridge;
+            if (log is null || bridge is null || __result is null)
+            {
+                return;
+            }
+
+            int count;
+            lock (Sync)
+            {
+                DlssPassResourceHelperCallCount++;
+                count = DlssPassResourceHelperCallCount;
+            }
+
+            var methodLabel = HookTargetCatalog.FormatMethod(__originalMethod);
+            var candidates = CollectDlssPassResourceTextureCandidates(__originalMethod.Name, __result);
+            if (candidates.Count == 0)
+            {
+                if (count <= MaxDlssPassResourceHelperLogs || count % 300 == 0)
+                {
+                    log.LogInfo($"DLSSPass resource helper #{count}: method={methodLabel}; result={SummarizeValue(__result)}; texture candidates=none");
+                }
+
+                return;
+            }
+
+            if (count <= MaxDlssPassResourceHelperLogs || count % 300 == 0)
+            {
+                log.LogInfo($"DLSSPass resource helper #{count}: method={methodLabel}; candidates=[{FormatNativeTextureCandidates(candidates)}]");
+                foreach (var candidate in candidates.Take(8))
+                {
+                    var success = bridge.ProbeD3D11Texture(candidate.Pointer);
+                    var status = bridge.GetD3D11ProbeStatus();
+                    if (success)
+                    {
+                        log.LogInfo($"DLSSPass resource helper {candidate.Label}: D3D11 probe succeeded: {status}");
+                    }
+                    else
+                    {
+                        log.LogWarning($"DLSSPass resource helper {candidate.Label}: D3D11 probe failed: {status}");
+                    }
+                }
+            }
+
+            TryRunDlssPassResourceDlssEvaluateInputProbe(log, bridge, methodLabel, candidates);
+        }
+        catch (Exception ex)
+        {
+            Log?.LogWarning($"DLSSPass resource helper postfix failed: {GetExceptionMessage(ex)}");
+        }
+    }
+
     private static void RenderGraphRegistryBeginExecutePrefix(MethodBase __originalMethod, object? __instance, object?[]? __args)
     {
         try
@@ -1617,6 +1766,62 @@ internal static class FrameResourceProbe
         }
     }
 
+    private static void TryRunDlssPassResourceDlssEvaluateInputProbe(
+        ManualLogSource log,
+        NativeBridge bridge,
+        string methodLabel,
+        IReadOnlyList<NativeTextureCandidate> candidates)
+    {
+        if (!DlssEvaluateInputProbeEnabled || DlssEvaluateInputProbeSucceeded)
+        {
+            return;
+        }
+
+        var available = candidates.Where(candidate => candidate.Pointer != IntPtr.Zero).ToArray();
+        var color = FindNativeTextureCandidate(available, static label => LabelEndsWith(label, "source"));
+        var output = FindNativeTextureCandidate(available, static label => LabelEndsWith(label, "output"));
+        var depth = FindNativeTextureCandidate(available, static label => LabelEndsWith(label, "depth"));
+        var motion = FindNativeTextureCandidate(available, static label =>
+            LabelEndsWith(label, "motionVectors")
+            || LabelEndsWith(label, "motion"));
+
+        if (color is null || output is null || depth is null || motion is null)
+        {
+            return;
+        }
+
+        int attempt;
+        lock (Sync)
+        {
+            if (DlssPassResourceEvaluateAttemptCount >= MaxDlssPassResourceEvaluateAttempts)
+            {
+                return;
+            }
+
+            DlssPassResourceEvaluateAttemptCount++;
+            attempt = DlssPassResourceEvaluateAttemptCount;
+        }
+
+        log.LogInfo(
+            $"DLSS evaluate input probe DLSSPass resource helper candidate #{attempt}: method={methodLabel}; color={color.Value.Label} 0x{color.Value.Pointer.ToInt64():X}; output={output.Value.Label} 0x{output.Value.Pointer.ToInt64():X}; depth={depth.Value.Label} 0x{depth.Value.Pointer.ToInt64():X}; motion={motion.Value.Label} 0x{motion.Value.Pointer.ToInt64():X}");
+
+        var success = bridge.ProbeDlssEvaluateInputs(
+            color.Value.Pointer,
+            output.Value.Pointer,
+            depth.Value.Pointer,
+            motion.Value.Pointer);
+        var status = bridge.GetDlssEvaluateInputStatus();
+        if (success)
+        {
+            DlssEvaluateInputProbeSucceeded = true;
+            log.LogInfo($"DLSS evaluate input probe succeeded from DLSSPass resource helper: {status}");
+        }
+        else
+        {
+            log.LogWarning($"DLSS evaluate input probe failed from DLSSPass resource helper: {status}");
+        }
+    }
+
     private static IReadOnlyList<NativeTextureCandidate> CollectArgumentTextureCandidates(MethodBase originalMethod, object?[]? args, object? renderGraph)
     {
         var candidates = new List<NativeTextureCandidate>();
@@ -1643,6 +1848,28 @@ internal static class FrameResourceProbe
                 ? parameters[index].Name!
                 : $"arg{index}";
             candidates.Add(new NativeTextureCandidate(parameterName, pointer));
+        }
+
+        return candidates;
+    }
+
+    private static IReadOnlyList<NativeTextureCandidate> CollectDlssPassResourceTextureCandidates(string methodName, object result)
+    {
+        var candidates = new List<NativeTextureCandidate>();
+        var seenLabels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var seenObjects = new HashSet<int>();
+
+        foreach (var textureObject in EnumerateNamedDlssPassTextureObjects(methodName, result, 0, seenObjects))
+        {
+            if (!seenLabels.Add(textureObject.Label))
+            {
+                continue;
+            }
+
+            if (TryFindNativeTexturePtr(textureObject.Value, out _, out var pointer) && pointer != IntPtr.Zero)
+            {
+                candidates.Add(new NativeTextureCandidate(textureObject.Label, pointer));
+            }
         }
 
         return candidates;
@@ -1764,6 +1991,79 @@ internal static class FrameResourceProbe
         }
     }
 
+    private static IEnumerable<NamedTextureObjectCandidate> EnumerateNamedDlssPassTextureObjects(
+        string label,
+        object? value,
+        int depth,
+        ISet<int> seenObjects)
+    {
+        if (value is null || depth > 3 || IsTerminalValue(value))
+        {
+            yield break;
+        }
+
+        var type = value.GetType();
+        if (TypeLooksTextureLike(type))
+        {
+            yield return new NamedTextureObjectCandidate(label, value);
+            yield break;
+        }
+
+        if (!type.IsValueType && !seenObjects.Add(RuntimeHelpers.GetHashCode(value)))
+        {
+            yield break;
+        }
+
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+        foreach (var field in type.GetFields(flags))
+        {
+            if (!MemberMayContainDlssPassTexture(field.Name, field.FieldType))
+            {
+                continue;
+            }
+
+            object? fieldValue;
+            try
+            {
+                fieldValue = field.GetValue(value);
+            }
+            catch
+            {
+                continue;
+            }
+
+            foreach (var nested in EnumerateNamedDlssPassTextureObjects($"{label}.{field.Name}", fieldValue, depth + 1, seenObjects))
+            {
+                yield return nested;
+            }
+        }
+
+        foreach (var property in type.GetProperties(flags))
+        {
+            if (property.GetIndexParameters().Length != 0
+                || property.GetMethod is null
+                || !MemberMayContainDlssPassTexture(property.Name, property.PropertyType))
+            {
+                continue;
+            }
+
+            object? propertyValue;
+            try
+            {
+                propertyValue = property.GetValue(value);
+            }
+            catch
+            {
+                continue;
+            }
+
+            foreach (var nested in EnumerateNamedDlssPassTextureObjects($"{label}.{property.Name}", propertyValue, depth + 1, seenObjects))
+            {
+                yield return nested;
+            }
+        }
+    }
+
     private static bool MemberMayContainTextureHandle(string name, Type type)
     {
         return TypeNameContains(type, "TextureHandle")
@@ -1775,6 +2075,18 @@ internal static class FrameResourceProbe
             || name.IndexOf("depth", StringComparison.OrdinalIgnoreCase) >= 0
             || name.IndexOf("motion", StringComparison.OrdinalIgnoreCase) >= 0
             || name.IndexOf("color", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static bool MemberMayContainDlssPassTexture(string name, Type type)
+    {
+        return TypeLooksTextureLike(type)
+            || name.IndexOf("resources", StringComparison.OrdinalIgnoreCase) >= 0
+            || name.IndexOf("tmpView", StringComparison.OrdinalIgnoreCase) >= 0
+            || name.IndexOf("source", StringComparison.OrdinalIgnoreCase) >= 0
+            || name.IndexOf("output", StringComparison.OrdinalIgnoreCase) >= 0
+            || name.IndexOf("depth", StringComparison.OrdinalIgnoreCase) >= 0
+            || name.IndexOf("motion", StringComparison.OrdinalIgnoreCase) >= 0
+            || name.IndexOf("biasColorMask", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     private static void AddResourceListCandidates(
@@ -1907,6 +2219,20 @@ internal static class FrameResourceProbe
     {
         var candidate = candidates.FirstOrDefault(predicate);
         return candidate.Pointer == IntPtr.Zero ? null : candidate;
+    }
+
+    private static NativeTextureCandidate? FindNativeTextureCandidate(
+        IEnumerable<NativeTextureCandidate> candidates,
+        Func<string, bool> labelPredicate)
+    {
+        var candidate = candidates.FirstOrDefault(candidate => labelPredicate(candidate.Label));
+        return candidate.Pointer == IntPtr.Zero ? null : candidate;
+    }
+
+    private static bool LabelEndsWith(string label, string suffix)
+    {
+        return label.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)
+            || label.EndsWith($".{suffix}", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool CandidateNameContains(RenderGraphTextureCandidate candidate, string value)
@@ -2055,6 +2381,13 @@ internal static class FrameResourceProbe
             .Select(candidate => candidate.Pointer == IntPtr.Zero
                 ? $"{candidate.Label}/{candidate.ResourceName} nativePtr=not found ({candidate.Status})"
                 : $"{candidate.Label}/{candidate.ResourceName} nativePtr=0x{candidate.Pointer.ToInt64():X} ({candidate.Status})"));
+    }
+
+    private static string FormatNativeTextureCandidates(IReadOnlyList<NativeTextureCandidate> candidates)
+    {
+        return string.Join("; ", candidates
+            .Take(16)
+            .Select(candidate => $"{candidate.Label} nativePtr=0x{candidate.Pointer.ToInt64():X}"));
     }
 
     private static IEnumerable<object?> EnumerateRuntimeSequence(object? sequence)
@@ -3035,6 +3368,8 @@ internal static class FrameResourceProbe
     private readonly record struct NativeTextureCandidate(string Label, IntPtr Pointer);
 
     private readonly record struct NamedTextureHandleCandidate(string Label, object Value);
+
+    private readonly record struct NamedTextureObjectCandidate(string Label, object Value);
 
     private readonly record struct RenderGraphTextureCandidate(string Label, string ResourceName, IntPtr Pointer, string Status);
 
