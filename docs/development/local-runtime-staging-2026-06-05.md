@@ -118,6 +118,6 @@ No PureDark files were copied into the game plugin folder. The NVIDIA runtime wa
 
 Next implementation gate:
 
-- Keep ordinary `dlss-evaluate-inputs` diagnostics safe by leaving `Diagnostics.EnableRenderGraphDiagnosticPass=false`.
+- Keep ordinary `dlss-evaluate-inputs` diagnostics safe by leaving `Diagnostics.EnableRenderGraphDiagnosticPass=false` and `Diagnostics.EnableExistingRenderFuncProbe=false`.
 - Find a later known-executing HDRP/RenderGraph path or an engine-owned resource materialization point instead of injecting a new diagnostic RenderGraph pass into the graph.
 - Implement the smallest SDK-wrapper-backed DLSS evaluate probe only after Stage 8A proves frame resources are aligned and native D3D11 pointers are available in the same frame.

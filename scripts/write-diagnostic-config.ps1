@@ -44,6 +44,7 @@ function New-ConfigMap {
             EnableDlssFeatureCreateProbe = "false"
             EnableDlssEvaluateInputProbe = "false"
             EnableRenderGraphDiagnosticPass = "false"
+            EnableExistingRenderFuncProbe = "false"
             EnableHookProbe = "true"
             EnableHarmonyCallProbe = "false"
         }

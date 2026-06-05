@@ -103,19 +103,21 @@ Preferred next implementation order:
 
 1. Keep the current prefix probes for discovery only: resource names, handle index/type, and method ordering.
 2. Keep the `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` postfix as a passive detector for engine-owned valid resource access.
-3. Patch known existing HDRP render functions with a read-only postfix instead of injecting a new pass. Start with `DoDLSSPass`, `DoTemporalAntialiasing`, `DoCustomPostProcess`, `UberPass`, `FinalPass`, motion blur, and final blit style callbacks.
-4. Recursively inspect their pass data, including nested resource-handle containers such as `DLSSData.resourceHandles`, while `RenderGraphResourceRegistry.current` is available.
-5. Convert to native pointers only from that current registry or from engine-owned successful `GetTexture` calls.
+3. Do not patch compiler-generated HDRP render functions in ordinary diagnostics. That route was useful to identify likely pass-data structures, but it reproduced a CoreCLR access violation before any render-function scope log.
+4. Continue looking for a safer engine-owned resource materialization point, for example a non-delegate registry/resource callback or another HDRP method that exposes already-created `RTHandle`/`Texture` objects without broad patching of generated render delegates.
+5. Convert to native pointers only from an engine-owned successful `GetTexture` call or another proven valid resource scope.
 6. Run `VrisingDlss_ProbeDlssEvaluateInputs` inside that valid existing execution context before any NGX evaluate call.
 7. Only after Stage 8A passes, wire the SDK-wrapper-backed DLSS feature lifecycle to the real frame path.
 
-Local follow-up evidence: a builder-declaration probe now observes named `RenderGraphBuilder` declarations for `CameraColor`, `CameraDepthStencil`, `Motion Vectors`, and `NormalBuffer` without calling `GetTexture(TextureHandle&)`. This narrows the remaining Stage 8A work to execution inside a declared RenderGraph pass or delegate.
+Local follow-up evidence: a builder-declaration probe now observes named `RenderGraphBuilder` declarations for `CameraColor`, `CameraDepthStencil`, `Motion Vectors`, and `NormalBuffer` without calling `GetTexture(TextureHandle&)`. This narrows the remaining Stage 8A work to finding a safe engine-owned resource materialization point.
 
 Additional local negative evidence: `RenderGraph.PreRenderPassExecute` can be patched but was not observed as called in the main menu; `RenderGraphPass<T>.Execute(RenderGraphContext)` cannot be patched as an open generic method with the current Harmony route; and patching `TextureHandle` implicit conversions produced repeated IL2CPP trampoline `NullReferenceException` logs.
 
 Implementation follow-up: the explicit diagnostic pass path compiles when local V Rising interop assemblies are present. It can inject an `AddRenderPass`/`SetRenderFunc` pass with `hasRenderFunc=True` and `allowPassCulling=False` from both `DoCustomPostProcess` arguments and aggregated builder declarations. Main-menu runs configured the pass but did not call its render function. A local/private gameplay run then configured/injected the pass twice and crashed `VRising.exe` in `coreclr.dll` with `0xc0000005` before any render-function log. This makes new diagnostic pass injection a rejected normal Stage 8A route for now; it remains behind `Diagnostics.EnableRenderGraphDiagnosticPass=false` for deliberate crash-recovery research only.
 
-Updated route decision: continue passive RenderGraph discovery and engine-owned `GetTexture` postfix monitoring, but move first native input validation to a known-executing existing HDRP/RenderGraph render function or a proven engine-owned resource materialization point instead of injecting a new diagnostic pass. V Rising's built-in FSR/dynamic-resolution path helps identify that route, but does not remove DLSS's depth/motion-vector requirement.
+Follow-up evidence: a main-menu diagnostic run on 2026-06-05 patched 10 compiler-generated existing HDRP render functions, including `_DoTemporalAntialiasing_b__1007_0`, `_DoCustomPostProcess_b__997_0`, `_UberPass_b__1060_0`, and `_FinalPass_b__1069_0`. V Rising then crashed in `coreclr.dll` with `0xc0000005` before any `Existing HDRP render-func scope` log. A second run reproduced the same Windows Error Reporting fault bucket. This makes broad compiler-generated render-function Harmony patching a rejected normal Stage 8A route; it is now gated behind `Diagnostics.EnableExistingRenderFuncProbe=false` for deliberate crash-recovery research only.
+
+Updated route decision after that follow-up: continue passive RenderGraph discovery and engine-owned `GetTexture` postfix monitoring, but do not inject a new diagnostic pass and do not patch compiler-generated HDRP render functions in ordinary diagnostics. The FSR/dynamic-resolution symbols remain landmarks for the eventual route, not a safe hook mechanism by themselves.
 
 Rejected or deferred:
 
@@ -123,6 +125,7 @@ Rejected or deferred:
 - Patching the open generic `RenderGraphPass<T>.Execute(RenderGraphContext)` method directly.
 - Patching `TextureHandle` implicit conversion operators as a broad diagnostic route.
 - Injecting a new diagnostic RenderGraph pass as part of ordinary `dlss-evaluate-inputs`; this caused a CoreCLR access violation in gameplay and is high-risk only.
+- Patching compiler-generated HDRP RenderGraph render-function delegates as part of ordinary `dlss-evaluate-inputs`; this reproduced the same CoreCLR access-violation crash before the postfix logged.
 - Evaluating DLSS from main-menu HDCamera exposure/global texture evidence.
 - Replacing the primary route with Streamline before first direct-NGX evaluate.
 - Bundling `nvngx_dlss.dll` before a separate release review.
@@ -131,6 +134,6 @@ Rejected or deferred:
 
 Starting from current local evidence:
 
-- If a RenderGraph execution callback or injected pass can be added cleanly: first DLSS evaluate-input pass in 1-2 weeks, first visible DLSS image in 2-4 weeks, private playable alpha in 4-6 weeks, public MVP in 6-9 weeks.
-- If V Rising/HDRP blocks safe pass injection or the motion-vector resource is not valid in gameplay: first visible DLSS image in 4-8 weeks, private playable alpha in 8-12 weeks, public MVP in 10-14+ weeks.
+- If a safe engine-owned resource materialization point is found without patching generated render delegates or injecting a pass: first DLSS evaluate-input pass in 1-2 weeks, first visible DLSS image in 2-4 weeks, private playable alpha in 4-6 weeks, public MVP in 6-9 weeks.
+- If V Rising/HDRP continues to block safe resource-scope access or the motion-vector resource is not valid in gameplay: first visible DLSS image in 4-8 weeks, private playable alpha in 8-12 weeks, public MVP in 10-14+ weeks.
 - Runtime-bundling/legal review remains separate and can add unbounded time. The source-safe no-runtime package path should remain the default MVP fallback.

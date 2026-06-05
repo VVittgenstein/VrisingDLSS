@@ -154,6 +154,6 @@ Unknown/legal path:
 
 1. Keep the optional `VRISINGDLSS_NGX_SDK_ROOT` / SDK-wrapper CMake path off by default for release-safe builds.
 2. Prototype a RenderGraph-scoped diagnostic pass or execution-stage hook where color/depth/motion handles are declared as pass inputs.
-3. Use the current `GetTexture` postfix as a passive detector while testing gameplay and any RenderGraph pass injection.
-4. Run `dlss-evaluate-inputs` in an actual local/private gameplay scene after the RenderGraph-scope path exists, not just in the main menu.
+3. Use the current `GetTexture` postfix as a passive detector while testing gameplay. Keep rejected high-risk routes disabled unless intentionally reproducing crash evidence.
+4. Run `dlss-evaluate-inputs` in an actual local/private gameplay scene after a safe resource-scope path exists, not just in the main menu.
 5. After Stage 8A proves frame resources are aligned, implement the smallest evaluate path with DLSS disabled by default until image correctness is verified.

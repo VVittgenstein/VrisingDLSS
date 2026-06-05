@@ -97,7 +97,7 @@ The source-only package intentionally does not include `nvngx_dlss.dll`.
 
 `VrisingDLSS.cfg` exposes the planned MVP DLSS and advanced configuration keys, including `DLSS.EnableDLSS`, `DLSS.QualityMode`, `DLSS.PresetMode`, `Advanced.RenderScaleOverride`, and `Advanced.MipBiasOverride`. In the current diagnostic package, `DLSS.EnableDLSS=true` only logs a warning and leaves native rendering unchanged.
 
-Keep `Diagnostics.EnableRenderGraphDiagnosticPass=false` unless you are intentionally reproducing a crash-recovery research run. That injected-pass route caused a V Rising `coreclr.dll` access violation during Stage 8A gameplay testing.
+Keep `Diagnostics.EnableRenderGraphDiagnosticPass=false` and `Diagnostics.EnableExistingRenderFuncProbe=false` unless you are intentionally reproducing a crash-recovery research run. Both routes caused V Rising `coreclr.dll` access violations during Stage 8A testing.
 
 The current diagnostic scaffold can optionally load and immediately release a user-supplied production `nvngx_dlss.dll` when `Diagnostics.EnableDlssRuntimeProbe=true` and `DLSS.DlssRuntimePath` points to that file. This is only a path/export probe.
 
@@ -105,6 +105,6 @@ The next diagnostic switch, `Diagnostics.EnableDlssInitQueryProbe=true`, current
 
 For local SDK-wrapper research builds, `Diagnostics.EnableDlssFeatureCreateProbe=true` can create and immediately release a DLSS SuperSampling feature through the same temporary D3D11 device path. This still does not evaluate a frame.
 
-`Diagnostics.EnableDlssEvaluateInputProbe=true` validates whether real color/output/depth/motion frame resources are present and D3D11-compatible in the same hook callback. This does not require a DLSS runtime and still does not evaluate a frame.
+`Diagnostics.EnableDlssEvaluateInputProbe=true` validates whether real color/output/depth/motion frame resources are present and D3D11-compatible in the same hook callback. This does not require a DLSS runtime and still does not evaluate a frame. The ordinary diagnostic does not patch compiler-generated HDRP render functions; that rejected route is gated separately by `Diagnostics.EnableExistingRenderFuncProbe=false`.
 
 Do not copy PureDark package files into this mod folder.

@@ -18,6 +18,7 @@ internal static class FrameResourceProbe
     private const int MaxRenderGraphExecutionScopeLogs = 80;
     private const int MaxRenderGraphScopedEvaluateAttempts = 12;
     private const int MaxExistingRenderFuncLogs = 80;
+    private const int MaxExistingRenderFuncRegistryMissingLogs = 12;
     private const int MaxExistingRenderFuncEvaluateAttempts = 12;
     private const int MaxRenderGraphGetTextureLogs = 40;
     private const int MaxTextureSearchDepth = 3;
@@ -32,6 +33,7 @@ internal static class FrameResourceProbe
     private static int RenderGraphExecutionScopeCallCount;
     private static int RenderGraphScopedEvaluateAttemptCount;
     private static int ExistingRenderFuncCallCount;
+    private static int ExistingRenderFuncRegistryMissingCallCount;
     private static int ExistingRenderFuncEvaluateAttemptCount;
     private static int RenderGraphGetTextureCallCount;
     private static readonly string[] GlobalTextureNames =
@@ -47,19 +49,22 @@ internal static class FrameResourceProbe
     private static bool Installed;
     private static bool DlssEvaluateInputProbeEnabled;
     private static bool RenderGraphDiagnosticPassEnabled;
+    private static bool ExistingRenderFuncProbeEnabled;
     private static bool DlssEvaluateInputProbeSucceeded;
 
     internal static void Install(
         ManualLogSource log,
         NativeBridge bridge,
         bool enableDlssEvaluateInputProbe = false,
-        bool enableRenderGraphDiagnosticPass = false)
+        bool enableRenderGraphDiagnosticPass = false,
+        bool enableExistingRenderFuncProbe = false)
     {
         if (Installed)
         {
             log.LogInfo("Frame resource probe is already installed.");
             DlssEvaluateInputProbeEnabled = DlssEvaluateInputProbeEnabled || enableDlssEvaluateInputProbe;
             RenderGraphDiagnosticPassEnabled = RenderGraphDiagnosticPassEnabled || enableRenderGraphDiagnosticPass;
+            ExistingRenderFuncProbeEnabled = ExistingRenderFuncProbeEnabled || enableExistingRenderFuncProbe;
             return;
         }
 
@@ -67,6 +72,7 @@ internal static class FrameResourceProbe
         Bridge = bridge;
         DlssEvaluateInputProbeEnabled = enableDlssEvaluateInputProbe;
         RenderGraphDiagnosticPassEnabled = enableRenderGraphDiagnosticPass;
+        ExistingRenderFuncProbeEnabled = enableExistingRenderFuncProbe;
         DlssEvaluateInputProbeSucceeded = false;
         if (DlssEvaluateInputProbeEnabled)
         {
@@ -75,6 +81,10 @@ internal static class FrameResourceProbe
         if (RenderGraphDiagnosticPassEnabled)
         {
             log.LogWarning("High-risk RenderGraph diagnostic pass injection is enabled. This route has caused a CoreCLR access violation in V Rising and should be used only for crash-recovery research.");
+        }
+        if (ExistingRenderFuncProbeEnabled)
+        {
+            log.LogWarning("High-risk existing HDRP render-func patching is enabled. This route has caused a CoreCLR access violation in V Rising and should be used only for crash-recovery research.");
         }
 
         var assemblies = AppDomain.CurrentDomain.GetAssemblies();
@@ -196,14 +206,21 @@ internal static class FrameResourceProbe
                 patched++;
             }
 
-            var existingRenderFuncPatched = TryPatchExistingRenderFuncMethods(
-                log,
-                assemblies,
-                harmonyMethodConstructor,
-                patchMethod,
-                patchedMethodKeys);
-            patched += existingRenderFuncPatched;
-            log.LogInfo($"Frame resource existing HDRP render-func probe patched {existingRenderFuncPatched} method(s).");
+            if (ExistingRenderFuncProbeEnabled)
+            {
+                var existingRenderFuncPatched = TryPatchExistingRenderFuncMethods(
+                    log,
+                    assemblies,
+                    harmonyMethodConstructor,
+                    patchMethod,
+                    patchedMethodKeys);
+                patched += existingRenderFuncPatched;
+                log.LogInfo($"Frame resource existing HDRP render-func probe patched {existingRenderFuncPatched} method(s).");
+            }
+            else
+            {
+                log.LogInfo("Frame resource existing HDRP render-func probe skipped. Enable Diagnostics.EnableExistingRenderFuncProbe only for crash-recovery research.");
+            }
         }
 
         Installed = patched > 0;
@@ -255,6 +272,7 @@ internal static class FrameResourceProbe
             Bridge = null;
             DlssEvaluateInputProbeEnabled = false;
             RenderGraphDiagnosticPassEnabled = false;
+            ExistingRenderFuncProbeEnabled = false;
             DlssEvaluateInputProbeSucceeded = false;
             lock (Sync)
             {
@@ -263,6 +281,7 @@ internal static class FrameResourceProbe
                 RenderGraphExecutionScopeCallCount = 0;
                 RenderGraphScopedEvaluateAttemptCount = 0;
                 ExistingRenderFuncCallCount = 0;
+                ExistingRenderFuncRegistryMissingCallCount = 0;
                 ExistingRenderFuncEvaluateAttemptCount = 0;
                 RenderGraphGetTextureCallCount = 0;
             }
@@ -992,15 +1011,28 @@ internal static class FrameResourceProbe
                 return;
             }
 
-            var registry = TryGetCurrentRenderGraphRegistry();
-            if (registry is null)
+            var passData = __args.FirstOrDefault(arg => arg is not null && !TypeNameContains(arg.GetType(), "RenderGraphContext"));
+            if (passData is null)
             {
                 return;
             }
 
-            var passData = __args.FirstOrDefault(arg => arg is not null && !TypeNameContains(arg.GetType(), "RenderGraphContext"));
-            if (passData is null)
+            var methodLabel = HookTargetCatalog.FormatMethod(__originalMethod);
+            var registry = TryGetCurrentRenderGraphRegistry();
+            if (registry is null)
             {
+                int missingCount;
+                lock (Sync)
+                {
+                    ExistingRenderFuncRegistryMissingCallCount++;
+                    missingCount = ExistingRenderFuncRegistryMissingCallCount;
+                }
+
+                if (missingCount <= MaxExistingRenderFuncRegistryMissingLogs || missingCount % 300 == 0)
+                {
+                    log.LogInfo($"Existing HDRP render-func scope without current registry #{missingCount}: method={methodLabel}; passData={SummarizeValue(passData)}");
+                }
+
                 return;
             }
 
@@ -1011,7 +1043,6 @@ internal static class FrameResourceProbe
                 count = ExistingRenderFuncCallCount;
             }
 
-            var methodLabel = HookTargetCatalog.FormatMethod(__originalMethod);
             var candidates = CollectExistingRenderFuncTextureCandidates(registry, passData);
             if (candidates.Count == 0)
             {
@@ -1599,6 +1630,15 @@ internal static class FrameResourceProbe
             }
         }
 
+        foreach (var fieldName in new[] { "m_CurrentRegistry", "current" })
+        {
+            var current = TryReadStaticFieldObject(registryType, fieldName);
+            if (current is not null)
+            {
+                return current;
+            }
+        }
+
         return null;
     }
 
@@ -2102,6 +2142,15 @@ internal static class FrameResourceProbe
                 yield return new RenderGraphRegistryCandidate($"RenderGraphResourceRegistry.{propertyName}", current);
             }
         }
+
+        foreach (var fieldName in new[] { "m_CurrentRegistry", "current" })
+        {
+            var current = TryReadStaticFieldObject(registryType, fieldName);
+            if (current is not null && seen.Add(RuntimeHelpers.GetHashCode(current)))
+            {
+                yield return new RenderGraphRegistryCandidate($"RenderGraphResourceRegistry.{fieldName}", current);
+            }
+        }
     }
 
     private static string? TryDescribeRenderGraphTextureResolution(object? renderGraph, object candidate)
@@ -2585,6 +2634,22 @@ internal static class FrameResourceProbe
             }
 
             return property.GetValue(null);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static object? TryReadStaticFieldObject(Type type, string fieldName)
+    {
+        try
+        {
+            var field = type.GetField(
+                fieldName,
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+
+            return field?.GetValue(null);
         }
         catch
         {
