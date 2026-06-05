@@ -96,6 +96,46 @@ function Get-MapDouble {
     return [double]::Parse($value, [Globalization.CultureInfo]::InvariantCulture)
 }
 
+function Get-MapNullableDouble {
+    param(
+        [hashtable]$Map,
+        [string]$Key
+    )
+
+    $value = Get-MapString -Map $Map -Key $Key
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        return $null
+    }
+
+    return [double]::Parse($value, [Globalization.CultureInfo]::InvariantCulture)
+}
+
+function Get-Delta {
+    param(
+        $Baseline,
+        $Candidate
+    )
+
+    if ($null -eq $Baseline -or $null -eq $Candidate) {
+        return $null
+    }
+
+    return [Math]::Round(([double]$Candidate - [double]$Baseline), 3)
+}
+
+function Get-DeltaPercent {
+    param(
+        $Baseline,
+        $Candidate
+    )
+
+    if ($null -eq $Baseline -or $null -eq $Candidate -or [double]$Baseline -eq 0.0) {
+        return $null
+    }
+
+    return [Math]::Round((([double]$Candidate - [double]$Baseline) / [double]$Baseline * 100.0), 3)
+}
+
 function New-Status {
     param(
         [string]$Status,
@@ -122,8 +162,22 @@ function New-Status {
         ChangedRatioGt10 = $(if ($Details.ContainsKey("ChangedRatioGt10")) { $Details.ChangedRatioGt10 } else { $null })
         Stage10ALogPath = $(if ($Details.ContainsKey("Stage10ALogPath")) { $Details.Stage10ALogPath } else { "" })
         Stage10AProved = $(if ($Details.ContainsKey("Stage10AProved")) { $Details.Stage10AProved } else { $false })
-        PerformanceSummaryPath = $(if ($Details.ContainsKey("PerformanceSummaryPath")) { $Details.PerformanceSummaryPath } else { "" })
-        PerformanceSummaryPresent = $(if ($Details.ContainsKey("PerformanceSummaryPresent")) { $Details.PerformanceSummaryPresent } else { $false })
+        PerformanceSummaryPath = $(if ($Details.ContainsKey("CandidatePerformanceSummaryPath")) { $Details.CandidatePerformanceSummaryPath } elseif ($Details.ContainsKey("PerformanceSummaryPath")) { $Details.PerformanceSummaryPath } else { "" })
+        PerformanceSummaryPresent = $(if ($Details.ContainsKey("CandidatePerformanceSummaryPresent")) { $Details.CandidatePerformanceSummaryPresent } elseif ($Details.ContainsKey("PerformanceSummaryPresent")) { $Details.PerformanceSummaryPresent } else { $false })
+        BaselinePerformanceSummaryPath = $(if ($Details.ContainsKey("BaselinePerformanceSummaryPath")) { $Details.BaselinePerformanceSummaryPath } else { "" })
+        CandidatePerformanceSummaryPath = $(if ($Details.ContainsKey("CandidatePerformanceSummaryPath")) { $Details.CandidatePerformanceSummaryPath } else { "" })
+        BaselinePerformanceSummaryPresent = $(if ($Details.ContainsKey("BaselinePerformanceSummaryPresent")) { $Details.BaselinePerformanceSummaryPresent } else { $false })
+        CandidatePerformanceSummaryPresent = $(if ($Details.ContainsKey("CandidatePerformanceSummaryPresent")) { $Details.CandidatePerformanceSummaryPresent } else { $false })
+        BaselineAverageFps = $(if ($Details.ContainsKey("BaselineAverageFps")) { $Details.BaselineAverageFps } else { $null })
+        CandidateAverageFps = $(if ($Details.ContainsKey("CandidateAverageFps")) { $Details.CandidateAverageFps } else { $null })
+        AverageFpsDelta = $(if ($Details.ContainsKey("AverageFpsDelta")) { $Details.AverageFpsDelta } else { $null })
+        AverageFpsDeltaPercent = $(if ($Details.ContainsKey("AverageFpsDeltaPercent")) { $Details.AverageFpsDeltaPercent } else { $null })
+        BaselineOnePercentLowFps = $(if ($Details.ContainsKey("BaselineOnePercentLowFps")) { $Details.BaselineOnePercentLowFps } else { $null })
+        CandidateOnePercentLowFps = $(if ($Details.ContainsKey("CandidateOnePercentLowFps")) { $Details.CandidateOnePercentLowFps } else { $null })
+        OnePercentLowFpsDelta = $(if ($Details.ContainsKey("OnePercentLowFpsDelta")) { $Details.OnePercentLowFpsDelta } else { $null })
+        BaselineP95FrameMs = $(if ($Details.ContainsKey("BaselineP95FrameMs")) { $Details.BaselineP95FrameMs } else { $null })
+        CandidateP95FrameMs = $(if ($Details.ContainsKey("CandidateP95FrameMs")) { $Details.CandidateP95FrameMs } else { $null })
+        P95FrameMsDelta = $(if ($Details.ContainsKey("P95FrameMsDelta")) { $Details.P95FrameMsDelta } else { $null })
         HumanReviewStatus = $(if ($Details.ContainsKey("HumanReviewStatus")) { $Details.HumanReviewStatus } else { "" })
         LaunchesGame = $false
     }
@@ -192,9 +246,27 @@ $baselinePath = Get-MapString -Map $comparison -Key "BaselinePath"
 $candidatePath = Get-MapString -Map $comparison -Key "CandidatePath"
 $baselineSha = Get-MapString -Map $comparison -Key "BaselineSha256"
 $candidateSha = Get-MapString -Map $comparison -Key "CandidateSha256"
+$baselineLabel = if ([string]::IsNullOrWhiteSpace($baselinePath)) { "" } else { [System.IO.Path]::GetFileNameWithoutExtension($baselinePath) }
 $candidateLabel = if ([string]::IsNullOrWhiteSpace($candidatePath)) { "" } else { [System.IO.Path]::GetFileNameWithoutExtension($candidatePath) }
 $stage10ALogPath = if ([string]::IsNullOrWhiteSpace($candidateLabel)) { "" } else { Join-Path $runtimeLogRoot "LogOutput-$candidateLabel.log" }
-$performanceSummaryPath = if ([string]::IsNullOrWhiteSpace($candidateLabel)) { "" } else { Join-Path $fpsRoot "$candidateLabel.txt" }
+$baselinePerformanceSummaryPath = if ([string]::IsNullOrWhiteSpace($baselineLabel)) { "" } else { Join-Path $fpsRoot "$baselineLabel.txt" }
+$candidatePerformanceSummaryPath = if ([string]::IsNullOrWhiteSpace($candidateLabel)) { "" } else { Join-Path $fpsRoot "$candidateLabel.txt" }
+$baselinePerformance = if (-not [string]::IsNullOrWhiteSpace($baselinePerformanceSummaryPath) -and (Test-Path -LiteralPath $baselinePerformanceSummaryPath)) {
+    Read-FormatListFile -Path $baselinePerformanceSummaryPath
+} else {
+    @{}
+}
+$candidatePerformance = if (-not [string]::IsNullOrWhiteSpace($candidatePerformanceSummaryPath) -and (Test-Path -LiteralPath $candidatePerformanceSummaryPath)) {
+    Read-FormatListFile -Path $candidatePerformanceSummaryPath
+} else {
+    @{}
+}
+$baselineAverageFps = Get-MapNullableDouble -Map $baselinePerformance -Key "AverageFps"
+$candidateAverageFps = Get-MapNullableDouble -Map $candidatePerformance -Key "AverageFps"
+$baselineOnePercentLowFps = Get-MapNullableDouble -Map $baselinePerformance -Key "OnePercentLowFps"
+$candidateOnePercentLowFps = Get-MapNullableDouble -Map $candidatePerformance -Key "OnePercentLowFps"
+$baselineP95FrameMs = Get-MapNullableDouble -Map $baselinePerformance -Key "P95FrameMs"
+$candidateP95FrameMs = Get-MapNullableDouble -Map $candidatePerformance -Key "P95FrameMs"
 
 $details = @{
     ComparisonPath = $comparisonResolved
@@ -208,8 +280,20 @@ $details = @{
     ChangedRatioGt10 = Get-MapDouble -Map $comparison -Key "ChangedRatioGt10"
     Stage10ALogPath = $stage10ALogPath
     Stage10AProved = $false
-    PerformanceSummaryPath = $performanceSummaryPath
-    PerformanceSummaryPresent = $false
+    BaselinePerformanceSummaryPath = $baselinePerformanceSummaryPath
+    CandidatePerformanceSummaryPath = $candidatePerformanceSummaryPath
+    BaselinePerformanceSummaryPresent = $false
+    CandidatePerformanceSummaryPresent = $false
+    BaselineAverageFps = $baselineAverageFps
+    CandidateAverageFps = $candidateAverageFps
+    AverageFpsDelta = Get-Delta -Baseline $baselineAverageFps -Candidate $candidateAverageFps
+    AverageFpsDeltaPercent = Get-DeltaPercent -Baseline $baselineAverageFps -Candidate $candidateAverageFps
+    BaselineOnePercentLowFps = $baselineOnePercentLowFps
+    CandidateOnePercentLowFps = $candidateOnePercentLowFps
+    OnePercentLowFpsDelta = Get-Delta -Baseline $baselineOnePercentLowFps -Candidate $candidateOnePercentLowFps
+    BaselineP95FrameMs = $baselineP95FrameMs
+    CandidateP95FrameMs = $candidateP95FrameMs
+    P95FrameMsDelta = Get-Delta -Baseline $baselineP95FrameMs -Candidate $candidateP95FrameMs
     HumanReviewStatus = ""
 }
 
@@ -250,8 +334,13 @@ if (-not $details.Stage10AProved) {
     $issues.Add("Candidate log does not prove Stage 10A visible write-back success with sequenceSuccesses=30/30.")
 }
 
-$details.PerformanceSummaryPresent = Test-Path -LiteralPath $performanceSummaryPath
-if (-not $details.PerformanceSummaryPresent) {
+$details.BaselinePerformanceSummaryPresent = -not [string]::IsNullOrWhiteSpace($baselinePerformanceSummaryPath) -and (Test-Path -LiteralPath $baselinePerformanceSummaryPath)
+$details.CandidatePerformanceSummaryPresent = -not [string]::IsNullOrWhiteSpace($candidatePerformanceSummaryPath) -and (Test-Path -LiteralPath $candidatePerformanceSummaryPath)
+if (-not $details.BaselinePerformanceSummaryPresent) {
+    $issues.Add("Baseline performance summary is missing.")
+}
+
+if (-not $details.CandidatePerformanceSummaryPresent) {
     $issues.Add("Candidate performance summary is missing.")
 }
 
@@ -311,13 +400,13 @@ if ($issues.Count -gt 0) {
     $result = New-Status `
         -Status "Blocked" `
         -Evidence "Visual validation is not yet strong enough for MVP: $comparisonResolved" `
-        -NextRecommendation "Run a paired Stage 10A gameplay visual comparison at gameplay resolution, capture performance, then create $reviewResolved after human review with matching image SHA256 values." `
+        -NextRecommendation "Run a paired Stage 10A gameplay visual comparison at gameplay resolution, capture baseline and candidate performance, then create $reviewResolved after human review with matching image SHA256 values." `
         -Issues $issues.ToArray() `
         -Details $details
 } else {
     $result = New-Status `
         -Status "Pass" `
-        -Evidence "Gameplay visual comparison, Stage 10A log, performance summary, and matching human review passed: $comparisonResolved" `
+        -Evidence "Gameplay visual comparison, Stage 10A log, baseline/candidate performance summaries, and matching human review passed: $comparisonResolved" `
         -NextRecommendation "Use this visual evidence while implementing normal-user DLSS.EnableDLSS integration, resize/reset handling, and fallback behavior." `
         -Issues @() `
         -Details $details

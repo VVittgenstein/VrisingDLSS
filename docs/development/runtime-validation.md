@@ -600,7 +600,7 @@ Added local-only helpers for the next validation step:
 
 - `scripts\capture-vrising-window.ps1` captures the current V Rising client window to `artifacts\visual-validation`.
 - `scripts\compare-image-artifacts.ps1` compares two captured PNGs and writes a bounded summary with dimensions, sampled RGB/luma deltas, near-black/near-white ratios, and hashes.
-- `scripts\get-visual-validation-status.ps1` reads the latest paired comparison and reports whether it is strong enough for the MVP visual gate. It requires gameplay-resolution captures, Stage 10A log evidence, a candidate performance summary, and a matching human review JSON before returning `Pass`.
+- `scripts\get-visual-validation-status.ps1` reads the latest paired comparison and reports whether it is strong enough for the MVP visual gate. It requires gameplay-resolution captures, Stage 10A log evidence, baseline/candidate performance summaries, and a matching human review JSON before returning `Pass`.
 - `scripts\write-visual-review.ps1` generates that human review JSON from a comparison artifact, binding the review to the exact baseline/candidate image SHA-256 values.
 - `docs\development\measurement-plan.md` records the source-backed measurement rules and review-file template.
 

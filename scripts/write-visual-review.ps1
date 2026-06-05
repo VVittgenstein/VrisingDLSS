@@ -146,7 +146,7 @@ $review = [ordered]@{
         "baseline and candidate captures are from the same stable gameplay scene",
         "candidate capture is not black, white, wrong-window, or menu-only unless deliberately testing menu behavior",
         "candidate image has no severe blur, ghosting, unstable UI, or obvious temporal artifacts",
-        "Stage 10A log and performance summary are present when get-visual-validation-status.ps1 is run"
+        "Stage 10A log and baseline/candidate performance summaries are present when get-visual-validation-status.ps1 is run"
     )
     launchesGame = $false
 }

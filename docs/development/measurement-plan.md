@@ -35,7 +35,7 @@ Required evidence:
 
 1. Paired baseline and candidate captures from the same stable gameplay scene.
 2. Candidate run log proving Stage 10A visible write-back success with `sequenceSuccesses=30/30`.
-3. Candidate performance summary from `scripts/capture-vrising-fps.ps1`.
+3. Baseline and candidate performance summaries from `scripts/capture-vrising-fps.ps1`.
 4. Valid screenshots at gameplay resolution. The readiness gate currently requires at least 1280x720.
 5. Human review tied to the exact image hashes, because automated pixel-difference statistics can catch gross capture failures but cannot prove temporal image quality.
 
@@ -65,7 +65,9 @@ Review file shape:
 }
 ```
 
-Use `scripts/get-visual-validation-status.ps1` to inspect the latest paired visual comparison. It returns `Pass` only when the comparison artifact, Stage 10A log, performance summary, gameplay-resolution captures, and matching human review are all present.
+Use `scripts/get-visual-validation-status.ps1` to inspect the latest paired visual comparison. It returns `Pass` only when the comparison artifact, Stage 10A log, baseline/candidate performance summaries, gameplay-resolution captures, and matching human review are all present.
+
+The same status output reports baseline/candidate `AverageFps`, `OnePercentLowFps`, `P95FrameMs`, and simple deltas when both performance summaries exist. These values are evidence, not an automatic pass threshold; a surprising or negative delta should be repeated and inspected before deciding whether the DLSS route is useful.
 
 ## Performance Capture Rules
 
