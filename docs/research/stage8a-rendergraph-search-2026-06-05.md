@@ -14,6 +14,8 @@ This is engineering research, not legal advice.
 - The exposed RenderGraph resource names include `CameraColor`, `CameraDepthStencil`, `Motion Vectors`, and `NormalBuffer`.
 - Calling `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` from an ordinary Harmony prefix is not safe: the local log showed IL2CPP trampoline error output when the handle was outside a declared read/write pass scope.
 - The current diagnostic code therefore does not call `GetTexture` from prefixes. It records handle/resource state and listens for engine-owned `GetTexture` calls through a postfix.
+- Local static interop inspection also shows HDRP dynamic-resolution/upscale symbols in V Rising's build: `SetFSRParameters`, `GetUpscaleFilter`, `SetUpscaleFilter`, `HDDynamicResolution`, `DoDLSSPasses`, `DoDLSSPass`, `DoTemporalAntialiasing`, `UberPass`, and `FinalPass`.
+- The generated HDRP render-function methods include entries such as `_DoDLSSPass_b__969_0(DLSSData, RenderGraphContext)`, `_DoTemporalAntialiasing_b__1007_0(TemporalAntiAliasingData, RenderGraphContext)`, `_DoCustomPostProcess_b__997_0(CustomPostProcessData, RenderGraphContext)`, `_UberPass_b__1060_0(UberPostPassData, RenderGraphContext)`, and `_FinalPass_b__1069_0(FinalPassData, RenderGraphContext)`.
 
 ## Source Findings
 
@@ -52,6 +54,17 @@ Inference for this project:
 - The next evaluate-input probe should run inside a valid RenderGraph pass or inside an engine-owned RenderGraph execution callback after HDRP has declared the texture usage.
 - A safe diagnostic pass should declare at least the color, depth, and motion-vector `TextureHandle`s as reads and a separate output texture as a write/attachment. It should then convert to `RTHandle`/`Texture` only inside `SetRenderFunc`.
 
+### HDRP Dynamic Resolution and FSR Landmarks
+
+Unity's HDRP dynamic-resolution documentation groups DLSS, FSR2, FSR1, TAA Upscale, Catmull-Rom, and CAS as upscale filters that operate after HDRP renders at a lower resolution. Unity's HDRP asset documentation describes FSR1 as a spatial super-resolution option in that same upscale-filter area.
+
+This is useful for V Rising because the local build exposes FSR/upscale and DLSS-related HDRP symbols. FSR1 is not a direct substitute for DLSS Super Resolution, because DLSS still needs frame-aligned depth and motion-vector inputs. However, the existing FSR/TAA/DLSS upscale route is a strong landmark for the buffers and scale state the mod needs: low-resolution color/source, full-resolution output/target, depth, motion vectors, render scale, and post-upscale final pass.
+
+Sources:
+
+- `https://docs.unity.cn/Packages/com.unity.render-pipelines.high-definition%4013.0/manual/Dynamic-Resolution.html`
+- `https://github.com/Unity-Technologies/Graphics/blob/master/Packages/com.unity.render-pipelines.high-definition/Documentation~/HDRP-Asset.md`
+
 ### NGX/DLSS Evaluate Requirements
 
 NVIDIA's NGX programming guide documents D3D11 init, create, evaluate, release, and shutdown APIs. For D3D11 evaluate, NGX takes an `ID3D11DeviceContext`, a feature handle, and a parameter map. It also says feature input buffers such as color, albedo, normals, and depth must be provided as parameters as `ID3D*` resources or CUDA memory buffers.
@@ -84,24 +97,25 @@ Source:
 
 ## Route Decision
 
-Continue the direct NGX/D3D11 route, but move Stage 8A from ordinary method-prefix probing to RenderGraph-scope probing.
+Continue the direct NGX/D3D11 route, but move Stage 8A from ordinary method-prefix probing to existing RenderGraph execution scope.
 
 Preferred next implementation order:
 
 1. Keep the current prefix probes for discovery only: resource names, handle index/type, and method ordering.
 2. Keep the `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` postfix as a passive detector for engine-owned valid resource access.
-3. Add a diagnostic path that hooks an existing HDRP RenderGraph method and injects a small RenderGraph pass after HDRP has exposed `CameraColor`, `CameraDepthStencil`, and `Motion Vectors`.
-4. In that pass, declare read access for color/depth/motion and write to a separate diagnostic output texture; convert to native pointers only inside `SetRenderFunc`.
-5. Run `VrisingDlss_ProbeDlssEvaluateInputs` inside that valid pass before any NGX evaluate call.
-6. Only after Stage 8A passes, wire the SDK-wrapper-backed DLSS feature lifecycle to the real frame path.
+3. Patch known existing HDRP render functions with a read-only postfix instead of injecting a new pass. Start with `DoDLSSPass`, `DoTemporalAntialiasing`, `DoCustomPostProcess`, `UberPass`, `FinalPass`, motion blur, and final blit style callbacks.
+4. Recursively inspect their pass data, including nested resource-handle containers such as `DLSSData.resourceHandles`, while `RenderGraphResourceRegistry.current` is available.
+5. Convert to native pointers only from that current registry or from engine-owned successful `GetTexture` calls.
+6. Run `VrisingDlss_ProbeDlssEvaluateInputs` inside that valid existing execution context before any NGX evaluate call.
+7. Only after Stage 8A passes, wire the SDK-wrapper-backed DLSS feature lifecycle to the real frame path.
 
 Local follow-up evidence: a builder-declaration probe now observes named `RenderGraphBuilder` declarations for `CameraColor`, `CameraDepthStencil`, `Motion Vectors`, and `NormalBuffer` without calling `GetTexture(TextureHandle&)`. This narrows the remaining Stage 8A work to execution inside a declared RenderGraph pass or delegate.
 
-Additional local negative evidence: `RenderGraph.PreRenderPassExecute` can be patched but was not observed as called in the main menu; `RenderGraphPass<T>.Execute(RenderGraphContext)` cannot be patched as an open generic method with the current Harmony route; and patching `TextureHandle` implicit conversions produced repeated IL2CPP trampoline `NullReferenceException` logs. These results make an explicit diagnostic `AddRenderPass`/`SetRenderFunc` path the preferred next implementation step.
+Additional local negative evidence: `RenderGraph.PreRenderPassExecute` can be patched but was not observed as called in the main menu; `RenderGraphPass<T>.Execute(RenderGraphContext)` cannot be patched as an open generic method with the current Harmony route; and patching `TextureHandle` implicit conversions produced repeated IL2CPP trampoline `NullReferenceException` logs.
 
 Implementation follow-up: the explicit diagnostic pass path compiles when local V Rising interop assemblies are present. It can inject an `AddRenderPass`/`SetRenderFunc` pass with `hasRenderFunc=True` and `allowPassCulling=False` from both `DoCustomPostProcess` arguments and aggregated builder declarations. Main-menu runs configured the pass but did not call its render function. A local/private gameplay run then configured/injected the pass twice and crashed `VRising.exe` in `coreclr.dll` with `0xc0000005` before any render-function log. This makes new diagnostic pass injection a rejected normal Stage 8A route for now; it remains behind `Diagnostics.EnableRenderGraphDiagnosticPass=false` for deliberate crash-recovery research only.
 
-Updated route decision: continue passive RenderGraph discovery and engine-owned `GetTexture` postfix monitoring, but move first native input validation to a known-executing existing HDRP/RenderGraph path or a proven engine-owned resource materialization point instead of injecting a new diagnostic pass.
+Updated route decision: continue passive RenderGraph discovery and engine-owned `GetTexture` postfix monitoring, but move first native input validation to a known-executing existing HDRP/RenderGraph render function or a proven engine-owned resource materialization point instead of injecting a new diagnostic pass. V Rising's built-in FSR/dynamic-resolution path helps identify that route, but does not remove DLSS's depth/motion-vector requirement.
 
 Rejected or deferred:
 

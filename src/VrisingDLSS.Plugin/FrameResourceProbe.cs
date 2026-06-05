@@ -17,6 +17,8 @@ internal static class FrameResourceProbe
     private const int MaxRenderGraphBuilderStackLogs = 12;
     private const int MaxRenderGraphExecutionScopeLogs = 80;
     private const int MaxRenderGraphScopedEvaluateAttempts = 12;
+    private const int MaxExistingRenderFuncLogs = 80;
+    private const int MaxExistingRenderFuncEvaluateAttempts = 12;
     private const int MaxRenderGraphGetTextureLogs = 40;
     private const int MaxTextureSearchDepth = 3;
     private static readonly FrameProbeTarget[] Targets =
@@ -29,6 +31,8 @@ internal static class FrameResourceProbe
     private static int RenderGraphBuilderDeclarationCallCount;
     private static int RenderGraphExecutionScopeCallCount;
     private static int RenderGraphScopedEvaluateAttemptCount;
+    private static int ExistingRenderFuncCallCount;
+    private static int ExistingRenderFuncEvaluateAttemptCount;
     private static int RenderGraphGetTextureCallCount;
     private static readonly string[] GlobalTextureNames =
     {
@@ -191,6 +195,15 @@ internal static class FrameResourceProbe
             {
                 patched++;
             }
+
+            var existingRenderFuncPatched = TryPatchExistingRenderFuncMethods(
+                log,
+                assemblies,
+                harmonyMethodConstructor,
+                patchMethod,
+                patchedMethodKeys);
+            patched += existingRenderFuncPatched;
+            log.LogInfo($"Frame resource existing HDRP render-func probe patched {existingRenderFuncPatched} method(s).");
         }
 
         Installed = patched > 0;
@@ -249,6 +262,8 @@ internal static class FrameResourceProbe
                 RenderGraphBuilderDeclarationCallCount = 0;
                 RenderGraphExecutionScopeCallCount = 0;
                 RenderGraphScopedEvaluateAttemptCount = 0;
+                ExistingRenderFuncCallCount = 0;
+                ExistingRenderFuncEvaluateAttemptCount = 0;
                 RenderGraphGetTextureCallCount = 0;
             }
         }
@@ -379,6 +394,39 @@ internal static class FrameResourceProbe
         }
     }
 
+    private static int TryPatchExistingRenderFuncMethods(
+        ManualLogSource log,
+        IEnumerable<Assembly> assemblies,
+        ConstructorInfo harmonyMethodConstructor,
+        MethodInfo patchMethod,
+        ISet<string> patchedMethodKeys)
+    {
+        var postfix = typeof(FrameResourceProbe).GetMethod(nameof(ExistingRenderFuncPostfix), BindingFlags.NonPublic | BindingFlags.Static);
+        if (postfix is null)
+        {
+            log.LogWarning("Frame resource existing HDRP render-func postfix target was not found.");
+            return 0;
+        }
+
+        var patched = 0;
+        foreach (var method in DiscoverExistingRenderFuncMethods(assemblies))
+        {
+            if (TryPatchPostfixMethod(
+                log,
+                method,
+                harmonyMethodConstructor,
+                patchMethod,
+                postfix,
+                patchedMethodKeys,
+                "Frame resource existing HDRP render-func"))
+            {
+                patched++;
+            }
+        }
+
+        return patched;
+    }
+
     private static bool TryPatchFrameResourceMethod(
         ManualLogSource log,
         MethodInfo method,
@@ -405,6 +453,52 @@ internal static class FrameResourceProbe
             var arguments = new object?[patchMethod.GetParameters().Length];
             arguments[0] = method;
             arguments[1] = prefixPatch;
+            patchMethod.Invoke(HarmonyInstance, arguments);
+            log.LogInfo($"{logPrefix} patched: {HookTargetCatalog.FormatMethod(method)}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            log.LogWarning($"{logPrefix} failed to patch {HookTargetCatalog.FormatMethod(method)}: {GetExceptionMessage(ex)}");
+            return false;
+        }
+    }
+
+    private static bool TryPatchPostfixMethod(
+        ManualLogSource log,
+        MethodInfo method,
+        ConstructorInfo harmonyMethodConstructor,
+        MethodInfo patchMethod,
+        MethodInfo postfix,
+        ISet<string> patchedMethodKeys,
+        string logPrefix)
+    {
+        if (!CanPatch(method))
+        {
+            log.LogWarning($"{logPrefix} skipped unsupported method: {HookTargetCatalog.FormatMethod(method)}");
+            return false;
+        }
+
+        if (!patchedMethodKeys.Add(GetMethodKey(method)))
+        {
+            return false;
+        }
+
+        try
+        {
+            var postfixPatch = harmonyMethodConstructor.Invoke(new object[] { postfix });
+            var arguments = new object?[patchMethod.GetParameters().Length];
+            arguments[0] = method;
+            if (arguments.Length > 2)
+            {
+                arguments[2] = postfixPatch;
+            }
+            else
+            {
+                log.LogWarning("Harmony Patch overload does not expose a postfix argument.");
+                return false;
+            }
+
             patchMethod.Invoke(HarmonyInstance, arguments);
             log.LogInfo($"{logPrefix} patched: {HookTargetCatalog.FormatMethod(method)}");
             return true;
@@ -512,6 +606,103 @@ internal static class FrameResourceProbe
             || string.Equals(methodName, "BlitCameraTexture_Internal", StringComparison.Ordinal)
             || string.Equals(methodName, "GetPostprocessOutputHandle", StringComparison.Ordinal)
             || string.Equals(methodName, "GetPostprocessUpsampledOutputHandle", StringComparison.Ordinal);
+    }
+
+    private static IEnumerable<MethodInfo> DiscoverExistingRenderFuncMethods(IEnumerable<Assembly> assemblies)
+    {
+        foreach (var assembly in assemblies)
+        {
+            if (!IsRenderGraphProbeAssembly(assembly))
+            {
+                continue;
+            }
+
+            foreach (var type in SafeGetTypes(assembly))
+            {
+                if (!string.Equals(type.Name, "__c", StringComparison.Ordinal)
+                    || type.FullName?.IndexOf("HDRenderPipeline", StringComparison.Ordinal) < 0)
+                {
+                    continue;
+                }
+
+                foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly))
+                {
+                    if (IsExistingRenderFuncMethod(method))
+                    {
+                        yield return method;
+                    }
+                }
+            }
+        }
+    }
+
+    private static bool IsExistingRenderFuncMethod(MethodInfo method)
+    {
+        if (!ExistingRenderFuncNameLooksUseful(method.Name))
+        {
+            return false;
+        }
+
+        var parameters = method.GetParameters();
+        if (parameters.Length != 2 || !TypeNameContains(parameters[1].ParameterType, "RenderGraphContext"))
+        {
+            return false;
+        }
+
+        return HasUsefulTextureHandleMembers(parameters[0].ParameterType);
+    }
+
+    private static bool ExistingRenderFuncNameLooksUseful(string methodName)
+    {
+        return methodName.IndexOf("DoCustomPostProcess", StringComparison.Ordinal) >= 0
+            || methodName.IndexOf("DoDLSSPass", StringComparison.Ordinal) >= 0
+            || methodName.IndexOf("DoDLSSColorMaskPass", StringComparison.Ordinal) >= 0
+            || methodName.IndexOf("TemporalAntiAliasing", StringComparison.Ordinal) >= 0
+            || methodName.IndexOf("DoTemporalAntialiasing", StringComparison.Ordinal) >= 0
+            || methodName.IndexOf("MotionBlurPass", StringComparison.Ordinal) >= 0
+            || methodName.IndexOf("FXAAPass", StringComparison.Ordinal) >= 0
+            || methodName.IndexOf("SMAAPass", StringComparison.Ordinal) >= 0
+            || methodName.IndexOf("UberPass", StringComparison.Ordinal) >= 0
+            || methodName.IndexOf("FinalPass", StringComparison.Ordinal) >= 0
+            || methodName.IndexOf("BlitFinalCameraTexture", StringComparison.Ordinal) >= 0
+            || methodName.IndexOf("RenderCameraMotionVectors", StringComparison.Ordinal) >= 0
+            || methodName.IndexOf("ResolveMotionVector", StringComparison.Ordinal) >= 0;
+    }
+
+    private static bool HasUsefulTextureHandleMembers(Type type)
+    {
+        if (CountDirectTextureHandleMembers(type) >= 2)
+        {
+            return true;
+        }
+
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+        return type.GetFields(flags)
+            .Any(field => MemberTypeHasUsefulTextureHandles(field.Name, field.FieldType))
+            || type.GetProperties(flags)
+                .Any(property => property.GetIndexParameters().Length == 0
+                    && property.GetMethod is not null
+                    && MemberTypeHasUsefulTextureHandles(property.Name, property.PropertyType));
+    }
+
+    private static bool MemberTypeHasUsefulTextureHandles(string name, Type type)
+    {
+        return MemberMayContainTextureHandle(name, type)
+            && (TypeNameContains(type, "TextureHandle")
+                || CountDirectTextureHandleMembers(type) >= 2);
+    }
+
+    private static int CountDirectTextureHandleMembers(Type type)
+    {
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+        var fields = type.GetFields(flags)
+            .Count(field => TypeNameContains(field.FieldType, "TextureHandle"));
+        var properties = type.GetProperties(flags)
+            .Count(property => property.GetIndexParameters().Length == 0
+                && property.GetMethod is not null
+                && TypeNameContains(property.PropertyType, "TextureHandle"));
+
+        return fields + properties;
     }
 
     private static MethodInfo? FindRenderGraphGetTextureMethod(IEnumerable<Assembly> assemblies)
@@ -785,6 +976,66 @@ internal static class FrameResourceProbe
         }
     }
 
+    private static void ExistingRenderFuncPostfix(MethodBase __originalMethod, object?[]? __args)
+    {
+        try
+        {
+            if (!DlssEvaluateInputProbeEnabled || DlssEvaluateInputProbeSucceeded)
+            {
+                return;
+            }
+
+            var log = Log;
+            var bridge = Bridge;
+            if (log is null || bridge is null || __args is null || __args.Length < 2)
+            {
+                return;
+            }
+
+            var registry = TryGetCurrentRenderGraphRegistry();
+            if (registry is null)
+            {
+                return;
+            }
+
+            var passData = __args.FirstOrDefault(arg => arg is not null && !TypeNameContains(arg.GetType(), "RenderGraphContext"));
+            if (passData is null)
+            {
+                return;
+            }
+
+            int count;
+            lock (Sync)
+            {
+                ExistingRenderFuncCallCount++;
+                count = ExistingRenderFuncCallCount;
+            }
+
+            var methodLabel = HookTargetCatalog.FormatMethod(__originalMethod);
+            var candidates = CollectExistingRenderFuncTextureCandidates(registry, passData);
+            if (candidates.Count == 0)
+            {
+                if (count <= MaxExistingRenderFuncLogs || count % 300 == 0)
+                {
+                    log.LogInfo($"Existing HDRP render-func scope #{count}: method={methodLabel}; candidates=none");
+                }
+
+                return;
+            }
+
+            if (count <= MaxExistingRenderFuncLogs || count % 300 == 0)
+            {
+                log.LogInfo($"Existing HDRP render-func scope #{count}: method={methodLabel}; candidates=[{FormatRenderGraphTextureCandidates(candidates)}]");
+            }
+
+            TryRunExistingRenderFuncDlssEvaluateInputProbe(log, bridge, methodLabel, candidates);
+        }
+        catch (Exception ex)
+        {
+            Log?.LogWarning($"Existing HDRP render-func postfix failed: {GetExceptionMessage(ex)}");
+        }
+    }
+
     private static void RenderGraphGetTexturePostfix(MethodBase __originalMethod, object? __instance, object?[]? __args, object? __result)
     {
         try
@@ -966,6 +1217,71 @@ internal static class FrameResourceProbe
         }
     }
 
+    private static void TryRunExistingRenderFuncDlssEvaluateInputProbe(
+        ManualLogSource log,
+        NativeBridge bridge,
+        string methodLabel,
+        IReadOnlyList<RenderGraphTextureCandidate> candidates)
+    {
+        if (DlssEvaluateInputProbeSucceeded)
+        {
+            return;
+        }
+
+        var available = candidates.Where(candidate => candidate.Pointer != IntPtr.Zero).ToArray();
+        var color = FindExistingRenderFuncCandidate(available, static candidate =>
+            CandidateNameContains(candidate, "source")
+            || CandidateNameContains(candidate, "color")
+            || string.Equals(candidate.ResourceName, "CameraColor", StringComparison.Ordinal));
+        var output = FindExistingRenderFuncCandidate(available, static candidate =>
+            CandidateNameContains(candidate, "destination")
+            || CandidateNameContains(candidate, "output")
+            || CandidateNameContains(candidate, "target"));
+        var depth = FindExistingRenderFuncCandidate(available, static candidate =>
+            CandidateNameContains(candidate, "depth")
+            || string.Equals(candidate.ResourceName, "CameraDepthStencil", StringComparison.Ordinal));
+        var motion = FindExistingRenderFuncCandidate(available, static candidate =>
+            CandidateNameContains(candidate, "motion")
+            || string.Equals(candidate.ResourceName, "Motion Vectors", StringComparison.Ordinal));
+
+        if (color is null || output is null || depth is null || motion is null)
+        {
+            return;
+        }
+
+        int attempt;
+        lock (Sync)
+        {
+            if (ExistingRenderFuncEvaluateAttemptCount >= MaxExistingRenderFuncEvaluateAttempts)
+            {
+                return;
+            }
+
+            ExistingRenderFuncEvaluateAttemptCount++;
+            attempt = ExistingRenderFuncEvaluateAttemptCount;
+        }
+
+        var outputSameAsColor = output.Value.Pointer == color.Value.Pointer;
+        log.LogInfo(
+            $"DLSS evaluate input probe existing HDRP render-func candidate #{attempt}: method={methodLabel}; color={color.Value.Label}/{color.Value.ResourceName} 0x{color.Value.Pointer.ToInt64():X}; output={output.Value.Label}/{output.Value.ResourceName} 0x{output.Value.Pointer.ToInt64():X}{(outputSameAsColor ? " same-as-color" : string.Empty)}; depth={depth.Value.Label}/{depth.Value.ResourceName} 0x{depth.Value.Pointer.ToInt64():X}; motion={motion.Value.Label}/{motion.Value.ResourceName} 0x{motion.Value.Pointer.ToInt64():X}");
+
+        var success = bridge.ProbeDlssEvaluateInputs(
+            color.Value.Pointer,
+            output.Value.Pointer,
+            depth.Value.Pointer,
+            motion.Value.Pointer);
+        var status = bridge.GetDlssEvaluateInputStatus();
+        if (success)
+        {
+            DlssEvaluateInputProbeSucceeded = true;
+            log.LogInfo($"DLSS evaluate input probe succeeded from existing HDRP render-func: {status}");
+        }
+        else
+        {
+            log.LogWarning($"DLSS evaluate input probe failed from existing HDRP render-func: {status}");
+        }
+    }
+
     private static IReadOnlyList<NativeTextureCandidate> CollectArgumentTextureCandidates(MethodBase originalMethod, object?[]? args, object? renderGraph)
     {
         var candidates = new List<NativeTextureCandidate>();
@@ -1026,6 +1342,106 @@ internal static class FrameResourceProbe
         return candidates;
     }
 
+    private static IReadOnlyList<RenderGraphTextureCandidate> CollectExistingRenderFuncTextureCandidates(object registry, object passData)
+    {
+        var candidates = new List<RenderGraphTextureCandidate>();
+        var seenCandidates = new HashSet<string>(StringComparer.Ordinal);
+        var seenObjects = new HashSet<int>();
+
+        foreach (var textureHandle in EnumerateNamedTextureHandles(passData.GetType().Name, passData, 0, seenObjects))
+        {
+            AddTextureHandleCandidate(registry, textureHandle.Label, textureHandle.Value, candidates, seenCandidates, includeNonCanonical: true);
+        }
+
+        return candidates;
+    }
+
+    private static IEnumerable<NamedTextureHandleCandidate> EnumerateNamedTextureHandles(
+        string label,
+        object? value,
+        int depth,
+        ISet<int> seenObjects)
+    {
+        if (value is null || depth > 3)
+        {
+            yield break;
+        }
+
+        var type = value.GetType();
+        if (TypeNameContains(type, "TextureHandle"))
+        {
+            yield return new NamedTextureHandleCandidate(label, value);
+            yield break;
+        }
+
+        if (!type.IsValueType && !seenObjects.Add(RuntimeHelpers.GetHashCode(value)))
+        {
+            yield break;
+        }
+
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+        foreach (var field in type.GetFields(flags))
+        {
+            if (!MemberMayContainTextureHandle(field.Name, field.FieldType))
+            {
+                continue;
+            }
+
+            object? fieldValue;
+            try
+            {
+                fieldValue = field.GetValue(value);
+            }
+            catch
+            {
+                continue;
+            }
+
+            foreach (var nested in EnumerateNamedTextureHandles($"{label}.{field.Name}", fieldValue, depth + 1, seenObjects))
+            {
+                yield return nested;
+            }
+        }
+
+        foreach (var property in type.GetProperties(flags))
+        {
+            if (property.GetIndexParameters().Length != 0
+                || property.GetMethod is null
+                || !MemberMayContainTextureHandle(property.Name, property.PropertyType))
+            {
+                continue;
+            }
+
+            object? propertyValue;
+            try
+            {
+                propertyValue = property.GetValue(value);
+            }
+            catch
+            {
+                continue;
+            }
+
+            foreach (var nested in EnumerateNamedTextureHandles($"{label}.{property.Name}", propertyValue, depth + 1, seenObjects))
+            {
+                yield return nested;
+            }
+        }
+    }
+
+    private static bool MemberMayContainTextureHandle(string name, Type type)
+    {
+        return TypeNameContains(type, "TextureHandle")
+            || TypeNameContains(type, "ResourceHandles")
+            || name.IndexOf("resource", StringComparison.OrdinalIgnoreCase) >= 0
+            || name.IndexOf("source", StringComparison.OrdinalIgnoreCase) >= 0
+            || name.IndexOf("destination", StringComparison.OrdinalIgnoreCase) >= 0
+            || name.IndexOf("output", StringComparison.OrdinalIgnoreCase) >= 0
+            || name.IndexOf("depth", StringComparison.OrdinalIgnoreCase) >= 0
+            || name.IndexOf("motion", StringComparison.OrdinalIgnoreCase) >= 0
+            || name.IndexOf("color", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
     private static void AddResourceListCandidates(
         object registry,
         string labelPrefix,
@@ -1052,7 +1468,8 @@ internal static class FrameResourceProbe
         string label,
         object? textureHandle,
         ICollection<RenderGraphTextureCandidate> candidates,
-        ISet<string> seen)
+        ISet<string> seen,
+        bool includeNonCanonical = false)
     {
         if (textureHandle is null || !TypeNameContains(textureHandle.GetType(), "TextureHandle"))
         {
@@ -1066,12 +1483,12 @@ internal static class FrameResourceProbe
         }
 
         var resourceName = TryGetRenderGraphResourceName(registry, resourceHandle);
-        if (!IsRenderGraphDlssRelevantResource(resourceName))
+        if (!includeNonCanonical && !IsRenderGraphDlssRelevantResource(resourceName))
         {
             return;
         }
 
-        AddRenderGraphTextureCandidate(registry, label, resourceName!, textureHandle, resourceHandle, candidates, seen);
+        AddRenderGraphTextureCandidate(registry, label, resourceName ?? label, textureHandle, resourceHandle, candidates, seen);
     }
 
     private static void AddResourceHandleCandidate(
@@ -1147,6 +1564,42 @@ internal static class FrameResourceProbe
             .Where(candidate => candidate.Pointer != IntPtr.Zero)
             .FirstOrDefault(candidate => predicate(candidate.ResourceName));
         return candidate.Pointer == IntPtr.Zero ? null : candidate;
+    }
+
+    private static RenderGraphTextureCandidate? FindExistingRenderFuncCandidate(
+        IEnumerable<RenderGraphTextureCandidate> candidates,
+        Func<RenderGraphTextureCandidate, bool> predicate)
+    {
+        var candidate = candidates.FirstOrDefault(predicate);
+        return candidate.Pointer == IntPtr.Zero ? null : candidate;
+    }
+
+    private static bool CandidateNameContains(RenderGraphTextureCandidate candidate, string value)
+    {
+        return candidate.Label.IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0
+            || candidate.ResourceName.IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static object? TryGetCurrentRenderGraphRegistry()
+    {
+        var registryType = FindRuntimeType(
+            AppDomain.CurrentDomain.GetAssemblies(),
+            "UnityEngine.Experimental.Rendering.RenderGraphModule.RenderGraphResourceRegistry");
+        if (registryType is null)
+        {
+            return null;
+        }
+
+        foreach (var propertyName in new[] { "current", "m_CurrentRegistry" })
+        {
+            var current = TryReadStaticPropertyObject(registryType, propertyName);
+            if (current is not null)
+            {
+                return current;
+            }
+        }
+
+        return null;
     }
 
     private static object? TryGetResourceHandleFromTextureHandle(object textureHandle)
@@ -2176,6 +2629,8 @@ internal static class FrameResourceProbe
     private readonly record struct FrameProbeTarget(string TypeName, string MemberName);
 
     private readonly record struct NativeTextureCandidate(string Label, IntPtr Pointer);
+
+    private readonly record struct NamedTextureHandleCandidate(string Label, object Value);
 
     private readonly record struct RenderGraphTextureCandidate(string Label, string ResourceName, IntPtr Pointer, string Status);
 

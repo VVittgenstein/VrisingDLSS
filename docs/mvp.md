@@ -63,9 +63,11 @@ ShowOverlay = true
 
 The current blocker is Stage 8A frame input access. DLSS runtime load, SDK-wrapper init/query, and feature create/release have local proof, but first evaluate still requires color/output/depth/motion resources as valid native D3D11 textures in the same frame.
 
-Latest local evidence shows HDRP RenderGraph methods expose `TextureHandle` entries named `CameraColor`, `CameraDepthStencil`, `Motion Vectors`, and `NormalBuffer`, but ordinary Harmony prefixes see those handles outside a valid RenderGraph resource read scope. The next implementation path is a RenderGraph-scoped hook or diagnostic pass where those handles are declared/read while alive.
+Latest local evidence shows HDRP RenderGraph methods expose `TextureHandle` entries named `CameraColor`, `CameraDepthStencil`, `Motion Vectors`, and `NormalBuffer`, but ordinary Harmony prefixes see those handles outside a valid RenderGraph resource read scope.
 
-The current diagnostic build therefore avoids calling `GetTexture(TextureHandle&)` from method prefixes and instead listens for engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` calls with a read-only postfix. A `TextureHandle` implicit-conversion hook was tested and rejected because it produced IL2CPP trampoline errors. A declared diagnostic RenderGraph pass now injects with `hasRenderFunc=True`; the next concrete MVP step is to verify that pass in a local/private gameplay scene and get color/output/depth/motion native pointers inside its render function.
+The current diagnostic build therefore avoids calling `GetTexture(TextureHandle&)` from method prefixes and instead listens for engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` calls with a read-only postfix. A `TextureHandle` implicit-conversion hook was tested and rejected because it produced IL2CPP trampoline errors. A declared diagnostic RenderGraph pass also proved too risky: it injected in gameplay and then V Rising crashed in `coreclr.dll` before the pass render function logged. That path remains disabled behind `Diagnostics.EnableRenderGraphDiagnosticPass=false`.
+
+The next concrete MVP step is the safer existing-HDRP route: observe known-executing HDRP render functions such as `DoDLSSPass`, `DoTemporalAntialiasing`, `UberPass`, `FinalPass`, and custom post-processing callbacks while the RenderGraph registry is current, then validate color/output/depth/motion native pointers there. V Rising's built-in HDRP dynamic-resolution/upscale symbols, including FSR and DLSS-related entries, are useful as landmarks for this route, but FSR1 itself is not a DLSS substitute because DLSS Super Resolution still requires valid depth and motion-vector inputs.
 
 ## Current Non-Goals
 
