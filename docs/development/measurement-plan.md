@@ -39,7 +39,19 @@ Required evidence:
 4. Valid screenshots at gameplay resolution. The readiness gate currently requires at least 1280x720.
 5. Human review tied to the exact image hashes, because automated pixel-difference statistics can catch gross capture failures but cannot prove temporal image quality.
 
-Review file template:
+Generate a review template from the current comparison artifact:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\write-visual-review.ps1
+```
+
+Passing review must be explicit after inspecting the images:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\write-visual-review.ps1 -ReviewStatus Pass -ConfirmImageCorrectness -Scene "stable gameplay scene" -Notes "No black/white frame, wrong-window capture, severe blur, ghosting, unstable UI, or obvious temporal artifacts observed." -Force
+```
+
+Review file shape:
 
 ```json
 {

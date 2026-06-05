@@ -266,7 +266,7 @@ if (-not (Test-Path -LiteralPath $reviewResolved)) {
 } else {
     try {
         $review = Get-Content -LiteralPath $reviewResolved -Raw | ConvertFrom-Json
-        $reviewStatus = [string]$review.reviewStatus
+        $reviewStatus = ([string]$review.reviewStatus).Trim()
         $details.HumanReviewStatus = $reviewStatus
 
         if ($reviewStatus -eq "Fail") {
@@ -287,6 +287,20 @@ if (-not (Test-Path -LiteralPath $reviewResolved)) {
 
         if ([string]$review.baselineSha256 -ne $baselineSha -or [string]$review.candidateSha256 -ne $candidateSha) {
             $issues.Add("Human visual review hashes do not match the comparison artifact.")
+        }
+
+        if ($reviewStatus -eq "Pass") {
+            if ([string]::IsNullOrWhiteSpace([string]$review.scene)) {
+                $issues.Add("Human visual review scene description is empty.")
+            }
+
+            if ([string]::IsNullOrWhiteSpace([string]$review.notes)) {
+                $issues.Add("Human visual review notes are empty.")
+            }
+
+            if ([string]::IsNullOrWhiteSpace([string]$review.reviewedAt)) {
+                $issues.Add("Human visual review reviewedAt timestamp is empty.")
+            }
         }
     } catch {
         $issues.Add("Human visual review file could not be parsed: $($_.Exception.Message)")
