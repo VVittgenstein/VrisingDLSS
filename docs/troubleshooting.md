@@ -169,6 +169,20 @@ Check:
 
 If this stage passes but DLSS is still not visible, that is expected. Stage 8F proves the SR-sized NGX evaluate call, not the normal-user visible rendering path.
 
+## DLSS Super Resolution Persistent Evaluate Probe Is Blocked Or Fails
+
+`EnableDlssSuperResolutionPersistentEvaluateProbe` waits for Stage 8E, then runs a guarded SDK-wrapper persistent DLSS evaluate against the render-input-smaller-than-output tuple. It is disabled by default and requires a local/private SDK-wrapper research build.
+
+Check:
+
+- Stage 8E passes first in the same run.
+- `DLSS.DlssRuntimePath` points to a local research `nvngx_dlss.dll`.
+- `EnableNativeBridgeSmokeTest` logs bridge API version `10` or newer.
+- The log shows `DLSS super-resolution persistent evaluate probe candidate #`.
+- A passing status should include `render=` smaller than `target=`, `evaluateCount=`, matching `evaluateSuccesses=`, `create=0x00000001`, `evaluateLast=0x00000001`, `release=0x00000001`, `destroy=0x00000001`, and `shutdown=0x00000001`.
+
+If this stage passes but DLSS is still not visible, that is expected. Stage 8G proves repeated evaluates on one DLSS feature for the SR-sized tuple, not the normal-user visible rendering path.
+
 ## DLSSPass Resource Helper Probe
 
 `EnableDlssPassResourceProbe` is disabled by default. It patches only `DLSSPass.GetViewResources` and `DLSSPass.GetCameraResources`, then logs any returned source/output/depth/motion-vector `Texture` native pointers. It does not patch `DLSSPass.Render`, does not load DLSS, and does not evaluate a frame.

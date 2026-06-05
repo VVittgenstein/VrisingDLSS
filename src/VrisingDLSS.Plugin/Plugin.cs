@@ -56,6 +56,7 @@ public sealed class Plugin : BasePlugin
             || _config.EnableDlssEvaluateInputProbe.Value
             || _config.EnableDlssSuperResolutionInputProbe.Value
             || _config.EnableDlssSuperResolutionEvaluateProbe.Value
+            || _config.EnableDlssSuperResolutionPersistentEvaluateProbe.Value
             || _config.EnableDlssEvaluateProbe.Value
             || _config.EnableDlssPersistentEvaluateProbe.Value
             || _config.EnableDlssPassResourceProbe.Value)
@@ -180,6 +181,7 @@ public sealed class Plugin : BasePlugin
             _config?.EnableDlssPersistentEvaluateProbe.Value ?? false,
             _config?.EnableDlssSuperResolutionInputProbe.Value ?? false,
             _config?.EnableDlssSuperResolutionEvaluateProbe.Value ?? false,
+            _config?.EnableDlssSuperResolutionPersistentEvaluateProbe.Value ?? false,
             CreateDlssEvaluateProbeSettings(),
             _config?.EnableRenderGraphDiagnosticPass.Value ?? false,
             _config?.EnableExistingRenderFuncProbe.Value ?? false,
@@ -312,9 +314,9 @@ public sealed class Plugin : BasePlugin
         }
 
         var runtimePath = ResolveConfiguredRuntimePath(_config.DlssRuntimePath.Value);
-        if ((_config.EnableDlssEvaluateProbe.Value || _config.EnableDlssPersistentEvaluateProbe.Value || _config.EnableDlssSuperResolutionEvaluateProbe.Value) && string.IsNullOrWhiteSpace(runtimePath))
+        if ((_config.EnableDlssEvaluateProbe.Value || _config.EnableDlssPersistentEvaluateProbe.Value || _config.EnableDlssSuperResolutionEvaluateProbe.Value || _config.EnableDlssSuperResolutionPersistentEvaluateProbe.Value) && string.IsNullOrWhiteSpace(runtimePath))
         {
-            _log?.LogWarning("DLSS evaluate/persistent/Super Resolution evaluate probe is enabled, but DLSS.DlssRuntimePath is empty. The native probe will report skipped until a runtime path is configured.");
+            _log?.LogWarning("DLSS evaluate/persistent/Super Resolution evaluate/persistent probe is enabled, but DLSS.DlssRuntimePath is empty. The native probe will report skipped until a runtime path is configured.");
         }
 
         if (!TryParseApplicationId(_config.DlssApplicationId.Value, out var applicationId))

@@ -14,6 +14,7 @@ internal sealed class ModConfig
     internal ConfigEntry<bool> EnableDlssEvaluateInputProbe { get; }
     internal ConfigEntry<bool> EnableDlssSuperResolutionInputProbe { get; }
     internal ConfigEntry<bool> EnableDlssSuperResolutionEvaluateProbe { get; }
+    internal ConfigEntry<bool> EnableDlssSuperResolutionPersistentEvaluateProbe { get; }
     internal ConfigEntry<bool> EnableDlssEvaluateProbe { get; }
     internal ConfigEntry<bool> EnableDlssPersistentEvaluateProbe { get; }
     internal ConfigEntry<bool> EnableRenderGraphDiagnosticPass { get; }
@@ -49,6 +50,7 @@ internal sealed class ModConfig
         EnableDlssEvaluateInputProbe = config.Bind("Diagnostics", "EnableDlssEvaluateInputProbe", false, "Validate same-frame color/output/depth/motion D3D11 texture inputs for the future DLSS evaluate path. Diagnostic only; does not evaluate a frame.");
         EnableDlssSuperResolutionInputProbe = config.Bind("Diagnostics", "EnableDlssSuperResolutionInputProbe", false, "Validate a DLSS Super Resolution-sized real-frame tuple where color/depth/motion render inputs are smaller than the output target. Diagnostic only; does not evaluate a frame.");
         EnableDlssSuperResolutionEvaluateProbe = config.Bind("Diagnostics", "EnableDlssSuperResolutionEvaluateProbe", false, "High-risk SDK-wrapper diagnostic that evaluates one discovered Super Resolution-sized frame-resource tuple. Leave false unless deliberate local/private testing is intentional.");
+        EnableDlssSuperResolutionPersistentEvaluateProbe = config.Bind("Diagnostics", "EnableDlssSuperResolutionPersistentEvaluateProbe", false, "High-risk SDK-wrapper diagnostic that creates one DLSS feature and evaluates the discovered Super Resolution-sized tuple multiple times before release/shutdown. Leave false unless deliberate local/private testing is intentional.");
         EnableDlssEvaluateProbe = config.Bind("Diagnostics", "EnableDlssEvaluateProbe", false, "High-risk SDK-wrapper diagnostic that creates a DLSS feature and evaluates one discovered frame-resource tuple. Leave false unless deliberate local/private testing is intentional.");
         EnableDlssPersistentEvaluateProbe = config.Bind("Diagnostics", "EnableDlssPersistentEvaluateProbe", false, "High-risk SDK-wrapper diagnostic that creates one DLSS feature and evaluates the discovered frame-resource tuple multiple times before release/shutdown. Leave false unless deliberate local/private testing is intentional.");
         EnableRenderGraphDiagnosticPass = config.Bind("Diagnostics", "EnableRenderGraphDiagnosticPass", false, "High-risk research-only RenderGraph pass injection for Stage 8A. Leave false unless crash-recovery testing is intentional.");

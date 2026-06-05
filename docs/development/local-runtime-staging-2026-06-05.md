@@ -1,6 +1,6 @@
 # Local Runtime Staging - 2026-06-05
 
-This records local staging progress for runtime validation. Stage 8B guarded DLSS evaluate, Stage 8C output follow-up, Stage 8D persistent repeated evaluate, Stage 8E Super Resolution input sizing, and Stage 8F Super Resolution evaluate now have local proof, but normal-user DLSS rendering is not implemented yet.
+This records local staging progress for runtime validation. Stage 8B guarded DLSS evaluate, Stage 8C output follow-up, Stage 8D persistent repeated evaluate, Stage 8E Super Resolution input sizing, Stage 8F Super Resolution evaluate, and Stage 8G Super Resolution persistent repeated evaluate now have local proof, but normal-user DLSS rendering is not implemented yet.
 
 ## Inputs
 
@@ -109,6 +109,11 @@ Current validated evidence:
   - Evidence: `DLSS super-resolution evaluate probe succeeded from RenderGraph GetTexture`, with SDK-wrapper ProjectID init/capability success, `render=426x284`, `target=720x480`, `perfQuality=0`, `flags=0x00000040`, `create=0x00000001`, `feature=yes`, `evaluate=0x00000001`, `release=0x00000001`, `destroy=0x00000001`, and `shutdown=0x00000001`.
   - Follow-up evidence observed the same `Edge Adaptive Spatial Upsampling` output pointer as D3D11-accessible after evaluate.
   - This proves NGX accepts the real SR-sized tuple. It still does not prove visible output/image correctness.
+- Stage 8G DLSS Super Resolution persistent evaluate:
+  - A 130-second scripted `dlss-persistent-evaluate` run on 2026-06-05 completed without a matching Windows crash event and passed the new SR persistent evaluate gate.
+  - Evidence: `DLSS super-resolution persistent evaluate probe succeeded from RenderGraph GetTexture`, with SDK-wrapper ProjectID init/capability success, `render=426x284`, `target=720x480`, `perfQuality=0`, `flags=0x00000040`, `evaluateCount=3`, `evaluateSuccesses=3`, `create=0x00000001`, `feature=yes`, `evaluateLast=0x00000001`, `release=0x00000001`, `destroy=0x00000001`, and `shutdown=0x00000001`.
+  - Follow-up evidence observed the same `Edge Adaptive Spatial Upsampling` output pointer as D3D11-accessible for 12 follow-up logs after repeated evaluate.
+  - This proves one DLSS feature can persist across repeated evaluates on the real SR-sized tuple. It still does not prove visible output/image correctness.
 - Local GPU/driver for Stage 6/7 pass: NVIDIA GeForce RTX 5060, driver `610.47`.
 
 Archived logs:
@@ -163,12 +168,14 @@ Archived logs:
 - `artifacts/runtime-logs/Analysis-dlss-persistent-evaluate-20260605-125921.txt`
 - `artifacts/runtime-logs/LogOutput-dlss-persistent-evaluate-20260605-131548.log`
 - `artifacts/runtime-logs/Analysis-dlss-persistent-evaluate-20260605-131548.txt`
+- `artifacts/runtime-logs/LogOutput-dlss-persistent-evaluate-20260605-133102.log`
+- `artifacts/runtime-logs/Analysis-dlss-persistent-evaluate-20260605-133102.txt`
 
 No PureDark files were copied into the game plugin folder. The NVIDIA runtime was copied only into `ref/` for local research and was not added to the release package.
 
 Next implementation gate:
 
 - Keep ordinary `dlss-evaluate-inputs` diagnostics safe by leaving `Diagnostics.EnableRenderGraphDiagnosticPass=false`, `Diagnostics.EnableExistingRenderFuncProbe=false`, `Diagnostics.EnableFrameResourceProbe=false`, and `Diagnostics.EnableHarmonyCallProbe=false`.
-- Keep Stage 8B/8C/8D/8E/8F as guarded diagnostics while `DLSS.EnableDLSS=false` remains the package default.
+- Keep Stage 8B/8C/8D/8E/8F/8G as guarded diagnostics while `DLSS.EnableDLSS=false` remains the package default.
 - Implement a guarded normal-user rendering path only after choosing a safe output/writeback strategy from the accepted passive `GetTexture` evidence.
 - Validate image correctness, render-scale behavior, jitter/pre-exposure, resize/reset behavior, and fallback behavior in a local/private gameplay scene before any public MVP release.

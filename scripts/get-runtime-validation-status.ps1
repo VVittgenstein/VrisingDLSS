@@ -71,6 +71,7 @@ function Get-ConfiguredStage {
 
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssPersistentEvaluateProbe") { return "dlss-persistent-evaluate" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssEvaluateProbe") { return "dlss-evaluate" }
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssSuperResolutionPersistentEvaluateProbe") { return "dlss-super-resolution-persistent-evaluate" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssSuperResolutionEvaluateProbe") { return "dlss-super-resolution-evaluate" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssSuperResolutionInputProbe") { return "dlss-super-resolution-inputs" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssEvaluateInputProbe") { return "dlss-evaluate-inputs" }
@@ -150,13 +151,18 @@ function Get-NextRecommendation {
     $persistentEvaluate = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 8D"
     $superResolutionInputs = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 8E"
     $superResolutionEvaluate = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 8F"
+    $superResolutionPersistentEvaluate = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 8G"
     if ($persistentEvaluate -eq "Pass") {
+        if ($superResolutionInputs -eq "Pass" -and $superResolutionEvaluate -eq "Pass" -and $superResolutionPersistentEvaluate -eq "Pass") {
+            return "Stage 8D persistent DLSS evaluate, Stage 8E Super Resolution input sizing, Stage 8F Super Resolution evaluate, and Stage 8G Super Resolution persistent evaluate passed. Next engineering step is guarded visible write-back, image-correctness validation, resize/reset handling, and fallback behavior in local/private gameplay."
+        }
+
         if ($superResolutionInputs -eq "Pass" -and $superResolutionEvaluate -eq "Pass") {
-            return "Stage 8D persistent DLSS evaluate, Stage 8E Super Resolution input sizing, and Stage 8F Super Resolution evaluate passed. Next engineering step is guarded visible write-back, image-correctness validation, resize/reset handling, and fallback behavior in local/private gameplay."
+            return "Stage 8D persistent DLSS evaluate, Stage 8E Super Resolution input sizing, and Stage 8F Super Resolution evaluate passed. Next engineering step is scripts\run-vrising-diagnostic.ps1 -GamePath `"$($Inspect.GamePath)`" -Stage dlss-super-resolution-persistent-evaluate with the local SDK-wrapper native build, then guarded visible write-back."
         }
 
         if ($superResolutionInputs -eq "Pass") {
-            return "Stage 8D persistent DLSS evaluate and Stage 8E Super Resolution input sizing passed. Next engineering step is scripts\run-vrising-diagnostic.ps1 -GamePath `"$($Inspect.GamePath)`" -Stage dlss-super-resolution-evaluate with the local SDK-wrapper native build, then guarded visible write-back."
+            return "Stage 8D persistent DLSS evaluate and Stage 8E Super Resolution input sizing passed. Next engineering step is scripts\run-vrising-diagnostic.ps1 -GamePath `"$($Inspect.GamePath)`" -Stage dlss-super-resolution-evaluate with the local SDK-wrapper native build, then Stage 8G Super Resolution persistent evaluate."
         }
 
         return "Stage 8D persistent DLSS evaluate passed. Next engineering step is scripts\run-vrising-diagnostic.ps1 -GamePath `"$($Inspect.GamePath)`" -Stage dlss-super-resolution-inputs to prove a render-input-smaller-than-output tuple, then guarded visible write-back."

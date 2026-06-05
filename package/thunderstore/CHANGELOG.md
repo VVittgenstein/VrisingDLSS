@@ -18,6 +18,7 @@
 - Added real-frame DLSS evaluate input probe interface; validates color/output/depth/motion D3D11 resources before any evaluate call.
 - Added Stage 8E Super Resolution input-size probe; validates render inputs smaller than output without evaluating DLSS.
 - Added Stage 8F Super Resolution evaluate diagnostic; local SDK-wrapper research builds can evaluate the discovered SR-sized tuple.
+- Added Stage 8G Super Resolution persistent evaluate diagnostic; local SDK-wrapper research builds can evaluate the discovered SR-sized tuple repeatedly with one DLSS feature.
 - Added guarded one-shot DLSS evaluate diagnostic interface for local SDK-wrapper research builds; release-safe builds report blocked and package defaults keep it disabled.
 - Added Stage 8C output follow-up logging after guarded evaluate to track whether the selected output resource/pointer remains D3D11-accessible in later RenderGraph callbacks.
 - Added Stage 8D persistent-feature repeated-evaluate diagnostic; local SDK-wrapper research builds can create one feature, evaluate repeatedly, then release/shutdown.

@@ -16,6 +16,7 @@ param(
         "dlss-evaluate-inputs",
         "dlss-super-resolution-inputs",
         "dlss-super-resolution-evaluate",
+        "dlss-super-resolution-persistent-evaluate",
         "dlss-evaluate",
         "dlss-persistent-evaluate",
         "dlsspass-resource"

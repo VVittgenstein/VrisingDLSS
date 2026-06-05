@@ -280,6 +280,7 @@ try {
             "EnableDlssEvaluateInputProbe = false",
             "EnableDlssSuperResolutionInputProbe = false",
             "EnableDlssSuperResolutionEvaluateProbe = false",
+            "EnableDlssSuperResolutionPersistentEvaluateProbe = false",
             "EnableDlssEvaluateProbe = false",
             "EnableDlssPersistentEvaluateProbe = false",
             "EnableRenderGraphDiagnosticPass = false",

@@ -45,7 +45,7 @@ powershell -ExecutionPolicy Bypass -File scripts\analyze-bepinex-log.ps1 -GamePa
 powershell -ExecutionPolicy Bypass -File scripts\get-runtime-validation-status.ps1 -GamePath "C:\path\to\VRising"
 ```
 
-The config helper writes `BepInEx\plugins\VrisingDLSS\VrisingDLSS.cfg` for a single diagnostic stage. The analyzer reads `BepInEx\LogOutput.log` and reports pass/fail/partial/missing evidence for stages 1-8A. The status helper combines preflight, config, log evidence, and the next recommended command.
+The config helper writes `BepInEx\plugins\VrisingDLSS\VrisingDLSS.cfg` for a single diagnostic stage. The analyzer reads `BepInEx\LogOutput.log` and reports pass/fail/partial/missing evidence for stages 1-8G. The status helper combines preflight, config, log evidence, and the next recommended command.
 
 ## Stage 2: Hook Probe
 
@@ -358,7 +358,7 @@ Current Stage 8A status:
 - A follow-up scripted run also exited early with the same `coreclr.dll` `0xc0000005` bucket after only the RenderGraph builder declaration, execution-scope, GetTexture postfix, and materialization probes were enabled. The log stopped at builder declaration #40 and did not show materialization/GetTexture callbacks, so ordinary `dlss-evaluate-inputs` now also skips builder declaration and execution-scope prefix/postfix probes by default.
 - A later scripted `dlss-evaluate-inputs` run on 2026-06-05 limited ordinary Stage 8A to registry-level `BeginExecute(int)`, `CreateTextureCallback(RenderGraphContext, IRenderGraphResource)`, and the passive `GetTexture(TextureHandle&)` postfix. It ran for the full 75-second diagnostic window with no matching Windows crash event. The log reported `DLSS evaluate input probe succeeded from RenderGraph GetTexture` with same-device D3D11 resources: `CameraColor`, `Apply Exposure Destination`, `CameraDepthStencil`, and `Motion Vectors`, all at `720x480`.
 - Local static inspection confirms V Rising exposes HDRP FSR/upscale/DLSS landmarks, including `HDRenderPipeline.SetFSRParameters(float, bool)`, `GetUpscaleRes()`, `SetUpscaleFilter(DynamicResUpscaleFilter, float)`, `GetUpscaleFilter()`, `SetupDLSSForCameraDataAndDynamicResHandler(...)`, `GetPostprocessUpsampledOutputHandle(...)`, `DoDLSSPasses(...)`, `DoDLSSPass(...)`, and `DoTemporalAntialiasing(...)`. FSR1 is useful for locating the existing dynamic-resolution path, but it is not enough for DLSS because DLSS still needs aligned depth and motion-vector inputs.
-- Current next route: keep the accepted Stage 8A path limited to the `GetTexture` postfix plus resource-materialization callback probe by default. Stage 8B guarded SDK-wrapper DLSS evaluate, Stage 8C output follow-up, Stage 8D persistent repeated evaluate, Stage 8E Super Resolution input sizing, and Stage 8F Super Resolution evaluate now have local runtime proof while `DLSS.EnableDLSS=false` remains the package default. The next work is guarded visible write-back/normal-user rendering integration plus image-correctness, render-scale, resize/reset, and fallback validation. Do not inject a new RenderGraph pass, patch compiler-generated render functions, patch ordinary HDRP render-resource prefix targets, or patch RenderGraph builder declaration methods in normal diagnostics.
+- Current next route: keep the accepted Stage 8A path limited to the `GetTexture` postfix plus resource-materialization callback probe by default. Stage 8B guarded SDK-wrapper DLSS evaluate, Stage 8C output follow-up, Stage 8D persistent repeated evaluate, Stage 8E Super Resolution input sizing, Stage 8F Super Resolution evaluate, and Stage 8G Super Resolution persistent repeated evaluate now have local runtime proof while `DLSS.EnableDLSS=false` remains the package default. The next work is guarded visible write-back/normal-user rendering integration plus image-correctness, render-scale, resize/reset, and fallback validation. Do not inject a new RenderGraph pass, patch compiler-generated render functions, patch ordinary HDRP render-resource prefix targets, or patch RenderGraph builder declaration methods in normal diagnostics.
 - See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.
 
 ## Stage 8B: First Guarded DLSS Evaluate Diagnostic
@@ -494,3 +494,33 @@ Current Stage 8F status:
 - Runtime validation against V Rising passed on 2026-06-05 in a 125-second scripted `dlss-persistent-evaluate` run with no matching Windows crash event.
 - Evidence: `DLSS super-resolution evaluate probe succeeded from RenderGraph GetTexture: DLSS evaluate probe completed via SDK wrapper ProjectID; appId=0; init=0x00000001; capability=0x00000001; available=1(result=0x00000001); render=426x284; target=720x480; perfQuality=0; flags=0x00000040; jitter=(0.0000,0.0000); mvScale=(1.0000,1.0000); sharpness=0.0000; reset=1; create=0x00000001; feature=yes; evaluate=0x00000001; release=0x00000001; destroy=0x00000001; shutdown=0x00000001`.
 - Follow-up evidence observed `Edge Adaptive Spatial Upsampling` with the same native pointer after the evaluate callback and D3D11 probe success. This proves a guarded SR-sized NGX evaluate can run, but visible write-back/image correctness still require the normal-user rendering path.
+
+## Stage 8G: DLSS Super Resolution Persistent Evaluate Diagnostic
+
+Implemented and locally game-runtime validated with the SDK-wrapper research native build.
+
+Scope:
+
+- Config key: `Diagnostics.EnableDlssSuperResolutionPersistentEvaluateProbe=false` by default.
+- Helper stage: `scripts\run-vrising-diagnostic.ps1 -Stage dlss-super-resolution-persistent-evaluate`.
+- Waits for Stage 8E to accept a render-input-smaller-than-output tuple.
+- Calls the existing guarded SDK-wrapper `VrisingDlss_ProbeDlssPersistentEvaluate` path against that SR tuple.
+- Creates one DLSS feature, runs multiple evaluate calls against that feature, then releases/destroys/shuts down.
+- Records the selected output resource/pointer and reuses Stage 8C output follow-up to confirm it remains D3D11-accessible after repeated evaluate.
+- Release-safe native builds report blocked because `VRISINGDLSS_ENABLE_NGX_SDK_WRAPPER=OFF` by default.
+- This is still diagnostic-only. It does not make `DLSS.EnableDLSS=true` a normal-user rendering path.
+
+Pass criteria:
+
+- Stage 8E passes in the same run.
+- The native status line reports `render` smaller than `target`.
+- The native status line reports `evaluateSuccesses` equal to `evaluateCount`.
+- Native create/release/destroy/shutdown all return success.
+- The selected output remains D3D11-accessible in follow-up `GetTexture` callbacks.
+- Game does not black-screen or crash.
+
+Current Stage 8G status:
+
+- Runtime validation against V Rising passed on 2026-06-05 in a 130-second scripted `dlss-persistent-evaluate` run with no matching Windows crash event.
+- Evidence: `DLSS super-resolution persistent evaluate probe succeeded from RenderGraph GetTexture: DLSS persistent evaluate probe completed via SDK wrapper ProjectID; appId=0; init=0x00000001; capability=0x00000001; available=1(result=0x00000001); render=426x284; target=720x480; perfQuality=0; flags=0x00000040; jitter=(0.0000,0.0000); mvScale=(1.0000,1.0000); sharpness=0.0000; reset=1; evaluateCount=3; evaluateSuccesses=3; create=0x00000001; feature=yes; evaluateLast=0x00000001; release=0x00000001; destroy=0x00000001; shutdown=0x00000001`.
+- Follow-up evidence observed `Edge Adaptive Spatial Upsampling` with the same native pointer after repeated evaluate and D3D11 probe success. This proves one DLSS feature can persist across repeated evaluates on the real SR-sized tuple, but visible write-back/image correctness still require the normal-user rendering path.
