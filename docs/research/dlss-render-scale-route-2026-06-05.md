@@ -36,6 +36,20 @@ The local V Rising install exposes HDRP/Core interop methods that match the offi
 
 The local game folder does not appear to include `nvngx_dlss.dll` or a Unity NVIDIA module DLL by default. That means "just flip Unity's built-in DLSS setting" is not assumed to work until runtime probes prove it. The clean-room native bridge remains necessary for the distributable fallback path.
 
+## Unity 2022.3 Source Check
+
+Local inspection of `C:\Software\VRising\VRising_Data\globalgamemanagers` reports Unity `2022.3.58f1`, so the closest public Unity Graphics source branch is `2022.3/staging`. A local sparse checkout under ignored `ref/UnityGraphics-2022.3` confirms the relevant HDRP/Core control flow:
+
+- `HDRenderPipeline.SetupDLSSForCameraDataAndDynamicResHandler(...)` decides `cameraCanRenderDLSS` from camera dynamic-resolution permission, platform DLSS detection, camera DLSS permission, HDRP asset `enableDLSS`, and HDRP asset dynamic-resolution `enabled`.
+- The render loop calls `SetupDLSSForCameraDataAndDynamicResHandler(...)`, then selects the camera-specific `DynamicResolutionHandler`, then calls `SetCurrentCameraRequest(...)`, `Update(drsSettings)`, and later `PrepareAndCullCamera(..., cameraRequestedDynamicRes, ...)`.
+- `PrepareAndCullCamera(...)` calls `HDCamera.RequestDynamicResolution(...)`, and `HDCamera.RequestDynamicResolution(...)` snapshots `DynamicResolutionHandler.DynamicResolutionEnabled()`, `HardwareDynamicResIsEnabled()`, and the selected upscale filter for post-processing.
+- `HDCamera` keeps `finalViewport` at the full output resolution, then calls `DynamicResolutionHandler.GetScaledSize(...)` to reduce `actualWidth` and `actualHeight` when the game camera can use dynamic resolution.
+- `DynamicResolutionHandler.ProcessSettings(...)` applies `enabled`, `dynResType`, `upsampleFilter`, `forceResolution`, and `forcedPercentage`; `GetScaledSize(...)` then returns the lower render size used by HDRP.
+
+This validates the current render-scale-control hook set: `SetupDLSSForCameraDataAndDynamicResHandler`, `DynamicResolutionHandler.Update`, `DynamicResolutionHandler.SetCurrentCameraRequest`, and `HDCamera.RequestDynamicResolution`.
+
+It also explains why forcing V Rising FSR Performance was useful but not fundamental. FSR Performance makes HDRP expose an `Edge Adaptive Spatial Upsampling` output landmark. A mod-owned route can instead keep V Rising `FsrQualityMode=Off` and force HDRP dynamic resolution through the same handler gates. The runtime question is no longer whether DLSS depends on FSR; it is whether the mod-owned settings reliably produce a low-resolution `CameraColor`/depth/motion tuple and a higher-resolution output target without letting another HDRP upscaler overwrite the DLSS result.
+
 ## Decision
 
 `FsrQualityMode=Performance` is transition evidence only. It was useful because it forced V Rising/HDRP to expose an input-smaller-than-output tuple such as `1920x1080 -> 3840x2160`, letting the current probes prove texture discovery and NGX evaluate behavior.
