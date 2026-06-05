@@ -27,6 +27,7 @@ This is engineering research, not legal advice.
 - Added a read-only upscaler-state probe for V Rising's built-in FSR/upscale controls. A main-menu run observed `SetFSRParameters(1, true)` and `SetUpscaleFilter(EdgeAdaptiveScalingUpres, 0.59)`, confirming the HDRP upscaler route is active at runtime and useful as a landmark. It still does not replace the DLSS depth/motion-vector input requirement.
 - Narrowed Stage 8A helper configuration after a main-menu run crashed with `coreclr.dll` `0xc00000fd` while broad Harmony call logging patched `DLSSPass.Render`. `dlss-evaluate-inputs` no longer enables broad call logging, and Harmony call probing now uses a conservative target list.
 - Re-ran the narrowed Stage 8A helper in the main menu with broad Harmony call logging disabled. It ran through the diagnostic window without a Windows crash event, but produced only `Partial` evidence because no RenderGraph texture materialization or successful engine-owned `GetTexture` callback was observed there.
+- Inspected Unity HDRP `DLSSPass` interop and confirmed its resource model contains `source`, `output`, `depth`, and `motionVectors`. A targeted runtime prefix on `DLSSPass.Render` was rejected after it crashed V Rising in `UnityPlayer.dll` with `0x80000003` before the prefix logged.
 
 ## Sources Checked
 
@@ -116,6 +117,7 @@ Already aligned:
 - Stage 2B upscaler-state probing now has main-menu proof that V Rising sets HDRP's FSR/upscale state at runtime: `CatmullRom`/`100` changed to `EdgeAdaptiveScalingUpres`/`58.999996` after `SetFSRParameters` and `SetUpscaleFilter`.
 - Stage 8A helper configs now avoid broad Harmony call logging by default; this keeps the safer resource-materialization route distinct from the rejected high-frequency `DLSSPass.Render` call-count route.
 - The narrowed Stage 8A helper has main-menu stability evidence, but still needs gameplay-scene or later-resource-scope evidence before first evaluate can be implemented.
+- `DLSSPass` is useful as a resource-shape map, but direct Harmony patching of `DLSSPass.Render` is now rejected for the current V Rising IL2CPP build.
 
 Still missing for MVP:
 
