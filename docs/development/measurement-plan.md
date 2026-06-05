@@ -77,6 +77,8 @@ On Windows desktop scaling, capture helpers must report physical pixels rather t
 
 Do not confuse the mod's intended DLSS defaults with V Rising's built-in FSR setting. The MVP DLSS target remains `QualityMode=Performance` and `PresetMode=Recommended`. Local interop inspection shows V Rising's `FsrQualityMode` values are `Off=0`, `UltraQuality=1`, `Quality=2`, `Balanced=3`, and `Performance=4`. Current Stage 10A diagnostics need an upscale situation where the render input is smaller than the output; native 3840x2160 rendering with `FsrQualityMode=0` is a useful negative control but cannot prove a DLSS performance uplift.
 
+Use `scripts/set-vrising-fsr-mode.ps1` for local test setup when changing V Rising's built-in FSR mode. It backs up `ClientSettings.json` under ignored local artifacts before writing and does not launch the game.
+
 Recommended capture shape:
 
 - Warm up in the scene before starting the capture.
