@@ -1,6 +1,6 @@
 # Local Runtime Staging - 2026-06-05
 
-This records local staging progress for runtime validation. Stage 8B guarded DLSS evaluate and Stage 8C output follow-up now have local proof, but normal-user DLSS rendering is not implemented yet.
+This records local staging progress for runtime validation. Stage 8B guarded DLSS evaluate, Stage 8C output follow-up, and Stage 8D persistent repeated evaluate now have local proof, but normal-user DLSS rendering is not implemented yet.
 
 ## Inputs
 
@@ -51,7 +51,7 @@ Current validated evidence:
 - Stage 1 loader: pass. `VrisingDLSS 0.1.0 loaded.`
 - Stage 2 hook probe: pass. `CustomVignette` was found in `ProjectM`; `HDRenderPipeline.UpdateShaderVariablesGlobalCB(HDCamera, CommandBuffer)` was found in HDRP.
 - Stage 2B upscaler state probe: pass in a main-menu run. Initial HDRP upscale state was `GetUpscaleFilter=CatmullRom` and `GetUpscaleRes=100`. During startup V Rising called `HDRenderPipeline.SetFSRParameters(1, true)` and then `HDRenderPipeline.SetUpscaleFilter(EdgeAdaptiveScalingUpres, 0.59)`, after which the snapshot reported `GetUpscaleFilter=EdgeAdaptiveScalingUpres` and `GetUpscaleRes=58.999996`.
-- Stage 4 native bridge: pass. Native bridge API version `8` is the current build-validated bridge API. Archived runtime logs through Stage 7 used API version `6`; Stage 8A pass evidence used API version `7`.
+- Stage 4 native bridge: pass. Native bridge API version `9` is the current build-validated bridge API. Archived runtime logs through Stage 7 used API version `6`; Stage 8A pass evidence used API version `7`; Stage 8B/8C pass evidence used API version `8`.
 - Stage 5A render thread: pass. `HDRenderPipeline.UpdateShaderVariablesGlobalCB` issued `CommandBuffer.IssuePluginEvent`; native callback count advanced to `1`.
 - Stage 5B D3D11 texture: pass. Temporary `RenderTexture` pointer was recognized as a D3D11 resource/device.
 - Stage 5C frame resources: pass. All-low main-menu run reached `HDRenderPipeline.UpdateShaderVariablesGlobalCB`; `_CameraDepthTexture` was found and D3D11-probed. `_CameraMotionVectorsTexture` was `null` in that scene/settings.
@@ -94,6 +94,11 @@ Current validated evidence:
   - A follow-up build records the selected output resource name/native pointer after Stage 8B success and watches later engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` callbacks.
   - The same 2026-06-05 scripted run passed Stage 8C. Evidence: `DLSS evaluate output follow-up #1` observed `Apply Exposure Destination` again one `GetTexture` call later with `sameResourceName=True`, `samePointer=True`, and D3D11 probe success.
   - Later follow-up lines observed the same native pointer under downstream post-process resource names including `Prepped Motion Vectors` and `Uber Post Destination`, also with D3D11 probe success. This suggests the selected output participates in the post-process resource chain, but screenshot/image-correctness validation is still required.
+- Stage 8D DLSS persistent evaluate:
+  - A 90-second scripted `dlss-persistent-evaluate` run on 2026-06-05 completed without a matching Windows crash event. The script closed V Rising after the diagnostic window and restored the loader config.
+  - The run also preserved Stage 8A/8B/8C pass evidence in the same log.
+  - Evidence: `DLSS persistent evaluate probe succeeded from RenderGraph GetTexture`, with SDK-wrapper ProjectID init/capability success, `render=720x480`, `target=720x480`, `perfQuality=0`, `flags=0x00000040`, `evaluateCount=3`, `evaluateSuccesses=3`, `create=0x00000001`, `feature=yes`, `evaluateLast=0x00000001`, `release=0x00000001`, `destroy=0x00000001`, and `shutdown=0x00000001`.
+  - This proves one DLSS feature can survive repeated evaluate calls before release/shutdown. It still does not prove visible output/image correctness.
 - Local GPU/driver for Stage 6/7 pass: NVIDIA GeForce RTX 5060, driver `610.47`.
 
 Archived logs:
@@ -142,12 +147,14 @@ Archived logs:
 - `artifacts/runtime-logs/Analysis-dlss-evaluate-20260605-121132.txt`
 - `artifacts/runtime-logs/LogOutput-dlss-evaluate-20260605-121942.log`
 - `artifacts/runtime-logs/Analysis-dlss-evaluate-20260605-121942.txt`
+- `artifacts/runtime-logs/LogOutput-dlss-persistent-evaluate-20260605-123925.log`
+- `artifacts/runtime-logs/Analysis-dlss-persistent-evaluate-20260605-123925.txt`
 
 No PureDark files were copied into the game plugin folder. The NVIDIA runtime was copied only into `ref/` for local research and was not added to the release package.
 
 Next implementation gate:
 
 - Keep ordinary `dlss-evaluate-inputs` diagnostics safe by leaving `Diagnostics.EnableRenderGraphDiagnosticPass=false`, `Diagnostics.EnableExistingRenderFuncProbe=false`, `Diagnostics.EnableFrameResourceProbe=false`, and `Diagnostics.EnableHarmonyCallProbe=false`.
-- Keep Stage 8B/8C as guarded diagnostics while `DLSS.EnableDLSS=false` remains the package default.
+- Keep Stage 8B/8C/8D as guarded diagnostics while `DLSS.EnableDLSS=false` remains the package default.
 - Implement a guarded normal-user rendering path only after choosing a safe output/writeback strategy from the accepted passive `GetTexture` evidence.
 - Validate image correctness, render-scale behavior, jitter/pre-exposure, resize/reset behavior, and fallback behavior in a local/private gameplay scene before any public MVP release.

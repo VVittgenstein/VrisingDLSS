@@ -12,6 +12,7 @@ param(
         "dlss-feature-create",
         "dlss-evaluate-inputs",
         "dlss-evaluate",
+        "dlss-persistent-evaluate",
         "dlsspass-resource"
     )]
     [string]$Stage = "loader",
@@ -48,6 +49,7 @@ function New-ConfigMap {
             EnableDlssFeatureCreateProbe = "false"
             EnableDlssEvaluateInputProbe = "false"
             EnableDlssEvaluateProbe = "false"
+            EnableDlssPersistentEvaluateProbe = "false"
             EnableRenderGraphDiagnosticPass = "false"
             EnableExistingRenderFuncProbe = "false"
             EnableResourceMaterializationProbe = "false"
@@ -142,6 +144,16 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableDlssRuntimeProbe = "true"
             $Config.Diagnostics.EnableDlssEvaluateInputProbe = "true"
             $Config.Diagnostics.EnableDlssEvaluateProbe = "true"
+            $Config.Diagnostics.EnableResourceMaterializationProbe = "true"
+            $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+        }
+        "dlss-persistent-evaluate" {
+            $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
+            $Config.Diagnostics.EnableD3D11TextureProbe = "true"
+            $Config.Diagnostics.EnableDlssRuntimeProbe = "true"
+            $Config.Diagnostics.EnableDlssEvaluateInputProbe = "true"
+            $Config.Diagnostics.EnableDlssEvaluateProbe = "true"
+            $Config.Diagnostics.EnableDlssPersistentEvaluateProbe = "true"
             $Config.Diagnostics.EnableResourceMaterializationProbe = "true"
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"
         }

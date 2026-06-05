@@ -279,6 +279,7 @@ try {
             "EnableDLSS = false",
             "EnableDlssEvaluateInputProbe = false",
             "EnableDlssEvaluateProbe = false",
+            "EnableDlssPersistentEvaluateProbe = false",
             "EnableRenderGraphDiagnosticPass = false",
             "EnableExistingRenderFuncProbe = false",
             "EnableResourceMaterializationProbe = false",

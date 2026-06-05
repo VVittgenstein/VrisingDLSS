@@ -198,6 +198,7 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
     $stage8A = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 8A"
     $stage8B = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 8B"
     $stage8C = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 8C"
+    $stage8D = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 8D"
     $stage7 = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 7"
     $stage6 = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 6"
     $loader = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 1"
@@ -228,6 +229,11 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
         -Requirement "Stage 8C proves the selected DLSS output resource remains D3D11-accessible after the evaluate callback." `
         -Status $(if ($stage8C -eq "Pass") { "Pass" } elseif ($stage8C -eq "Fail") { "Fail" } elseif ($stage8C -eq "Missing") { "Missing" } else { "Blocked" }) `
         -Evidence "Stage 8C=$stage8C; Next=$($runtimeStatus.NextRecommendation)"))
+    $items.Add((New-ReadinessItem `
+        -Area "Runtime" `
+        -Requirement "Stage 8D proves one DLSS feature can persist across multiple evaluate calls before release/shutdown." `
+        -Status $(if ($stage8D -eq "Pass") { "Pass" } elseif ($stage8D -eq "Fail") { "Fail" } elseif ($stage8D -eq "Missing") { "Missing" } else { "Blocked" }) `
+        -Evidence "Stage 8D=$stage8D; Next=$($runtimeStatus.NextRecommendation)"))
 } else {
     $items.Add((New-ReadinessItem `
         -Area "Runtime" `
@@ -242,6 +248,11 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
     $items.Add((New-ReadinessItem `
         -Area "Runtime" `
         -Requirement "Stage 8C proves the selected DLSS output resource remains D3D11-accessible after the evaluate callback." `
+        -Status "Missing" `
+        -Evidence "Pass -GamePath to include runtime validation evidence."))
+    $items.Add((New-ReadinessItem `
+        -Area "Runtime" `
+        -Requirement "Stage 8D proves one DLSS feature can persist across multiple evaluate calls before release/shutdown." `
         -Status "Missing" `
         -Evidence "Pass -GamePath to include runtime validation evidence."))
 }
@@ -270,7 +281,7 @@ $items.Add((New-ReadinessItem `
     -Area "MVP" `
     -Requirement "Normal-user DLSS enable/disable changes rendering correctly and safely." `
     -Status "Blocked" `
-    -Evidence "EnableDLSS is exposed, and Stage 8A/8B/8C frame-input/evaluate/output-follow-up evidence is tracked by readiness when present, but image-correctness validation and normal-user rendering integration are not complete yet."))
+    -Evidence "EnableDLSS is exposed, and Stage 8A/8B/8C/8D frame-input/evaluate/output-follow-up/persistent-lifecycle evidence is tracked by readiness when present, but image-correctness validation and normal-user rendering integration are not complete yet."))
 
 $mvpBlockingStatuses = @("Fail", "Blocked", "Missing")
 $hardFailures = @($items | Where-Object { $_.Status -eq "Fail" })
@@ -308,6 +319,12 @@ $summary = [pscustomobject]@{
             $runtimeNextRecommendation
         } else {
             "Rerun scripts\run-vrising-diagnostic.ps1 -Stage dlss-evaluate with the output follow-up probe, then preserve the archived log."
+        }
+    } elseif (@($items | Where-Object { $_.Requirement -like "Stage 8D*" -and $_.Status -ne "Pass" }).Count -gt 0) {
+        if (-not [string]::IsNullOrWhiteSpace($runtimeNextRecommendation)) {
+            $runtimeNextRecommendation
+        } else {
+            "Run scripts\run-vrising-diagnostic.ps1 -Stage dlss-persistent-evaluate with a local SDK-wrapper native build, DLSS runtime path, and DLSS disabled by default."
         }
     } elseif (@($items | Where-Object { $_.Requirement -like "Stage 8A*" -and $_.Status -ne "Pass" }).Count -gt 0) {
         if (-not [string]::IsNullOrWhiteSpace($runtimeNextRecommendation)) {

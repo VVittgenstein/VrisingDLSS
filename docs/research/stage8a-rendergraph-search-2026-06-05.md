@@ -155,7 +155,7 @@ Second scripted gameplay-attempt evidence: after removing ordinary HDRP/RenderGr
 
 Accepted Stage 8A route: after the helper was narrowed to registry-level `BeginExecute(int)`, `CreateTextureCallback(RenderGraphContext, IRenderGraphResource)`, and the passive `GetTexture(TextureHandle&)` postfix, a 75-second scripted local run completed without a Windows crash event. The plugin aggregated engine-owned successful `GetTexture` callbacks and, after removing broad `Final` output matching, produced `DLSS evaluate input probe succeeded from RenderGraph GetTexture`. The validated tuple was `CameraColor`, `Apply Exposure Destination`, `CameraDepthStencil`, and `Motion Vectors`; native validation reported `sameDevice=yes` and `720x480` for color, output, depth, and motion. This accepts the passive `GetTexture` postfix aggregation as the Stage 8A input route.
 
-Follow-up Stage 8B/8C evidence: a later 90-second scripted `dlss-evaluate` run completed without a Windows crash event and successfully created/evaluated/released/destroyed/shutdown a DLSS feature through the local SDK-wrapper build. The Stage 8C output follow-up then observed the selected `Apply Exposure Destination` output pointer as D3D11-accessible in later engine-owned `GetTexture` callbacks, including downstream post-process names such as `Uber Post Destination`. This still does not prove visible image correctness, but it moves the route from "can we call evaluate?" to "can we safely wire the evaluated output into normal rendering?"
+Follow-up Stage 8B/8C/8D evidence: a later 90-second scripted `dlss-persistent-evaluate` run completed without a Windows crash event and successfully created/evaluated/released/destroyed/shutdown DLSS features through the local SDK-wrapper build. The Stage 8C output follow-up observed the selected `Apply Exposure Destination` output pointer as D3D11-accessible in later engine-owned `GetTexture` callbacks, including downstream post-process names such as `Uber Post Destination`. Stage 8D then created one DLSS feature, evaluated it three times successfully, and released/shutdown cleanly. This still does not prove visible image correctness, but it moves the route from "can we call evaluate?" to "can we wire a persistent feature lifecycle into normal rendering?"
 
 Rejected or deferred:
 
@@ -180,6 +180,7 @@ Starting from current local evidence:
 
 - First DLSS evaluate-input pass: validated locally on 2026-06-05 through passive RenderGraph `GetTexture` aggregation.
 - First guarded DLSS evaluate and output follow-up: validated locally on 2026-06-05 through the SDK-wrapper research build.
+- First persistent repeated DLSS evaluate: validated locally on 2026-06-05 through the SDK-wrapper research build.
 - First visible DLSS image: 1-2 weeks if output/writeback and render-scale control follow the observed post-process chain cleanly.
 - Private-world playable alpha: 3-6 weeks after first visible image, depending on render-scale control, mip bias, camera reset handling, fallback behavior, and repeated gameplay stability.
 - Public Thunderstore/GitHub MVP release: 4-8 weeks on the fast path; 8-12+ weeks if output selection, jitter/pre-exposure, motion-vector semantics, or runtime-bundling review force another route change.

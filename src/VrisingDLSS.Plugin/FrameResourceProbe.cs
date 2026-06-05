@@ -26,6 +26,7 @@ internal static class FrameResourceProbe
     private const int MaxDlssPassResourceHelperLogs = 40;
     private const int MaxDlssPassResourceEvaluateAttempts = 12;
     private const int MaxDlssEvaluateProbeAttempts = 3;
+    private const int MaxDlssPersistentEvaluateProbeAttempts = 1;
     private const int MaxDlssEvaluateOutputFollowupLogs = 12;
     private const int MaxTextureSearchDepth = 3;
     private static readonly FrameProbeTarget[] Targets =
@@ -49,6 +50,7 @@ internal static class FrameResourceProbe
     private static int DlssPassResourceHelperCallCount;
     private static int DlssPassResourceEvaluateAttemptCount;
     private static int DlssEvaluateProbeAttemptCount;
+    private static int DlssPersistentEvaluateProbeAttemptCount;
     private static int DlssEvaluateOutputFollowupLogCount;
     private static int DlssEvaluateOutputFollowupStartGetTextureCallCount;
     private static IntPtr DlssEvaluateOutputFollowupPointer;
@@ -74,6 +76,8 @@ internal static class FrameResourceProbe
     private static bool DlssEvaluateInputProbeSucceeded;
     private static bool DlssEvaluateProbeEnabled;
     private static bool DlssEvaluateProbeSucceeded;
+    private static bool DlssPersistentEvaluateProbeEnabled;
+    private static bool DlssPersistentEvaluateProbeSucceeded;
     private static DlssEvaluateProbeSettings DlssEvaluateSettings;
 
     internal static void Install(
@@ -82,6 +86,7 @@ internal static class FrameResourceProbe
         bool enableFrameResourceProbe = false,
         bool enableDlssEvaluateInputProbe = false,
         bool enableDlssEvaluateProbe = false,
+        bool enableDlssPersistentEvaluateProbe = false,
         DlssEvaluateProbeSettings dlssEvaluateSettings = default,
         bool enableRenderGraphDiagnosticPass = false,
         bool enableExistingRenderFuncProbe = false,
@@ -91,9 +96,10 @@ internal static class FrameResourceProbe
         if (Installed)
         {
             log.LogInfo("Frame resource probe is already installed.");
-            DlssEvaluateInputProbeEnabled = DlssEvaluateInputProbeEnabled || enableDlssEvaluateInputProbe || enableDlssEvaluateProbe;
+            DlssEvaluateInputProbeEnabled = DlssEvaluateInputProbeEnabled || enableDlssEvaluateInputProbe || enableDlssEvaluateProbe || enableDlssPersistentEvaluateProbe;
             DlssEvaluateProbeEnabled = DlssEvaluateProbeEnabled || enableDlssEvaluateProbe;
-            if (enableDlssEvaluateProbe)
+            DlssPersistentEvaluateProbeEnabled = DlssPersistentEvaluateProbeEnabled || enableDlssPersistentEvaluateProbe;
+            if (enableDlssEvaluateProbe || enableDlssPersistentEvaluateProbe)
             {
                 DlssEvaluateSettings = dlssEvaluateSettings;
             }
@@ -107,8 +113,9 @@ internal static class FrameResourceProbe
 
         Log = log;
         Bridge = bridge;
-        DlssEvaluateInputProbeEnabled = enableDlssEvaluateInputProbe || enableDlssEvaluateProbe;
+        DlssEvaluateInputProbeEnabled = enableDlssEvaluateInputProbe || enableDlssEvaluateProbe || enableDlssPersistentEvaluateProbe;
         DlssEvaluateProbeEnabled = enableDlssEvaluateProbe;
+        DlssPersistentEvaluateProbeEnabled = enableDlssPersistentEvaluateProbe;
         DlssEvaluateSettings = dlssEvaluateSettings;
         RenderGraphDiagnosticPassEnabled = enableRenderGraphDiagnosticPass;
         ExistingRenderFuncProbeEnabled = enableExistingRenderFuncProbe;
@@ -116,6 +123,7 @@ internal static class FrameResourceProbe
         DlssPassResourceProbeEnabled = enableDlssPassResourceProbe;
         DlssEvaluateInputProbeSucceeded = false;
         DlssEvaluateProbeSucceeded = false;
+        DlssPersistentEvaluateProbeSucceeded = false;
         if (DlssEvaluateInputProbeEnabled)
         {
             log.LogInfo("DLSS evaluate input probe enabled.");
@@ -123,6 +131,10 @@ internal static class FrameResourceProbe
         if (DlssEvaluateProbeEnabled)
         {
             log.LogWarning("DLSS evaluate probe enabled. This diagnostic can call NGX evaluate against live frame resources and should only be used in local/private testing.");
+        }
+        if (DlssPersistentEvaluateProbeEnabled)
+        {
+            log.LogWarning("DLSS persistent evaluate probe enabled. This diagnostic can call NGX evaluate multiple times against live frame resources and should only be used in local/private testing.");
         }
         if (RenderGraphDiagnosticPassEnabled)
         {
@@ -378,7 +390,9 @@ internal static class FrameResourceProbe
             ExistingRenderFuncProbeEnabled = false;
             ResourceMaterializationProbeEnabled = false;
             DlssPassResourceProbeEnabled = false;
+            DlssPersistentEvaluateProbeEnabled = false;
             DlssEvaluateInputProbeSucceeded = false;
+            DlssPersistentEvaluateProbeSucceeded = false;
             lock (Sync)
             {
                 CallCounts.Clear();
@@ -395,6 +409,7 @@ internal static class FrameResourceProbe
                 RenderGraphGetTextureCallCount = 0;
                 RenderGraphGetTextureEvaluateAttemptCount = 0;
                 DlssEvaluateProbeAttemptCount = 0;
+                DlssPersistentEvaluateProbeAttemptCount = 0;
                 DlssEvaluateOutputFollowupLogCount = 0;
                 DlssEvaluateOutputFollowupStartGetTextureCallCount = 0;
                 DlssEvaluateOutputFollowupPointer = IntPtr.Zero;
@@ -1850,6 +1865,15 @@ internal static class FrameResourceProbe
                 depth.Value.Pointer,
                 motion.Value.Pointer,
                 output.Value.ResourceName);
+            TryRunDlssPersistentEvaluateProbe(
+                log,
+                bridge,
+                "RenderGraph materialization",
+                color.Value.Pointer,
+                output.Value.Pointer,
+                depth.Value.Pointer,
+                motion.Value.Pointer,
+                output.Value.ResourceName);
         }
         else
         {
@@ -1921,6 +1945,15 @@ internal static class FrameResourceProbe
                 depth.Value.Pointer,
                 motion.Value.Pointer,
                 output.ResourceName);
+            TryRunDlssPersistentEvaluateProbe(
+                log,
+                bridge,
+                "RenderGraph GetTexture",
+                color.Value.Pointer,
+                output.Pointer,
+                depth.Value.Pointer,
+                motion.Value.Pointer,
+                output.ResourceName);
         }
         else
         {
@@ -1978,6 +2011,15 @@ internal static class FrameResourceProbe
             DlssEvaluateInputProbeSucceeded = true;
             log.LogInfo($"DLSS evaluate input probe succeeded from DLSSPass resource helper: {status}");
             TryRunDlssEvaluateProbe(
+                log,
+                bridge,
+                "DLSSPass resource helper",
+                color.Value.Pointer,
+                output.Value.Pointer,
+                depth.Value.Pointer,
+                motion.Value.Pointer,
+                output.Value.Label);
+            TryRunDlssPersistentEvaluateProbe(
                 log,
                 bridge,
                 "DLSSPass resource helper",
@@ -2060,6 +2102,75 @@ internal static class FrameResourceProbe
         }
     }
 
+    private static void TryRunDlssPersistentEvaluateProbe(
+        ManualLogSource log,
+        NativeBridge bridge,
+        string source,
+        IntPtr colorPointer,
+        IntPtr outputPointer,
+        IntPtr depthPointer,
+        IntPtr motionPointer,
+        string? outputResourceName)
+    {
+        if (!DlssPersistentEvaluateProbeEnabled || DlssPersistentEvaluateProbeSucceeded)
+        {
+            return;
+        }
+
+        int attempt;
+        lock (Sync)
+        {
+            if (DlssPersistentEvaluateProbeAttemptCount >= MaxDlssPersistentEvaluateProbeAttempts)
+            {
+                return;
+            }
+
+            DlssPersistentEvaluateProbeAttemptCount++;
+            attempt = DlssPersistentEvaluateProbeAttemptCount;
+        }
+
+        const int evaluateCount = 3;
+        log.LogInfo(
+            $"DLSS persistent evaluate probe candidate #{attempt} from {source}: color=0x{colorPointer.ToInt64():X}; output=0x{outputPointer.ToInt64():X}; depth=0x{depthPointer.ToInt64():X}; motion=0x{motionPointer.ToInt64():X}; perfQuality={DlssEvaluateSettings.PerfQualityValue}; flags=0x{DlssEvaluateSettings.FeatureFlags:X}; sharpness={DlssEvaluateSettings.Sharpness}; reset={DlssEvaluateSettings.Reset}; evaluateCount={evaluateCount}");
+
+        var success = bridge.ProbeDlssPersistentEvaluate(
+            colorPointer,
+            outputPointer,
+            depthPointer,
+            motionPointer,
+            DlssEvaluateSettings.RuntimePath,
+            DlssEvaluateSettings.ApplicationDataPath,
+            DlssEvaluateSettings.ApplicationId,
+            DlssEvaluateSettings.PerfQualityValue,
+            DlssEvaluateSettings.FeatureFlags,
+            0.0f,
+            0.0f,
+            1.0f,
+            1.0f,
+            DlssEvaluateSettings.Sharpness,
+            DlssEvaluateSettings.Reset,
+            evaluateCount);
+        var status = bridge.GetDlssPersistentEvaluateStatus();
+        if (success)
+        {
+            DlssPersistentEvaluateProbeSucceeded = true;
+            TrackDlssEvaluateOutputFollowup(outputPointer, outputResourceName);
+            log.LogInfo($"DLSS persistent evaluate probe succeeded from {source}: {status}");
+        }
+        else if (status.IndexOf("blocked", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            log.LogWarning($"DLSS persistent evaluate probe blocked from {source}: {status}");
+        }
+        else if (status.IndexOf("skipped", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            log.LogWarning($"DLSS persistent evaluate probe skipped from {source}: {status}");
+        }
+        else
+        {
+            log.LogWarning($"DLSS persistent evaluate probe failed from {source}: {status}");
+        }
+    }
+
     private static void TrackDlssEvaluateOutputFollowup(IntPtr outputPointer, string? outputResourceName)
     {
         lock (Sync)
@@ -2087,7 +2198,7 @@ internal static class FrameResourceProbe
         string expectedResourceName;
         lock (Sync)
         {
-            if (!DlssEvaluateProbeSucceeded || DlssEvaluateOutputFollowupPointer == IntPtr.Zero)
+            if ((!DlssEvaluateProbeSucceeded && !DlssPersistentEvaluateProbeSucceeded) || DlssEvaluateOutputFollowupPointer == IntPtr.Zero)
             {
                 return;
             }

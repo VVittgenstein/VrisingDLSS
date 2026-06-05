@@ -144,9 +144,30 @@ function Get-NextRecommendation {
     $evaluateInputs = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 8A"
     $evaluate = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 8B"
     $outputFollowup = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 8C"
+    $persistentEvaluate = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 8D"
+    if ($persistentEvaluate -eq "Pass") {
+        return "Stage 8D persistent DLSS evaluate passed. Next engineering step is image-correctness validation, output selection, resize/reset handling, and fallback behavior in local/private gameplay."
+    }
+
+    if ($persistentEvaluate -eq "Blocked") {
+        return "Stage 8D is blocked until the native bridge is built with the optional NVIDIA SDK wrapper path and DLSS.DlssRuntimePath points to a local research runtime."
+    }
+
+    if ($persistentEvaluate -eq "Fail") {
+        return "Stage 8D persistent evaluate reached the native path but failed. Preserve the persistent evaluate status line and inspect repeated evaluate/create lifecycle behavior."
+    }
+
     if ($evaluate -eq "Pass") {
         if ($outputFollowup -eq "Pass") {
-            return "Stage 8B DLSS evaluate and Stage 8C output follow-up passed. Next engineering step is image-correctness validation, output selection, resize/reset handling, and fallback behavior in local/private gameplay."
+            if ($persistentEvaluate -eq "Pass") {
+                return "Stage 8B/8C/8D passed. Next engineering step is image-correctness validation, output selection, resize/reset handling, and fallback behavior in local/private gameplay."
+            }
+
+            if ($persistentEvaluate -eq "Fail") {
+                return "Stage 8B/8C passed, but Stage 8D persistent evaluate failed. Preserve the persistent status line and inspect repeated evaluate/create lifecycle behavior."
+            }
+
+            return "Stage 8B DLSS evaluate and Stage 8C output follow-up passed. Next engineering step is scripts\run-vrising-diagnostic.ps1 -Stage dlss-persistent-evaluate with the local SDK-wrapper native build."
         }
 
         if ($outputFollowup -eq "Fail") {

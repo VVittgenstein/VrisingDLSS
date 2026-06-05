@@ -210,6 +210,13 @@ $results.Add((New-StageResult `
     -FailPatterns @("DLSS evaluate output follow-up failed #") `
     -StartedPatterns @("DLSS evaluate probe succeeded:", "DLSS evaluate probe succeeded from")))
 
+$results.Add((New-StageResult `
+    -Stage "Stage 8D DLSS Persistent Evaluate" `
+    -PassPatterns @("DLSS persistent evaluate probe succeeded:", "DLSS persistent evaluate probe succeeded from") `
+    -FailPatterns @("DLSS persistent evaluate probe failed:", "DLSS persistent evaluate probe failed from", "DLSS persistent evaluate probe skipped:", "DLSS persistent evaluate probe skipped from") `
+    -BlockedPatterns @("DLSS persistent evaluate probe blocked:", "DLSS persistent evaluate probe blocked from") `
+    -StartedPatterns @("DLSS persistent evaluate probe enabled.", "DLSS persistent evaluate probe candidate #")))
+
 $results
 
 if ($FailOnProblems) {
