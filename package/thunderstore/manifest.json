@@ -2,7 +2,7 @@
   "name": "VrisingDLSS",
   "version_number": "0.1.0",
   "website_url": "https://github.com/VVittgenstein/VrisingDLSS",
-  "description": "Unofficial clean-room DLSS Super Resolution mod scaffold for V Rising.",
+  "description": "Unofficial clean-room diagnostic DLSS Super Resolution mod scaffold for V Rising.",
   "dependencies": [
     "BepInEx-BepInExPack_V_Rising-1.733.2"
   ]

@@ -91,7 +91,7 @@ After building the plugin and native bridge:
 powershell -ExecutionPolicy Bypass -File scripts\package-thunderstore.ps1
 ```
 
-The package script also runs `scripts\validate-thunderstore-package.ps1`, which verifies the actual zip layout, Thunderstore metadata, 256x256 PNG icon, BepInEx plugin route, and forbidden third-party/runtime binaries.
+The package script also runs `scripts\validate-thunderstore-package.ps1`, which verifies the actual zip layout, Thunderstore metadata, 256x256 PNG icon, BepInEx plugin route, forbidden third-party/runtime binaries, diagnostic-package wording, and safe default config toggles.
 
 To summarize release readiness without launching or modifying the game:
 

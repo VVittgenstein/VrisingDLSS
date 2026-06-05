@@ -101,7 +101,7 @@ Already aligned:
 - The package template has root metadata and a 256x256 PNG icon.
 - The package script now stages plugin files under `BepInEx/plugins/VrisingDLSS/` in the zip, matching Thunderstore's BepInEx package routing guidance.
 - The mod-folder config file target `BepInEx/plugins/VrisingDLSS/VrisingDLSS.cfg` is now implemented in the plugin, local install helper, diagnostic config helper, status helper, and Thunderstore package.
-- `scripts/validate-thunderstore-package.ps1` verifies the actual zip layout and release-safe contents before a package is treated as upload-shaped.
+- `scripts/validate-thunderstore-package.ps1` verifies the actual zip layout, diagnostic-package wording, safe default config toggles, and release-safe contents before a package is treated as upload-shaped.
 - `.github/workflows/build-package.yml` now builds the plugin/native bridge, runs release-boundary and package validation, and uploads the Thunderstore zip as an artifact.
 - `scripts/get-release-readiness-status.ps1` reports whether the current state is merely diagnostic-package-ready or truly MVP-ready.
 - Local diagnostics prove plugin load, HDRP hook discovery, render-thread callback, D3D11 native texture/device access, and production DLSS runtime load/release.

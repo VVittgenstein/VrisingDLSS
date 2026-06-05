@@ -10,6 +10,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 function Add-Violation {
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [System.Collections.Generic.List[string]]$Violations,
 
         [Parameter(Mandatory = $true)]
@@ -68,6 +69,22 @@ function Read-ZipEntryPrefix {
     } finally {
         $stream.Dispose()
     }
+}
+
+function Test-TextContains {
+    param(
+        [AllowNull()]
+        [string]$Text,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Needle
+    )
+
+    if ($null -eq $Text) {
+        return $false
+    }
+
+    return $Text.IndexOf($Needle, [System.StringComparison]::OrdinalIgnoreCase) -ge 0
 }
 
 function Get-PngUInt32BigEndian {
@@ -193,6 +210,24 @@ try {
 
             if ([string]::IsNullOrWhiteSpace($packageManifest.description) -or $packageManifest.description.Length -gt 250) {
                 Add-Violation -Violations $violations -Message "manifest.json description must be non-empty and at most 250 characters."
+            } else {
+                $description = [string]$packageManifest.description
+                if (-not ((Test-TextContains -Text $description -Needle "diagnostic") -or (Test-TextContains -Text $description -Needle "scaffold"))) {
+                    Add-Violation -Violations $violations -Message "manifest.json description must label this pre-MVP package as diagnostic or scaffold."
+                }
+
+                foreach ($forbiddenDescriptionPhrase in @(
+                    "enables DLSS",
+                    "working DLSS",
+                    "playable DLSS",
+                    "ready for public gameplay",
+                    "improves performance",
+                    "boosts FPS"
+                )) {
+                    if (Test-TextContains -Text $description -Needle $forbiddenDescriptionPhrase) {
+                        Add-Violation -Violations $violations -Message "manifest.json description contains misleading pre-MVP claim: $forbiddenDescriptionPhrase"
+                    }
+                }
             }
 
             $expectedDependency = "BepInEx-BepInExPack_V_Rising-1.733.2"
@@ -208,8 +243,50 @@ try {
         }
     }
 
-    if ($entryMap.ContainsKey("README.md") -and [string]::IsNullOrWhiteSpace((Read-ZipEntryText -Entry $entryMap["README.md"]))) {
-        Add-Violation -Violations $violations -Message "README.md must not be empty."
+    if ($entryMap.ContainsKey("README.md")) {
+        $readmeText = Read-ZipEntryText -Entry $entryMap["README.md"]
+        if ([string]::IsNullOrWhiteSpace($readmeText)) {
+            Add-Violation -Violations $violations -Message "README.md must not be empty."
+        } else {
+            foreach ($requiredReadmePhrase in @(
+                "does not enable DLSS",
+                "not ready for public gameplay use",
+                "local/private",
+                "nvngx_dlss.dll"
+            )) {
+                if (-not (Test-TextContains -Text $readmeText -Needle $requiredReadmePhrase)) {
+                    Add-Violation -Violations $violations -Message "README.md must include diagnostic release boundary phrase: $requiredReadmePhrase"
+                }
+            }
+
+            foreach ($forbiddenReadmePhrase in @(
+                "enables DLSS today",
+                "working DLSS release",
+                "is ready for public gameplay",
+                "ready for public gameplay release"
+            )) {
+                if (Test-TextContains -Text $readmeText -Needle $forbiddenReadmePhrase) {
+                    Add-Violation -Violations $violations -Message "README.md contains misleading pre-MVP claim: $forbiddenReadmePhrase"
+                }
+            }
+        }
+    }
+
+    $configEntryName = "BepInEx/plugins/VrisingDLSS/VrisingDLSS.cfg"
+    if ($entryMap.ContainsKey($configEntryName)) {
+        $configText = Read-ZipEntryText -Entry $entryMap[$configEntryName]
+        foreach ($requiredConfigLine in @(
+            "EnableDLSS = false",
+            "EnableDlssEvaluateInputProbe = false",
+            "EnableRenderGraphDiagnosticPass = false",
+            "EnableExistingRenderFuncProbe = false",
+            "EnableResourceMaterializationProbe = false",
+            "EnableHookProbe = true"
+        )) {
+            if (-not (Test-TextContains -Text $configText -Needle $requiredConfigLine)) {
+                Add-Violation -Violations $violations -Message "Packaged config must keep diagnostic-safe default: $requiredConfigLine"
+            }
+        }
     }
 
     if ($entryMap.ContainsKey("icon.png")) {

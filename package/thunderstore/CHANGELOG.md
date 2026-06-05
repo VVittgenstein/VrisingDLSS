@@ -18,4 +18,5 @@
 - Added BepInExPack staging helper for local/offline tests.
 - Added source-side diagnostic config, log analysis, and runtime status helpers.
 - Added local install helper and third-party notices.
+- Added Thunderstore package validation for diagnostic-package wording and safe default config toggles.
 - No DLSS frame evaluation yet.

@@ -82,7 +82,7 @@ powershell -ExecutionPolicy Bypass -File scripts\get-release-readiness-status.ps
 
 Current packages are diagnostic artifacts, not the MVP playable DLSS release.
 
-The GitHub Actions workflow builds the plugin/native bridge on `windows-2022`, checks the release boundary, packages the Thunderstore zip, validates the zip layout, and uploads it as a workflow artifact. It does not create a public GitHub Release automatically.
+The GitHub Actions workflow builds the plugin/native bridge on `windows-2022`, checks the release boundary, packages the Thunderstore zip, validates the zip layout, enforces diagnostic-package wording and safe default config toggles, and uploads it as a workflow artifact. It does not create a public GitHub Release automatically.
 
 For local packaging:
 

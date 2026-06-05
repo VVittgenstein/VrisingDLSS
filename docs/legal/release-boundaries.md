@@ -42,3 +42,5 @@ Every public release should state:
 - Use on official/public servers is not guaranteed to be allowed.
 - Users are responsible for EULA and server-rule compliance.
 - The package is free and non-commercial.
+
+Pre-MVP diagnostic packages must also state that they do not enable DLSS yet and are not ready for public gameplay use.
