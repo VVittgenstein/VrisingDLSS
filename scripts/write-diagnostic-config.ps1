@@ -12,6 +12,7 @@ param(
         "dlss-feature-create",
         "dlss-evaluate-inputs",
         "dlss-super-resolution-inputs",
+        "dlss-super-resolution-evaluate",
         "dlss-evaluate",
         "dlss-persistent-evaluate",
         "dlsspass-resource"
@@ -50,6 +51,7 @@ function New-ConfigMap {
             EnableDlssFeatureCreateProbe = "false"
             EnableDlssEvaluateInputProbe = "false"
             EnableDlssSuperResolutionInputProbe = "false"
+            EnableDlssSuperResolutionEvaluateProbe = "false"
             EnableDlssEvaluateProbe = "false"
             EnableDlssPersistentEvaluateProbe = "false"
             EnableRenderGraphDiagnosticPass = "false"
@@ -148,12 +150,23 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableResourceMaterializationProbe = "true"
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"
         }
+        "dlss-super-resolution-evaluate" {
+            $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
+            $Config.Diagnostics.EnableD3D11TextureProbe = "true"
+            $Config.Diagnostics.EnableDlssRuntimeProbe = "true"
+            $Config.Diagnostics.EnableDlssEvaluateInputProbe = "true"
+            $Config.Diagnostics.EnableDlssSuperResolutionInputProbe = "true"
+            $Config.Diagnostics.EnableDlssSuperResolutionEvaluateProbe = "true"
+            $Config.Diagnostics.EnableResourceMaterializationProbe = "true"
+            $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+        }
         "dlss-evaluate" {
             $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
             $Config.Diagnostics.EnableD3D11TextureProbe = "true"
             $Config.Diagnostics.EnableDlssRuntimeProbe = "true"
             $Config.Diagnostics.EnableDlssEvaluateInputProbe = "true"
             $Config.Diagnostics.EnableDlssSuperResolutionInputProbe = "true"
+            $Config.Diagnostics.EnableDlssSuperResolutionEvaluateProbe = "true"
             $Config.Diagnostics.EnableDlssEvaluateProbe = "true"
             $Config.Diagnostics.EnableResourceMaterializationProbe = "true"
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"
@@ -164,6 +177,7 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableDlssRuntimeProbe = "true"
             $Config.Diagnostics.EnableDlssEvaluateInputProbe = "true"
             $Config.Diagnostics.EnableDlssSuperResolutionInputProbe = "true"
+            $Config.Diagnostics.EnableDlssSuperResolutionEvaluateProbe = "true"
             $Config.Diagnostics.EnableDlssEvaluateProbe = "true"
             $Config.Diagnostics.EnableDlssPersistentEvaluateProbe = "true"
             $Config.Diagnostics.EnableResourceMaterializationProbe = "true"
