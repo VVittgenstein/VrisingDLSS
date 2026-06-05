@@ -372,6 +372,14 @@ $summary = [pscustomobject]@{
     Items = $items
     NextRecommendation = if ($mvpReady) {
         "MVP evidence is complete. Prepare a final release review."
+    } elseif ([string]::IsNullOrWhiteSpace($GamePath)) {
+        "Pass -GamePath to include local runtime evidence. Current MVP next step is Stage 10A gameplay visual comparison/image-correctness validation before normal-user DLSS.EnableDLSS integration."
+    } elseif (@($items | Where-Object { $_.Requirement -like "Stage 8A*" -and $_.Status -ne "Pass" }).Count -gt 0) {
+        if (-not [string]::IsNullOrWhiteSpace($runtimeNextRecommendation)) {
+            $runtimeNextRecommendation
+        } else {
+            "Pass -GamePath to include runtime validation evidence, then run scripts\run-vrising-diagnostic.ps1 -Stage dlss-evaluate-inputs in a local/private gameplay scene."
+        }
     } elseif (@($items | Where-Object { $_.Requirement -like "Stage 8B*" -and $_.Status -ne "Pass" }).Count -gt 0) {
         if (-not [string]::IsNullOrWhiteSpace($runtimeNextRecommendation)) {
             $runtimeNextRecommendation
@@ -419,12 +427,6 @@ $summary = [pscustomobject]@{
             $runtimeNextRecommendation
         } else {
             "Run scripts\run-vrising-diagnostic.ps1 -Stage dlss-visible-writeback with a local SDK-wrapper native build, DLSS runtime path, and DLSS disabled by default."
-        }
-    } elseif (@($items | Where-Object { $_.Requirement -like "Stage 8A*" -and $_.Status -ne "Pass" }).Count -gt 0) {
-        if (-not [string]::IsNullOrWhiteSpace($runtimeNextRecommendation)) {
-            $runtimeNextRecommendation
-        } else {
-            "Pass -GamePath to include runtime validation evidence, then run scripts\run-vrising-diagnostic.ps1 -Stage dlss-evaluate-inputs in a local/private gameplay scene."
         }
     } else {
         "Validate image correctness, output selection, resize/reset handling, and fallback behavior before public release."

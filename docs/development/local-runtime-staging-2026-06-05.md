@@ -55,7 +55,7 @@ Current validated evidence:
 - Stage 5A render thread: pass. `HDRenderPipeline.UpdateShaderVariablesGlobalCB` issued `CommandBuffer.IssuePluginEvent`; native callback count advanced to `1`.
 - Stage 5B D3D11 texture: pass. Temporary `RenderTexture` pointer was recognized as a D3D11 resource/device.
 - Stage 5C frame resources: pass. All-low main-menu run reached `HDRenderPipeline.UpdateShaderVariablesGlobalCB`; `_CameraDepthTexture` was found and D3D11-probed. `_CameraMotionVectorsTexture` was `null` in that scene/settings.
-- Stage 5D DLSS runtime load/release: pass with official NVIDIA DLSS `310.6.0.0` runtime extracted under `ref/` for local research. The runtime exposes D3D11 init/create/evaluate/release/shutdown exports and `PopulateParameters_Impl`, but not `GetCapabilityParameters`.
+- Stage 5D DLSS runtime load/release: pass with official NVIDIA DLSS `310.6.0.0` runtime extracted under `ref/` for local research. The runtime exposes D3D11 init/create/evaluate/release/shutdown exports and `PopulateParameters_Impl`, but not the allocator/destroyer/capability-query/parameter-accessor exports needed for a source-only direct DLSS route.
 - Stage 6 DLSS init/query:
   - Source-only/release-safe build reports `Blocked` when only the production `nvngx_dlss.dll` is available, because full capability query requires NVIDIA SDK wrapper integration.
   - Local MSVC SDK-wrapper research build passed with ProjectID init. Evidence: `init=0x00000001`, `capability=0x00000001`, `available=1`, `needsUpdatedDriver=0`, `minDriver=470.0`, `featureInitResult=1`, `destroy=0x00000001`, `shutdown=0x00000001`.

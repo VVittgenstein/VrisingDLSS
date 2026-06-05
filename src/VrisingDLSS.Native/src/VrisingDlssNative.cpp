@@ -27,7 +27,7 @@ namespace
     std::atomic<int> g_lastRenderEventId{-1};
     std::mutex g_probeStatusMutex;
     char g_d3d11ProbeStatus[512] = "D3D11 texture probe has not run";
-    char g_dlssRuntimeProbeStatus[512] = "DLSS runtime probe has not run";
+    char g_dlssRuntimeProbeStatus[1536] = "DLSS runtime probe has not run";
     char g_dlssInitQueryStatus[1024] = "DLSS init/query probe has not run";
     char g_dlssFeatureCreateStatus[1024] = "DLSS feature create probe has not run";
     char g_dlssEvaluateInputStatus[1536] = "DLSS evaluate input probe has not run";
@@ -1832,13 +1832,24 @@ extern "C"
         }
 
         const bool hasD3D11Init = GetProcAddress(module, "NVSDK_NGX_D3D11_Init") != nullptr;
+        const bool hasD3D11InitExt = GetProcAddress(module, "NVSDK_NGX_D3D11_Init_Ext") != nullptr;
         const bool hasD3D11CreateFeature = GetProcAddress(module, "NVSDK_NGX_D3D11_CreateFeature") != nullptr;
         const bool hasD3D11EvaluateFeature = GetProcAddress(module, "NVSDK_NGX_D3D11_EvaluateFeature") != nullptr;
+        const bool hasD3D11EvaluateFeatureC = GetProcAddress(module, "NVSDK_NGX_D3D11_EvaluateFeature_C") != nullptr;
         const bool hasD3D11ReleaseFeature = GetProcAddress(module, "NVSDK_NGX_D3D11_ReleaseFeature") != nullptr;
         const bool hasD3D11Shutdown = GetProcAddress(module, "NVSDK_NGX_D3D11_Shutdown") != nullptr;
         const bool hasD3D11Shutdown1 = GetProcAddress(module, "NVSDK_NGX_D3D11_Shutdown1") != nullptr;
+        const bool hasAllocateParameters = GetProcAddress(module, "NVSDK_NGX_D3D11_AllocateParameters") != nullptr;
         const bool hasCapabilityParameters = GetProcAddress(module, "NVSDK_NGX_D3D11_GetCapabilityParameters") != nullptr;
+        const bool hasDestroyParameters = GetProcAddress(module, "NVSDK_NGX_D3D11_DestroyParameters") != nullptr;
         const bool hasPopulateParameters = GetProcAddress(module, "NVSDK_NGX_D3D11_PopulateParameters_Impl") != nullptr;
+        const bool hasParameterSetI = GetProcAddress(module, "NVSDK_NGX_Parameter_SetI") != nullptr;
+        const bool hasParameterSetUI = GetProcAddress(module, "NVSDK_NGX_Parameter_SetUI") != nullptr;
+        const bool hasParameterSetF = GetProcAddress(module, "NVSDK_NGX_Parameter_SetF") != nullptr;
+        const bool hasParameterSetD3D11Resource = GetProcAddress(module, "NVSDK_NGX_Parameter_SetD3d11Resource") != nullptr;
+        const bool hasParameterSetVoidPointer = GetProcAddress(module, "NVSDK_NGX_Parameter_SetVoidPointer") != nullptr;
+        const bool hasParameterGetI = GetProcAddress(module, "NVSDK_NGX_Parameter_GetI") != nullptr;
+        const bool hasParameterGetUI = GetProcAddress(module, "NVSDK_NGX_Parameter_GetUI") != nullptr;
 
         FreeLibrary(module);
 
@@ -1847,20 +1858,45 @@ extern "C"
             && hasD3D11EvaluateFeature
             && hasD3D11ReleaseFeature
             && (hasD3D11Shutdown || hasD3D11Shutdown1);
+        const bool hasDirectParameterMapSurface = (hasAllocateParameters || hasCapabilityParameters)
+            && hasDestroyParameters
+            && hasParameterSetI
+            && hasParameterSetUI
+            && hasParameterSetF
+            && (hasParameterSetD3D11Resource || hasParameterSetVoidPointer);
+        const bool hasDirectCapabilitySurface = hasCapabilityParameters
+            && hasDestroyParameters
+            && (hasParameterGetI || hasParameterGetUI);
+        const bool directDlssRouteCandidate = hasD3D11RuntimeSurface && hasDirectParameterMapSurface;
 
-        char message[512];
+        char message[1400];
         std::snprintf(
             message,
             sizeof(message),
-            "DLSS runtime probe loaded and released runtime; known NGX exports: D3D11_Init=%s, CreateFeature=%s, EvaluateFeature=%s, ReleaseFeature=%s, D3D11_Shutdown=%s, D3D11_Shutdown1=%s, GetCapabilityParameters=%s, PopulateParameters_Impl=%s",
+            "DLSS runtime probe loaded and released runtime; d3d11RuntimeSurface=%s; directDlssRouteCandidate=%s; directParameterMapSurface=%s; directCapabilitySurface=%s; NGX exports: D3D11_Init=%s, D3D11_Init_Ext=%s, CreateFeature=%s, EvaluateFeature=%s, EvaluateFeature_C=%s, ReleaseFeature=%s, D3D11_Shutdown=%s, D3D11_Shutdown1=%s, AllocateParameters=%s, GetCapabilityParameters=%s, DestroyParameters=%s, PopulateParameters_Impl=%s, Parameter_SetI=%s, Parameter_SetUI=%s, Parameter_SetF=%s, Parameter_SetD3d11Resource=%s, Parameter_SetVoidPointer=%s, Parameter_GetI=%s, Parameter_GetUI=%s",
+            hasD3D11RuntimeSurface ? "yes" : "no",
+            directDlssRouteCandidate ? "yes" : "no",
+            hasDirectParameterMapSurface ? "yes" : "no",
+            hasDirectCapabilitySurface ? "yes" : "no",
             hasD3D11Init ? "yes" : "no",
+            hasD3D11InitExt ? "yes" : "no",
             hasD3D11CreateFeature ? "yes" : "no",
             hasD3D11EvaluateFeature ? "yes" : "no",
+            hasD3D11EvaluateFeatureC ? "yes" : "no",
             hasD3D11ReleaseFeature ? "yes" : "no",
             hasD3D11Shutdown ? "yes" : "no",
             hasD3D11Shutdown1 ? "yes" : "no",
+            hasAllocateParameters ? "yes" : "no",
             hasCapabilityParameters ? "yes" : "no",
-            hasPopulateParameters ? "yes" : "no");
+            hasDestroyParameters ? "yes" : "no",
+            hasPopulateParameters ? "yes" : "no",
+            hasParameterSetI ? "yes" : "no",
+            hasParameterSetUI ? "yes" : "no",
+            hasParameterSetF ? "yes" : "no",
+            hasParameterSetD3D11Resource ? "yes" : "no",
+            hasParameterSetVoidPointer ? "yes" : "no",
+            hasParameterGetI ? "yes" : "no",
+            hasParameterGetUI ? "yes" : "no");
         SetDlssRuntimeProbeStatus(message);
         return hasD3D11RuntimeSurface ? 1 : 0;
     }

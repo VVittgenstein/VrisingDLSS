@@ -46,10 +46,12 @@ The Stage 6 probe does not create a DLSS feature, does not allocate DLSS resourc
 The 2026-06-05 runtime test showed an important boundary:
 
 - `nvngx_dlss.dll` directly exports D3D11 init/create/evaluate/release/shutdown functions and `NVSDK_NGX_D3D11_PopulateParameters_Impl`.
-- The production runtime DLL does not directly export `NVSDK_NGX_D3D11_GetCapabilityParameters`.
+- The production runtime DLL does not directly export `NVSDK_NGX_D3D11_AllocateParameters`, `NVSDK_NGX_D3D11_GetCapabilityParameters`, `NVSDK_NGX_D3D11_DestroyParameters`, or the public `NVSDK_NGX_Parameter_Set*`/`Get*` accessors needed to create and populate an NGX parameter map from this project alone.
 - The official sample calls `GetCapabilityParameters` through NVIDIA's SDK wrapper library, not the bare runtime DLL surface alone.
 
 Therefore Stage 6 and real DLSS feature creation require an explicit SDK wrapper integration decision. A release build must not silently bake NVIDIA SDK wrapper code into the native bridge without the same release review used for runtime redistribution.
+
+Use `scripts/probe-ngx-runtime-exports.ps1 -RuntimePath <path-to-nvngx_dlss.dll>` to repeat this export-surface check without launching V Rising. The native Stage 5D runtime probe reports the same boundary in-game as `directDlssRouteCandidate=yes/no`.
 
 The 2026-06-05 local SDK-wrapper research build passed Stage 6 using `NVSDK_NGX_D3D11_Init_with_ProjectID` when `DLSS.DlssApplicationId=0`. Evidence:
 

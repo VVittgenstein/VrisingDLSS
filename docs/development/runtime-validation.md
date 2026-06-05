@@ -261,8 +261,8 @@ Evidence:
 
 Current Stage 6 status:
 
-- The official `nvngx_dlss.dll` runtime from DLSS SDK `310.6.0` exposes D3D11 init/create/evaluate/release/shutdown and `NVSDK_NGX_D3D11_PopulateParameters_Impl`, but does not directly export `NVSDK_NGX_D3D11_GetCapabilityParameters`.
-- The official sample links the NVIDIA SDK wrapper library for `GetCapabilityParameters` and parameter-map helpers. The source-only/release-safe build therefore reports `Blocked`.
+- The official `nvngx_dlss.dll` runtime from DLSS SDK `310.6.0` exposes D3D11 init/create/evaluate/release/shutdown and `NVSDK_NGX_D3D11_PopulateParameters_Impl`, but does not directly export `NVSDK_NGX_D3D11_AllocateParameters`, `NVSDK_NGX_D3D11_GetCapabilityParameters`, `NVSDK_NGX_D3D11_DestroyParameters`, or the public `NVSDK_NGX_Parameter_Set*`/`Get*` accessors.
+- The official sample links the NVIDIA SDK wrapper library for `GetCapabilityParameters` and parameter-map helpers. The source-only/release-safe build therefore reports `Blocked`; use `scripts/probe-ngx-runtime-exports.ps1` to repeat the export-surface check offline.
 - Re-running `dlss-init-query` with only a production `nvngx_dlss.dll` is expected to report `Blocked`, not `Pass`.
 - A local MSVC SDK-wrapper research build passed Stage 6 with ProjectID init: `init=0x00000001`, `capability=0x00000001`, `available=1`, `needsUpdatedDriver=0`, `minDriver=470.0`, `featureInitResult=1`, `destroy=0x00000001`, `shutdown=0x00000001`.
 
