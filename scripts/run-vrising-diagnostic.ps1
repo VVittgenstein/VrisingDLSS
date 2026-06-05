@@ -31,6 +31,8 @@ param(
     [string]$ArtifactLabel,
     [string]$DlssRuntimePath = "",
     [string]$DlssApplicationId = "0",
+    [switch]$UseSdkWrapperNative,
+    [string]$SdkWrapperNativePath,
     [switch]$SkipInstall,
     [switch]$DryRun
 )
@@ -49,9 +51,27 @@ $resolvedRoot = (Resolve-Path -LiteralPath $Root).Path
 $resolvedGamePath = (Resolve-Path -LiteralPath $GamePath).Path
 $exePath = Join-Path $resolvedGamePath "VRising.exe"
 $logPath = Join-Path $resolvedGamePath "BepInEx\LogOutput.log"
+$pluginPath = Join-Path $resolvedGamePath "BepInEx\plugins\VrisingDLSS"
+$nativeTargetPath = Join-Path $pluginPath "VrisingDLSS.Native.dll"
 $artifactRoot = Join-Path $resolvedRoot "artifacts\runtime-logs"
 $safeStage = $Stage -replace "[^A-Za-z0-9_.-]", "-"
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+
+if ([string]::IsNullOrWhiteSpace($SdkWrapperNativePath)) {
+    $SdkWrapperNativePath = Join-Path $resolvedRoot "artifacts\native-build-msvc-wrapper\Release\VrisingDLSS.Native.dll"
+}
+
+$sdkWrapperNativeResolved = $null
+if ($UseSdkWrapperNative) {
+    if (-not (Test-Path -LiteralPath $SdkWrapperNativePath)) {
+        throw "SDK-wrapper native DLL was not found: $SdkWrapperNativePath"
+    }
+
+    $sdkWrapperNativeResolved = (Resolve-Path -LiteralPath $SdkWrapperNativePath).Path
+    if ([string]::IsNullOrWhiteSpace($DlssRuntimePath) -or -not (Test-Path -LiteralPath $DlssRuntimePath)) {
+        throw "SDK-wrapper diagnostic run requires -DlssRuntimePath pointing to a local nvngx_dlss.dll."
+    }
+}
 
 if ([string]::IsNullOrWhiteSpace($ArtifactLabel)) {
     $ArtifactLabel = "$safeStage-$timestamp"
@@ -79,10 +99,13 @@ $plan = [pscustomobject]@{
     DurationSeconds = $DurationSeconds
     ArtifactLabel = $ArtifactLabel
     SkipInstall = [bool]$SkipInstall
+    UseSdkWrapperNative = [bool]$UseSdkWrapperNative
+    SdkWrapperNativePath = $(if ($sdkWrapperNativeResolved) { $sdkWrapperNativeResolved } else { "" })
     LogArtifact = (Join-Path $artifactRoot "LogOutput-$ArtifactLabel.log")
     AnalysisArtifact = (Join-Path $artifactRoot "Analysis-$ArtifactLabel.txt")
     WerArtifact = (Join-Path $artifactRoot "WER-$ArtifactLabel.txt")
     RestoresLoaderConfig = $true
+    RestoresReleaseSafeNative = [bool]$UseSdkWrapperNative
     LaunchesGame = -not [bool]$DryRun
 }
 
@@ -98,10 +121,18 @@ $process = $null
 $closedByScript = $false
 $exitBeforeWindow = $false
 $crashEvents = @()
+$restoredLoaderConfig = $false
+$restoredReleaseSafeNative = -not [bool]$UseSdkWrapperNative
 
 try {
     if (-not $SkipInstall) {
         & (Join-Path $resolvedRoot "scripts\install-local-package.ps1") -GamePath $resolvedGamePath | Out-Host
+    }
+
+    if ($UseSdkWrapperNative) {
+        New-Item -ItemType Directory -Force -Path $pluginPath | Out-Null
+        Copy-Item -LiteralPath $sdkWrapperNativeResolved -Destination $nativeTargetPath -Force
+        Write-Host "Copied SDK-wrapper native DLL for diagnostic run: $sdkWrapperNativeResolved"
     }
 
     & (Join-Path $resolvedRoot "scripts\write-diagnostic-config.ps1") `
@@ -206,9 +237,15 @@ try {
     }
 
     try {
+        if ($UseSdkWrapperNative) {
+            & (Join-Path $resolvedRoot "scripts\install-local-package.ps1") -GamePath $resolvedGamePath | Out-Host
+            $restoredReleaseSafeNative = $true
+        }
+
         & (Join-Path $resolvedRoot "scripts\write-diagnostic-config.ps1") -GamePath $resolvedGamePath -Stage loader | Out-Host
+        $restoredLoaderConfig = $true
     } catch {
-        Write-Warning "Restoring loader config failed: $($_.Exception.Message)"
+        Write-Warning "Restoring release-safe native/loader config failed: $($_.Exception.Message)"
     }
 }
 
@@ -224,6 +261,7 @@ try {
     CrashEventCount = $crashEvents.Count
     ExitedBeforeWindow = $exitBeforeWindow
     ClosedByScript = $closedByScript
-    RestoredLoaderConfig = $true
+    RestoredLoaderConfig = $restoredLoaderConfig
+    RestoredReleaseSafeNative = $restoredReleaseSafeNative
     LaunchesGame = $true
 }

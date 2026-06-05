@@ -101,6 +101,14 @@ For a gameplay-scene Stage 8A test, use a longer window and enter a local/privat
 powershell -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-evaluate-inputs -DurationSeconds 240
 ```
 
+For local/private SDK-wrapper research runs, pass `-UseSdkWrapperNative` and a local `nvngx_dlss.dll` path. The helper first installs the release-safe package, temporarily copies the SDK-wrapper native DLL into the game plugin folder for that run, then restores the release-safe native DLL plus loader config during cleanup. These local SDK-wrapper and NVIDIA runtime files are not part of the Thunderstore package.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-user-rendering -UseSdkWrapperNative -DlssRuntimePath "C:\path\to\nvngx_dlss.dll" -DurationSeconds 120
+```
+
+Use `-SdkWrapperNativePath` only when the local wrapper build is not at `artifacts\native-build-msvc-wrapper\Release\VrisingDLSS.Native.dll`.
+
 For paired local/private gameplay visual comparison after Stage 10A research builds are available, use the visual helper. It runs a baseline loader capture and a Stage 10A `dlss-visible-writeback` capture, gives you time to enter the same scene before each screenshot, archives logs, compares the PNGs, and restores the release-safe loader config/native DLL after each run.
 
 ```powershell
