@@ -593,3 +593,19 @@ Current Stage 10A status:
 - Evidence: later callbacks reported `recreated=no`, then reached `sequenceEvaluates=30` and `evaluateSuccesses=30`.
 - Evidence: shutdown succeeded with `hadSession=yes`, `sequenceCreates=1`, `sequenceEvaluates=30`, `evaluateSuccesses=30`, `release=0x00000001`, `destroy=0x00000001`, and `shutdown=0x00000001`.
 - Follow-up evidence observed `Edge Adaptive Spatial Upsampling` with the same native pointer after the visible write-back candidate and D3D11 probe success. This proves the guarded visible-path candidate can repeatedly evaluate into the selected SR output target, but screenshot/visual comparison is still required before normal-user `DLSS.EnableDLSS` integration.
+
+## Visual Validation Helpers
+
+Added local-only helpers for the next validation step:
+
+- `scripts\capture-vrising-window.ps1` captures the current V Rising client window to `artifacts\visual-validation`.
+- `scripts\compare-image-artifacts.ps1` compares two captured PNGs and writes a bounded summary with dimensions, sampled RGB/luma deltas, near-black/near-white ratios, and hashes.
+
+These helpers launch no game process and write only ignored local artifacts. They are intended to catch gross visual regressions such as black frames, capture failures, or obvious write-back problems. They are not by themselves proof of DLSS image quality or final user-facing rendering correctness.
+
+Current visual smoke status:
+
+- Baseline loader capture on 2026-06-05 used the `UnityWndClass` V Rising window at `480x320`, minimized one BepInEx console window, fell back from `PrintWindow` to `ScreenCopy`, and produced a nonblank/nonwhite PNG.
+- Stage 10A `dlss-visible-writeback` capture on 2026-06-05 used the same `UnityWndClass` route and produced a nonblank/nonwhite PNG while the Stage 10A log reached `sequenceSuccesses=30/30`.
+- Baseline-vs-Stage-10A static main-menu comparison matched dimensions (`480x320`) and had `MeanAbsRgbDelta=0`, `MaxAbsRgbDelta=0`, and identical SHA-256 hashes for that screen state.
+- This is a visual smoke test only. It proves the screenshot path and confirms no gross main-menu visual failure during the guarded visible write-back diagnostic. It does not yet prove gameplay image correctness, DLSS quality, resize/reset behavior, or the normal-user `DLSS.EnableDLSS=true` rendering path.
