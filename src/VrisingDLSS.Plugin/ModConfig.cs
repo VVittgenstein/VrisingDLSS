@@ -16,6 +16,7 @@ internal sealed class ModConfig
     internal ConfigEntry<bool> EnableDlssSuperResolutionEvaluateProbe { get; }
     internal ConfigEntry<bool> EnableDlssSuperResolutionPersistentEvaluateProbe { get; }
     internal ConfigEntry<bool> EnableDlssSuperResolutionFrameSequenceEvaluateProbe { get; }
+    internal ConfigEntry<bool> EnableDlssVisibleWritebackProbe { get; }
     internal ConfigEntry<bool> EnableDlssEvaluateProbe { get; }
     internal ConfigEntry<bool> EnableDlssPersistentEvaluateProbe { get; }
     internal ConfigEntry<bool> EnableRenderGraphDiagnosticPass { get; }
@@ -53,6 +54,7 @@ internal sealed class ModConfig
         EnableDlssSuperResolutionEvaluateProbe = config.Bind("Diagnostics", "EnableDlssSuperResolutionEvaluateProbe", false, "High-risk SDK-wrapper diagnostic that evaluates one discovered Super Resolution-sized frame-resource tuple. Leave false unless deliberate local/private testing is intentional.");
         EnableDlssSuperResolutionPersistentEvaluateProbe = config.Bind("Diagnostics", "EnableDlssSuperResolutionPersistentEvaluateProbe", false, "High-risk SDK-wrapper diagnostic that creates one DLSS feature and evaluates the discovered Super Resolution-sized tuple multiple times before release/shutdown. Leave false unless deliberate local/private testing is intentional.");
         EnableDlssSuperResolutionFrameSequenceEvaluateProbe = config.Bind("Diagnostics", "EnableDlssSuperResolutionFrameSequenceEvaluateProbe", false, "High-risk SDK-wrapper diagnostic that keeps one DLSS feature alive across multiple RenderGraph callbacks for a discovered Super Resolution-sized tuple. Leave false unless deliberate local/private testing is intentional.");
+        EnableDlssVisibleWritebackProbe = config.Bind("Diagnostics", "EnableDlssVisibleWritebackProbe", false, "High-risk SDK-wrapper diagnostic that repeatedly evaluates DLSS into the selected visible-path Super Resolution output target. Leave false unless deliberate local/private image-correctness testing is intentional.");
         EnableDlssEvaluateProbe = config.Bind("Diagnostics", "EnableDlssEvaluateProbe", false, "High-risk SDK-wrapper diagnostic that creates a DLSS feature and evaluates one discovered frame-resource tuple. Leave false unless deliberate local/private testing is intentional.");
         EnableDlssPersistentEvaluateProbe = config.Bind("Diagnostics", "EnableDlssPersistentEvaluateProbe", false, "High-risk SDK-wrapper diagnostic that creates one DLSS feature and evaluates the discovered frame-resource tuple multiple times before release/shutdown. Leave false unless deliberate local/private testing is intentional.");
         EnableRenderGraphDiagnosticPass = config.Bind("Diagnostics", "EnableRenderGraphDiagnosticPass", false, "High-risk research-only RenderGraph pass injection for Stage 8A. Leave false unless crash-recovery testing is intentional.");

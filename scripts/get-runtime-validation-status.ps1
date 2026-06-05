@@ -73,6 +73,7 @@ function Get-ConfiguredStage {
 
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssPersistentEvaluateProbe") { return "dlss-persistent-evaluate" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssEvaluateProbe") { return "dlss-evaluate" }
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssVisibleWritebackProbe") { return "dlss-visible-writeback" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssSuperResolutionFrameSequenceEvaluateProbe") { return "dlss-super-resolution-frame-sequence" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssSuperResolutionPersistentEvaluateProbe") { return "dlss-super-resolution-persistent-evaluate" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssSuperResolutionEvaluateProbe") { return "dlss-super-resolution-evaluate" }
@@ -156,9 +157,18 @@ function Get-NextRecommendation {
     $superResolutionEvaluate = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 8F"
     $superResolutionPersistentEvaluate = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 8G"
     $superResolutionFrameSequence = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 9A"
+    $visibleWriteback = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 10A"
+    if ($visibleWriteback -eq "Pass") {
+        return "Stage 10A visible write-back candidate passed. Next engineering step is image-correctness validation, screenshot/visual comparison, resize/reset handling, and fallback behavior in local/private gameplay."
+    }
+
     if ($persistentEvaluate -eq "Pass") {
+        if ($superResolutionInputs -eq "Pass" -and $superResolutionEvaluate -eq "Pass" -and $superResolutionPersistentEvaluate -eq "Pass" -and $superResolutionFrameSequence -eq "Pass" -and $visibleWriteback -eq "Pass") {
+            return "Stage 10A visible write-back candidate passed after Stage 8D/8E/8F/8G/9A evidence. Next engineering step is image-correctness validation, screenshot/visual comparison, resize/reset handling, and fallback behavior in local/private gameplay."
+        }
+
         if ($superResolutionInputs -eq "Pass" -and $superResolutionEvaluate -eq "Pass" -and $superResolutionPersistentEvaluate -eq "Pass" -and $superResolutionFrameSequence -eq "Pass") {
-            return "Stage 8D persistent DLSS evaluate, Stage 8E Super Resolution input sizing, Stage 8F Super Resolution evaluate, Stage 8G Super Resolution persistent evaluate, and Stage 9A frame-sequence evaluate passed. Next engineering step is guarded visible write-back, image-correctness validation, resize/reset handling, and fallback behavior in local/private gameplay."
+            return "Stage 8D persistent DLSS evaluate, Stage 8E Super Resolution input sizing, Stage 8F Super Resolution evaluate, Stage 8G Super Resolution persistent evaluate, and Stage 9A frame-sequence evaluate passed. Next engineering step is scripts\run-vrising-diagnostic.ps1 -GamePath `"$($Inspect.GamePath)`" -Stage dlss-visible-writeback with the local SDK-wrapper native build, then image-correctness validation."
         }
 
         if ($superResolutionInputs -eq "Pass" -and $superResolutionEvaluate -eq "Pass" -and $superResolutionPersistentEvaluate -eq "Pass") {

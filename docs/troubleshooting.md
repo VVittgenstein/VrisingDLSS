@@ -148,7 +148,7 @@ If the log says `DLSS evaluate input probe blocked`, preserve the surrounding fr
 Check:
 
 - `EnableDlssEvaluateInputProbe` can already pass through the passive RenderGraph route.
-- `EnableNativeBridgeSmokeTest` logs bridge API version `10` or newer.
+- `EnableNativeBridgeSmokeTest` logs bridge API version `11` or newer.
 - The log shows candidate lines beginning with `DLSS super-resolution input probe candidate #`.
 - If candidates say `output was not larger than render input`, keep the game running longer or use a scene/settings combination where HDRP dynamic resolution drops below the output resolution.
 - A passing status should include `sameDevice=yes`, matching color/depth/motion dimensions, a larger output size, and `scale=`.
@@ -163,7 +163,7 @@ Check:
 
 - Stage 8E passes first in the same run.
 - `DLSS.DlssRuntimePath` points to a local research `nvngx_dlss.dll`.
-- `EnableNativeBridgeSmokeTest` logs bridge API version `10` or newer.
+- `EnableNativeBridgeSmokeTest` logs bridge API version `11` or newer.
 - The log shows `DLSS super-resolution evaluate probe candidate #`.
 - A passing status should include `render=` smaller than `target=`, `create=0x00000001`, `evaluate=0x00000001`, `release=0x00000001`, `destroy=0x00000001`, and `shutdown=0x00000001`.
 
@@ -196,6 +196,20 @@ Check:
 - A passing status should include `sequenceCreates=1`, `sequenceEvaluates=3`, `evaluateSuccesses=3`, `recreated=no` on later callbacks, `feature=yes`, `evaluateLast=0x00000001`, and a later `DLSS super-resolution frame-sequence shutdown succeeded` line with release/destroy/shutdown all `0x00000001`.
 
 If this stage passes but DLSS is still not visible, that is expected. Stage 9A proves cross-callback feature reuse for the SR-sized tuple, not the normal-user visible rendering path.
+
+## DLSS Visible Write-back Probe Is Blocked Or Fails
+
+`EnableDlssVisibleWritebackProbe` waits for Stage 8E, then repeatedly evaluates DLSS into the selected Super Resolution output target across multiple RenderGraph callbacks. It is disabled by default and requires a local/private SDK-wrapper research build.
+
+Check:
+
+- Stage 8E passes first in the same run.
+- `DLSS.DlssRuntimePath` points to a local research `nvngx_dlss.dll`.
+- `EnableNativeBridgeSmokeTest` logs bridge API version `11` or newer.
+- The log shows `DLSS visible write-back probe candidate #`.
+- A passing status should include `sequenceEvaluates=30`, `evaluateSuccesses=30`, `feature=yes`, `evaluateLast=0x00000001`, `outputResourceName=Edge Adaptive Spatial Upsampling` when the known SR tuple is selected, and a later `DLSS visible write-back shutdown succeeded` line with release/destroy/shutdown all `0x00000001`.
+
+If this stage passes but the image looks wrong, preserve screenshots and the archived BepInEx log. Stage 10A proves the guarded visible-path candidate ran; it does not by itself prove image correctness, jitter correctness, resize/reset behavior, or final normal-user fallback behavior.
 
 ## DLSSPass Resource Helper Probe
 

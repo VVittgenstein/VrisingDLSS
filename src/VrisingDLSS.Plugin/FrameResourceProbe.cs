@@ -32,6 +32,8 @@ internal static class FrameResourceProbe
     private const int MaxDlssSuperResolutionPersistentEvaluateProbeAttempts = 1;
     private const int MaxDlssSuperResolutionFrameSequenceEvaluateProbeAttempts = 24;
     private const int TargetDlssSuperResolutionFrameSequenceEvaluateSuccesses = 3;
+    private const int MaxDlssVisibleWritebackProbeAttempts = 120;
+    private const int TargetDlssVisibleWritebackProbeSuccesses = 30;
     private const int MaxDlssEvaluateOutputFollowupLogs = 12;
     private const int MaxTextureSearchDepth = 3;
     private static readonly FrameProbeTarget[] Targets =
@@ -61,6 +63,8 @@ internal static class FrameResourceProbe
     private static int DlssSuperResolutionPersistentEvaluateProbeAttemptCount;
     private static int DlssSuperResolutionFrameSequenceEvaluateProbeAttemptCount;
     private static int DlssSuperResolutionFrameSequenceEvaluateProbeSuccessCount;
+    private static int DlssVisibleWritebackProbeAttemptCount;
+    private static int DlssVisibleWritebackProbeSuccessCount;
     private static int DlssEvaluateOutputFollowupLogCount;
     private static int DlssEvaluateOutputFollowupStartGetTextureCallCount;
     private static IntPtr DlssEvaluateOutputFollowupPointer;
@@ -98,6 +102,9 @@ internal static class FrameResourceProbe
     private static bool DlssSuperResolutionFrameSequenceEvaluateProbeEnabled;
     private static bool DlssSuperResolutionFrameSequenceEvaluateProbeSucceeded;
     private static bool DlssSuperResolutionFrameSequenceShutdownLogged;
+    private static bool DlssVisibleWritebackProbeEnabled;
+    private static bool DlssVisibleWritebackProbeSucceeded;
+    private static bool DlssVisibleWritebackShutdownLogged;
     private static DlssEvaluateProbeSettings DlssEvaluateSettings;
 
     internal static void Install(
@@ -111,6 +118,7 @@ internal static class FrameResourceProbe
         bool enableDlssSuperResolutionEvaluateProbe = false,
         bool enableDlssSuperResolutionPersistentEvaluateProbe = false,
         bool enableDlssSuperResolutionFrameSequenceEvaluateProbe = false,
+        bool enableDlssVisibleWritebackProbe = false,
         DlssEvaluateProbeSettings dlssEvaluateSettings = default,
         bool enableRenderGraphDiagnosticPass = false,
         bool enableExistingRenderFuncProbe = false,
@@ -120,14 +128,15 @@ internal static class FrameResourceProbe
         if (Installed)
         {
             log.LogInfo("Frame resource probe is already installed.");
-            DlssEvaluateInputProbeEnabled = DlssEvaluateInputProbeEnabled || enableDlssEvaluateInputProbe || enableDlssEvaluateProbe || enableDlssPersistentEvaluateProbe || enableDlssSuperResolutionInputProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe;
+            DlssEvaluateInputProbeEnabled = DlssEvaluateInputProbeEnabled || enableDlssEvaluateInputProbe || enableDlssEvaluateProbe || enableDlssPersistentEvaluateProbe || enableDlssSuperResolutionInputProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe || enableDlssVisibleWritebackProbe;
             DlssEvaluateProbeEnabled = DlssEvaluateProbeEnabled || enableDlssEvaluateProbe;
             DlssPersistentEvaluateProbeEnabled = DlssPersistentEvaluateProbeEnabled || enableDlssPersistentEvaluateProbe;
-            DlssSuperResolutionInputProbeEnabled = DlssSuperResolutionInputProbeEnabled || enableDlssSuperResolutionInputProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe;
+            DlssSuperResolutionInputProbeEnabled = DlssSuperResolutionInputProbeEnabled || enableDlssSuperResolutionInputProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe || enableDlssVisibleWritebackProbe;
             DlssSuperResolutionEvaluateProbeEnabled = DlssSuperResolutionEvaluateProbeEnabled || enableDlssSuperResolutionEvaluateProbe;
             DlssSuperResolutionPersistentEvaluateProbeEnabled = DlssSuperResolutionPersistentEvaluateProbeEnabled || enableDlssSuperResolutionPersistentEvaluateProbe;
             DlssSuperResolutionFrameSequenceEvaluateProbeEnabled = DlssSuperResolutionFrameSequenceEvaluateProbeEnabled || enableDlssSuperResolutionFrameSequenceEvaluateProbe;
-            if (enableDlssEvaluateProbe || enableDlssPersistentEvaluateProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe)
+            DlssVisibleWritebackProbeEnabled = DlssVisibleWritebackProbeEnabled || enableDlssVisibleWritebackProbe;
+            if (enableDlssEvaluateProbe || enableDlssPersistentEvaluateProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe || enableDlssVisibleWritebackProbe)
             {
                 DlssEvaluateSettings = dlssEvaluateSettings;
             }
@@ -141,13 +150,14 @@ internal static class FrameResourceProbe
 
         Log = log;
         Bridge = bridge;
-        DlssEvaluateInputProbeEnabled = enableDlssEvaluateInputProbe || enableDlssEvaluateProbe || enableDlssPersistentEvaluateProbe || enableDlssSuperResolutionInputProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe;
+        DlssEvaluateInputProbeEnabled = enableDlssEvaluateInputProbe || enableDlssEvaluateProbe || enableDlssPersistentEvaluateProbe || enableDlssSuperResolutionInputProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe || enableDlssVisibleWritebackProbe;
         DlssEvaluateProbeEnabled = enableDlssEvaluateProbe;
         DlssPersistentEvaluateProbeEnabled = enableDlssPersistentEvaluateProbe;
-        DlssSuperResolutionInputProbeEnabled = enableDlssSuperResolutionInputProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe;
+        DlssSuperResolutionInputProbeEnabled = enableDlssSuperResolutionInputProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe || enableDlssVisibleWritebackProbe;
         DlssSuperResolutionEvaluateProbeEnabled = enableDlssSuperResolutionEvaluateProbe;
         DlssSuperResolutionPersistentEvaluateProbeEnabled = enableDlssSuperResolutionPersistentEvaluateProbe;
         DlssSuperResolutionFrameSequenceEvaluateProbeEnabled = enableDlssSuperResolutionFrameSequenceEvaluateProbe;
+        DlssVisibleWritebackProbeEnabled = enableDlssVisibleWritebackProbe;
         DlssEvaluateSettings = dlssEvaluateSettings;
         RenderGraphDiagnosticPassEnabled = enableRenderGraphDiagnosticPass;
         ExistingRenderFuncProbeEnabled = enableExistingRenderFuncProbe;
@@ -161,6 +171,8 @@ internal static class FrameResourceProbe
         DlssSuperResolutionPersistentEvaluateProbeSucceeded = false;
         DlssSuperResolutionFrameSequenceEvaluateProbeSucceeded = false;
         DlssSuperResolutionFrameSequenceShutdownLogged = false;
+        DlssVisibleWritebackProbeSucceeded = false;
+        DlssVisibleWritebackShutdownLogged = false;
         if (DlssEvaluateInputProbeEnabled)
         {
             log.LogInfo("DLSS evaluate input probe enabled.");
@@ -188,6 +200,10 @@ internal static class FrameResourceProbe
         if (DlssSuperResolutionFrameSequenceEvaluateProbeEnabled)
         {
             log.LogWarning("DLSS super-resolution frame-sequence evaluate probe enabled. This diagnostic keeps one NGX feature alive across multiple RenderGraph callbacks and should only be used in local/private testing.");
+        }
+        if (DlssVisibleWritebackProbeEnabled)
+        {
+            log.LogWarning("DLSS visible write-back probe enabled. This diagnostic repeatedly evaluates NGX into the selected Super Resolution output target and should only be used in local/private image-correctness testing.");
         }
         if (RenderGraphDiagnosticPassEnabled)
         {
@@ -404,7 +420,11 @@ internal static class FrameResourceProbe
 
         try
         {
-            TryShutdownDlssSuperResolutionFrameSequence(log);
+            TryShutdownDlssVisibleWriteback(log);
+            if (DlssSuperResolutionFrameSequenceEvaluateProbeEnabled)
+            {
+                TryShutdownDlssSuperResolutionFrameSequence(log);
+            }
 
             var unpatchSelf = FindMethodBySignature(
                 HarmonyType,
@@ -451,6 +471,7 @@ internal static class FrameResourceProbe
             DlssSuperResolutionEvaluateProbeEnabled = false;
             DlssSuperResolutionPersistentEvaluateProbeEnabled = false;
             DlssSuperResolutionFrameSequenceEvaluateProbeEnabled = false;
+            DlssVisibleWritebackProbeEnabled = false;
             DlssEvaluateInputProbeSucceeded = false;
             DlssEvaluateProbeSucceeded = false;
             DlssPersistentEvaluateProbeSucceeded = false;
@@ -459,6 +480,8 @@ internal static class FrameResourceProbe
             DlssSuperResolutionPersistentEvaluateProbeSucceeded = false;
             DlssSuperResolutionFrameSequenceEvaluateProbeSucceeded = false;
             DlssSuperResolutionFrameSequenceShutdownLogged = false;
+            DlssVisibleWritebackProbeSucceeded = false;
+            DlssVisibleWritebackShutdownLogged = false;
             lock (Sync)
             {
                 CallCounts.Clear();
@@ -481,6 +504,8 @@ internal static class FrameResourceProbe
                 DlssSuperResolutionPersistentEvaluateProbeAttemptCount = 0;
                 DlssSuperResolutionFrameSequenceEvaluateProbeAttemptCount = 0;
                 DlssSuperResolutionFrameSequenceEvaluateProbeSuccessCount = 0;
+                DlssVisibleWritebackProbeAttemptCount = 0;
+                DlssVisibleWritebackProbeSuccessCount = 0;
                 DlssSuperResolutionInputProbeAttemptKeys.Clear();
                 DlssEvaluateOutputFollowupLogCount = 0;
                 DlssEvaluateOutputFollowupStartGetTextureCallCount = 0;
@@ -2046,7 +2071,14 @@ internal static class FrameResourceProbe
 
         if (DlssSuperResolutionInputProbeSucceeded)
         {
-            TryRunDlssSuperResolutionFrameSequenceEvaluateProbe(log, bridge, "RenderGraph GetTexture", candidates);
+            if (DlssVisibleWritebackProbeEnabled)
+            {
+                TryRunDlssVisibleWritebackProbe(log, bridge, "RenderGraph GetTexture", candidates);
+            }
+            else
+            {
+                TryRunDlssSuperResolutionFrameSequenceEvaluateProbe(log, bridge, "RenderGraph GetTexture", candidates);
+            }
             return;
         }
 
@@ -2126,15 +2158,30 @@ internal static class FrameResourceProbe
                     depth.Value.Pointer,
                     motion.Value.Pointer,
                     output.ResourceName);
-                TryRunDlssSuperResolutionFrameSequenceEvaluateProbe(
-                    log,
-                    bridge,
-                    "RenderGraph GetTexture",
-                    color.Value.Pointer,
-                    output.Pointer,
-                    depth.Value.Pointer,
-                    motion.Value.Pointer,
-                    output.ResourceName);
+                if (DlssVisibleWritebackProbeEnabled)
+                {
+                    TryRunDlssVisibleWritebackProbe(
+                        log,
+                        bridge,
+                        "RenderGraph GetTexture",
+                        color.Value.Pointer,
+                        output.Pointer,
+                        depth.Value.Pointer,
+                        motion.Value.Pointer,
+                        output.ResourceName);
+                }
+                else
+                {
+                    TryRunDlssSuperResolutionFrameSequenceEvaluateProbe(
+                        log,
+                        bridge,
+                        "RenderGraph GetTexture",
+                        color.Value.Pointer,
+                        output.Pointer,
+                        depth.Value.Pointer,
+                        motion.Value.Pointer,
+                        output.ResourceName);
+                }
                 return;
             }
 
@@ -2641,6 +2688,196 @@ internal static class FrameResourceProbe
         }
     }
 
+    private static void TryRunDlssVisibleWritebackProbe(
+        ManualLogSource log,
+        NativeBridge bridge,
+        string source,
+        IReadOnlyList<RenderGraphTextureCandidate> candidates)
+    {
+        if (!DlssVisibleWritebackProbeEnabled || DlssVisibleWritebackProbeSucceeded)
+        {
+            return;
+        }
+
+        var available = candidates.Where(candidate => candidate.Pointer != IntPtr.Zero).ToArray();
+        var color = FindExistingRenderFuncCandidate(available, static candidate =>
+            string.Equals(candidate.ResourceName, "CameraColor", StringComparison.Ordinal));
+        var depth = FindExistingRenderFuncCandidate(available, static candidate =>
+            string.Equals(candidate.ResourceName, "CameraDepthStencil", StringComparison.Ordinal)
+            || candidate.ResourceName.IndexOf("CameraDepth", StringComparison.OrdinalIgnoreCase) >= 0);
+        var motion = FindExistingRenderFuncCandidate(available, static candidate =>
+            string.Equals(candidate.ResourceName, "Motion Vectors", StringComparison.Ordinal));
+
+        if (color is null || depth is null || motion is null)
+        {
+            return;
+        }
+
+        var outputs = available
+            .Where(IsLikelyRenderGraphOutput)
+            .OrderByDescending(GetRenderGraphOutputPriority)
+            .ToArray();
+        foreach (var output in outputs)
+        {
+            if (output.Pointer == IntPtr.Zero || output.Pointer == color.Value.Pointer)
+            {
+                continue;
+            }
+
+            var accepted = bridge.ProbeDlssSuperResolutionInputs(
+                color.Value.Pointer,
+                output.Pointer,
+                depth.Value.Pointer,
+                motion.Value.Pointer);
+            if (!accepted)
+            {
+                continue;
+            }
+
+            TryRunDlssVisibleWritebackProbe(
+                log,
+                bridge,
+                source,
+                color.Value.Pointer,
+                output.Pointer,
+                depth.Value.Pointer,
+                motion.Value.Pointer,
+                output.ResourceName);
+            return;
+        }
+    }
+
+    private static void TryRunDlssVisibleWritebackProbe(
+        ManualLogSource log,
+        NativeBridge bridge,
+        string source,
+        IntPtr colorPointer,
+        IntPtr outputPointer,
+        IntPtr depthPointer,
+        IntPtr motionPointer,
+        string? outputResourceName)
+    {
+        if (!DlssVisibleWritebackProbeEnabled || DlssVisibleWritebackProbeSucceeded)
+        {
+            return;
+        }
+
+        var attempt = 0;
+        var successCount = 0;
+        var shutdownForAttemptLimit = false;
+        lock (Sync)
+        {
+            if (DlssVisibleWritebackProbeAttemptCount >= MaxDlssVisibleWritebackProbeAttempts)
+            {
+                shutdownForAttemptLimit = true;
+            }
+            else
+            {
+                DlssVisibleWritebackProbeAttemptCount++;
+                attempt = DlssVisibleWritebackProbeAttemptCount;
+                successCount = DlssVisibleWritebackProbeSuccessCount;
+            }
+        }
+
+        if (shutdownForAttemptLimit)
+        {
+            log.LogWarning($"DLSS visible write-back probe failed: attempt limit reached before {TargetDlssVisibleWritebackProbeSuccesses} successful evaluates.");
+            TryShutdownDlssVisibleWriteback(log);
+            return;
+        }
+
+        var reset = successCount == 0 ? DlssEvaluateSettings.Reset : 0;
+        log.LogInfo(
+            $"DLSS visible write-back probe candidate #{attempt} from {source}: color=0x{colorPointer.ToInt64():X}; output=0x{outputPointer.ToInt64():X}; depth=0x{depthPointer.ToInt64():X}; motion=0x{motionPointer.ToInt64():X}; outputResourceName={outputResourceName ?? "unavailable"}; perfQuality={DlssEvaluateSettings.PerfQualityValue}; flags=0x{DlssEvaluateSettings.FeatureFlags:X}; sharpness={DlssEvaluateSettings.Sharpness}; reset={reset}; targetSuccesses={TargetDlssVisibleWritebackProbeSuccesses}");
+
+        var success = bridge.EvaluateDlssFrameSequence(
+            colorPointer,
+            outputPointer,
+            depthPointer,
+            motionPointer,
+            DlssEvaluateSettings.RuntimePath,
+            DlssEvaluateSettings.ApplicationDataPath,
+            DlssEvaluateSettings.ApplicationId,
+            DlssEvaluateSettings.PerfQualityValue,
+            DlssEvaluateSettings.FeatureFlags,
+            0.0f,
+            0.0f,
+            1.0f,
+            1.0f,
+            DlssEvaluateSettings.Sharpness,
+            reset);
+        var status = bridge.GetDlssFrameSequenceStatus();
+        if (success)
+        {
+            int currentSuccessCount;
+            lock (Sync)
+            {
+                DlssVisibleWritebackProbeSuccessCount++;
+                currentSuccessCount = DlssVisibleWritebackProbeSuccessCount;
+            }
+
+            TrackDlssEvaluateOutputFollowup(outputPointer, outputResourceName);
+            if (currentSuccessCount >= TargetDlssVisibleWritebackProbeSuccesses)
+            {
+                DlssVisibleWritebackProbeSucceeded = true;
+                log.LogInfo($"DLSS visible write-back probe succeeded from {source}: sequenceSuccesses={currentSuccessCount}/{TargetDlssVisibleWritebackProbeSuccesses}; outputResourceName={outputResourceName ?? "unavailable"}; {status}");
+                TryShutdownDlssVisibleWriteback(log);
+            }
+            else if (currentSuccessCount <= 5 || currentSuccessCount % 10 == 0)
+            {
+                log.LogInfo($"DLSS visible write-back probe step succeeded from {source}: sequenceSuccesses={currentSuccessCount}/{TargetDlssVisibleWritebackProbeSuccesses}; outputResourceName={outputResourceName ?? "unavailable"}; {status}");
+            }
+        }
+        else if (status.IndexOf("blocked", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            log.LogWarning($"DLSS visible write-back probe blocked from {source}: {status}");
+        }
+        else if (status.IndexOf("skipped", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            log.LogWarning($"DLSS visible write-back probe skipped from {source}: {status}");
+        }
+        else
+        {
+            log.LogWarning($"DLSS visible write-back probe failed from {source}: {status}");
+        }
+    }
+
+    private static void TryShutdownDlssVisibleWriteback(ManualLogSource log)
+    {
+        NativeBridge? bridge;
+        lock (Sync)
+        {
+            if (!DlssVisibleWritebackProbeEnabled)
+            {
+                return;
+            }
+
+            if (DlssVisibleWritebackShutdownLogged)
+            {
+                return;
+            }
+
+            DlssVisibleWritebackShutdownLogged = true;
+            bridge = Bridge;
+        }
+
+        if (bridge is null)
+        {
+            return;
+        }
+
+        var success = bridge.ShutdownDlssFrameSequence();
+        var status = bridge.GetDlssFrameSequenceStatus();
+        if (success)
+        {
+            log.LogInfo($"DLSS visible write-back shutdown succeeded: {status}");
+        }
+        else
+        {
+            log.LogWarning($"DLSS visible write-back shutdown failed: {status}");
+        }
+    }
+
     private static void TryShutdownDlssSuperResolutionFrameSequence(ManualLogSource log)
     {
         NativeBridge? bridge;
@@ -2699,7 +2936,7 @@ internal static class FrameResourceProbe
         string expectedResourceName;
         lock (Sync)
         {
-            if ((!DlssEvaluateProbeSucceeded && !DlssPersistentEvaluateProbeSucceeded && !DlssSuperResolutionEvaluateProbeSucceeded && !DlssSuperResolutionPersistentEvaluateProbeSucceeded && !DlssSuperResolutionFrameSequenceEvaluateProbeSucceeded) || DlssEvaluateOutputFollowupPointer == IntPtr.Zero)
+            if ((!DlssEvaluateProbeSucceeded && !DlssPersistentEvaluateProbeSucceeded && !DlssSuperResolutionEvaluateProbeSucceeded && !DlssSuperResolutionPersistentEvaluateProbeSucceeded && !DlssSuperResolutionFrameSequenceEvaluateProbeSucceeded && !DlssVisibleWritebackProbeSucceeded) || DlssEvaluateOutputFollowupPointer == IntPtr.Zero)
             {
                 return;
             }

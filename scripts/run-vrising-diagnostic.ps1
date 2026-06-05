@@ -18,6 +18,7 @@ param(
         "dlss-super-resolution-evaluate",
         "dlss-super-resolution-persistent-evaluate",
         "dlss-super-resolution-frame-sequence",
+        "dlss-visible-writeback",
         "dlss-evaluate",
         "dlss-persistent-evaluate",
         "dlsspass-resource"

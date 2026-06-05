@@ -1,6 +1,6 @@
 # Local Runtime Staging - 2026-06-05
 
-This records local staging progress for runtime validation. Stage 8B guarded DLSS evaluate, Stage 8C output follow-up, Stage 8D persistent repeated evaluate, Stage 8E Super Resolution input sizing, Stage 8F Super Resolution evaluate, Stage 8G Super Resolution persistent repeated evaluate, and Stage 9A Super Resolution frame-sequence evaluate now have local proof, but normal-user DLSS rendering is not implemented yet.
+This records local staging progress for runtime validation. Stage 8B guarded DLSS evaluate, Stage 8C output follow-up, Stage 8D persistent repeated evaluate, Stage 8E Super Resolution input sizing, Stage 8F Super Resolution evaluate, Stage 8G Super Resolution persistent repeated evaluate, Stage 9A Super Resolution frame-sequence evaluate, and Stage 10A visible write-back candidate now have local proof. Normal-user DLSS rendering is not implemented yet.
 
 ## Inputs
 
@@ -122,6 +122,13 @@ Current validated evidence:
   - Shutdown succeeded with `hadSession=yes`, `release=0x00000001`, `destroy=0x00000001`, and `shutdown=0x00000001`.
   - Follow-up evidence observed the same `Edge Adaptive Spatial Upsampling` output pointer as D3D11-accessible for 12 follow-up logs after the frame-sequence evaluate.
   - This proves one DLSS feature can persist across multiple RenderGraph callbacks on the real SR-sized tuple. It still does not prove visible output/image correctness.
+- Stage 10A DLSS visible write-back candidate:
+  - Implemented as `Diagnostics.EnableDlssVisibleWritebackProbe=false` by default and helper stage `dlss-visible-writeback`.
+  - A 220-second scripted `dlss-visible-writeback` run on 2026-06-05 completed without a matching Windows crash event and passed the new visible write-back candidate gate.
+  - Evidence: Stage 8E accepted `CameraColor`, `CameraDepthStencil`, and `Motion Vectors` at `426x284` with `Edge Adaptive Spatial Upsampling` at `720x480`.
+  - Evidence: Stage 10A evaluated into `Edge Adaptive Spatial Upsampling` across RenderGraph callbacks, reached `sequenceEvaluates=30` and `evaluateSuccesses=30`, and shut down with release/destroy/shutdown all `0x00000001`.
+  - Follow-up evidence observed the same `Edge Adaptive Spatial Upsampling` output pointer as D3D11-accessible for 12 follow-up logs after the visible write-back candidate.
+  - This proves the guarded visible-path candidate can repeatedly evaluate into the selected SR output target. It still does not prove screenshot/visual image correctness, resize/reset behavior, or final normal-user enable/disable behavior.
 - Local GPU/driver for Stage 6/7 pass: NVIDIA GeForce RTX 5060, driver `610.47`.
 
 Archived logs:
@@ -182,12 +189,14 @@ Archived logs:
 - `artifacts/runtime-logs/Analysis-dlss-super-resolution-frame-sequence-20260605-135122.txt`
 - `artifacts/runtime-logs/LogOutput-dlss-persistent-evaluate-20260605-140300.log`
 - `artifacts/runtime-logs/Analysis-dlss-persistent-evaluate-20260605-140300.txt`
+- `artifacts/runtime-logs/LogOutput-dlss-visible-writeback-20260605-143407.log`
+- `artifacts/runtime-logs/Analysis-dlss-visible-writeback-20260605-143407.txt`
 
 No PureDark files were copied into the game plugin folder. The NVIDIA runtime was copied only into `ref/` for local research and was not added to the release package.
 
 Next implementation gate:
 
 - Keep ordinary `dlss-evaluate-inputs` diagnostics safe by leaving `Diagnostics.EnableRenderGraphDiagnosticPass=false`, `Diagnostics.EnableExistingRenderFuncProbe=false`, `Diagnostics.EnableFrameResourceProbe=false`, and `Diagnostics.EnableHarmonyCallProbe=false`.
-- Keep Stage 8B/8C/8D/8E/8F/8G/9A as guarded diagnostics while `DLSS.EnableDLSS=false` remains the package default.
+- Keep Stage 8B/8C/8D/8E/8F/8G/9A/10A as guarded diagnostics while `DLSS.EnableDLSS=false` remains the package default.
 - Implement a guarded normal-user rendering path only after choosing a safe output/writeback strategy from the accepted passive `GetTexture` evidence.
 - Validate image correctness, render-scale behavior, jitter/pre-exposure, resize/reset behavior, and fallback behavior in a local/private gameplay scene before any public MVP release.

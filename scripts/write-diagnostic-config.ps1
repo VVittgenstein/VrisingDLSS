@@ -15,6 +15,7 @@ param(
         "dlss-super-resolution-evaluate",
         "dlss-super-resolution-persistent-evaluate",
         "dlss-super-resolution-frame-sequence",
+        "dlss-visible-writeback",
         "dlss-evaluate",
         "dlss-persistent-evaluate",
         "dlsspass-resource"
@@ -56,6 +57,7 @@ function New-ConfigMap {
             EnableDlssSuperResolutionEvaluateProbe = "false"
             EnableDlssSuperResolutionPersistentEvaluateProbe = "false"
             EnableDlssSuperResolutionFrameSequenceEvaluateProbe = "false"
+            EnableDlssVisibleWritebackProbe = "false"
             EnableDlssEvaluateProbe = "false"
             EnableDlssPersistentEvaluateProbe = "false"
             EnableRenderGraphDiagnosticPass = "false"
@@ -182,6 +184,16 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableDlssEvaluateInputProbe = "true"
             $Config.Diagnostics.EnableDlssSuperResolutionInputProbe = "true"
             $Config.Diagnostics.EnableDlssSuperResolutionFrameSequenceEvaluateProbe = "true"
+            $Config.Diagnostics.EnableResourceMaterializationProbe = "true"
+            $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+        }
+        "dlss-visible-writeback" {
+            $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
+            $Config.Diagnostics.EnableD3D11TextureProbe = "true"
+            $Config.Diagnostics.EnableDlssRuntimeProbe = "true"
+            $Config.Diagnostics.EnableDlssEvaluateInputProbe = "true"
+            $Config.Diagnostics.EnableDlssSuperResolutionInputProbe = "true"
+            $Config.Diagnostics.EnableDlssVisibleWritebackProbe = "true"
             $Config.Diagnostics.EnableResourceMaterializationProbe = "true"
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"
         }

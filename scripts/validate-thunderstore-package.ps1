@@ -282,6 +282,7 @@ try {
             "EnableDlssSuperResolutionEvaluateProbe = false",
             "EnableDlssSuperResolutionPersistentEvaluateProbe = false",
             "EnableDlssSuperResolutionFrameSequenceEvaluateProbe = false",
+            "EnableDlssVisibleWritebackProbe = false",
             "EnableDlssEvaluateProbe = false",
             "EnableDlssPersistentEvaluateProbe = false",
             "EnableRenderGraphDiagnosticPass = false",

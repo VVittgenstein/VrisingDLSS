@@ -16,7 +16,7 @@ The release-safe route remains:
 4. Keep the first playable public target to DLSS Super Resolution on Windows/D3D11, local/private gameplay first.
 5. Treat public/official server use as not guaranteed and keep the package explicitly unofficial, graphics-only, free, and non-commercial.
 
-The current repository is already aligned with that route for a diagnostic package. It is not a playable DLSS MVP yet because `DLSS.EnableDLSS=true` does not change visible rendering. The next engineering step is guarded visible write-back plus image-correctness validation.
+The current repository is already aligned with that route for a diagnostic package. It is not a playable DLSS MVP yet because `DLSS.EnableDLSS=true` does not change visible rendering. Stage 10A guarded visible-path write-back validation has passed locally; the next engineering step is screenshot/visual image-correctness validation.
 
 ## Source Findings
 
@@ -137,6 +137,7 @@ Reasoning:
 
 - Current validated runtime path is D3D11/NGX-oriented.
 - Stage 8A through Stage 9A already prove same-device D3D11 resources, SR-sized input/output dimensions, successful NGX evaluate, persistent feature reuse, and cross-RenderGraph-callback feature reuse.
+- Stage 10A proves a guarded visible-path write-back candidate can repeatedly evaluate into the selected SR output target 30 times before clean shutdown, but it still needs screenshot/visual image-correctness validation.
 - Streamline would add interposer/common/plugin DLL distribution and swapchain/present integration complexity that is not needed for DLSS Super Resolution only.
 
 Current validated evidence:
@@ -148,8 +149,8 @@ Current validated evidence:
 
 Next route:
 
-1. Add a guarded visible write-back path using the accepted SR tuple and output target.
-2. Validate that DLSS output appears in the visible game image without black screen, stale frame, ghosting beyond expected DLSS behavior, or post-process breakage.
+1. Validate that Stage 10A output appears in the visible game image without black screen, stale frame, ghosting beyond expected DLSS behavior, or post-process breakage.
+2. Capture/preserve screenshots or visual comparison evidence for DLSS off versus the Stage 10A candidate.
 3. Add resize/reset/state recreation.
 4. Add quality-mode/render-scale and mip-bias handling.
 5. Add fallback and user-facing status.
@@ -164,7 +165,7 @@ Rejected or high-risk routes:
 
 ## Time Estimate From Current State
 
-Because Stage 8A through Stage 9A are already proven locally, the remaining time is mostly visible rendering integration and QA, not basic DLSS viability.
+Because Stage 8A through Stage 10A are already proven locally, the remaining time is mostly visible image-correctness validation, normal-user integration, and QA, not basic DLSS viability.
 
 Best-case estimates:
 

@@ -245,6 +245,13 @@ $results.Add((New-StageResult `
     -BlockedPatterns @("DLSS super-resolution frame-sequence evaluate probe blocked:", "DLSS super-resolution frame-sequence evaluate probe blocked from") `
     -StartedPatterns @("DLSS super-resolution frame-sequence evaluate probe enabled.", "DLSS super-resolution frame-sequence evaluate probe candidate #")))
 
+$results.Add((New-StageResult `
+    -Stage "Stage 10A DLSS Visible Write-back" `
+    -PassPatterns @("DLSS visible write-back probe succeeded:", "DLSS visible write-back probe succeeded from") `
+    -FailPatterns @("DLSS visible write-back probe failed:", "DLSS visible write-back probe failed from", "DLSS visible write-back probe skipped:", "DLSS visible write-back probe skipped from", "DLSS visible write-back shutdown failed:") `
+    -BlockedPatterns @("DLSS visible write-back probe blocked:", "DLSS visible write-back probe blocked from") `
+    -StartedPatterns @("DLSS visible write-back probe enabled.", "DLSS visible write-back probe candidate #")))
+
 $results
 
 if ($FailOnProblems) {

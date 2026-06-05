@@ -34,6 +34,7 @@ This package template is not ready for public gameplay use yet. The current sour
 - Optionally runs a guarded Super Resolution-sized DLSS evaluate diagnostic in local SDK-wrapper research builds; release-safe builds are expected to report blocked and the packaged config keeps this disabled.
 - Optionally runs a guarded Super Resolution-sized persistent DLSS evaluate diagnostic in local SDK-wrapper research builds; release-safe builds are expected to report blocked and the packaged config keeps this disabled.
 - Optionally runs a guarded Super Resolution-sized frame-sequence DLSS evaluate diagnostic in local SDK-wrapper research builds; release-safe builds are expected to report blocked and the packaged config keeps this disabled.
+- Optionally runs a guarded visible-path write-back candidate diagnostic in local SDK-wrapper research builds; release-safe builds are expected to report blocked and the packaged config keeps this disabled.
 - Optionally runs a guarded one-shot DLSS evaluate diagnostic in local SDK-wrapper research builds; release-safe builds are expected to report blocked and the packaged config keeps this disabled.
 - Optionally logs Stage 8C output follow-up after a successful guarded evaluate by checking whether the selected output resource/pointer remains D3D11-accessible in later RenderGraph texture callbacks.
 - Optionally runs a Stage 8D persistent-feature repeated-evaluate diagnostic in local SDK-wrapper research builds; release-safe builds are expected to report blocked and the packaged config keeps this disabled.

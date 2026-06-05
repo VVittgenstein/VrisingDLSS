@@ -58,6 +58,7 @@ public sealed class Plugin : BasePlugin
             || _config.EnableDlssSuperResolutionEvaluateProbe.Value
             || _config.EnableDlssSuperResolutionPersistentEvaluateProbe.Value
             || _config.EnableDlssSuperResolutionFrameSequenceEvaluateProbe.Value
+            || _config.EnableDlssVisibleWritebackProbe.Value
             || _config.EnableDlssEvaluateProbe.Value
             || _config.EnableDlssPersistentEvaluateProbe.Value
             || _config.EnableDlssPassResourceProbe.Value)
@@ -184,6 +185,7 @@ public sealed class Plugin : BasePlugin
             _config?.EnableDlssSuperResolutionEvaluateProbe.Value ?? false,
             _config?.EnableDlssSuperResolutionPersistentEvaluateProbe.Value ?? false,
             _config?.EnableDlssSuperResolutionFrameSequenceEvaluateProbe.Value ?? false,
+            _config?.EnableDlssVisibleWritebackProbe.Value ?? false,
             CreateDlssEvaluateProbeSettings(),
             _config?.EnableRenderGraphDiagnosticPass.Value ?? false,
             _config?.EnableExistingRenderFuncProbe.Value ?? false,
@@ -316,9 +318,9 @@ public sealed class Plugin : BasePlugin
         }
 
         var runtimePath = ResolveConfiguredRuntimePath(_config.DlssRuntimePath.Value);
-        if ((_config.EnableDlssEvaluateProbe.Value || _config.EnableDlssPersistentEvaluateProbe.Value || _config.EnableDlssSuperResolutionEvaluateProbe.Value || _config.EnableDlssSuperResolutionPersistentEvaluateProbe.Value || _config.EnableDlssSuperResolutionFrameSequenceEvaluateProbe.Value) && string.IsNullOrWhiteSpace(runtimePath))
+        if ((_config.EnableDlssEvaluateProbe.Value || _config.EnableDlssPersistentEvaluateProbe.Value || _config.EnableDlssSuperResolutionEvaluateProbe.Value || _config.EnableDlssSuperResolutionPersistentEvaluateProbe.Value || _config.EnableDlssSuperResolutionFrameSequenceEvaluateProbe.Value || _config.EnableDlssVisibleWritebackProbe.Value) && string.IsNullOrWhiteSpace(runtimePath))
         {
-            _log?.LogWarning("DLSS evaluate/persistent/Super Resolution evaluate/persistent/frame-sequence probe is enabled, but DLSS.DlssRuntimePath is empty. The native probe will report skipped until a runtime path is configured.");
+            _log?.LogWarning("DLSS evaluate/persistent/Super Resolution evaluate/persistent/frame-sequence/visible write-back probe is enabled, but DLSS.DlssRuntimePath is empty. The native probe will report skipped until a runtime path is configured.");
         }
 
         if (!TryParseApplicationId(_config.DlssApplicationId.Value, out var applicationId))

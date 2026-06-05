@@ -212,6 +212,7 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
     $stage8F = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 8F"
     $stage8G = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 8G"
     $stage9A = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 9A"
+    $stage10A = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 10A"
     $stage7 = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 7"
     $stage6 = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 6"
     $loader = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 1"
@@ -267,6 +268,11 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
         -Requirement "Stage 9A proves one DLSS feature can persist across multiple RenderGraph callbacks against a Super Resolution-sized tuple." `
         -Status $(if ($stage9A -eq "Pass") { "Pass" } elseif ($stage9A -eq "Fail") { "Fail" } elseif ($stage9A -eq "Missing") { "Missing" } else { "Blocked" }) `
         -Evidence "Stage 9A=$stage9A; Next=$($runtimeStatus.NextRecommendation)"))
+    $items.Add((New-ReadinessItem `
+        -Area "Runtime" `
+        -Requirement "Stage 10A proves a guarded visible-path candidate can repeatedly evaluate DLSS into the selected Super Resolution output target." `
+        -Status $(if ($stage10A -eq "Pass") { "Pass" } elseif ($stage10A -eq "Fail") { "Fail" } elseif ($stage10A -eq "Missing") { "Missing" } else { "Blocked" }) `
+        -Evidence "Stage 10A=$stage10A; Next=$($runtimeStatus.NextRecommendation)"))
 } else {
     $items.Add((New-ReadinessItem `
         -Area "Runtime" `
@@ -308,6 +314,11 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
         -Requirement "Stage 9A proves one DLSS feature can persist across multiple RenderGraph callbacks against a Super Resolution-sized tuple." `
         -Status "Missing" `
         -Evidence "Pass -GamePath to include runtime validation evidence."))
+    $items.Add((New-ReadinessItem `
+        -Area "Runtime" `
+        -Requirement "Stage 10A proves a guarded visible-path candidate can repeatedly evaluate DLSS into the selected Super Resolution output target." `
+        -Status "Missing" `
+        -Evidence "Pass -GamePath to include runtime validation evidence."))
 }
 
 $configTemplateText = if (Test-Path -LiteralPath $configTemplatePath) {
@@ -334,7 +345,7 @@ $items.Add((New-ReadinessItem `
     -Area "MVP" `
     -Requirement "Normal-user DLSS enable/disable changes rendering correctly and safely." `
     -Status "Blocked" `
-    -Evidence "EnableDLSS is exposed, and Stage 8A/8B/8C/8D/8E/8F/8G/9A frame-input/evaluate/output-follow-up/persistent-lifecycle/SR-sizing/SR-evaluate/SR-persistent-lifecycle/frame-sequence evidence is tracked by readiness when present, but image-correctness validation and normal-user rendering integration are not complete yet."))
+    -Evidence "EnableDLSS is exposed, and Stage 8A/8B/8C/8D/8E/8F/8G/9A/10A frame-input/evaluate/output-follow-up/persistent-lifecycle/SR-sizing/SR-evaluate/SR-persistent-lifecycle/frame-sequence/visible-path evidence is tracked by readiness when present, but image-correctness validation and normal-user rendering integration are not complete yet."))
 
 $mvpBlockingStatuses = @("Fail", "Blocked", "Missing")
 $hardFailures = @($items | Where-Object { $_.Status -eq "Fail" })
@@ -402,6 +413,12 @@ $summary = [pscustomobject]@{
             $runtimeNextRecommendation
         } else {
             "Run scripts\run-vrising-diagnostic.ps1 -Stage dlss-super-resolution-frame-sequence with a local SDK-wrapper native build, DLSS runtime path, and DLSS disabled by default."
+        }
+    } elseif (@($items | Where-Object { $_.Requirement -like "Stage 10A*" -and $_.Status -ne "Pass" }).Count -gt 0) {
+        if (-not [string]::IsNullOrWhiteSpace($runtimeNextRecommendation)) {
+            $runtimeNextRecommendation
+        } else {
+            "Run scripts\run-vrising-diagnostic.ps1 -Stage dlss-visible-writeback with a local SDK-wrapper native build, DLSS runtime path, and DLSS disabled by default."
         }
     } elseif (@($items | Where-Object { $_.Requirement -like "Stage 8A*" -and $_.Status -ne "Pass" }).Count -gt 0) {
         if (-not [string]::IsNullOrWhiteSpace($runtimeNextRecommendation)) {
