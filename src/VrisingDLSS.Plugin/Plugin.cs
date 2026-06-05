@@ -22,7 +22,7 @@ public sealed class Plugin : BasePlugin
         _config = new ModConfig(CreateModConfigFile());
 
         _log.LogInfo($"{PluginInfo.Name} {PluginInfo.Version} loaded.");
-        _log.LogInfo("This is a clean-room scaffold. DLSS evaluation is not implemented yet.");
+        _log.LogInfo("This is a clean-room scaffold. Normal-user DLSS rendering is not implemented yet; guarded evaluate diagnostics are local research only.");
 
         WarnIfReferenceBinariesAreInstalled();
 
@@ -34,7 +34,7 @@ public sealed class Plugin : BasePlugin
 
         if (_config.EnableDlss.Value)
         {
-            _log.LogWarning("DLSS.EnableDLSS is true, but this diagnostic build does not evaluate DLSS yet. Native rendering remains unchanged.");
+            _log.LogWarning("DLSS.EnableDLSS is true, but normal-user DLSS rendering is not implemented yet. Native rendering remains unchanged unless Diagnostics.EnableDlssEvaluateProbe is explicitly enabled for local research.");
         }
 
         if (_config.EnableHookProbe.Value)
@@ -52,7 +52,10 @@ public sealed class Plugin : BasePlugin
             HarmonyCallProbe.Install(_log);
         }
 
-        if (_config.EnableFrameResourceProbe.Value || _config.EnableDlssEvaluateInputProbe.Value || _config.EnableDlssPassResourceProbe.Value)
+        if (_config.EnableFrameResourceProbe.Value
+            || _config.EnableDlssEvaluateInputProbe.Value
+            || _config.EnableDlssEvaluateProbe.Value
+            || _config.EnableDlssPassResourceProbe.Value)
         {
             RunFrameResourceProbe();
         }
@@ -170,6 +173,8 @@ public sealed class Plugin : BasePlugin
             bridge,
             _config?.EnableFrameResourceProbe.Value ?? false,
             _config?.EnableDlssEvaluateInputProbe.Value ?? false,
+            _config?.EnableDlssEvaluateProbe.Value ?? false,
+            CreateDlssEvaluateProbeSettings(),
             _config?.EnableRenderGraphDiagnosticPass.Value ?? false,
             _config?.EnableExistingRenderFuncProbe.Value ?? false,
             _config?.EnableResourceMaterializationProbe.Value ?? false,
@@ -291,6 +296,48 @@ public sealed class Plugin : BasePlugin
 
         var pluginDirectory = ResolvePluginDirectory();
         DlssFeatureCreateProbe.Run(_log, bridge, runtimePath, pluginDirectory, applicationId, _config.QualityMode.Value);
+    }
+
+    private DlssEvaluateProbeSettings CreateDlssEvaluateProbeSettings()
+    {
+        if (_config is null)
+        {
+            return default;
+        }
+
+        var runtimePath = ResolveConfiguredRuntimePath(_config.DlssRuntimePath.Value);
+        if (_config.EnableDlssEvaluateProbe.Value && string.IsNullOrWhiteSpace(runtimePath))
+        {
+            _log?.LogWarning("DLSS evaluate probe is enabled, but DLSS.DlssRuntimePath is empty. The native probe will report skipped until a runtime path is configured.");
+        }
+
+        if (!TryParseApplicationId(_config.DlssApplicationId.Value, out var applicationId))
+        {
+            _log?.LogWarning($"DLSS evaluate probe will use application id 0 because DLSS.DlssApplicationId is invalid: {_config.DlssApplicationId.Value}");
+        }
+
+        var featureFlags = _config.AutoExposure.Value ? 1 << 6 : 0;
+        return new DlssEvaluateProbeSettings(
+            runtimePath,
+            ResolvePluginDirectory(),
+            applicationId,
+            ResolveDlssPerfQualityValue(_config.QualityMode.Value),
+            featureFlags,
+            _config.Sharpness.Value,
+            _config.ResetOnCameraCut.Value ? 1 : 0);
+    }
+
+    private static int ResolveDlssPerfQualityValue(string qualityMode)
+    {
+        var normalized = (qualityMode ?? string.Empty).Trim().Replace("-", string.Empty).Replace("_", string.Empty);
+        return normalized.ToLowerInvariant() switch
+        {
+            "dlaa" => 5,
+            "ultraperformance" => 3,
+            "performance" => 0,
+            "balanced" => 1,
+            _ => 2,
+        };
     }
 
     private static string ResolveConfiguredRuntimePath(string configuredPath)

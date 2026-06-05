@@ -56,6 +56,8 @@ Result:
   - `VrisingDlss_GetDlssFeatureCreateStatus`
   - `VrisingDlss_ProbeDlssEvaluateInputs`
   - `VrisingDlss_GetDlssEvaluateInputStatus`
+  - `VrisingDlss_ProbeDlssEvaluate`
+  - `VrisingDlss_GetDlssEvaluateStatus`
 
 ```powershell
 $cmake = "C:\Software\w64devkit\bin\cmake.exe"

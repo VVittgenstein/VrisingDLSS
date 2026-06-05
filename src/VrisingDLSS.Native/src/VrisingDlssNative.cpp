@@ -31,6 +31,7 @@ namespace
     char g_dlssInitQueryStatus[1024] = "DLSS init/query probe has not run";
     char g_dlssFeatureCreateStatus[1024] = "DLSS feature create probe has not run";
     char g_dlssEvaluateInputStatus[1536] = "DLSS evaluate input probe has not run";
+    char g_dlssEvaluateStatus[2048] = "DLSS evaluate probe has not run";
     constexpr unsigned int kNgxResultSuccess = 0x00000001;
     constexpr unsigned int kNgxVersionApi = 0x00000015;
 
@@ -82,6 +83,12 @@ namespace
     {
         std::lock_guard<std::mutex> lock(g_probeStatusMutex);
         std::snprintf(g_dlssEvaluateInputStatus, sizeof(g_dlssEvaluateInputStatus), "%s", message);
+    }
+
+    void SetDlssEvaluateStatus(const char* message)
+    {
+        std::lock_guard<std::mutex> lock(g_probeStatusMutex);
+        std::snprintf(g_dlssEvaluateStatus, sizeof(g_dlssEvaluateStatus), "%s", message);
     }
 
     struct EvaluateTextureInfo
@@ -202,6 +209,42 @@ namespace
     bool EvaluateInputDimensionsMatch(const EvaluateTextureInfo& reference, const EvaluateTextureInfo& candidate)
     {
         return reference.width == candidate.width && reference.height == candidate.height;
+    }
+
+    bool TryQueryD3D11Resource(
+        const char* label,
+        void* nativeTexturePtr,
+        ID3D11Resource** outResource,
+        char* error,
+        size_t errorSize)
+    {
+        if (outResource == nullptr || error == nullptr || errorSize == 0)
+        {
+            return false;
+        }
+
+        *outResource = nullptr;
+        if (nativeTexturePtr == nullptr)
+        {
+            std::snprintf(error, errorSize, "%s pointer was null", label);
+            return false;
+        }
+
+        HRESULT result = static_cast<IUnknown*>(nativeTexturePtr)->QueryInterface(
+            __uuidof(ID3D11Resource),
+            reinterpret_cast<void**>(outResource));
+        if (FAILED(result) || *outResource == nullptr)
+        {
+            std::snprintf(
+                error,
+                errorSize,
+                "%s QueryInterface(ID3D11Resource) returned hr=0x%08X",
+                label,
+                static_cast<unsigned int>(result));
+            return false;
+        }
+
+        return true;
     }
 
     template <typename T>
@@ -633,6 +676,251 @@ namespace
             ? 1
             : 0;
     }
+
+    int ProbeDlssEvaluateWithSdkWrapper(
+        void* colorTexturePtr,
+        void* outputTexturePtr,
+        void* depthTexturePtr,
+        void* motionTexturePtr,
+        const wchar_t* runtimePath,
+        const wchar_t* applicationDataPath,
+        unsigned long long applicationId,
+        int perfQualityValue,
+        int featureFlags,
+        float jitterOffsetX,
+        float jitterOffsetY,
+        float motionVectorScaleX,
+        float motionVectorScaleY,
+        float sharpness,
+        int reset)
+    {
+        EvaluateTextureInfo color{};
+        EvaluateTextureInfo output{};
+        EvaluateTextureInfo depth{};
+        EvaluateTextureInfo motion{};
+        char error[384] = {};
+
+        if (!TryDescribeEvaluateTexture("color", colorTexturePtr, &color, error, sizeof(error))
+            || !TryDescribeEvaluateTexture("output", outputTexturePtr, &output, error, sizeof(error))
+            || !TryDescribeEvaluateTexture("depth", depthTexturePtr, &depth, error, sizeof(error))
+            || !TryDescribeEvaluateTexture("motion", motionTexturePtr, &motion, error, sizeof(error)))
+        {
+            char message[512];
+            std::snprintf(message, sizeof(message), "DLSS evaluate probe failed: %s", error);
+            SetDlssEvaluateStatus(message);
+            ReleaseEvaluateTextureInfo(&color);
+            ReleaseEvaluateTextureInfo(&output);
+            ReleaseEvaluateTextureInfo(&depth);
+            ReleaseEvaluateTextureInfo(&motion);
+            return 0;
+        }
+
+        const bool sameDevice = color.device == output.device
+            && color.device == depth.device
+            && color.device == motion.device;
+        const bool depthMatchesColor = EvaluateInputDimensionsMatch(color, depth);
+        const bool motionMatchesColor = EvaluateInputDimensionsMatch(color, motion);
+        if (!sameDevice || !depthMatchesColor || !motionMatchesColor)
+        {
+            char message[640];
+            std::snprintf(
+                message,
+                sizeof(message),
+                "DLSS evaluate probe failed: invalid input tuple; sameDevice=%s; color=%ux%u output=%ux%u depth=%ux%u motion=%ux%u",
+                sameDevice ? "yes" : "no",
+                color.width,
+                color.height,
+                output.width,
+                output.height,
+                depth.width,
+                depth.height,
+                motion.width,
+                motion.height);
+            SetDlssEvaluateStatus(message);
+            ReleaseEvaluateTextureInfo(&color);
+            ReleaseEvaluateTextureInfo(&output);
+            ReleaseEvaluateTextureInfo(&depth);
+            ReleaseEvaluateTextureInfo(&motion);
+            return 0;
+        }
+
+        ID3D11Resource* colorResource = nullptr;
+        ID3D11Resource* outputResource = nullptr;
+        ID3D11Resource* depthResource = nullptr;
+        ID3D11Resource* motionResource = nullptr;
+        ID3D11DeviceContext* context = nullptr;
+        NVSDK_NGX_Parameter* parameters = nullptr;
+        NVSDK_NGX_Handle* feature = nullptr;
+        NVSDK_NGX_Result initResult = NVSDK_NGX_Result_FAIL_FeatureNotSupported;
+        NVSDK_NGX_Result capabilityResult = NVSDK_NGX_Result_FAIL_FeatureNotSupported;
+        NVSDK_NGX_Result createResult = NVSDK_NGX_Result_FAIL_FeatureNotSupported;
+        NVSDK_NGX_Result evaluateResult = NVSDK_NGX_Result_FAIL_FeatureNotSupported;
+        NVSDK_NGX_Result releaseResult = NVSDK_NGX_Result_Success;
+        NVSDK_NGX_Result destroyResult = NVSDK_NGX_Result_Success;
+        NVSDK_NGX_Result shutdownResult = NVSDK_NGX_Result_Success;
+        int available = -1;
+        NgxResult availableResult = 0;
+
+        if (!TryQueryD3D11Resource("color", colorTexturePtr, &colorResource, error, sizeof(error))
+            || !TryQueryD3D11Resource("output", outputTexturePtr, &outputResource, error, sizeof(error))
+            || !TryQueryD3D11Resource("depth", depthTexturePtr, &depthResource, error, sizeof(error))
+            || !TryQueryD3D11Resource("motion", motionTexturePtr, &motionResource, error, sizeof(error)))
+        {
+            char message[512];
+            std::snprintf(message, sizeof(message), "DLSS evaluate probe failed: %s", error);
+            SetDlssEvaluateStatus(message);
+            if (colorResource != nullptr) { colorResource->Release(); }
+            if (outputResource != nullptr) { outputResource->Release(); }
+            if (depthResource != nullptr) { depthResource->Release(); }
+            if (motionResource != nullptr) { motionResource->Release(); }
+            ReleaseEvaluateTextureInfo(&color);
+            ReleaseEvaluateTextureInfo(&output);
+            ReleaseEvaluateTextureInfo(&depth);
+            ReleaseEvaluateTextureInfo(&motion);
+            return 0;
+        }
+
+        color.device->GetImmediateContext(&context);
+        if (context == nullptr)
+        {
+            SetDlssEvaluateStatus("DLSS evaluate probe failed: D3D11 device did not return an immediate context");
+            colorResource->Release();
+            outputResource->Release();
+            depthResource->Release();
+            motionResource->Release();
+            ReleaseEvaluateTextureInfo(&color);
+            ReleaseEvaluateTextureInfo(&output);
+            ReleaseEvaluateTextureInfo(&depth);
+            ReleaseEvaluateTextureInfo(&motion);
+            return 0;
+        }
+
+        NVSDK_NGX_FeatureCommonInfo featureInfo{};
+        std::wstring runtimeDirectory;
+        const char* initRoute = "";
+        initResult = InitializeNgxD3D11WithSdkWrapper(
+            color.device,
+            runtimePath,
+            applicationDataPath,
+            applicationId,
+            &featureInfo,
+            &runtimeDirectory,
+            &initRoute);
+
+        if (initResult == NVSDK_NGX_Result_Success)
+        {
+            capabilityResult = NVSDK_NGX_D3D11_GetCapabilityParameters(&parameters);
+            if (capabilityResult == NVSDK_NGX_Result_Success && parameters != nullptr)
+            {
+                TryGetNgxIntParameterFromSdkWrapper(
+                    parameters,
+                    NVSDK_NGX_Parameter_SuperSampling_Available,
+                    &available,
+                    &availableResult);
+
+                if (available == 1)
+                {
+                    NVSDK_NGX_DLSS_Create_Params createParams{};
+                    createParams.Feature.InWidth = color.width;
+                    createParams.Feature.InHeight = color.height;
+                    createParams.Feature.InTargetWidth = output.width;
+                    createParams.Feature.InTargetHeight = output.height;
+                    createParams.Feature.InPerfQualityValue = static_cast<NVSDK_NGX_PerfQuality_Value>(perfQualityValue);
+                    createParams.InFeatureCreateFlags = featureFlags;
+                    createParams.InEnableOutputSubrects = false;
+                    createResult = NGX_D3D11_CREATE_DLSS_EXT(context, &feature, parameters, &createParams);
+
+                    if (createResult == NVSDK_NGX_Result_Success && feature != nullptr)
+                    {
+                        NVSDK_NGX_D3D11_DLSS_Eval_Params evalParams{};
+                        evalParams.Feature.pInColor = colorResource;
+                        evalParams.Feature.pInOutput = outputResource;
+                        evalParams.Feature.InSharpness = sharpness;
+                        evalParams.pInDepth = depthResource;
+                        evalParams.pInMotionVectors = motionResource;
+                        evalParams.InJitterOffsetX = jitterOffsetX;
+                        evalParams.InJitterOffsetY = jitterOffsetY;
+                        evalParams.InRenderSubrectDimensions.Width = color.width;
+                        evalParams.InRenderSubrectDimensions.Height = color.height;
+                        evalParams.InReset = reset;
+                        evalParams.InMVScaleX = motionVectorScaleX == 0.0f ? 1.0f : motionVectorScaleX;
+                        evalParams.InMVScaleY = motionVectorScaleY == 0.0f ? 1.0f : motionVectorScaleY;
+                        evalParams.InPreExposure = 1.0f;
+                        evalParams.InExposureScale = 1.0f;
+                        evaluateResult = NGX_D3D11_EVALUATE_DLSS_EXT(context, feature, parameters, &evalParams);
+                    }
+                }
+            }
+        }
+
+        if (feature != nullptr)
+        {
+            releaseResult = NVSDK_NGX_D3D11_ReleaseFeature(feature);
+        }
+
+        if (parameters != nullptr)
+        {
+            destroyResult = NVSDK_NGX_D3D11_DestroyParameters(parameters);
+        }
+
+        if (initResult == NVSDK_NGX_Result_Success)
+        {
+            shutdownResult = NVSDK_NGX_D3D11_Shutdown1(color.device);
+        }
+
+        char message[1600];
+        std::snprintf(
+            message,
+            sizeof(message),
+            "DLSS evaluate probe completed via %s; appId=%llu; init=0x%08X; capability=0x%08X; available=%d(result=0x%08X); render=%ux%u; target=%ux%u; perfQuality=%d; flags=0x%08X; jitter=(%.4f,%.4f); mvScale=(%.4f,%.4f); sharpness=%.4f; reset=%d; create=0x%08X; feature=%s; evaluate=0x%08X; release=0x%08X; destroy=0x%08X; shutdown=0x%08X",
+            initRoute,
+            applicationId,
+            static_cast<NgxResult>(initResult),
+            static_cast<NgxResult>(capabilityResult),
+            available,
+            availableResult,
+            color.width,
+            color.height,
+            output.width,
+            output.height,
+            perfQualityValue,
+            static_cast<unsigned int>(featureFlags),
+            jitterOffsetX,
+            jitterOffsetY,
+            motionVectorScaleX == 0.0f ? 1.0f : motionVectorScaleX,
+            motionVectorScaleY == 0.0f ? 1.0f : motionVectorScaleY,
+            sharpness,
+            reset,
+            static_cast<NgxResult>(createResult),
+            feature != nullptr ? "yes" : "no",
+            static_cast<NgxResult>(evaluateResult),
+            static_cast<NgxResult>(releaseResult),
+            static_cast<NgxResult>(destroyResult),
+            static_cast<NgxResult>(shutdownResult));
+        SetDlssEvaluateStatus(message);
+
+        context->Release();
+        colorResource->Release();
+        outputResource->Release();
+        depthResource->Release();
+        motionResource->Release();
+        ReleaseEvaluateTextureInfo(&color);
+        ReleaseEvaluateTextureInfo(&output);
+        ReleaseEvaluateTextureInfo(&depth);
+        ReleaseEvaluateTextureInfo(&motion);
+
+        return initResult == NVSDK_NGX_Result_Success
+            && capabilityResult == NVSDK_NGX_Result_Success
+            && available == 1
+            && createResult == NVSDK_NGX_Result_Success
+            && feature != nullptr
+            && evaluateResult == NVSDK_NGX_Result_Success
+            && releaseResult == NVSDK_NGX_Result_Success
+            && destroyResult == NVSDK_NGX_Result_Success
+            && shutdownResult == NVSDK_NGX_Result_Success
+            ? 1
+            : 0;
+    }
 #endif
 
     void SetD3D11ProbeStatusFormatted(
@@ -663,7 +951,7 @@ extern "C"
 {
     int __cdecl VrisingDlss_GetBridgeApiVersion()
     {
-        return 7;
+        return 8;
     }
 
     const char* __cdecl VrisingDlss_GetBridgeVersion()
@@ -1240,5 +1528,75 @@ extern "C"
     {
         std::lock_guard<std::mutex> lock(g_probeStatusMutex);
         return g_dlssEvaluateInputStatus;
+    }
+
+    int __cdecl VrisingDlss_ProbeDlssEvaluate(
+        void* colorTexturePtr,
+        void* outputTexturePtr,
+        void* depthTexturePtr,
+        void* motionTexturePtr,
+        const wchar_t* runtimePath,
+        const wchar_t* applicationDataPath,
+        unsigned long long applicationId,
+        int perfQualityValue,
+        int featureFlags,
+        float jitterOffsetX,
+        float jitterOffsetY,
+        float motionVectorScaleX,
+        float motionVectorScaleY,
+        float sharpness,
+        int reset)
+    {
+        if (runtimePath == nullptr || runtimePath[0] == L'\0')
+        {
+            SetDlssEvaluateStatus("DLSS evaluate probe skipped: runtime path was empty");
+            return 0;
+        }
+
+        const wchar_t* appDataPath = applicationDataPath != nullptr && applicationDataPath[0] != L'\0'
+            ? applicationDataPath
+            : L".";
+
+#if !defined(VRISINGDLSS_ENABLE_NGX_SDK_WRAPPER)
+        (void)colorTexturePtr;
+        (void)outputTexturePtr;
+        (void)depthTexturePtr;
+        (void)motionTexturePtr;
+        (void)appDataPath;
+        (void)applicationId;
+        (void)perfQualityValue;
+        (void)featureFlags;
+        (void)jitterOffsetX;
+        (void)jitterOffsetY;
+        (void)motionVectorScaleX;
+        (void)motionVectorScaleY;
+        (void)sharpness;
+        (void)reset;
+        SetDlssEvaluateStatus("DLSS evaluate probe blocked: native bridge was built without NVIDIA SDK wrapper integration");
+        return 0;
+#else
+        return ProbeDlssEvaluateWithSdkWrapper(
+            colorTexturePtr,
+            outputTexturePtr,
+            depthTexturePtr,
+            motionTexturePtr,
+            runtimePath,
+            appDataPath,
+            applicationId,
+            perfQualityValue,
+            featureFlags,
+            jitterOffsetX,
+            jitterOffsetY,
+            motionVectorScaleX,
+            motionVectorScaleY,
+            sharpness,
+            reset);
+#endif
+    }
+
+    const char* __cdecl VrisingDlss_GetDlssEvaluateStatus()
+    {
+        std::lock_guard<std::mutex> lock(g_probeStatusMutex);
+        return g_dlssEvaluateStatus;
     }
 }

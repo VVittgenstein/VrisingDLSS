@@ -196,6 +196,7 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
     $runtimeNextRecommendation = $runtimeStatus.NextRecommendation
     $stageResults = @($runtimeStatus.StageResults)
     $stage8A = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 8A"
+    $stage8B = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 8B"
     $stage7 = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 7"
     $stage6 = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 6"
     $loader = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 1"
@@ -215,10 +216,20 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
         -Requirement "Stage 8A proves same-frame color/output/depth/motion D3D11 inputs for DLSS evaluate." `
         -Status $(if ($stage8A -eq "Pass") { "Pass" } elseif ($stage8A -eq "Fail") { "Fail" } elseif ($stage8A -eq "Missing") { "Missing" } else { "Blocked" }) `
         -Evidence "Stage 8A=$stage8A; Next=$($runtimeStatus.NextRecommendation)"))
+    $items.Add((New-ReadinessItem `
+        -Area "Runtime" `
+        -Requirement "Stage 8B proves a guarded SDK-wrapper DLSS evaluate call can run against the accepted frame resources." `
+        -Status $(if ($stage8B -eq "Pass") { "Pass" } elseif ($stage8B -eq "Fail") { "Fail" } elseif ($stage8B -eq "Missing") { "Missing" } else { "Blocked" }) `
+        -Evidence "Stage 8B=$stage8B; Next=$($runtimeStatus.NextRecommendation)"))
 } else {
     $items.Add((New-ReadinessItem `
         -Area "Runtime" `
         -Requirement "Stage 8A proves same-frame color/output/depth/motion D3D11 inputs for DLSS evaluate." `
+        -Status "Missing" `
+        -Evidence "Pass -GamePath to include runtime validation evidence."))
+    $items.Add((New-ReadinessItem `
+        -Area "Runtime" `
+        -Requirement "Stage 8B proves a guarded SDK-wrapper DLSS evaluate call can run against the accepted frame resources." `
         -Status "Missing" `
         -Evidence "Pass -GamePath to include runtime validation evidence."))
 }
@@ -247,7 +258,7 @@ $items.Add((New-ReadinessItem `
     -Area "MVP" `
     -Requirement "Normal-user DLSS enable/disable changes rendering correctly and safely." `
     -Status "Blocked" `
-    -Evidence "EnableDLSS is exposed, and Stage 8A frame inputs have local proof when present in the latest runtime log, but the guarded DLSS evaluate path and image-correctness validation are not implemented yet."))
+    -Evidence "EnableDLSS is exposed, and Stage 8A frame inputs have local proof when present in the latest runtime log, but Stage 8B/image-correctness validation and normal-user rendering integration are not complete yet."))
 
 $mvpBlockingStatuses = @("Fail", "Blocked", "Missing")
 $hardFailures = @($items | Where-Object { $_.Status -eq "Fail" })
@@ -274,6 +285,12 @@ $summary = [pscustomobject]@{
     Items = $items
     NextRecommendation = if ($mvpReady) {
         "MVP evidence is complete. Prepare a final release review."
+    } elseif (@($items | Where-Object { $_.Requirement -like "Stage 8B*" -and $_.Status -ne "Pass" }).Count -gt 0) {
+        if (-not [string]::IsNullOrWhiteSpace($runtimeNextRecommendation)) {
+            $runtimeNextRecommendation
+        } else {
+            "Run scripts\run-vrising-diagnostic.ps1 -Stage dlss-evaluate with a local SDK-wrapper native build, DLSS runtime path, and DLSS disabled by default."
+        }
     } elseif (@($items | Where-Object { $_.Requirement -like "Stage 8A*" -and $_.Status -ne "Pass" }).Count -gt 0) {
         if (-not [string]::IsNullOrWhiteSpace($runtimeNextRecommendation)) {
             $runtimeNextRecommendation
@@ -281,7 +298,7 @@ $summary = [pscustomobject]@{
             "Pass -GamePath to include runtime validation evidence, then run scripts\run-vrising-diagnostic.ps1 -Stage dlss-evaluate-inputs in a local/private gameplay scene."
         }
     } else {
-        "Implement the guarded SDK-wrapper DLSS evaluate path, then validate image correctness and fallback behavior before public release."
+        "Validate image correctness, output selection, resize/reset handling, and fallback behavior before public release."
     }
     LaunchesGame = $false
 }

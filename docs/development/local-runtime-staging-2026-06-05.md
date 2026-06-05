@@ -51,7 +51,7 @@ Current validated evidence:
 - Stage 1 loader: pass. `VrisingDLSS 0.1.0 loaded.`
 - Stage 2 hook probe: pass. `CustomVignette` was found in `ProjectM`; `HDRenderPipeline.UpdateShaderVariablesGlobalCB(HDCamera, CommandBuffer)` was found in HDRP.
 - Stage 2B upscaler state probe: pass in a main-menu run. Initial HDRP upscale state was `GetUpscaleFilter=CatmullRom` and `GetUpscaleRes=100`. During startup V Rising called `HDRenderPipeline.SetFSRParameters(1, true)` and then `HDRenderPipeline.SetUpscaleFilter(EdgeAdaptiveScalingUpres, 0.59)`, after which the snapshot reported `GetUpscaleFilter=EdgeAdaptiveScalingUpres` and `GetUpscaleRes=58.999996`.
-- Stage 4 native bridge: pass. Native bridge API version `7` is the current build-validated bridge API. Archived runtime logs through Stage 7 used API version `6`.
+- Stage 4 native bridge: pass. Native bridge API version `8` is the current build-validated bridge API. Archived runtime logs through Stage 7 used API version `6`; Stage 8A pass evidence used API version `7`.
 - Stage 5A render thread: pass. `HDRenderPipeline.UpdateShaderVariablesGlobalCB` issued `CommandBuffer.IssuePluginEvent`; native callback count advanced to `1`.
 - Stage 5B D3D11 texture: pass. Temporary `RenderTexture` pointer was recognized as a D3D11 resource/device.
 - Stage 5C frame resources: pass. All-low main-menu run reached `HDRenderPipeline.UpdateShaderVariablesGlobalCB`; `_CameraDepthTexture` was found and D3D11-probed. `_CameraMotionVectorsTexture` was `null` in that scene/settings.
@@ -136,5 +136,5 @@ No PureDark files were copied into the game plugin folder. The NVIDIA runtime wa
 Next implementation gate:
 
 - Keep ordinary `dlss-evaluate-inputs` diagnostics safe by leaving `Diagnostics.EnableRenderGraphDiagnosticPass=false`, `Diagnostics.EnableExistingRenderFuncProbe=false`, `Diagnostics.EnableFrameResourceProbe=false`, and `Diagnostics.EnableHarmonyCallProbe=false`.
-- Implement the smallest SDK-wrapper-backed DLSS evaluate probe from the accepted passive `GetTexture` input tuple while keeping `DLSS.EnableDLSS=false` by default.
+- Run the Stage 8B SDK-wrapper-backed DLSS evaluate diagnostic from the accepted passive `GetTexture` input tuple while keeping `DLSS.EnableDLSS=false` by default.
 - Validate output selection, image correctness, jitter/pre-exposure, resize/reset behavior, and fallback behavior in a local/private gameplay scene before any public MVP release.

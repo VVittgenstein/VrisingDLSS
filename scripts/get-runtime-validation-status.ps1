@@ -69,6 +69,7 @@ function Get-ConfiguredStage {
         [hashtable]$Config
     )
 
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssEvaluateProbe") { return "dlss-evaluate" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssEvaluateInputProbe") { return "dlss-evaluate-inputs" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssPassResourceProbe") { return "dlsspass-resource" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssFeatureCreateProbe") { return "dlss-feature-create" }
@@ -141,8 +142,21 @@ function Get-NextRecommendation {
     }
 
     $evaluateInputs = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 8A"
+    $evaluate = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 8B"
+    if ($evaluate -eq "Pass") {
+        return "Stage 8B DLSS evaluate passed. Next engineering step is image-correctness validation, output selection, resize/reset handling, and fallback behavior in local/private gameplay."
+    }
+
+    if ($evaluate -eq "Blocked") {
+        return "Stage 8B is blocked until the native bridge is built with the optional NVIDIA SDK wrapper path and DLSS.DlssRuntimePath points to a local research runtime."
+    }
+
+    if ($evaluate -eq "Fail") {
+        return "Stage 8B reached the native evaluate path but failed. Preserve the DLSS evaluate status line and inspect create/evaluate/result codes, output selection, jitter, and motion-vector assumptions."
+    }
+
     if ($evaluateInputs -eq "Pass") {
-        return "Stage 8A evaluate-input probing passed. Next engineering step is a guarded SDK-wrapper DLSS evaluate call with DLSS disabled by default."
+        return "Stage 8A evaluate-input probing passed. Next engineering step is scripts\run-vrising-diagnostic.ps1 -GamePath `"$($Inspect.GamePath)`" -Stage dlss-evaluate with a local SDK-wrapper native build, DLSS runtime path, and DLSS disabled by default."
     }
 
     if ($evaluateInputs -eq "Blocked") {

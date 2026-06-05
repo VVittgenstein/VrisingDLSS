@@ -12,6 +12,7 @@ internal sealed class ModConfig
     internal ConfigEntry<bool> EnableDlssInitQueryProbe { get; }
     internal ConfigEntry<bool> EnableDlssFeatureCreateProbe { get; }
     internal ConfigEntry<bool> EnableDlssEvaluateInputProbe { get; }
+    internal ConfigEntry<bool> EnableDlssEvaluateProbe { get; }
     internal ConfigEntry<bool> EnableRenderGraphDiagnosticPass { get; }
     internal ConfigEntry<bool> EnableExistingRenderFuncProbe { get; }
     internal ConfigEntry<bool> EnableResourceMaterializationProbe { get; }
@@ -43,6 +44,7 @@ internal sealed class ModConfig
         EnableDlssInitQueryProbe = config.Bind("Diagnostics", "EnableDlssInitQueryProbe", false, "Guarded NGX init/query diagnostic with a temporary RenderTexture D3D11 device. May report blocked until NVIDIA SDK wrapper integration exists; does not create or evaluate a DLSS feature.");
         EnableDlssFeatureCreateProbe = config.Bind("Diagnostics", "EnableDlssFeatureCreateProbe", false, "SDK-wrapper DLSS feature create/release diagnostic with a temporary RenderTexture D3D11 device. Diagnostic only; does not evaluate a frame.");
         EnableDlssEvaluateInputProbe = config.Bind("Diagnostics", "EnableDlssEvaluateInputProbe", false, "Validate same-frame color/output/depth/motion D3D11 texture inputs for the future DLSS evaluate path. Diagnostic only; does not evaluate a frame.");
+        EnableDlssEvaluateProbe = config.Bind("Diagnostics", "EnableDlssEvaluateProbe", false, "High-risk SDK-wrapper diagnostic that creates a DLSS feature and evaluates one discovered frame-resource tuple. Leave false unless deliberate local/private testing is intentional.");
         EnableRenderGraphDiagnosticPass = config.Bind("Diagnostics", "EnableRenderGraphDiagnosticPass", false, "High-risk research-only RenderGraph pass injection for Stage 8A. Leave false unless crash-recovery testing is intentional.");
         EnableExistingRenderFuncProbe = config.Bind("Diagnostics", "EnableExistingRenderFuncProbe", false, "High-risk research-only patching of compiler-generated HDRP RenderGraph render functions. Leave false unless crash-recovery testing is intentional.");
         EnableResourceMaterializationProbe = config.Bind("Diagnostics", "EnableResourceMaterializationProbe", false, "Patch RenderGraph texture resource creation callbacks to observe already-created RTHandle/native texture resources during Stage 8A. Diagnostic only.");

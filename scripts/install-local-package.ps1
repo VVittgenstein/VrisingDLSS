@@ -77,7 +77,7 @@ This folder intentionally does not include:
 - NVIDIA nvngx_dlss.dll.
 - V Rising game files.
 
-This diagnostic scaffold does not evaluate DLSS yet.
+Normal-user DLSS rendering is not implemented yet. Guarded DLSS evaluate diagnostics are local research only and remain disabled by default.
 "@
 
 $forbiddenNearbyNames = @(

@@ -15,10 +15,11 @@
 - Added guarded user-supplied DLSS init/query probe interface; full capability query requires NVIDIA SDK wrapper integration.
 - Added optional local SDK-wrapper research build path; not enabled or packaged by default.
 - Added optional local SDK-wrapper DLSS feature create/release probe interface; not enabled or packaged by default.
-- Added real-frame DLSS evaluate input probe interface; validates color/output/depth/motion D3D11 resources but does not evaluate DLSS.
+- Added real-frame DLSS evaluate input probe interface; validates color/output/depth/motion D3D11 resources before any evaluate call.
+- Added guarded one-shot DLSS evaluate diagnostic interface for local SDK-wrapper research builds; release-safe builds report blocked and package defaults keep it disabled.
 - Added BepInExPack staging helper for local/offline tests.
 - Added source-side diagnostic config, log analysis, and runtime status helpers.
 - Kept Stage 8A helper configs from enabling broad Harmony call logging by default.
 - Added local install helper and third-party notices.
 - Added Thunderstore package validation for diagnostic-package wording and safe default config toggles.
-- No DLSS frame evaluation yet.
+- No normal-user DLSS rendering path yet.

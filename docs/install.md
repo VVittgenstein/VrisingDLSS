@@ -81,7 +81,7 @@ powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -Ga
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-feature-create -DlssRuntimePath "C:\path\to\nvngx_dlss.dll" -DlssApplicationId "0"
 ```
 
-Supported stages are `loader`, `native`, `harmony-call`, `render-thread`, `d3d11`, `frame-resource`, `upscaler-state`, `dlss-runtime`, `dlss-init-query`, `dlss-feature-create`, `dlss-evaluate-inputs`, and `dlsspass-resource`.
+Supported stages are `loader`, `native`, `harmony-call`, `render-thread`, `d3d11`, `frame-resource`, `upscaler-state`, `dlss-runtime`, `dlss-init-query`, `dlss-feature-create`, `dlss-evaluate-inputs`, `dlss-evaluate`, and `dlsspass-resource`.
 
 ## Diagnostic Run Helper
 
@@ -123,6 +123,8 @@ The next diagnostic switch, `Diagnostics.EnableDlssInitQueryProbe=true`, current
 For local SDK-wrapper research builds, `Diagnostics.EnableDlssFeatureCreateProbe=true` can create and immediately release a DLSS SuperSampling feature through the same temporary D3D11 device path. This still does not evaluate a frame.
 
 `Diagnostics.EnableDlssEvaluateInputProbe=true` validates whether real color/output/depth/motion frame resources are present and D3D11-compatible in the same hook callback. This does not require a DLSS runtime and still does not evaluate a frame. The `dlss-evaluate-inputs` helper also enables `Diagnostics.EnableResourceMaterializationProbe=true` and `Diagnostics.EnableUpscalerStateProbe=true`, but leaves `Diagnostics.EnableHarmonyCallProbe=false` so broad call logging does not interfere with Stage 8A. The ordinary diagnostic does not patch compiler-generated HDRP render functions; that rejected route is gated separately by `Diagnostics.EnableExistingRenderFuncProbe=false`.
+
+`Diagnostics.EnableDlssEvaluateProbe=true` is the Stage 8B local research switch. It reuses a successful Stage 8A tuple, then asks a local SDK-wrapper native build to create a DLSS feature, call one guarded D3D11 DLSS evaluate, and release/shutdown immediately. Release-safe builds report blocked. Use `scripts\run-vrising-diagnostic.ps1 -Stage dlss-evaluate` only in local/private testing with `DLSS.DlssRuntimePath` set; this is still not the normal-user `DLSS.EnableDLSS` path.
 
 `Diagnostics.EnableDlssPassResourceProbe=true` is a separate research switch for the HDRP DLSSPass resource-helper route. It patches `DLSSPass.GetViewResources` and `DLSSPass.GetCameraResources`, not `DLSSPass.Render`, and logs source/output/depth/motion-vector texture pointers when those helpers return real `Texture` objects. Use `scripts\write-diagnostic-config.ps1 -Stage dlsspass-resource` for this isolated test; it is not enabled by the ordinary `dlss-evaluate-inputs` helper.
 

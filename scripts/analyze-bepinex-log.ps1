@@ -197,6 +197,13 @@ $results.Add((New-StageResult `
     -BlockedPatterns @("DLSS evaluate input probe blocked:") `
     -StartedPatterns @("DLSS evaluate input probe enabled.", "RenderGraph diagnostic pass injected", "RenderGraph diagnostic pass configured", "Frame resource existing HDRP render-func probe patched", "Existing HDRP render-func scope", "RenderGraph resource materialization probe enabled.", "Frame resource RenderGraph materialization probe patched", "RenderGraph texture materialization #", "DLSSPass resource helper probe", "DLSSPass resource helper #")))
 
+$results.Add((New-StageResult `
+    -Stage "Stage 8B DLSS Evaluate" `
+    -PassPatterns @("DLSS evaluate probe succeeded:", "DLSS evaluate probe succeeded from") `
+    -FailPatterns @("DLSS evaluate probe failed:", "DLSS evaluate probe failed from", "DLSS evaluate probe skipped:", "DLSS evaluate probe skipped from") `
+    -BlockedPatterns @("DLSS evaluate probe blocked:", "DLSS evaluate probe blocked from") `
+    -StartedPatterns @("DLSS evaluate probe enabled.", "DLSS evaluate probe candidate #")))
+
 $results
 
 if ($FailOnProblems) {

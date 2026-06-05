@@ -43,4 +43,21 @@ extern "C"
         void* depthTexturePtr,
         void* motionTexturePtr);
     VRISINGDLSS_API const char* __cdecl VrisingDlss_GetDlssEvaluateInputStatus();
+    VRISINGDLSS_API int __cdecl VrisingDlss_ProbeDlssEvaluate(
+        void* colorTexturePtr,
+        void* outputTexturePtr,
+        void* depthTexturePtr,
+        void* motionTexturePtr,
+        const wchar_t* runtimePath,
+        const wchar_t* applicationDataPath,
+        unsigned long long applicationId,
+        int perfQualityValue,
+        int featureFlags,
+        float jitterOffsetX,
+        float jitterOffsetY,
+        float motionVectorScaleX,
+        float motionVectorScaleY,
+        float sharpness,
+        int reset);
+    VRISINGDLSS_API const char* __cdecl VrisingDlss_GetDlssEvaluateStatus();
 }

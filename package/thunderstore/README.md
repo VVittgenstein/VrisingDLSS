@@ -30,9 +30,10 @@ This package template is not ready for public gameplay use yet. The current sour
 - Optionally runs a guarded NGX init/query diagnostic; current source-only builds are expected to report blocked until NVIDIA SDK wrapper integration exists.
 - Optionally runs an SDK-wrapper DLSS feature create/release diagnostic in local research builds; release-safe builds are expected to report blocked.
 - Optionally validates real-frame color/output/depth/motion D3D11 inputs for the future DLSS evaluate path.
+- Optionally runs a guarded one-shot DLSS evaluate diagnostic in local SDK-wrapper research builds; release-safe builds are expected to report blocked and the packaged config keeps this disabled.
 - Includes a mod-folder configuration file at `BepInEx/plugins/VrisingDLSS/VrisingDLSS.cfg`.
 - Exposes the planned DLSS/Advanced configuration keys, but `DLSS.EnableDLSS=true` only logs a warning in this diagnostic package and does not change rendering yet.
 - Keeps the high-risk injected RenderGraph diagnostic pass disabled by default after it caused a gameplay crash during Stage 8A research.
 - Stages the plugin payload under `BepInEx/plugins/VrisingDLSS/` inside the package zip.
 - Source repository includes helper scripts for BepInExPack staging, one-stage diagnostic config generation, BepInEx log analysis, and next-step status reporting.
-- Does not evaluate DLSS yet.
+- Does not enable normal-user DLSS rendering yet.

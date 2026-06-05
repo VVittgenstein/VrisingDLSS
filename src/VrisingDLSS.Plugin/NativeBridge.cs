@@ -25,6 +25,8 @@ internal sealed class NativeBridge
     private GetStringPointerDelegate? _getDlssFeatureCreateStatus;
     private ProbeDlssEvaluateInputsDelegate? _probeDlssEvaluateInputs;
     private GetStringPointerDelegate? _getDlssEvaluateInputStatus;
+    private ProbeDlssEvaluateDelegate? _probeDlssEvaluate;
+    private GetStringPointerDelegate? _getDlssEvaluateStatus;
 
     internal NativeBridge(ManualLogSource log)
     {
@@ -62,6 +64,8 @@ internal sealed class NativeBridge
         _getDlssFeatureCreateStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetDlssFeatureCreateStatus");
         _probeDlssEvaluateInputs = GetOptionalExport<ProbeDlssEvaluateInputsDelegate>("VrisingDlss_ProbeDlssEvaluateInputs");
         _getDlssEvaluateInputStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetDlssEvaluateInputStatus");
+        _probeDlssEvaluate = GetOptionalExport<ProbeDlssEvaluateDelegate>("VrisingDlss_ProbeDlssEvaluate");
+        _getDlssEvaluateStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetDlssEvaluateStatus");
 
         return _getBridgeApiVersion is not null
             && _getBridgeVersion is not null
@@ -133,6 +137,41 @@ internal sealed class NativeBridge
 
     internal string GetDlssEvaluateInputStatus() => PtrToString(_getDlssEvaluateInputStatus?.Invoke() ?? IntPtr.Zero);
 
+    internal bool ProbeDlssEvaluate(
+        IntPtr colorTexturePtr,
+        IntPtr outputTexturePtr,
+        IntPtr depthTexturePtr,
+        IntPtr motionTexturePtr,
+        string runtimePath,
+        string applicationDataPath,
+        ulong applicationId,
+        int perfQualityValue,
+        int featureFlags,
+        float jitterOffsetX,
+        float jitterOffsetY,
+        float motionVectorScaleX,
+        float motionVectorScaleY,
+        float sharpness,
+        int reset) =>
+        _probeDlssEvaluate?.Invoke(
+            colorTexturePtr,
+            outputTexturePtr,
+            depthTexturePtr,
+            motionTexturePtr,
+            runtimePath,
+            applicationDataPath,
+            applicationId,
+            perfQualityValue,
+            featureFlags,
+            jitterOffsetX,
+            jitterOffsetY,
+            motionVectorScaleX,
+            motionVectorScaleY,
+            sharpness,
+            reset) == 1;
+
+    internal string GetDlssEvaluateStatus() => PtrToString(_getDlssEvaluateStatus?.Invoke() ?? IntPtr.Zero);
+
     private T? GetExport<T>(string exportName) where T : Delegate
     {
         var address = NativeMethods.GetProcAddress(_library, exportName);
@@ -201,6 +240,24 @@ internal sealed class NativeBridge
         IntPtr outputTexturePtr,
         IntPtr depthTexturePtr,
         IntPtr motionTexturePtr);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+    private delegate int ProbeDlssEvaluateDelegate(
+        IntPtr colorTexturePtr,
+        IntPtr outputTexturePtr,
+        IntPtr depthTexturePtr,
+        IntPtr motionTexturePtr,
+        [MarshalAs(UnmanagedType.LPWStr)] string runtimePath,
+        [MarshalAs(UnmanagedType.LPWStr)] string applicationDataPath,
+        ulong applicationId,
+        int perfQualityValue,
+        int featureFlags,
+        float jitterOffsetX,
+        float jitterOffsetY,
+        float motionVectorScaleX,
+        float motionVectorScaleY,
+        float sharpness,
+        int reset);
 
     private static class NativeMethods
     {

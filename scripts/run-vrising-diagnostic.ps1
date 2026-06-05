@@ -14,6 +14,7 @@ param(
         "dlss-init-query",
         "dlss-feature-create",
         "dlss-evaluate-inputs",
+        "dlss-evaluate",
         "dlsspass-resource"
     )]
     [string]$Stage = "loader",

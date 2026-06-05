@@ -358,15 +358,32 @@ Current Stage 8A status:
 - A follow-up scripted run also exited early with the same `coreclr.dll` `0xc0000005` bucket after only the RenderGraph builder declaration, execution-scope, GetTexture postfix, and materialization probes were enabled. The log stopped at builder declaration #40 and did not show materialization/GetTexture callbacks, so ordinary `dlss-evaluate-inputs` now also skips builder declaration and execution-scope prefix/postfix probes by default.
 - A later scripted `dlss-evaluate-inputs` run on 2026-06-05 limited ordinary Stage 8A to registry-level `BeginExecute(int)`, `CreateTextureCallback(RenderGraphContext, IRenderGraphResource)`, and the passive `GetTexture(TextureHandle&)` postfix. It ran for the full 75-second diagnostic window with no matching Windows crash event. The log reported `DLSS evaluate input probe succeeded from RenderGraph GetTexture` with same-device D3D11 resources: `CameraColor`, `Apply Exposure Destination`, `CameraDepthStencil`, and `Motion Vectors`, all at `720x480`.
 - Local static inspection confirms V Rising exposes HDRP FSR/upscale/DLSS landmarks, including `HDRenderPipeline.SetFSRParameters(float, bool)`, `GetUpscaleRes()`, `SetUpscaleFilter(DynamicResUpscaleFilter, float)`, `GetUpscaleFilter()`, `SetupDLSSForCameraDataAndDynamicResHandler(...)`, `GetPostprocessUpsampledOutputHandle(...)`, `DoDLSSPasses(...)`, `DoDLSSPass(...)`, and `DoTemporalAntialiasing(...)`. FSR1 is useful for locating the existing dynamic-resolution path, but it is not enough for DLSS because DLSS still needs aligned depth and motion-vector inputs.
-- Current next route: keep the accepted Stage 8A path limited to the `GetTexture` postfix plus resource-materialization callback probe by default, then implement the smallest guarded SDK-wrapper DLSS evaluate call using the validated resource tuple while `DLSS.EnableDLSS=false` remains the package default. Do not inject a new RenderGraph pass, patch compiler-generated render functions, patch ordinary HDRP render-resource prefix targets, or patch RenderGraph builder declaration methods in normal diagnostics.
+- Current next route: keep the accepted Stage 8A path limited to the `GetTexture` postfix plus resource-materialization callback probe by default, then runtime-test the Stage 8B guarded SDK-wrapper DLSS evaluate diagnostic while `DLSS.EnableDLSS=false` remains the package default. Do not inject a new RenderGraph pass, patch compiler-generated render functions, patch ordinary HDRP render-resource prefix targets, or patch RenderGraph builder declaration methods in normal diagnostics.
 - See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.
 
-## Stage 8: First DLSS Evaluate
+## Stage 8B: First Guarded DLSS Evaluate Diagnostic
 
-Not implemented yet.
+Implemented and build-validated, but not yet game-runtime validated.
+
+Scope:
+
+- Config key: `Diagnostics.EnableDlssEvaluateProbe=false` by default.
+- Helper stage: `scripts\run-vrising-diagnostic.ps1 -Stage dlss-evaluate`.
+- Reuses Stage 8A's accepted frame-resource tuple instead of installing new hook routes.
+- Calls `VrisingDlss_ProbeDlssEvaluate` only after `VrisingDlss_ProbeDlssEvaluateInputs` succeeds.
+- Release-safe native builds report blocked because `VRISINGDLSS_ENABLE_NGX_SDK_WRAPPER=OFF` by default.
+- Local SDK-wrapper research builds create a DLSS SuperSampling feature from the discovered color/output dimensions, run one `NGX_D3D11_EVALUATE_DLSS_EXT` call with jitter `(0,0)`, motion-vector scale `(1,1)`, pre-exposure/exposure-scale `1`, then release/destroy/shutdown.
+- This is still diagnostic-only. It does not make `DLSS.EnableDLSS=true` a normal-user rendering path.
 
 Pass criteria:
 
-- Depth, motion vectors, jitter, render size, and color buffers are frame-aligned.
-- One DLSS evaluate path can be toggled on/off.
+- Stage 8A passes in the same run.
+- The native status line reports `create=0x00000001`, `evaluate=0x00000001`, `release=0x00000001`, `destroy=0x00000001`, and `shutdown=0x00000001`.
 - Game does not black-screen or crash.
+
+Current Stage 8B status:
+
+- Implemented in C# and native bridge API version 8.
+- Release-safe w64devkit native build passes.
+- Local MSVC SDK-wrapper native build passes.
+- Runtime validation against V Rising is pending.
