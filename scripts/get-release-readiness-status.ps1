@@ -79,6 +79,7 @@ function Get-FirstStageStatus {
 
 $resolvedRoot = (Resolve-Path -LiteralPath $Root).Path
 $items = New-Object System.Collections.Generic.List[object]
+$runtimeNextRecommendation = $null
 
 $manifestPath = Join-Path $resolvedRoot "package\thunderstore\manifest.json"
 $packageReadmePath = Join-Path $resolvedRoot "package\thunderstore\README.md"
@@ -192,6 +193,7 @@ if (Test-Path -LiteralPath $workflowPath) {
 
 if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
     $runtimeStatus = & (Join-Path $resolvedRoot "scripts\get-runtime-validation-status.ps1") -Root $resolvedRoot -GamePath $GamePath
+    $runtimeNextRecommendation = $runtimeStatus.NextRecommendation
     $stageResults = @($runtimeStatus.StageResults)
     $stage8A = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 8A"
     $stage7 = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 7"
@@ -273,7 +275,11 @@ $summary = [pscustomobject]@{
     NextRecommendation = if ($mvpReady) {
         "MVP evidence is complete. Prepare a final release review."
     } elseif (@($items | Where-Object { $_.Requirement -like "Stage 8A*" -and $_.Status -ne "Pass" }).Count -gt 0) {
-        "Run dlss-evaluate-inputs in a local/private gameplay scene and get Stage 8A to Pass before implementing the guarded DLSS evaluate path."
+        if (-not [string]::IsNullOrWhiteSpace($runtimeNextRecommendation)) {
+            $runtimeNextRecommendation
+        } else {
+            "Pass -GamePath to include runtime validation evidence, then run scripts\run-vrising-diagnostic.ps1 -Stage dlss-evaluate-inputs in a local/private gameplay scene."
+        }
     } else {
         "Resolve blocked/missing readiness items before public release."
     }
