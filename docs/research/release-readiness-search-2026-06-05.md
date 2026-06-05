@@ -28,6 +28,7 @@ This is engineering research, not legal advice.
 - Narrowed Stage 8A helper configuration after a main-menu run crashed with `coreclr.dll` `0xc00000fd` while broad Harmony call logging patched `DLSSPass.Render`. `dlss-evaluate-inputs` no longer enables broad call logging, and Harmony call probing now uses a conservative target list.
 - Re-ran the narrowed Stage 8A helper in the main menu with broad Harmony call logging disabled. It ran through the diagnostic window without a Windows crash event, but produced only `Partial` evidence because no RenderGraph texture materialization or successful engine-owned `GetTexture` callback was observed there.
 - Inspected Unity HDRP `DLSSPass` interop and confirmed its resource model contains `source`, `output`, `depth`, and `motionVectors`. A targeted runtime prefix on `DLSSPass.Render` was rejected after it crashed V Rising in `UnityPlayer.dll` with `0x80000003` before the prefix logged.
+- Cross-checked Unity's 2022.3 HDRP `DLSSPass.cs` source against the local V Rising interop. The official source confirms the same source/output/depth/motion-vector grouping and shows that HDRP's NVIDIA path also depends on render size, final viewport, TAA jitter, reset state, and pre-exposure. The local metadata probe now records this as a static interop check.
 
 ## Sources Checked
 
@@ -88,6 +89,9 @@ This is engineering research, not legal advice.
 - Unity HDRP 14 dynamic-resolution docs: `https://docs.unity.cn/Packages/com.unity.render-pipelines.high-definition%4014.0/manual/Dynamic-Resolution.html`
   - Dynamic resolution lowers the main render target resolution and upscales to the back buffer at the end of the frame.
   - HDRP's upscale filter list includes DLSS, FSR1, TAA Upscale, CAS, and Catmull-Rom, with FSR1 documented as a spatial upscaler.
+- Unity 2022.3 HDRP `DLSSPass.cs` source: `https://raw.githubusercontent.com/Unity-Technologies/Graphics/2022.3/staging/Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/RenderPass/DLSSPass.cs`
+  - `ViewResourceHandles` groups source/output/depth/motion-vector resources.
+  - The NVIDIA render path submits source, depth, motion vectors, optional bias color mask, and output with jitter, reset, render-size, and viewport state.
 - Unity 2022.3 NVIDIA module scripting API: `https://docs.unity3d.com/2022.3/Documentation/ScriptReference/UnityEngine.NVIDIAModule.html`
   - Documents the Unity NVIDIA module, plugin loading, DLSS context/resource structures, and feature availability APIs.
 - Unity RenderGraph texture-use manual: `https://docs.unity.cn/6000.0/Documentation/Manual/urp/render-graph-read-write-texture.html`

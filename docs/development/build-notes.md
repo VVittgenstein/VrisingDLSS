@@ -128,3 +128,5 @@ To check render metadata and local upscaler runtime DLL candidates without modif
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\probe-vrising-render-metadata.ps1 -GamePath "C:\path\to\VRising"
 ```
+
+When BepInEx interop has already been generated and `ilspycmd` is available, the same command also statically checks the generated HDRP interop assembly for `DLSSPass` source/output/depth/motion-vector resource fields and the local FSR/upscale/DLSS route methods. This probe is read-only and does not launch V Rising.

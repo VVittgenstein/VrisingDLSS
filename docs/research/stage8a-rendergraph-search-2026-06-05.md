@@ -55,6 +55,21 @@ Inference for this project:
 - The next evaluate-input probe should run inside a valid RenderGraph pass or inside an engine-owned RenderGraph execution callback after HDRP has declared the texture usage.
 - A safe diagnostic pass should declare at least the color, depth, and motion-vector `TextureHandle`s as reads and a separate output texture as a write/attachment. It should then convert to `RTHandle`/`Texture` only inside `SetRenderFunc`.
 
+### Unity HDRP DLSSPass Resource Shape
+
+Unity's 2022.3 HDRP `DLSSPass.cs` source matches the generated V Rising interop shape. `DLSSPass.ViewResourceHandles` groups `source`, `output`, `depth`, `motionVectors`, and optional `biasColorMask`. `GetViewResources` turns those handles into `Texture` objects, `GetCameraResources` wraps them into camera/view resources, and the NVIDIA render path uses the camera's actual render size, final viewport, TAA jitter, reset flag, pre-exposure, and the source/depth/motion/output textures when it submits DLSS work.
+
+Local static check: `scripts\probe-vrising-render-metadata.ps1` now optionally decompiles `BepInEx\interop\Unity.RenderPipelines.HighDefinition.Runtime.dll` with `ilspycmd` and confirms those resource fields plus the related HDRP FSR/upscale/DLSS methods without launching the game or patching runtime methods.
+
+Source:
+
+- `https://raw.githubusercontent.com/Unity-Technologies/Graphics/2022.3/staging/Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/RenderPass/DLSSPass.cs`
+
+Inference for this project:
+
+- The built-in HDRP DLSS pass is a strong map for the resource and parameter set needed by a clean-room direct NGX path.
+- It does not make `DLSSPass.Render` a safe hook point. Local runtime evidence rejects patching that method in the current V Rising IL2CPP build.
+
 ### HDRP Dynamic Resolution and FSR Landmarks
 
 Unity's HDRP dynamic-resolution documentation groups DLSS, FSR2, FSR1, TAA Upscale, Catmull-Rom, and CAS as upscale filters that operate after HDRP renders at a lower resolution. Unity's HDRP asset documentation describes FSR1 as a spatial super-resolution option in that same upscale-filter area.
