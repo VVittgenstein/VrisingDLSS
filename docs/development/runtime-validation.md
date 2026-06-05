@@ -623,6 +623,8 @@ Scope:
 - Restores the release-safe native DLL and loader config after each run, including after the SDK-wrapper Stage 10A candidate.
 - Writes only ignored local artifacts under `artifacts\runtime-logs` and `artifacts\visual-validation`.
 - Candidate visual runs default to `KeepDlssVisibleWritebackProbeRunning=true` and `WaitForStage10A=true`, so screenshots wait for the `sequenceSuccesses=30/30` milestone while the visible write-back candidate keeps evaluating until cleanup.
+- Performance capture is enabled by default when `C:\Software\PresentMon\PresentMon-2.4.1-x64.exe` is available. Each baseline/candidate run writes PresentMon frame CSV, CPU/GPU metrics CSV, and a readable FPS/CPU/GPU summary under `artifacts\fps-validation`.
+- `-AttachExistingBaseline` can attach to a V Rising process that the tester already launched for the baseline run. This is read-only before capture and is useful when the tester has already entered the target scene manually.
 
 Example dry run:
 
@@ -633,16 +635,22 @@ powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.p
 Example paired gameplay run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\Software\VRising" -DurationSeconds 240 -CaptureAtSeconds 170 -WaitForStage10A $true -KeepCandidateWritebackRunning $true -DlssRuntimePath "Z:\VrisingDLSS\ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll"
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\Software\VRising" -DurationSeconds 240 -CaptureAtSeconds 170 -CapturePerformance:$true -WaitForStage10A:$true -KeepCandidateWritebackRunning:$true -DlssRuntimePath "Z:\VrisingDLSS\ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll"
 ```
 
 Example manual-ready paired gameplay run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\Software\VRising" -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -WaitForStage10A $true -KeepCandidateWritebackRunning $true -DlssRuntimePath "Z:\VrisingDLSS\ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll"
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\Software\VRising" -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -CapturePerformance:$true -WaitForStage10A:$true -KeepCandidateWritebackRunning:$true -DlssRuntimePath "Z:\VrisingDLSS\ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll"
 ```
 
 When `-ManualCapture` is used, the tester enters the matching local/private scene and then creates the ready file. Capture waits for the ready file and will not fire before `-CaptureAtSeconds`, which keeps the Stage 10A candidate from being captured too early.
+
+Example attached baseline run after the tester has already launched the game and entered the target scene:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\Software\VRising" -Mode BaselineOnly -AttachExistingBaseline -CaptureAtSeconds 5 -CapturePerformance:$true -PerformanceSeconds 30
+```
 
 Create the ready file from another PowerShell session, or let Codex create it after the tester says the scene is ready:
 
@@ -659,3 +667,4 @@ Current helper smoke status:
 - The helper smoke PNGs matched dimensions (`480x320`) and had `MeanAbsRgbDelta=0`, `MaxAbsRgbDelta=0`, and identical SHA-256 hashes for the static main-menu state. This remains a harness smoke test, not gameplay image-correctness proof.
 - A manual-ready `BaselineOnly` smoke run on 2026-06-05 used a ready file to trigger capture, captured successfully after the ready marker appeared, reported child script exit code `0`, archived logs, closed the game, reported no matching Windows crash event, and restored the release-safe native DLL plus loader config.
 - A later `CandidateOnly` smoke run on 2026-06-05 used `WaitForStage10A=true` and hold mode. The helper waited until the BepInEx log contained `sequenceSuccesses=30/30`, captured while `keepRunning=True`, archived logs, reported no matching Windows crash event, closed the game, and restored the release-safe native DLL plus loader config.
+- A 4K high-settings baseline performance sample on 2026-06-05 captured 30 seconds of PresentMon data and CPU/GPU metrics, reporting `AverageFps=74.861`, `OnePercentLowFps=55.49`, `AverageProcessCpuPercent=3.496`, `AverageGpuUtilPercent=100`, and `AverageGpuMemoryUsedMb=6864.667`. Its initial visual screenshot was rejected as a `PrintWindow` near-binary black/white false frame, and the capture helper now falls back to `ScreenCopy` for that pattern.

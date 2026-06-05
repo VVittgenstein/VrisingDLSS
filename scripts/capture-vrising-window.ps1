@@ -493,6 +493,10 @@ if ($Method -eq "Auto" -or $Method -eq "PrintWindow") {
             $fallbackReason = "PrintWindow returned a near-white image."
             $bitmap.Dispose()
             $bitmap = $null
+        } elseif ($Method -eq "Auto" -and ($stats.NearBlackRatio + $stats.NearWhiteRatio) -gt 0.985) {
+            $fallbackReason = "PrintWindow returned a near-binary black/white image."
+            $bitmap.Dispose()
+            $bitmap = $null
         } else {
             $selectedMethod = "PrintWindow"
         }

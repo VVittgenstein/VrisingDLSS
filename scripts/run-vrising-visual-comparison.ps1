@@ -13,9 +13,17 @@ param(
     [switch]$ManualCapture,
     [string]$ReadyFile,
     [int]$ReadyTimeoutSeconds = 600,
-    [bool]$WaitForStage10A = $true,
+    [switch]$AttachExistingBaseline,
+    $CapturePerformance = $true,
+    [int]$PerformanceSeconds = 30,
+    [int]$PerformanceDelaySeconds = 1,
+    [int]$PerformanceMetricsIntervalMs = 1000,
+    [string]$PresentMonPath = "C:\Software\PresentMon\PresentMon-2.4.1-x64.exe",
+    [string]$NvidiaSmiPath = "nvidia-smi.exe",
+    [switch]$SkipSystemMetrics,
+    $WaitForStage10A = $true,
     [int]$Stage10ATimeoutSeconds = 600,
-    [bool]$KeepCandidateWritebackRunning = $true,
+    $KeepCandidateWritebackRunning = $true,
     [string]$DlssRuntimePath = "",
     [string]$DlssApplicationId = "0",
     [string]$SdkWrapperNativePath,
@@ -24,6 +32,41 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+function Convert-ToBooleanOption {
+    param(
+        $Value,
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
+
+    if ($Value -is [bool]) {
+        return $Value
+    }
+
+    if ($null -eq $Value) {
+        throw "$Name cannot be null."
+    }
+
+    if ($Value -is [int] -or $Value -is [long]) {
+        return ([long]$Value) -ne 0
+    }
+
+    $text = ([string]$Value).Trim()
+    switch ($text.ToLowerInvariant()) {
+        "true" { return $true }
+        "false" { return $false }
+        "1" { return $true }
+        "0" { return $false }
+        "yes" { return $true }
+        "no" { return $false }
+        default { throw "$Name must be a boolean value. Use true/false or 1/0." }
+    }
+}
+
+$capturePerformanceEnabled = Convert-ToBooleanOption -Value $CapturePerformance -Name "CapturePerformance"
+$waitForStage10AEnabled = Convert-ToBooleanOption -Value $WaitForStage10A -Name "WaitForStage10A"
+$keepCandidateWritebackRunningEnabled = Convert-ToBooleanOption -Value $KeepCandidateWritebackRunning -Name "KeepCandidateWritebackRunning"
 
 if ($DurationSeconds -lt 30) {
     throw "DurationSeconds must be at least 30."
@@ -45,6 +88,18 @@ if ($ReadyTimeoutSeconds -lt 30) {
     throw "ReadyTimeoutSeconds must be at least 30."
 }
 
+if ($PerformanceSeconds -lt 3) {
+    throw "PerformanceSeconds must be at least 3."
+}
+
+if ($PerformanceDelaySeconds -lt 0) {
+    throw "PerformanceDelaySeconds cannot be negative."
+}
+
+if ($PerformanceMetricsIntervalMs -lt 250) {
+    throw "PerformanceMetricsIntervalMs must be at least 250."
+}
+
 if ($Stage10ATimeoutSeconds -lt 30) {
     throw "Stage10ATimeoutSeconds must be at least 30."
 }
@@ -61,6 +116,7 @@ $nativeTargetPath = Join-Path $pluginPath "VrisingDLSS.Native.dll"
 $logPath = Join-Path $resolvedGamePath "BepInEx\LogOutput.log"
 $runtimeLogRoot = Join-Path $resolvedRoot "artifacts\runtime-logs"
 $visualRoot = Join-Path $resolvedRoot "artifacts\visual-validation"
+$fpsRoot = Join-Path $resolvedRoot "artifacts\fps-validation"
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 
 if ([string]::IsNullOrWhiteSpace($ArtifactLabel)) {
@@ -361,6 +417,43 @@ function Wait-ForStage10AVisibleWriteback {
     }
 }
 
+function Invoke-PerformanceCapture {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Diagnostics.Process]$Process,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Label
+    )
+
+    if (-not $capturePerformanceEnabled) {
+        return $null
+    }
+
+    if (-not (Get-Process -Id $Process.Id -ErrorAction SilentlyContinue)) {
+        Write-Warning "Performance capture skipped for ${Label}: VRising process is no longer running."
+        return $null
+    }
+
+    $parameters = @{
+        ArtifactLabel = $Label
+        ProcessId = $Process.Id
+        Seconds = $PerformanceSeconds
+        DelaySeconds = $PerformanceDelaySeconds
+        MetricsIntervalMs = $PerformanceMetricsIntervalMs
+        PresentMonPath = $PresentMonPath
+        NvidiaSmiPath = $NvidiaSmiPath
+    }
+
+    if ($SkipSystemMetrics) {
+        $parameters.SkipSystemMetrics = $true
+    }
+
+    $performance = Invoke-ProjectScript -RelativePath "scripts\capture-vrising-fps.ps1" -Parameters $parameters
+    $performance | Format-List | Out-String -Width 220 | Write-Host
+    return $performance
+}
+
 function Invoke-VisualRun {
     param(
         [Parameter(Mandatory = $true)]
@@ -370,44 +463,63 @@ function Invoke-VisualRun {
         [string]$Label,
 
         [Parameter(Mandatory = $true)]
-        [bool]$UseSdkWrapperNative
+        [bool]$UseSdkWrapperNative,
+
+        [bool]$AttachExistingProcess = $false
     )
 
     $runStart = Get-Date
     $process = $null
     $capture = $null
+    $performance = $null
     $closedByScript = $false
     $exitedBeforeCapture = $false
     $captureReadyTimedOut = $false
     $manualReadyDetectedAt = $null
     $stage10AReadyTimedOut = $false
     $stage10ADetectedAt = $null
-    $waitedForStage10A = $WaitForStage10A -and $UseSdkWrapperNative -and $Stage -eq "dlss-visible-writeback"
+    $waitedForStage10A = $waitForStage10AEnabled -and $UseSdkWrapperNative -and $Stage -eq "dlss-visible-writeback"
 
     try {
-        if (-not $SkipInstall) {
-            Invoke-ProjectScript -RelativePath "scripts\install-local-package.ps1" -Parameters @{ GamePath = $resolvedGamePath } | Out-Host
-        }
-
-        if ($UseSdkWrapperNative) {
-            if (-not (Test-Path -LiteralPath $sdkWrapperNativeResolved)) {
-                throw "SDK-wrapper native DLL was not found: $sdkWrapperNativeResolved"
-            }
-            if ([string]::IsNullOrWhiteSpace($DlssRuntimePath) -or -not (Test-Path -LiteralPath $DlssRuntimePath)) {
-                throw "Candidate visual run requires -DlssRuntimePath pointing to a local nvngx_dlss.dll."
+        if ($AttachExistingProcess) {
+            if ($UseSdkWrapperNative) {
+                throw "AttachExistingProcess is only supported for baseline loader runs."
             }
 
-            New-Item -ItemType Directory -Force -Path $pluginPath | Out-Null
-            Copy-Item -LiteralPath $sdkWrapperNativeResolved -Destination $nativeTargetPath -Force
-        }
+            $process = Get-VRisingProcess |
+                Sort-Object StartTime -Descending |
+                Select-Object -First 1
+            if (-not $process) {
+                throw "No running VRising process was found for the attached baseline run."
+            }
 
-        Invoke-ProjectScript -RelativePath "scripts\write-diagnostic-config.ps1" -Parameters @{
-            GamePath = $resolvedGamePath
-            Stage = $Stage
-            DlssRuntimePath = $DlssRuntimePath
-            DlssApplicationId = $DlssApplicationId
-            KeepVisibleWritebackRunning = ($UseSdkWrapperNative -and $Stage -eq "dlss-visible-writeback" -and $KeepCandidateWritebackRunning)
-        } | Out-Host
+            Write-Host "Attached to existing VRising pid=$($process.Id) for baseline capture."
+            Write-Host "Attached baseline setup is read-only before capture; no config or DLL files are rewritten until cleanup."
+        } else {
+            if (-not $SkipInstall) {
+                Invoke-ProjectScript -RelativePath "scripts\install-local-package.ps1" -Parameters @{ GamePath = $resolvedGamePath } | Out-Host
+            }
+
+            if ($UseSdkWrapperNative) {
+                if (-not (Test-Path -LiteralPath $sdkWrapperNativeResolved)) {
+                    throw "SDK-wrapper native DLL was not found: $sdkWrapperNativeResolved"
+                }
+                if ([string]::IsNullOrWhiteSpace($DlssRuntimePath) -or -not (Test-Path -LiteralPath $DlssRuntimePath)) {
+                    throw "Candidate visual run requires -DlssRuntimePath pointing to a local nvngx_dlss.dll."
+                }
+
+                New-Item -ItemType Directory -Force -Path $pluginPath | Out-Null
+                Copy-Item -LiteralPath $sdkWrapperNativeResolved -Destination $nativeTargetPath -Force
+            }
+
+            Invoke-ProjectScript -RelativePath "scripts\write-diagnostic-config.ps1" -Parameters @{
+                GamePath = $resolvedGamePath
+                Stage = $Stage
+                DlssRuntimePath = $DlssRuntimePath
+                DlssApplicationId = $DlssApplicationId
+                KeepVisibleWritebackRunning = ($UseSdkWrapperNative -and $Stage -eq "dlss-visible-writeback" -and $keepCandidateWritebackRunningEnabled)
+            } | Out-Host
+        }
 
         Write-Host "VisualRunStart=$($runStart.ToString('o'))"
         Write-Host "VisualRunStage=$Stage"
@@ -419,8 +531,10 @@ function Invoke-VisualRun {
         }
 
         $logStartOffset = if (Test-Path -LiteralPath $logPath) { (Get-Item -LiteralPath $logPath).Length } else { 0L }
-        $process = Start-Process -FilePath $exePath -WorkingDirectory $resolvedGamePath -PassThru
-        Write-Host "Started VRising pid=$($process.Id)"
+        if (-not $AttachExistingProcess) {
+            $process = Start-Process -FilePath $exePath -WorkingDirectory $resolvedGamePath -PassThru
+            Write-Host "Started VRising pid=$($process.Id)"
+        }
 
         if ($ManualCapture) {
             $ready = Wait-ForManualCaptureReady -Process $process -RunStart $runStart -Label $Label
@@ -454,6 +568,10 @@ function Invoke-VisualRun {
             $capture | Format-List | Out-String -Width 220 | Write-Host
         }
 
+        if (-not $exitedBeforeCapture -and -not $captureReadyTimedOut -and -not $stage10AReadyTimedOut) {
+            $performance = Invoke-PerformanceCapture -Process $process -Label $Label
+        }
+
         if (-not $exitedBeforeCapture) {
             [void](Wait-UntilRunSecond -Process $process -RunStart $runStart -Second $DurationSeconds)
         }
@@ -470,6 +588,18 @@ function Invoke-VisualRun {
         Label = $Label
         CapturePath = $(if ($capture) { $capture.Path } else { "" })
         CaptureMethod = $(if ($capture) { $capture.Method } else { "" })
+        PerformanceCsvPath = $(if ($performance) { $performance.CsvPath } else { "" })
+        PerformanceMetricsPath = $(if ($performance) { $performance.MetricsPath } else { "" })
+        PerformanceSummaryPath = $(if ($performance) { $performance.SummaryPath } else { "" })
+        AverageFps = $(if ($performance) { $performance.AverageFps } else { $null })
+        OnePercentLowFps = $(if ($performance) { $performance.OnePercentLowFps } else { $null })
+        AverageFrameMs = $(if ($performance) { $performance.AverageFrameMs } else { $null })
+        P95FrameMs = $(if ($performance) { $performance.P95FrameMs } else { $null })
+        P99FrameMs = $(if ($performance) { $performance.P99FrameMs } else { $null })
+        AverageProcessCpuPercent = $(if ($performance) { $performance.AverageProcessCpuPercent } else { $null })
+        AverageGpuUtilPercent = $(if ($performance) { $performance.AverageGpuUtilPercent } else { $null })
+        AverageGpuMemoryUsedMb = $(if ($performance) { $performance.AverageGpuMemoryUsedMb } else { $null })
+        AverageGpuPowerW = $(if ($performance) { $performance.AverageGpuPowerW } else { $null })
         ManualCapture = [bool]$ManualCapture
         ManualReadyFile = $(if ($ManualCapture) { $readyFileResolved } else { "" })
         ManualReadyDetectedAt = $(if ($manualReadyDetectedAt) { $manualReadyDetectedAt.ToString("o") } else { "" })
@@ -477,7 +607,7 @@ function Invoke-VisualRun {
         WaitedForStage10A = $waitedForStage10A
         Stage10ADetectedAt = $(if ($stage10ADetectedAt) { $stage10ADetectedAt.ToString("o") } else { "" })
         Stage10AReadyTimedOut = $stage10AReadyTimedOut
-        KeepCandidateWritebackRunning = $(if ($UseSdkWrapperNative -and $Stage -eq "dlss-visible-writeback") { $KeepCandidateWritebackRunning } else { $false })
+        KeepCandidateWritebackRunning = $(if ($UseSdkWrapperNative -and $Stage -eq "dlss-visible-writeback") { $keepCandidateWritebackRunningEnabled } else { $false })
         Width = $(if ($capture) { $capture.Width } else { 0 })
         Height = $(if ($capture) { $capture.Height } else { 0 })
         AverageLuma = $(if ($capture) { $capture.AverageLuma } else { 0 })
@@ -491,12 +621,17 @@ function Invoke-VisualRun {
         ExitedBeforeCapture = $exitedBeforeCapture
         ClosedByScript = $closedByScript
         RestoredReleaseSafeState = $true
-        LaunchesGame = $true
+        AttachedExistingProcess = $AttachExistingProcess
+        LaunchesGame = -not $AttachExistingProcess
     }
 }
 
 $existingProcess = Get-VRisingProcess | Select-Object -First 1
-if ($existingProcess) {
+if ($AttachExistingBaseline -and $Mode -eq "CandidateOnly") {
+    throw "AttachExistingBaseline cannot be used with CandidateOnly mode."
+}
+
+if ($existingProcess -and (-not $AttachExistingBaseline -or $Mode -eq "CandidateOnly")) {
     throw "VRising is already running (pid=$($existingProcess.Id)). Close it before running visual comparison."
 }
 
@@ -516,9 +651,16 @@ $plan = [pscustomobject]@{
     ManualCapture = [bool]$ManualCapture
     ReadyFile = $(if ($ManualCapture) { $readyFileResolved } else { "" })
     ReadyTimeoutSeconds = $(if ($ManualCapture) { $ReadyTimeoutSeconds } else { 0 })
-    WaitForStage10A = [bool]$WaitForStage10A
-    Stage10ATimeoutSeconds = $(if ($Mode -ne "BaselineOnly" -and $WaitForStage10A) { $Stage10ATimeoutSeconds } else { 0 })
-    KeepCandidateWritebackRunning = $(if ($Mode -ne "BaselineOnly") { $KeepCandidateWritebackRunning } else { $false })
+    AttachExistingBaseline = [bool]$AttachExistingBaseline
+    CapturePerformance = $capturePerformanceEnabled
+    PerformanceSeconds = $(if ($capturePerformanceEnabled) { $PerformanceSeconds } else { 0 })
+    PerformanceDelaySeconds = $(if ($capturePerformanceEnabled) { $PerformanceDelaySeconds } else { 0 })
+    PerformanceMetricsIntervalMs = $(if ($capturePerformanceEnabled) { $PerformanceMetricsIntervalMs } else { 0 })
+    PresentMonPath = $(if ($capturePerformanceEnabled) { $PresentMonPath } else { "" })
+    NvidiaSmiPath = $(if ($capturePerformanceEnabled -and -not $SkipSystemMetrics) { $NvidiaSmiPath } else { "" })
+    WaitForStage10A = $waitForStage10AEnabled
+    Stage10ATimeoutSeconds = $(if ($Mode -ne "BaselineOnly" -and $waitForStage10AEnabled) { $Stage10ATimeoutSeconds } else { 0 })
+    KeepCandidateWritebackRunning = $(if ($Mode -ne "BaselineOnly") { $keepCandidateWritebackRunningEnabled } else { $false })
     ArtifactLabel = $ArtifactLabel
     BaselineCapture = $(if ($Mode -ne "CandidateOnly") { $baselinePath } else { "" })
     CandidateCapture = $(if ($Mode -ne "BaselineOnly") { $candidatePath } else { "" })
@@ -526,7 +668,7 @@ $plan = [pscustomobject]@{
     DlssRuntimePath = $DlssRuntimePath
     SdkWrapperNativePath = $(if ($Mode -ne "BaselineOnly") { $sdkWrapperNativeResolved } else { "" })
     RestoresReleaseSafeState = $true
-    LaunchesGame = -not [bool]$DryRun
+    LaunchesGame = (-not [bool]$DryRun) -and (($Mode -ne "BaselineOnly") -or (-not [bool]$AttachExistingBaseline))
 }
 
 if ($DryRun) {
@@ -534,12 +676,12 @@ if ($DryRun) {
     return
 }
 
-New-Item -ItemType Directory -Force -Path $runtimeLogRoot, $visualRoot | Out-Null
+New-Item -ItemType Directory -Force -Path $runtimeLogRoot, $visualRoot, $fpsRoot | Out-Null
 
 $results = New-Object System.Collections.Generic.List[object]
 
 if ($Mode -ne "CandidateOnly") {
-    $results.Add((Invoke-VisualRun -Stage "loader" -Label $baselineLabel -UseSdkWrapperNative $false))
+    $results.Add((Invoke-VisualRun -Stage "loader" -Label $baselineLabel -UseSdkWrapperNative $false -AttachExistingProcess ([bool]$AttachExistingBaseline)))
 }
 
 if ($Mode -ne "BaselineOnly") {
@@ -574,5 +716,5 @@ if ($Mode -eq "Paired") {
     CandidateSha256 = $(if ($comparison) { $comparison.CandidateSha256 } else { "" })
     ProcessStillRunning = [bool](Get-VRisingProcess)
     RestoredReleaseSafeState = $true
-    LaunchesGame = $true
+    LaunchesGame = ($Mode -ne "BaselineOnly") -or (-not [bool]$AttachExistingBaseline)
 }
