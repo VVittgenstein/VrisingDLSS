@@ -9,7 +9,9 @@ This note records the current answer to a confusing testing question: DLSS Super
 - Unity Core RP `DynamicResolutionHandler` API: `https://docs.unity.cn/Packages/com.unity.render-pipelines.core%4012.1/api/UnityEngine.Rendering.DynamicResolutionHandler.html`
 - Unity Graphics HDRP Asset documentation/source mirror: `https://github.com/Unity-Technologies/Graphics/blob/master/Packages/com.unity.render-pipelines.high-definition/Documentation~/HDRP-Asset.md`
 - NVIDIA DLSS developer page: `https://developer.nvidia.com/rtx/dlss`
-- NVIDIA Streamline programming guide: `https://github.com/NVIDIA-RTX/Streamline/blob/main/docs/ProgrammingGuide.md`
+- NVIDIA Technical Blog, "Tips: Getting the Most out of the DLSS Unreal Engine 4 Plugin": `https://developer.nvidia.com/blog/?p=24048`
+- NVIDIA Technical Blog, "NVIDIA DLSS SDK Now Available for All Developers...": `https://developer.nvidia.com/blog/?p=34582`
+- NVIDIA Streamline DLSS programming guide: `https://github.com/NVIDIA-RTX/Streamline/blob/main/docs/ProgrammingGuideDLSS.md`
 
 ## What The Search Says
 
@@ -18,6 +20,21 @@ Unity's HDRP DLSS path is built on dynamic resolution. The official HDRP DLSS pa
 Unity's camera documentation exposes two relevant camera gates: `Allow Dynamic Resolution` and `Allow DLSS`. Its HDRP Asset documentation lists DLSS under `Advanced Upscalers By Priority`, separate from FSR1, FSR2, STP, TAA Upscale, and other fallback upscalers.
 
 NVIDIA's public DLSS page describes DLSS Super Resolution as producing higher-resolution frames from lower-resolution input, using motion data and feedback from previous frames. The Streamline guide makes the render-scale contract explicit: when using DLSS, the application asks for optimal settings from the selected DLSS mode and output size, then renders the viewport at the returned render width and height.
+
+## DLSS Render-Scale Parameters
+
+NVIDIA's Unreal Engine DLSS technical blog gives the default input-resolution percentages for the common DLSS Super Resolution modes:
+
+| DLSS mode | Source-backed default input scale | 3840x2160 output example |
+| --- | ---: | ---: |
+| Ultra Performance | 33% per axis, approximately | about 1280x720 |
+| Performance | 50% per axis | 1920x1080 |
+| Balanced | 58% per axis, approximately | about 2227x1253 before engine/runtime rounding |
+| Quality | 66% per axis, approximately | about 2560x1440 when using the common 2/3 mapping |
+
+For 4K validation, `DLSS.QualityMode=Performance` is therefore the right default diagnostic target: it asks HDRP to render roughly one quarter of the output pixels, `1920x1080 -> 3840x2160`, while still staying in a mode NVIDIA considers appropriate for 4K. NVIDIA's DLSS SDK blog also says DLSS Auto maps 4K to Performance, which supports using Performance as the first 4K MVP performance target.
+
+The production integration should still prefer runtime-provided optimal settings over fixed percentages. NVIDIA's Streamline DLSS guide says to call `slDLSSGetOptimalSettings` with the selected DLSS mode and output size, then set the viewport to the returned `renderWidth` and `renderHeight`. The current `RenderScaleControlProbe` percentages are therefore a diagnostic fallback and a stable way to reproduce the 4K Performance test tuple until the native bridge exposes an optimal-settings query.
 
 ## Local V Rising Interop Findings
 

@@ -13,6 +13,11 @@ internal static class RenderScaleControlProbe
     private const int MaxInitialLogs = 20;
     private const string GlobalDynamicResolutionSettingsTypeName = "UnityEngine.Rendering.GlobalDynamicResolutionSettings";
     private const string TaaUpscaleFilterName = "TAAU";
+    private const float DlaaRenderScalePercent = 100f;
+    private const float QualityRenderScalePercent = 66.6667f;
+    private const float BalancedRenderScalePercent = 58f;
+    private const float PerformanceRenderScalePercent = 50f;
+    private const float UltraPerformanceRenderScalePercent = 33.3333f;
 
     private static readonly RenderScaleProbeTarget[] Targets =
     {
@@ -548,11 +553,11 @@ internal static class RenderScaleControlProbe
 
         return ClampPercentage(Settings.QualityMode.Trim().Replace("-", string.Empty).Replace("_", string.Empty).ToLowerInvariant() switch
         {
-            "dlaa" => 100f,
-            "quality" => 66.6667f,
-            "balanced" => 58.3333f,
-            "ultraperformance" => 33.3333f,
-            _ => 50f,
+            "dlaa" => DlaaRenderScalePercent,
+            "quality" => QualityRenderScalePercent,
+            "balanced" => BalancedRenderScalePercent,
+            "ultraperformance" => UltraPerformanceRenderScalePercent,
+            _ => PerformanceRenderScalePercent,
         });
     }
 

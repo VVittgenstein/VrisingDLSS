@@ -42,6 +42,7 @@ Latest local validation: the C# plugin and native bridge build successfully, the
 - [Install guide](docs/install.md)
 - [MVP definition](docs/mvp.md)
 - [Troubleshooting](docs/troubleshooting.md)
+- [Operating principles](docs/development/operating-principles.md)
 - [Runtime validation plan](docs/development/runtime-validation.md)
 - [NGX/DLSS API notes](docs/development/ngx-api-notes.md)
 - [Build notes](docs/development/build-notes.md)
