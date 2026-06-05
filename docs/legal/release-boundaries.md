@@ -29,7 +29,7 @@ Before any package bundles `nvngx_dlss.dll`, NVIDIA SDK wrapper binaries, NVIDIA
 - NVIDIA files are not presented as covered by this project's MIT license.
 - Required NVIDIA license notices and trademark/disclaimer language are included.
 - The package does not imply NVIDIA sponsorship or endorsement.
-- Any applicable NVIDIA notification, trademark-placement, or technical-support obligations have been considered.
+- Any applicable NVIDIA notification, trademark-placement, OTA, support, or technical-quality obligations have been considered, including the RTX SDK supplement's notification requirement before commercial release of an application or plugin to a commercial application that incorporates or is based on DLSS/NGX SDKs.
 - A fallback package without NVIDIA runtime files remains available.
 
 ## User-Facing Disclaimer Requirements
@@ -40,6 +40,7 @@ Every public release should state:
 - Client-side graphics experiment.
 - No gameplay, network, cheat, or server protocol changes are intended.
 - Use on official/public servers is not guaranteed to be allowed.
+- Local/private testing is recommended before any server use.
 - Users are responsible for EULA and server-rule compliance.
 - The package is free and non-commercial.
 
