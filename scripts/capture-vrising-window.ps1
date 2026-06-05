@@ -78,6 +78,15 @@ public sealed class VrisingDlssWindowInfo
 
 public static class VrisingDlssWindowCaptureNative
 {
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool SetProcessDpiAwarenessContext(IntPtr dpiAwarenessContext);
+
+    [DllImport("shcore.dll", SetLastError = true)]
+    public static extern int SetProcessDpiAwareness(int value);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool SetProcessDPIAware();
+
     [StructLayout(LayoutKind.Sequential)]
     public struct RECT
     {
@@ -135,6 +144,50 @@ public static class VrisingDlssWindowCaptureNative
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
 
+    public static string TryEnableProcessDpiAwareness()
+    {
+        try
+        {
+            if (SetProcessDpiAwarenessContext(new IntPtr(-4)))
+            {
+                return "PerMonitorV2";
+            }
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            int result = SetProcessDpiAwareness(2);
+            if (result == 0)
+            {
+                return "PerMonitor";
+            }
+
+            if (result == unchecked((int)0x80070005))
+            {
+                return "AlreadySet";
+            }
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            if (SetProcessDPIAware())
+            {
+                return "System";
+            }
+        }
+        catch
+        {
+        }
+
+        return "Unchanged";
+    }
+
     public static VrisingDlssWindowInfo[] GetTopLevelWindowsForProcess(int processId)
     {
         List<VrisingDlssWindowInfo> windows = new List<VrisingDlssWindowInfo>();
@@ -177,6 +230,8 @@ public static class VrisingDlssWindowCaptureNative
     }
 }
 "@
+
+$dpiAwareness = [VrisingDlssWindowCaptureNative]::TryEnableProcessDpiAwareness()
 
 function Get-TargetProcess {
     param([string]$Name)
@@ -527,6 +582,7 @@ $hash = (Get-FileHash -LiteralPath $targetPath -Algorithm SHA256).Hash
     Path = $targetPath
     Method = $selectedMethod
     FallbackReason = $fallbackReason
+    DpiAwareness = $dpiAwareness
     ProcessId = $process.Id
     WindowHandle = ("0x{0:X}" -f $target.Handle.ToInt64())
     WindowTitle = $target.WindowTitle

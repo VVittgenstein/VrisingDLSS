@@ -73,6 +73,8 @@ The same status output reports baseline/candidate `AverageFps`, `OnePercentLowFp
 
 Use the same graphics settings, camera, scene, window mode, and resolution for baseline and candidate. Prefer a GPU-bound scene; if GPU utilization is low, the result may not demonstrate DLSS benefit even if the rendering path works.
 
+On Windows desktop scaling, capture helpers must report physical pixels rather than DPI-virtualized logical pixels. For example, a 3840x2160 display at 150% scaling can appear as 2560x1440 to a DPI-unaware PowerShell process. `scripts/capture-vrising-window.ps1` declares DPI awareness before enumerating and copying the V Rising client window so visual evidence can be checked against the actual output resolution.
+
 Recommended capture shape:
 
 - Warm up in the scene before starting the capture.
