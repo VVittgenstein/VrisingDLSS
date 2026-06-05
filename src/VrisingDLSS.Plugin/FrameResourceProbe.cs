@@ -13,8 +13,8 @@ internal static class FrameResourceProbe
 {
     private const string HarmonyId = PluginInfo.Guid + ".frame-resource-probe";
     private const int MaxInitialLogsPerMethod = 5;
-    private const int MaxRenderGraphBuilderDeclarationLogs = 80;
-    private const int MaxRenderGraphBuilderStackLogs = 12;
+    private const int MaxRenderGraphBuilderDeclarationLogs = 40;
+    private const int MaxRenderGraphBuilderStackLogs = 6;
     private const int MaxRenderGraphExecutionScopeLogs = 80;
     private const int MaxRenderGraphScopedEvaluateAttempts = 12;
     private const int MaxExistingRenderFuncLogs = 80;
@@ -43,9 +43,11 @@ internal static class FrameResourceProbe
     private static int RenderGraphResourceMaterializationEvaluateAttemptCount;
     private static int RenderGraphResourceMaterializationEpoch;
     private static int RenderGraphGetTextureCallCount;
+    private static int RenderGraphGetTextureEvaluateAttemptCount;
     private static int DlssPassResourceHelperCallCount;
     private static int DlssPassResourceEvaluateAttemptCount;
     private static readonly Dictionary<string, RenderGraphTextureCandidate> RenderGraphResourceMaterializationCandidates = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, RenderGraphTextureCandidate> RenderGraphGetTextureCandidates = new(StringComparer.OrdinalIgnoreCase);
     private static readonly string[] GlobalTextureNames =
     {
         "_CameraDepthTexture",
@@ -139,7 +141,7 @@ internal static class FrameResourceProbe
 
         var patched = 0;
         var patchedMethodKeys = new HashSet<string>(StringComparer.Ordinal);
-        if (enableFrameResourceProbe || enableDlssEvaluateInputProbe)
+        if (enableFrameResourceProbe)
         {
             foreach (var target in Targets)
             {
@@ -173,61 +175,75 @@ internal static class FrameResourceProbe
 
         if (DlssEvaluateInputProbeEnabled)
         {
-            var extendedPatched = 0;
-            foreach (var method in DiscoverExtendedFrameResourceMethods(assemblies))
+            if (enableFrameResourceProbe)
             {
-                if (TryPatchFrameResourceMethod(
-                    log,
-                    method,
-                    harmonyMethodConstructor,
-                    patchMethod,
-                    prefix,
-                    patchedMethodKeys,
-                    "Frame resource extended candidate"))
+                var extendedPatched = 0;
+                foreach (var method in DiscoverExtendedFrameResourceMethods(assemblies))
                 {
-                    patched++;
-                    extendedPatched++;
+                    if (TryPatchFrameResourceMethod(
+                        log,
+                        method,
+                        harmonyMethodConstructor,
+                        patchMethod,
+                        prefix,
+                        patchedMethodKeys,
+                        "Frame resource extended candidate"))
+                    {
+                        patched++;
+                        extendedPatched++;
+                    }
                 }
+
+                log.LogInfo($"Frame resource extended candidate probe patched {extendedPatched} method(s).");
+
+                var renderGraphPatched = 0;
+                foreach (var method in DiscoverRenderGraphFrameResourceMethods(assemblies))
+                {
+                    if (TryPatchFrameResourceMethod(
+                        log,
+                        method,
+                        harmonyMethodConstructor,
+                        patchMethod,
+                        prefix,
+                        patchedMethodKeys,
+                        "Frame resource RenderGraph candidate"))
+                    {
+                        patched++;
+                        renderGraphPatched++;
+                    }
+                }
+
+                log.LogInfo($"Frame resource RenderGraph candidate probe patched {renderGraphPatched} method(s).");
+            }
+            else
+            {
+                log.LogInfo("Frame resource ordinary HDRP prefix probes skipped for crash-safe Stage 8A. Enable Diagnostics.EnableFrameResourceProbe only for deliberate discovery.");
             }
 
-            log.LogInfo($"Frame resource extended candidate probe patched {extendedPatched} method(s).");
-
-            var renderGraphPatched = 0;
-            foreach (var method in DiscoverRenderGraphFrameResourceMethods(assemblies))
+            if (enableFrameResourceProbe)
             {
-                if (TryPatchFrameResourceMethod(
+                var renderGraphBuilderPatched = TryPatchRenderGraphBuilderDeclarationMethods(
                     log,
-                    method,
+                    assemblies,
                     harmonyMethodConstructor,
                     patchMethod,
-                    prefix,
-                    patchedMethodKeys,
-                    "Frame resource RenderGraph candidate"))
+                    patchedMethodKeys);
+                patched += renderGraphBuilderPatched;
+                log.LogInfo($"Frame resource RenderGraph builder declaration probe patched {renderGraphBuilderPatched} method(s).");
+
+                if (TryPatchRenderGraphExecutionScopeMethod(
+                    log,
+                    assemblies,
+                    harmonyMethodConstructor,
+                    patchMethod,
+                    patchedMethodKeys))
                 {
                     patched++;
-                    renderGraphPatched++;
                 }
             }
-
-            log.LogInfo($"Frame resource RenderGraph candidate probe patched {renderGraphPatched} method(s).");
-
-            var renderGraphBuilderPatched = TryPatchRenderGraphBuilderDeclarationMethods(
-                log,
-                assemblies,
-                harmonyMethodConstructor,
-                patchMethod,
-                patchedMethodKeys);
-            patched += renderGraphBuilderPatched;
-            log.LogInfo($"Frame resource RenderGraph builder declaration probe patched {renderGraphBuilderPatched} method(s).");
-
-            if (TryPatchRenderGraphExecutionScopeMethod(
-                log,
-                assemblies,
-                harmonyMethodConstructor,
-                patchMethod,
-                patchedMethodKeys))
+            else
             {
-                patched++;
+                log.LogInfo("Frame resource RenderGraph builder/execution-scope probes skipped for crash-safe Stage 8A. Enable Diagnostics.EnableFrameResourceProbe only for deliberate discovery.");
             }
 
             if (TryPatchRenderGraphGetTextureMethod(
@@ -352,6 +368,8 @@ internal static class FrameResourceProbe
                 RenderGraphResourceMaterializationEvaluateAttemptCount = 0;
                 RenderGraphResourceMaterializationEpoch = 0;
                 RenderGraphGetTextureCallCount = 0;
+                RenderGraphGetTextureEvaluateAttemptCount = 0;
+                RenderGraphGetTextureCandidates.Clear();
                 DlssPassResourceHelperCallCount = 0;
                 DlssPassResourceEvaluateAttemptCount = 0;
             }
@@ -1365,6 +1383,7 @@ internal static class FrameResourceProbe
             lock (Sync)
             {
                 RenderGraphResourceMaterializationCandidates.Clear();
+                RenderGraphGetTextureCandidates.Clear();
                 RenderGraphResourceMaterializationEpoch++;
             }
         }
@@ -1470,28 +1489,54 @@ internal static class FrameResourceProbe
                 count = RenderGraphGetTextureCallCount;
             }
 
-            if (count > MaxRenderGraphGetTextureLogs && count % 300 != 0)
-            {
-                return;
-            }
-
             var handle = __args is { Length: > 0 } ? __args[0] : null;
             var handleSummary = SummarizeValue(handle);
             var resultSummary = SummarizeValue(__result);
+            var resourceName = TryGetRenderGraphGetTextureResourceName(__instance, handle);
             if (__result is null)
             {
-                log.LogInfo($"RenderGraph GetTexture call #{count}: handle={handleSummary}; result=null; nativePtr=not found");
+                if (ShouldLogRenderGraphGetTexture(count))
+                {
+                    log.LogInfo($"RenderGraph GetTexture call #{count}: resourceName={resourceName ?? "unavailable"}; handle={handleSummary}; result=null; nativePtr=not found");
+                }
+
                 return;
             }
 
             if (!TryFindNativeTexturePtr(__result, out var owner, out var pointer) || pointer == IntPtr.Zero)
             {
-                log.LogInfo($"RenderGraph GetTexture call #{count}: handle={handleSummary}; result={resultSummary}; nativePtr=not found");
+                if (ShouldLogRenderGraphGetTexture(count))
+                {
+                    log.LogInfo($"RenderGraph GetTexture call #{count}: resourceName={resourceName ?? "unavailable"}; handle={handleSummary}; result={resultSummary}; nativePtr=not found");
+                }
+
+                return;
+            }
+
+            if (IsRenderGraphGetTextureCandidateResource(resourceName))
+            {
+                IReadOnlyList<RenderGraphTextureCandidate> snapshot;
+                lock (Sync)
+                {
+                    var candidate = new RenderGraphTextureCandidate(
+                        "RenderGraphResourceRegistry.GetTexture",
+                        resourceName!,
+                        pointer,
+                        $"GetTexture nativeOwner={SummarizeValue(owner ?? __result)}");
+                    RenderGraphGetTextureCandidates[resourceName!] = candidate;
+                    snapshot = RenderGraphGetTextureCandidates.Values.ToArray();
+                }
+
+                TryRunRenderGraphGetTextureDlssEvaluateInputProbe(log, bridge, snapshot);
+            }
+
+            if (!ShouldLogRenderGraphGetTexture(count))
+            {
                 return;
             }
 
             var ownerSummary = owner is null ? "unknown" : SummarizeValue(owner);
-            log.LogInfo($"RenderGraph GetTexture call #{count}: handle={handleSummary}; result={resultSummary}; nativeOwner={ownerSummary}; nativePtr=0x{pointer.ToInt64():X}");
+            log.LogInfo($"RenderGraph GetTexture call #{count}: resourceName={resourceName ?? "unavailable"}; handle={handleSummary}; result={resultSummary}; nativeOwner={ownerSummary}; nativePtr=0x{pointer.ToInt64():X}");
             var success = bridge.ProbeD3D11Texture(pointer);
             var status = bridge.GetD3D11ProbeStatus();
             if (success)
@@ -1507,6 +1552,11 @@ internal static class FrameResourceProbe
         {
             Log?.LogWarning($"RenderGraph GetTexture postfix failed: {GetExceptionMessage(ex)}");
         }
+    }
+
+    private static bool ShouldLogRenderGraphGetTexture(int count)
+    {
+        return count <= MaxRenderGraphGetTextureLogs || count % 300 == 0;
     }
 
     private static void TryRunDlssEvaluateInputProbe(
@@ -1763,6 +1813,68 @@ internal static class FrameResourceProbe
         else
         {
             log.LogWarning($"DLSS evaluate input probe failed from RenderGraph materialization: {status}");
+        }
+    }
+
+    private static void TryRunRenderGraphGetTextureDlssEvaluateInputProbe(
+        ManualLogSource log,
+        NativeBridge bridge,
+        IReadOnlyList<RenderGraphTextureCandidate> candidates)
+    {
+        if (DlssEvaluateInputProbeSucceeded)
+        {
+            return;
+        }
+
+        var available = candidates.Where(candidate => candidate.Pointer != IntPtr.Zero).ToArray();
+        var color = FindExistingRenderFuncCandidate(available, static candidate =>
+            string.Equals(candidate.ResourceName, "CameraColor", StringComparison.Ordinal));
+        var output = available
+            .Where(IsLikelyRenderGraphOutput)
+            .OrderByDescending(GetRenderGraphOutputPriority)
+            .FirstOrDefault();
+        var outputMissing = output.Pointer == IntPtr.Zero;
+        var depth = FindExistingRenderFuncCandidate(available, static candidate =>
+            string.Equals(candidate.ResourceName, "CameraDepthStencil", StringComparison.Ordinal)
+            || candidate.ResourceName.IndexOf("CameraDepth", StringComparison.OrdinalIgnoreCase) >= 0);
+        var motion = FindExistingRenderFuncCandidate(available, static candidate =>
+            string.Equals(candidate.ResourceName, "Motion Vectors", StringComparison.Ordinal));
+
+        if (color is null || outputMissing || depth is null || motion is null)
+        {
+            return;
+        }
+
+        int attempt;
+        lock (Sync)
+        {
+            if (RenderGraphGetTextureEvaluateAttemptCount >= MaxRenderGraphScopedEvaluateAttempts)
+            {
+                return;
+            }
+
+            RenderGraphGetTextureEvaluateAttemptCount++;
+            attempt = RenderGraphGetTextureEvaluateAttemptCount;
+        }
+
+        var outputSameAsColor = output.Pointer == color.Value.Pointer;
+        log.LogInfo(
+            $"DLSS evaluate input probe RenderGraph GetTexture candidate #{attempt}: color={color.Value.ResourceName} 0x{color.Value.Pointer.ToInt64():X}; output={output.ResourceName} 0x{output.Pointer.ToInt64():X}{(outputSameAsColor ? " same-as-color" : string.Empty)}; depth={depth.Value.ResourceName} 0x{depth.Value.Pointer.ToInt64():X}; motion={motion.Value.ResourceName} 0x{motion.Value.Pointer.ToInt64():X}");
+
+        var success = bridge.ProbeDlssEvaluateInputs(
+            color.Value.Pointer,
+            output.Pointer,
+            depth.Value.Pointer,
+            motion.Value.Pointer);
+        var status = bridge.GetDlssEvaluateInputStatus();
+        if (success)
+        {
+            DlssEvaluateInputProbeSucceeded = true;
+            log.LogInfo($"DLSS evaluate input probe succeeded from RenderGraph GetTexture: {status}");
+        }
+        else
+        {
+            log.LogWarning($"DLSS evaluate input probe failed from RenderGraph GetTexture: {status}");
         }
     }
 
@@ -2241,6 +2353,44 @@ internal static class FrameResourceProbe
             || candidate.ResourceName.IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
+    private static bool IsLikelyRenderGraphOutput(RenderGraphTextureCandidate candidate)
+    {
+        var name = candidate.ResourceName;
+        return name.IndexOf("Edge Adaptive Spatial Upsampling", StringComparison.OrdinalIgnoreCase) >= 0
+            || name.IndexOf("Uber Post Destination", StringComparison.OrdinalIgnoreCase) >= 0
+            || name.IndexOf("TAA Destination", StringComparison.OrdinalIgnoreCase) >= 0
+            || name.IndexOf("Apply Exposure Destination", StringComparison.OrdinalIgnoreCase) >= 0
+            || name.IndexOf("Backbuffer", StringComparison.OrdinalIgnoreCase) >= 0
+            || name.IndexOf("AfterPost", StringComparison.OrdinalIgnoreCase) >= 0
+            || name.IndexOf("Output", StringComparison.OrdinalIgnoreCase) >= 0
+            || name.IndexOf("Destination", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static int GetRenderGraphOutputPriority(RenderGraphTextureCandidate candidate)
+    {
+        var name = candidate.ResourceName;
+        if (name.IndexOf("Edge Adaptive Spatial Upsampling", StringComparison.OrdinalIgnoreCase) >= 0) { return 100; }
+        if (name.IndexOf("Backbuffer", StringComparison.OrdinalIgnoreCase) >= 0) { return 90; }
+        if (name.IndexOf("Uber Post Destination", StringComparison.OrdinalIgnoreCase) >= 0) { return 80; }
+        if (name.IndexOf("Output", StringComparison.OrdinalIgnoreCase) >= 0) { return 70; }
+        if (name.IndexOf("AfterPost", StringComparison.OrdinalIgnoreCase) >= 0) { return 65; }
+        if (name.IndexOf("TAA Destination", StringComparison.OrdinalIgnoreCase) >= 0) { return 60; }
+        if (name.IndexOf("Apply Exposure Destination", StringComparison.OrdinalIgnoreCase) >= 0) { return 50; }
+        if (name.IndexOf("Destination", StringComparison.OrdinalIgnoreCase) >= 0) { return 40; }
+        return 0;
+    }
+
+    private static string? TryGetRenderGraphGetTextureResourceName(object? registry, object? textureHandle)
+    {
+        if (registry is null || textureHandle is null)
+        {
+            return null;
+        }
+
+        var resourceHandle = TryGetResourceHandleFromTextureHandle(textureHandle);
+        return resourceHandle is null ? null : TryGetRenderGraphResourceName(registry, resourceHandle);
+    }
+
     private static object? TryGetCurrentRenderGraphRegistry()
     {
         var registryType = FindRuntimeType(
@@ -2347,6 +2497,20 @@ internal static class FrameResourceProbe
             || string.Equals(resourceName, "CameraDepthStencil", StringComparison.Ordinal)
             || string.Equals(resourceName, "Motion Vectors", StringComparison.Ordinal)
             || string.Equals(resourceName, "NormalBuffer", StringComparison.Ordinal);
+    }
+
+    private static bool IsRenderGraphGetTextureCandidateResource(string? resourceName)
+    {
+        return IsRenderGraphDlssRelevantResource(resourceName)
+            || (resourceName is not null
+                && (resourceName.IndexOf("Edge Adaptive Spatial Upsampling", StringComparison.OrdinalIgnoreCase) >= 0
+                    || resourceName.IndexOf("Uber Post Destination", StringComparison.OrdinalIgnoreCase) >= 0
+                    || resourceName.IndexOf("TAA Destination", StringComparison.OrdinalIgnoreCase) >= 0
+                    || resourceName.IndexOf("Apply Exposure Destination", StringComparison.OrdinalIgnoreCase) >= 0
+                    || resourceName.IndexOf("Backbuffer", StringComparison.OrdinalIgnoreCase) >= 0
+                    || resourceName.IndexOf("AfterPost", StringComparison.OrdinalIgnoreCase) >= 0
+                    || resourceName.IndexOf("Output", StringComparison.OrdinalIgnoreCase) >= 0
+                    || resourceName.IndexOf("Destination", StringComparison.OrdinalIgnoreCase) >= 0));
     }
 
     private static object? FindTypedArgument(object?[]? args, string typeNamePart)

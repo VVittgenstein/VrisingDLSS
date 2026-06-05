@@ -139,7 +139,7 @@ Implementation follow-up: the next safer candidate is `RenderGraphResourceRegist
 
 Additional negative evidence: a later main-menu Stage 8A helper run enabled the broad Harmony call probe at the same time as the materialization route. That broad probe patched `DLSSPass.Render`, logged hundreds of calls, and V Rising crashed in `coreclr.dll` with `0xc00000fd`. This does not reject the resource-materialization route by itself; it rejects combining Stage 8A with broad call logging. The helper now leaves `Diagnostics.EnableHarmonyCallProbe=false`, and Harmony call probing uses a conservative target list instead of the expanded HookProbe catalog.
 
-Follow-up after narrowing: a main-menu Stage 8A run with broad Harmony call logging disabled ran for the diagnostic window without a Windows crash event. It patched `RenderGraphResourceRegistry.BeginExecute(int)` and `CreateTextureCallback(RenderGraphContext, IRenderGraphResource)`, but no `RenderGraph texture materialization #` or successful `RenderGraph GetTexture` callback was observed before the run was stopped. This keeps the materialization route alive, but the main menu is still not enough evidence for Stage 8A pass.
+Follow-up after narrowing: a main-menu Stage 8A run with broad Harmony call logging disabled ran for the diagnostic window without a Windows crash event. It patched `RenderGraphResourceRegistry.BeginExecute(int)` and `CreateTextureCallback(RenderGraphContext, IRenderGraphResource)`, but no `RenderGraph texture materialization #` or successful `RenderGraph GetTexture` callback was observed before the run was stopped. At that point the materialization route stayed alive, but that specific main-menu window was not enough evidence for Stage 8A pass.
 
 DLSSPass static structure finding: generated interop for `UnityEngine.Rendering.HighDefinition.DLSSPass` exposes `ViewResourceHandles.source`, `output`, `depth`, `motionVectors`, and `biasColorMask`, and `CameraResources.resources` exposes matching `Texture` fields. This confirms HDRP's built-in DLSS pass has a resource grouping that maps directly to the first DLSS evaluate input set.
 
@@ -149,6 +149,12 @@ Implementation follow-up: a new isolated `Diagnostics.EnableDlssPassResourceProb
 
 Additional FSR evidence: local metadata and interop inspection confirm V Rising exposes `AMD FSR 1.0`, `SetFSRParameters(float, bool)`, `GetUpscaleRes()`, `SetUpscaleFilter(DynamicResUpscaleFilter, float)`, `GetUpscaleFilter()`, `SetupDLSSForCameraDataAndDynamicResHandler(...)`, `GetPostprocessUpsampledOutputHandle(...)`, `DoDLSSPasses(...)`, and `DoDLSSPass(...)`. FSR1 helps identify the existing dynamic-resolution/upscale controls, but it remains a spatial upscaler and does not remove DLSS's requirement for depth and motion-vector inputs.
 
+Scripted gameplay-attempt evidence: `run-vrising-diagnostic.ps1 -Stage dlss-evaluate-inputs` launched V Rising on 2026-06-05, restored loader config in cleanup, and archived `LogOutput-dlss-evaluate-inputs-20260605-112517.log`. V Rising exited after about 13 seconds with Windows `APPCRASH` in `coreclr.dll` (`0xc0000005`). Before the crash the log again observed named RenderGraph declarations for `CameraColor`, `CameraDepthStencil`, `Motion Vectors`, and `NormalBuffer`, but no `RenderGraph texture materialization #` or successful `RenderGraph GetTexture` callback. The crash makes broad ordinary HDRP/RenderGraph prefix probing unsuitable for the default gameplay Stage 8A helper. The helper now keeps `EnableFrameResourceProbe=false` unless deliberate discovery is requested.
+
+Second scripted gameplay-attempt evidence: after removing ordinary HDRP/RenderGraph frame-resource prefixes from default `dlss-evaluate-inputs`, V Rising still exited after about 10 seconds with the same Windows `APPCRASH` in `coreclr.dll` (`0xc0000005`). The log confirmed `Frame resource base probe skipped` and `Frame resource ordinary HDRP prefix probes skipped`, then stopped after RenderGraph builder declaration #40. No materialization/GetTexture callback appeared. This makes RenderGraph builder declaration patching unsuitable for the default gameplay helper too. The helper now skips builder declaration and execution-scope probes by default and leaves only the passive `GetTexture` postfix plus resource materialization callbacks in ordinary Stage 8A.
+
+Accepted Stage 8A route: after the helper was narrowed to registry-level `BeginExecute(int)`, `CreateTextureCallback(RenderGraphContext, IRenderGraphResource)`, and the passive `GetTexture(TextureHandle&)` postfix, a 75-second scripted local run completed without a Windows crash event. The plugin aggregated engine-owned successful `GetTexture` callbacks and, after removing broad `Final` output matching, produced `DLSS evaluate input probe succeeded from RenderGraph GetTexture`. The validated tuple was `CameraColor`, `Apply Exposure Destination`, `CameraDepthStencil`, and `Motion Vectors`; native validation reported `sameDevice=yes` and `720x480` for color, output, depth, and motion. This accepts the passive `GetTexture` postfix aggregation as the Stage 8A input route. It does not yet evaluate DLSS or prove the output choice is the final one for image quality.
+
 Rejected or deferred:
 
 - Calling `GetTexture(TextureHandle&)` from ordinary Harmony prefixes.
@@ -156,6 +162,8 @@ Rejected or deferred:
 - Patching `TextureHandle` implicit conversion operators as a broad diagnostic route.
 - Injecting a new diagnostic RenderGraph pass as part of ordinary `dlss-evaluate-inputs`; this caused a CoreCLR access violation in gameplay and is high-risk only.
 - Patching compiler-generated HDRP RenderGraph render-function delegates as part of ordinary `dlss-evaluate-inputs`; this reproduced the same CoreCLR access-violation crash before the postfix logged.
+- Patching ordinary HDRP/RenderGraph frame-resource prefix targets as part of ordinary `dlss-evaluate-inputs`; a scripted gameplay-attempt run again reached useful resource-name evidence but crashed in CoreCLR before any materialized texture evidence.
+- Patching RenderGraph builder declaration methods as part of ordinary `dlss-evaluate-inputs`; the narrowed scripted run stopped at builder declaration #40 and reproduced the same CoreCLR crash bucket before materialized texture evidence.
 - Combining ordinary `dlss-evaluate-inputs` with broad Harmony call logging; this patched `DLSSPass.Render` and produced a CoreCLR stack-overflow crash.
 - Patching `DLSSPass.Render(Parameters, CameraResources, CommandBuffer)` directly, even with a single targeted prefix; this produced a UnityPlayer breakpoint crash before the prefix logged.
 - Enabling the new `DLSSPass.GetViewResources`/`GetCameraResources` helper probe as part of ordinary Stage 8A before it has separate runtime stability evidence.
@@ -168,6 +176,8 @@ Rejected or deferred:
 
 Starting from current local evidence:
 
-- If a safe engine-owned resource materialization point is found without patching generated render delegates or injecting a pass: first DLSS evaluate-input pass in 1-2 weeks, first visible DLSS image in 2-4 weeks, private playable alpha in 4-6 weeks, public MVP in 6-9 weeks.
-- If V Rising/HDRP continues to block safe resource-scope access or the motion-vector resource is not valid in gameplay: first visible DLSS image in 4-8 weeks, private playable alpha in 8-12 weeks, public MVP in 10-14+ weeks.
+- First DLSS evaluate-input pass: validated locally on 2026-06-05 through passive RenderGraph `GetTexture` aggregation.
+- First visible DLSS image: 1-3 weeks if the first guarded evaluate call can reuse this tuple cleanly, output selection is correct, and feature lifecycle/resize/reset state stays stable.
+- Private-world playable alpha: 3-6 weeks after first visible image, depending on render-scale control, mip bias, camera reset handling, fallback behavior, and repeated gameplay stability.
+- Public Thunderstore/GitHub MVP release: 5-8 weeks on the fast path; 8-12+ weeks if output selection, jitter/pre-exposure, motion-vector semantics, or runtime-bundling review force another route change.
 - Runtime-bundling/legal review remains separate and can add unbounded time. The source-safe no-runtime package path should remain the default MVP fallback.

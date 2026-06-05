@@ -130,7 +130,6 @@ function Set-SwitchesForStage {
         "dlss-evaluate-inputs" {
             $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
             $Config.Diagnostics.EnableD3D11TextureProbe = "true"
-            $Config.Diagnostics.EnableFrameResourceProbe = "true"
             $Config.Diagnostics.EnableDlssEvaluateInputProbe = "true"
             $Config.Diagnostics.EnableResourceMaterializationProbe = "true"
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"

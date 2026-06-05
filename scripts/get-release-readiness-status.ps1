@@ -247,7 +247,7 @@ $items.Add((New-ReadinessItem `
     -Area "MVP" `
     -Requirement "Normal-user DLSS enable/disable changes rendering correctly and safely." `
     -Status "Blocked" `
-    -Evidence "EnableDLSS is exposed, but the guarded DLSS evaluate path is not implemented until Stage 8A frame inputs pass."))
+    -Evidence "EnableDLSS is exposed, and Stage 8A frame inputs have local proof when present in the latest runtime log, but the guarded DLSS evaluate path and image-correctness validation are not implemented yet."))
 
 $mvpBlockingStatuses = @("Fail", "Blocked", "Missing")
 $hardFailures = @($items | Where-Object { $_.Status -eq "Fail" })
@@ -281,7 +281,7 @@ $summary = [pscustomobject]@{
             "Pass -GamePath to include runtime validation evidence, then run scripts\run-vrising-diagnostic.ps1 -Stage dlss-evaluate-inputs in a local/private gameplay scene."
         }
     } else {
-        "Resolve blocked/missing readiness items before public release."
+        "Implement the guarded SDK-wrapper DLSS evaluate path, then validate image correctness and fallback behavior before public release."
     }
     LaunchesGame = $false
 }

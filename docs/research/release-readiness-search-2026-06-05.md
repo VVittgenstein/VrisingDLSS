@@ -14,7 +14,7 @@ This is engineering research, not legal advice.
 6. NVIDIA SDK/runtime redistribution is not a simple "just ship nvngx_dlss.dll" decision. The SDK license allows object-code distribution when incorporated into a materially functional application, but it also forbids standalone SDK distribution, implied NVIDIA sponsorship, and making SDK parts subject to open-source license terms. NVIDIA's RTX SDK supplement also says DLSS/NGX integrations in applications, including plugins to commercial applications, have notification/trademark/stability obligations. The fallback package without bundled NVIDIA runtime must stay available.
 7. Stunlock's current official posture is conservative for mods: no official V Rising modding tools are planned, and the EULA restricts unauthorized third-party programs, mods, add-ons, and interference with online/network play. The public README must keep saying local/private-world testing first and no official-server safety guarantee.
 8. Streamline remains a second-phase route. For the first DLSS SR MVP, direct NGX/D3D11 is still preferable because Streamline adds `sl.interposer.dll`, `sl.common.dll`, feature DLL packaging, interposer/device lifecycle constraints, and signature-validation work.
-9. Stage 8A is now specifically a RenderGraph resource-scope problem. Latest local evidence found `CameraColor`, `CameraDepthStencil`, `Motion Vectors`, and `NormalBuffer` handles, but Unity documentation confirms these handles must be used only inside a valid RenderGraph record+execute/read-write scope. The next technical route is a RenderGraph-scoped diagnostic pass or execution hook, not more ordinary method-prefix probing.
+9. Stage 8A is now specifically an accepted passive RenderGraph resource-scope route, not an ordinary method-prefix route. Latest local evidence validated same-device D3D11 `CameraColor`, `Apply Exposure Destination`, `CameraDepthStencil`, and `Motion Vectors` textures through engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` callbacks. The next technical route is a guarded first DLSS evaluate path, not more broad hook discovery.
 
 2026-06-05 continuation update:
 
@@ -29,6 +29,7 @@ This is engineering research, not legal advice.
 - Re-ran the narrowed Stage 8A helper in the main menu with broad Harmony call logging disabled. It ran through the diagnostic window without a Windows crash event, but produced only `Partial` evidence because no RenderGraph texture materialization or successful engine-owned `GetTexture` callback was observed there.
 - Inspected Unity HDRP `DLSSPass` interop and confirmed its resource model contains `source`, `output`, `depth`, and `motionVectors`. A targeted runtime prefix on `DLSSPass.Render` was rejected after it crashed V Rising in `UnityPlayer.dll` with `0x80000003` before the prefix logged.
 - Cross-checked Unity's 2022.3 HDRP `DLSSPass.cs` source against the local V Rising interop. The official source confirms the same source/output/depth/motion-vector grouping and shows that HDRP's NVIDIA path also depends on render size, final viewport, TAA jitter, reset state, and pre-exposure. The local metadata probe now records this as a static interop check.
+- Added passive `GetTexture` candidate aggregation and removed broad `Final` output matching. A 75-second scripted local run passed Stage 8A with no matching Windows crash event: `CameraColor`, `Apply Exposure Destination`, `CameraDepthStencil`, and `Motion Vectors` were validated as same-device D3D11 textures at `720x480`.
 
 ## Sources Checked
 
@@ -115,18 +116,17 @@ Already aligned:
 - Local diagnostics prove plugin load, HDRP hook discovery, render-thread callback, D3D11 native texture/device access, and production DLSS runtime load/release.
 - Stage 6 now reports the SDK-wrapper gate honestly instead of treating the production runtime's missing helper exports as an ordinary runtime failure.
 - A local SDK-wrapper research build has passed Stage 6 DLSS capability query and Stage 7 DLSS feature create/release.
-- Stage 8A DLSS evaluate-input probing is implemented to validate real color/output/depth/motion D3D11 resources before calling evaluate. A main-menu run starts the probe but blocks because source/output RTHandles are not exposed there and `_CameraMotionVectorsTexture` remains `null`.
-- Later Stage 8A RenderGraph runs found the expected texture handles by name. The builder-declaration probe observes `CameraColor`, `CameraDepthStencil`, `Motion Vectors`, and `NormalBuffer` declarations without materializing textures. Ordinary prefixes still do not run inside a valid resource scope, so the current probe avoids direct prefix `GetTexture` calls and passively hooks engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` calls.
+- Stage 8A DLSS evaluate-input probing is implemented to validate real color/output/depth/motion D3D11 resources before calling evaluate. Earlier main-menu and broad-prefix runs blocked or crashed, which rejected several unsafe hook routes.
+- The accepted Stage 8A route is now passive aggregation of engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` callbacks. A 75-second scripted local run validated `CameraColor`, `Apply Exposure Destination`, `CameraDepthStencil`, and `Motion Vectors` as same-device `720x480` D3D11 resources.
 - The loader-stage hook probe now also catalogs HDRP DLSS/FSR/upscale methods and optional Unity NVIDIA module types, so future runtime logs can distinguish "built-in Unity DLSS unavailable/stripped" from "native bridge route still blocked on frame resources."
 - Stage 2B upscaler-state probing now has main-menu proof that V Rising sets HDRP's FSR/upscale state at runtime: `CatmullRom`/`100` changed to `EdgeAdaptiveScalingUpres`/`58.999996` after `SetFSRParameters` and `SetUpscaleFilter`.
 - Stage 8A helper configs now avoid broad Harmony call logging by default; this keeps the safer resource-materialization route distinct from the rejected high-frequency `DLSSPass.Render` call-count route.
-- The narrowed Stage 8A helper has main-menu stability evidence, but still needs gameplay-scene or later-resource-scope evidence before first evaluate can be implemented.
 - `DLSSPass` is useful as a resource-shape map, but direct Harmony patching of `DLSSPass.Render` is now rejected for the current V Rising IL2CPP build.
 
 Still missing for MVP:
 
 - Real DLSS evaluate path with game frame resources.
-- Runtime Stage 8A evidence from an actual local/private gameplay scene. `_CameraMotionVectorsTexture` was `null` in the all-low main-menu test, and the observed main-menu callback did not expose source/output RTHandles.
+- Runtime image-correctness evidence from an actual local/private gameplay scene after the guarded evaluate path exists.
 - Persistent DLSS feature lifecycle around actual color/depth/motion-vector resources.
 - Render-scale control, mip-map bias handling, camera reset, resize handling, quality modes, overlay, and safe fallback.
 - Release review for any package that bundles `nvngx_dlss.dll`.
@@ -138,8 +138,8 @@ Primary route for MVP:
 1. Keep using BepInEx IL2CPP and Harmony/reflective probes.
 2. Keep using the optional local NVIDIA SDK root CMake path for SDK-wrapper research builds.
 3. Keep NVIDIA SDK headers/libs out of the public repository unless a separate review approves the exact files and notices.
-4. Implement the first DLSS evaluate probe only after Stage 8A proves frame resources are aligned.
-5. Test motion vectors in an actual gameplay scene before assuming the main-menu all-low result is final.
+4. Implement the first guarded DLSS evaluate probe from the accepted Stage 8A input tuple while keeping `DLSS.EnableDLSS=false` by default.
+5. Test motion vectors, output selection, jitter/pre-exposure, and image correctness in an actual gameplay scene before treating the route as playable.
 6. Use Thunderstore as the mod-manager package shape, but do not publicly upload until DLSS evaluate is proven and the README accurately describes the package.
 
 Avoid for MVP:
@@ -154,15 +154,15 @@ Avoid for MVP:
 
 This estimate starts from the current 2026-06-05 evidence, not from an empty repository.
 
-Fast path, if a RenderGraph execution callback or injected pass can be added cleanly:
+Fast path, now that passive RenderGraph `GetTexture` aggregation has passed Stage 8A:
 
 - First SDK-wrapper-backed capability query and DLSS create/release: validated locally on 2026-06-05.
-- First DLSS evaluate-input pass: 1-2 weeks.
-- First DLSS evaluate visible image: 2-4 weeks.
-- Private-world playable alpha: 4-6 weeks.
-- Public Thunderstore/GitHub MVP release: 6-9 weeks.
+- First DLSS evaluate-input pass: validated locally on 2026-06-05.
+- First DLSS evaluate visible image: 1-3 weeks.
+- Private-world playable alpha: 3-6 weeks after first visible image.
+- Public Thunderstore/GitHub MVP release: 5-8 weeks on the fast path.
 
-Harder path, if RenderGraph pass injection is blocked or motion vectors are not valid in gameplay:
+Harder path, if output selection, jitter/pre-exposure, motion-vector semantics, or runtime-bundling review force another route change:
 
 - First visible DLSS image: 4-8 weeks.
 - Private-world playable alpha: 8-12 weeks.
@@ -176,7 +176,7 @@ Unknown/legal path:
 
 1. Keep the optional `VRISINGDLSS_NGX_SDK_ROOT` / SDK-wrapper CMake path off by default for release-safe builds.
 2. Use the upscaler-state probe during gameplay tests to confirm V Rising's active HDRP upscaler filter, render fraction, and dynamic-resolution state.
-3. Continue the safer RenderGraph resource materialization route instead of injecting a new pass or patching compiler-generated render functions.
-4. Use the current `GetTexture` postfix as a passive detector while testing gameplay. Keep rejected high-risk routes disabled unless intentionally reproducing crash evidence.
-5. Run `dlss-evaluate-inputs` in an actual local/private gameplay scene after a safe resource-scope path exists, not just in the main menu.
-6. After Stage 8A proves frame resources are aligned, implement the smallest evaluate path with DLSS disabled by default until image correctness is verified.
+3. Build the smallest guarded evaluate path on top of the accepted passive `GetTexture` aggregation.
+4. Keep rejected high-risk routes disabled unless intentionally reproducing crash evidence.
+5. Validate the first evaluate image in an actual local/private gameplay scene, including output selection, motion vectors, jitter/pre-exposure, reset, and resize behavior.
+6. Keep DLSS disabled by default until image correctness and fallback behavior are verified.

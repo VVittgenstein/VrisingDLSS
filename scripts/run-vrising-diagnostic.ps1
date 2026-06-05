@@ -55,18 +55,6 @@ if (-not (Test-Path -LiteralPath $exePath)) {
     throw "VRising.exe was not found: $exePath"
 }
 
-function Invoke-RepoScript {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$ScriptName,
-
-        [Parameter(Mandatory = $true)]
-        [object[]]$Arguments
-    )
-
-    & (Join-Path $resolvedRoot "scripts\$ScriptName") @Arguments
-}
-
 function Get-VRisingProcess {
     Get-Process VRising -ErrorAction SilentlyContinue
 }
@@ -105,15 +93,15 @@ $crashEvents = @()
 
 try {
     if (-not $SkipInstall) {
-        Invoke-RepoScript -ScriptName "install-local-package.ps1" -Arguments @("-GamePath", $resolvedGamePath) | Out-Host
+        & (Join-Path $resolvedRoot "scripts\install-local-package.ps1") -GamePath $resolvedGamePath | Out-Host
     }
 
-    Invoke-RepoScript -ScriptName "write-diagnostic-config.ps1" -Arguments @(
-        "-GamePath", $resolvedGamePath,
-        "-Stage", $Stage,
-        "-DlssRuntimePath", $DlssRuntimePath,
-        "-DlssApplicationId", $DlssApplicationId
-    ) | Out-Host
+    & (Join-Path $resolvedRoot "scripts\write-diagnostic-config.ps1") `
+        -GamePath $resolvedGamePath `
+        -Stage $Stage `
+        -DlssRuntimePath $DlssRuntimePath `
+        -DlssApplicationId $DlssApplicationId |
+        Out-Host
 
     Write-Host "DiagnosticRunStart=$($runStart.ToString('o'))"
     Write-Host "DiagnosticStage=$Stage"
@@ -185,7 +173,7 @@ try {
     try {
         if (Test-Path -LiteralPath $logPath) {
             Copy-Item -LiteralPath $logPath -Destination $plan.LogArtifact -Force
-            Invoke-RepoScript -ScriptName "analyze-bepinex-log.ps1" -Arguments @("-LogPath", $plan.LogArtifact) |
+            & (Join-Path $resolvedRoot "scripts\analyze-bepinex-log.ps1") -LogPath $plan.LogArtifact |
                 Out-String -Width 220 |
                 Set-Content -LiteralPath $plan.AnalysisArtifact -Encoding UTF8
         }
@@ -210,7 +198,7 @@ try {
     }
 
     try {
-        Invoke-RepoScript -ScriptName "write-diagnostic-config.ps1" -Arguments @("-GamePath", $resolvedGamePath, "-Stage", "loader") | Out-Host
+        & (Join-Path $resolvedRoot "scripts\write-diagnostic-config.ps1") -GamePath $resolvedGamePath -Stage loader | Out-Host
     } catch {
         Write-Warning "Restoring loader config failed: $($_.Exception.Message)"
     }
