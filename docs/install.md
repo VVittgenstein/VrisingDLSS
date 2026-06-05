@@ -100,6 +100,14 @@ For a gameplay-scene Stage 8A test, use a longer window and enter a local/privat
 powershell -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-evaluate-inputs -DurationSeconds 240
 ```
 
+For paired local/private gameplay visual comparison after Stage 10A research builds are available, use the visual helper. It runs a baseline loader capture and a Stage 10A `dlss-visible-writeback` capture, gives you time to enter the same scene before each screenshot, archives logs, compares the PNGs, and restores the release-safe loader config/native DLL after each run.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\path\to\VRising" -DurationSeconds 240 -CaptureAtSeconds 170 -DlssRuntimePath "C:\path\to\nvngx_dlss.dll"
+```
+
+Use `-DryRun` first to inspect artifact paths and timing without launching the game.
+
 ## Log Analyzer
 
 After a diagnostic run, summarize the BepInEx log:

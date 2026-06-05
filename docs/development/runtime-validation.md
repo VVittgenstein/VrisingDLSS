@@ -609,3 +609,36 @@ Current visual smoke status:
 - Stage 10A `dlss-visible-writeback` capture on 2026-06-05 used the same `UnityWndClass` route and produced a nonblank/nonwhite PNG while the Stage 10A log reached `sequenceSuccesses=30/30`.
 - Baseline-vs-Stage-10A static main-menu comparison matched dimensions (`480x320`) and had `MeanAbsRgbDelta=0`, `MaxAbsRgbDelta=0`, and identical SHA-256 hashes for that screen state.
 - This is a visual smoke test only. It proves the screenshot path and confirms no gross main-menu visual failure during the guarded visible write-back diagnostic. It does not yet prove gameplay image correctness, DLSS quality, resize/reset behavior, or the normal-user `DLSS.EnableDLSS=true` rendering path.
+
+## Gameplay Visual Comparison Helper
+
+Added `scripts\run-vrising-visual-comparison.ps1` as the repeatable local/private gameplay validation harness for the next MVP gate.
+
+Scope:
+
+- Runs a baseline loader-stage capture, a Stage 10A `dlss-visible-writeback` capture, or both.
+- Launches V Rising visibly and gives the tester a fixed window to enter the same local/private gameplay scene before capture.
+- Uses `scripts\capture-vrising-window.ps1` for each capture, then uses `scripts\compare-image-artifacts.ps1` for paired baseline/candidate summaries.
+- Archives each run's BepInEx log and matching Windows Application Error events.
+- Restores the release-safe native DLL and loader config after each run, including after the SDK-wrapper Stage 10A candidate.
+- Writes only ignored local artifacts under `artifacts\runtime-logs` and `artifacts\visual-validation`.
+
+Example dry run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\Software\VRising" -DlssRuntimePath "Z:\VrisingDLSS\ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll" -DryRun
+```
+
+Example paired gameplay run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\Software\VRising" -DurationSeconds 240 -CaptureAtSeconds 170 -DlssRuntimePath "Z:\VrisingDLSS\ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll"
+```
+
+This helper still does not make the mod MVP-ready. It is the controlled evidence path for deciding whether Stage 10A is actually visible and image-correct in gameplay before building a normal-user `DLSS.EnableDLSS=true` route.
+
+Current helper smoke status:
+
+- A `BaselineOnly` smoke run on 2026-06-05 launched V Rising, captured the `UnityWndClass` game window through the helper, archived the BepInEx log, reported no matching Windows crash event, closed the game, and restored the release-safe native DLL plus loader config.
+- A `CandidateOnly` smoke run on 2026-06-05 copied the local SDK-wrapper native DLL, launched Stage 10A `dlss-visible-writeback`, reached `sequenceSuccesses=30/30`, captured the `UnityWndClass` game window, reported no matching Windows crash event, closed the game, and restored the release-safe native DLL plus loader config.
+- The helper smoke PNGs matched dimensions (`480x320`) and had `MeanAbsRgbDelta=0`, `MaxAbsRgbDelta=0`, and identical SHA-256 hashes for the static main-menu state. This remains a harness smoke test, not gameplay image-correctness proof.
