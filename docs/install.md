@@ -118,13 +118,13 @@ powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.p
 For the normal-user candidate route, pass `-CandidateStage dlss-user-rendering`. This waits for a `DLSS user rendering evaluate succeeded` log line before screenshot/FPS capture, and it does not enable the Stage 10A hold/proof loop.
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\path\to\VRising" -CandidateStage dlss-user-rendering -DurationSeconds 240 -CaptureAtSeconds 170 -CapturePerformance:$true -WaitForUserRendering:$true -DlssRuntimePath "C:\path\to\nvngx_dlss.dll"
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\path\to\VRising" -CandidateStage dlss-user-rendering -FsrMode Performance -DurationSeconds 240 -CaptureAtSeconds 170 -CapturePerformance:$true -WaitForUserRendering:$true -DlssRuntimePath "C:\path\to\nvngx_dlss.dll"
 ```
 
-For an operator-controlled capture, use `-ManualCapture` and create the ready file after entering the target local/private gameplay scene. The helper removes the ready file before each run, waits for it, and does not capture before `-CaptureAtSeconds`. Stage 10A candidate runs wait for `sequenceSuccesses=30/30` by default while `KeepDlssVisibleWritebackProbeRunning=true` keeps the diagnostic candidate evaluating until cleanup. User-rendering candidate runs wait for a successful user-rendering evaluate by default.
+For an operator-controlled capture, use `-ManualCapture` and create the ready file after entering the target local/private gameplay scene. The helper removes the ready file before each run, waits for it, and does not capture before `-CaptureAtSeconds`. Stage 10A candidate runs wait for `sequenceSuccesses=30/30` by default while `KeepDlssVisibleWritebackProbeRunning=true` keeps the diagnostic candidate evaluating until cleanup. User-rendering candidate runs wait for a successful user-rendering evaluate by default. `-FsrMode Performance` temporarily changes V Rising's built-in FSR setting before the paired run so HDRP exposes an input-smaller-than-output SR tuple, then restores the previous value during cleanup.
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\path\to\VRising" -CandidateStage dlss-user-rendering -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -CapturePerformance:$true -WaitForUserRendering:$true -DlssRuntimePath "C:\path\to\nvngx_dlss.dll"
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\path\to\VRising" -CandidateStage dlss-user-rendering -FsrMode Performance -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -CapturePerformance:$true -WaitForUserRendering:$true -DlssRuntimePath "C:\path\to\nvngx_dlss.dll"
 ```
 
 After the scene is ready, create the ready file from another PowerShell session, or have Codex create it:

@@ -31,6 +31,10 @@ param(
     [string]$DlssRuntimePath = "",
     [string]$DlssApplicationId = "0",
     [string]$SdkWrapperNativePath,
+    [ValidateSet("Unchanged", "Off", "UltraQuality", "Quality", "Balanced", "Performance")]
+    [string]$FsrMode = "Unchanged",
+    [string]$FsrSettingsPath,
+    [switch]$NoFsrBackup,
     [switch]$SkipInstall,
     [switch]$DryRun
 )
@@ -712,6 +716,27 @@ if ($existingProcess -and (-not $AttachExistingBaseline -or $Mode -eq "Candidate
     throw "VRising is already running (pid=$($existingProcess.Id)). Close it before running visual comparison."
 }
 
+if ($FsrMode -ne "Unchanged" -and $AttachExistingBaseline) {
+    throw "FsrMode cannot be used with AttachExistingBaseline because the helper must change ClientSettings.json before launching both runs."
+}
+
+$fsrPlan = $null
+if ($FsrMode -ne "Unchanged") {
+    $fsrPlanParameters = @{
+        Mode = $FsrMode
+        Root = $resolvedRoot
+        DryRun = $true
+    }
+    if (-not [string]::IsNullOrWhiteSpace($FsrSettingsPath)) {
+        $fsrPlanParameters.SettingsPath = $FsrSettingsPath
+    }
+    if ($NoFsrBackup) {
+        $fsrPlanParameters.NoBackup = $true
+    }
+
+    $fsrPlan = Invoke-ProjectScript -RelativePath "scripts\set-vrising-fsr-mode.ps1" -Parameters $fsrPlanParameters
+}
+
 $candidateLabelSuffix = if ($CandidateStage -eq "dlss-visible-writeback") { "stage10a-visible-writeback" } else { "user-rendering" }
 $comparisonLabelSuffix = if ($CandidateStage -eq "dlss-visible-writeback") { "stage10a" } else { "user-rendering" }
 $baselineLabel = "$ArtifactLabel-baseline-loader"
@@ -749,6 +774,11 @@ $plan = [pscustomobject]@{
     ComparisonArtifact = $(if ($Mode -eq "Paired") { $comparisonPath } else { "" })
     DlssRuntimePath = $DlssRuntimePath
     SdkWrapperNativePath = $(if ($Mode -ne "BaselineOnly") { $sdkWrapperNativeResolved } else { "" })
+    FsrMode = $FsrMode
+    FsrSettingsPath = $(if ($fsrPlan) { $fsrPlan.SettingsPath } elseif (-not [string]::IsNullOrWhiteSpace($FsrSettingsPath)) { [System.IO.Path]::GetFullPath($FsrSettingsPath) } else { "" })
+    PreviousFsrMode = $(if ($fsrPlan) { $fsrPlan.PreviousFsrQualityName } else { "" })
+    RestoresFsrMode = ($FsrMode -ne "Unchanged")
+    FsrBackupPath = $(if ($fsrPlan) { $fsrPlan.BackupPath } else { "" })
     RestoresReleaseSafeState = $true
     LaunchesGame = (-not [bool]$DryRun) -and (($Mode -ne "BaselineOnly") -or (-not [bool]$AttachExistingBaseline))
 }
@@ -758,29 +788,79 @@ if ($DryRun) {
     return
 }
 
-New-Item -ItemType Directory -Force -Path $runtimeLogRoot, $visualRoot, $fpsRoot | Out-Null
-
 $results = New-Object System.Collections.Generic.List[object]
-
-if ($Mode -ne "CandidateOnly") {
-    $results.Add((Invoke-VisualRun -Stage "loader" -Label $baselineLabel -UseSdkWrapperNative $false -AttachExistingProcess ([bool]$AttachExistingBaseline)))
-}
-
-if ($Mode -ne "BaselineOnly") {
-    $results.Add((Invoke-VisualRun -Stage $CandidateStage -Label $candidateLabel -UseSdkWrapperNative $true))
-}
-
 $comparison = $null
-if ($Mode -eq "Paired") {
-    $baseline = $results | Where-Object { $_.Stage -eq "loader" } | Select-Object -First 1
-    $candidate = $results | Where-Object { $_.Stage -eq $CandidateStage } | Select-Object -First 1
-    if ($baseline -and $candidate -and
-        -not [string]::IsNullOrWhiteSpace($baseline.CapturePath) -and
-        -not [string]::IsNullOrWhiteSpace($candidate.CapturePath)) {
-        $comparison = Invoke-ProjectScript -RelativePath "scripts\compare-image-artifacts.ps1" -Parameters @{
-            BaselinePath = $baseline.CapturePath
-            CandidatePath = $candidate.CapturePath
-            ArtifactLabel = $comparisonLabel
+$fsrChange = $null
+$restoredFsrMode = ($FsrMode -eq "Unchanged")
+$previousFsrMode = ""
+$fsrBackupPath = ""
+
+try {
+    New-Item -ItemType Directory -Force -Path $runtimeLogRoot, $visualRoot, $fpsRoot | Out-Null
+
+    if ($FsrMode -ne "Unchanged") {
+        $fsrParameters = @{
+            Mode = $FsrMode
+            Root = $resolvedRoot
+        }
+        if (-not [string]::IsNullOrWhiteSpace($FsrSettingsPath)) {
+            $fsrParameters.SettingsPath = $FsrSettingsPath
+        }
+        if ($NoFsrBackup) {
+            $fsrParameters.NoBackup = $true
+        }
+
+        $fsrChange = Invoke-ProjectScript -RelativePath "scripts\set-vrising-fsr-mode.ps1" -Parameters $fsrParameters
+        $fsrChange | Format-List | Out-String -Width 220 | Write-Host
+        $previousFsrMode = [string]$fsrChange.PreviousFsrQualityName
+        $fsrBackupPath = [string]$fsrChange.BackupPath
+    }
+
+    if ($Mode -ne "CandidateOnly") {
+        $results.Add((Invoke-VisualRun -Stage "loader" -Label $baselineLabel -UseSdkWrapperNative $false -AttachExistingProcess ([bool]$AttachExistingBaseline)))
+    }
+
+    if ($Mode -ne "BaselineOnly") {
+        $results.Add((Invoke-VisualRun -Stage $CandidateStage -Label $candidateLabel -UseSdkWrapperNative $true))
+    }
+
+    if ($Mode -eq "Paired") {
+        $baseline = $results | Where-Object { $_.Stage -eq "loader" } | Select-Object -First 1
+        $candidate = $results | Where-Object { $_.Stage -eq $CandidateStage } | Select-Object -First 1
+        if ($baseline -and $candidate -and
+            -not [string]::IsNullOrWhiteSpace($baseline.CapturePath) -and
+            -not [string]::IsNullOrWhiteSpace($candidate.CapturePath)) {
+            $comparison = Invoke-ProjectScript -RelativePath "scripts\compare-image-artifacts.ps1" -Parameters @{
+                BaselinePath = $baseline.CapturePath
+                CandidatePath = $candidate.CapturePath
+                ArtifactLabel = $comparisonLabel
+            }
+        }
+    }
+} finally {
+    if ($fsrChange) {
+        try {
+            $restoreMode = [string]$fsrChange.PreviousFsrQualityName
+            if ($restoreMode -match "^Unknown") {
+                Write-Warning "FSR mode restore skipped because previous mode was not recognized: $restoreMode"
+            } else {
+                $restoreParameters = @{
+                    Mode = $restoreMode
+                    Root = $resolvedRoot
+                    NoBackup = $true
+                }
+                if (-not [string]::IsNullOrWhiteSpace($FsrSettingsPath)) {
+                    $restoreParameters.SettingsPath = $FsrSettingsPath
+                }
+
+                Invoke-ProjectScript -RelativePath "scripts\set-vrising-fsr-mode.ps1" -Parameters $restoreParameters |
+                    Format-List |
+                    Out-String -Width 220 |
+                    Write-Host
+                $restoredFsrMode = $true
+            }
+        } catch {
+            Write-Warning "FSR mode restore failed: $($_.Exception.Message)"
         }
     }
 }
@@ -797,6 +877,10 @@ if ($Mode -eq "Paired") {
     ChangedRatioGt10 = $(if ($comparison) { $comparison.ChangedRatioGt10 } else { $null })
     BaselineSha256 = $(if ($comparison) { $comparison.BaselineSha256 } else { "" })
     CandidateSha256 = $(if ($comparison) { $comparison.CandidateSha256 } else { "" })
+    FsrMode = $FsrMode
+    PreviousFsrMode = $previousFsrMode
+    RestoredFsrMode = $restoredFsrMode
+    FsrBackupPath = $fsrBackupPath
     ProcessStillRunning = [bool](Get-VRisingProcess)
     RestoredReleaseSafeState = $true
     LaunchesGame = ($Mode -ne "BaselineOnly") -or (-not [bool]$AttachExistingBaseline)

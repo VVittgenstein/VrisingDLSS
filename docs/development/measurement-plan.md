@@ -77,14 +77,14 @@ On Windows desktop scaling, capture helpers must report physical pixels rather t
 
 Do not confuse the mod's intended DLSS defaults with V Rising's built-in FSR setting. The MVP DLSS target remains `QualityMode=Performance` and `PresetMode=Recommended`. Local interop inspection shows V Rising's `FsrQualityMode` values are `Off=0`, `UltraQuality=1`, `Quality=2`, `Balanced=3`, and `Performance=4`. Current Stage 10A diagnostics need an upscale situation where the render input is smaller than the output; native 3840x2160 rendering with `FsrQualityMode=0` is a useful negative control but cannot prove a DLSS performance uplift.
 
-Use `scripts/set-vrising-fsr-mode.ps1` for local test setup when changing V Rising's built-in FSR mode. It backs up `ClientSettings.json` under ignored local artifacts before writing and does not launch the game.
+Use `scripts/set-vrising-fsr-mode.ps1` for local test setup when changing V Rising's built-in FSR mode. It backs up `ClientSettings.json` under ignored local artifacts before writing and does not launch the game. The visual comparison helper can do this automatically with `-FsrMode Performance`; it restores the previous value during cleanup.
 
 When `KeepDlssVisibleWritebackProbeRunning=true` is used, candidate performance captures measure diagnostic hold-mode overhead. A large negative FPS delta under that mode means the proof loop is too expensive, not that the normal-user DLSS path is necessarily slow. Use `-CandidateStage dlss-user-rendering` for the MVP performance question: one persistent feature, one evaluate per accepted frame, no repeated proof loop, and explicit cleanup on resize/settings changes.
 
 Recommended normal-user candidate command shape:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\path\to\VRising" -CandidateStage dlss-user-rendering -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -CapturePerformance:$true -WaitForUserRendering:$true -DlssRuntimePath "C:\path\to\nvngx_dlss.dll"
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\path\to\VRising" -CandidateStage dlss-user-rendering -FsrMode Performance -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -CapturePerformance:$true -WaitForUserRendering:$true -DlssRuntimePath "C:\path\to\nvngx_dlss.dll"
 ```
 
 Recommended capture shape:
