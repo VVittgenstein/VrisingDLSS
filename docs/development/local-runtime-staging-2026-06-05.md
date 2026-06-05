@@ -129,6 +129,7 @@ Current validated evidence:
   - Evidence: Stage 10A evaluated into `Edge Adaptive Spatial Upsampling` across RenderGraph callbacks, reached `sequenceEvaluates=30` and `evaluateSuccesses=30`, and shut down with release/destroy/shutdown all `0x00000001`.
   - Follow-up evidence observed the same `Edge Adaptive Spatial Upsampling` output pointer as D3D11-accessible for 12 follow-up logs after the visible write-back candidate.
   - This proves the guarded visible-path candidate can repeatedly evaluate into the selected SR output target. It still does not prove screenshot/visual image correctness, resize/reset behavior, or final normal-user enable/disable behavior.
+  - A later 4K FSR Performance gameplay comparison reached Stage 10A on a `1920x1080 -> 3840x2160` tuple and captured a valid candidate screenshot, but hold-mode candidate performance dropped to `AverageFps=45.982` versus a baseline `AverageFps=159.851`. This is diagnostic overhead, not a normal-user DLSS performance result.
 - Local GPU/driver for Stage 6/7 pass: NVIDIA GeForce RTX 5060, driver `610.47`.
 
 Archived logs:

@@ -396,11 +396,20 @@ if (-not (Test-Path -LiteralPath $reviewResolved)) {
     }
 }
 
+$nextRecommendation = "Run a paired Stage 10A gameplay visual comparison at gameplay resolution, capture baseline and candidate performance, then create $reviewResolved after human review with matching image SHA256 values."
+if (Test-Path -LiteralPath $reviewResolved) {
+    if ($details.HumanReviewStatus -eq "Pending") {
+        $nextRecommendation = "Complete human visual review for $reviewResolved, then mark it Pass only if the candidate image is correct enough for MVP evidence."
+    } elseif (-not [string]::IsNullOrWhiteSpace([string]$details.HumanReviewStatus)) {
+        $nextRecommendation = "Resolve the listed visual review issue in $reviewResolved, rerunning the paired comparison if the existing candidate is not image-correct."
+    }
+}
+
 if ($issues.Count -gt 0) {
     $result = New-Status `
         -Status "Blocked" `
         -Evidence "Visual validation is not yet strong enough for MVP: $comparisonResolved" `
-        -NextRecommendation "Run a paired Stage 10A gameplay visual comparison at gameplay resolution, capture baseline and candidate performance, then create $reviewResolved after human review with matching image SHA256 values." `
+        -NextRecommendation $nextRecommendation `
         -Issues $issues.ToArray() `
         -Details $details
 } else {

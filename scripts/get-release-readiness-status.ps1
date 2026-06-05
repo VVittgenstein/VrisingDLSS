@@ -388,7 +388,13 @@ $summary = [pscustomobject]@{
     NextRecommendation = if ($mvpReady) {
         "MVP evidence is complete. Prepare a final release review."
     } elseif ([string]::IsNullOrWhiteSpace($GamePath)) {
-        "Pass -GamePath to include local runtime evidence. Current MVP next step is Stage 10A gameplay visual comparison/image-correctness validation before normal-user DLSS.EnableDLSS integration."
+        "Pass -GamePath to include local runtime evidence. Current MVP next step is resolving the visual gate, then implementing normal-user DLSS.EnableDLSS rendering with one evaluate per frame."
+    } elseif ($visualStatus.Status -ne "Pass" -and $visualStatus.HumanReviewStatus -eq "Pending") {
+        if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
+            $visualNextRecommendation
+        } else {
+            "Complete the pending human visual review, then implement normal-user DLSS.EnableDLSS rendering with one evaluate per frame."
+        }
     } elseif (@($items | Where-Object { $_.Requirement -like "Stage 8A*" -and $_.Status -ne "Pass" }).Count -gt 0) {
         if (-not [string]::IsNullOrWhiteSpace($runtimeNextRecommendation)) {
             $runtimeNextRecommendation
