@@ -4,6 +4,7 @@
 
 - Initial clean-room scaffold.
 - Added read-only discovery for HDRP DLSS/FSR/upscale route landmarks and optional Unity NVIDIA module APIs.
+- Added optional read-only FSR/upscale state snapshots for HDRP dynamic-resolution route diagnosis.
 - Added read-only HDRP hook probe.
 - Added optional read-only Harmony call probe.
 - Added native bridge smoke-test interface.

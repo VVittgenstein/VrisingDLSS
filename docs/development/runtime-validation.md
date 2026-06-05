@@ -65,6 +65,26 @@ Evidence:
 
 - `BepInEx/LogOutput.log` lines beginning with `Running read-only HDRP hook probe`.
 
+## Stage 2B: Upscaler State Probe
+
+Implemented as an optional diagnostic switch:
+
+- Config key: `Diagnostics.EnableUpscalerStateProbe=false` by default.
+- Patches ordinary HDRP/dynamic-resolution setter methods such as `HDRenderPipeline.SetUpscaleFilter`, `HDRenderPipeline.SetFSRParameters`, and `DynamicResolutionHandler.SetDynamicResScaler` with read-only postfixes.
+- Logs snapshots from `HDRenderPipeline.GetUpscaleFilter()`, `HDRenderPipeline.GetUpscaleRes()`, and the current existing `DynamicResolutionHandler` instance fields/properties when available.
+- Does not change the upscale filter, force FSR, inject RenderGraph passes, load DLSS, or evaluate DLSS.
+
+Pass criteria:
+
+- The initial snapshot logs without crashing.
+- At least one relevant setter is patched when HDRP/Core RP exposes it.
+- In a gameplay run, any FSR/upscale setter calls are capped and include a current state snapshot.
+
+Evidence:
+
+- `BepInEx/LogOutput.log` lines beginning with `Upscaler state probe snapshot`.
+- Optional call lines beginning with `Upscaler state probe call`.
+
 ## Stage 3: Read-Only Harmony Probe
 
 Implemented as an optional diagnostic switch:
@@ -323,7 +343,7 @@ Current Stage 8A status:
 - A local/private gameplay run on 2026-06-05 configured and injected the diagnostic pass twice, then V Rising crashed with a Windows `APPCRASH` in `coreclr.dll` (`0xc0000005`) before any diagnostic-pass render-function log. This route is now high-risk and disabled by default behind `Diagnostics.EnableRenderGraphDiagnosticPass=false`.
 - A main-menu run on 2026-06-05 patched 10 compiler-generated existing HDRP render functions, including `DoTemporalAntialiasing`, `DoCustomPostProcess`, `UberPass`, and `FinalPass`, then V Rising crashed with Windows `APPCRASH` in `coreclr.dll` (`0xc0000005`) before any `Existing HDRP render-func scope` log. Re-running reproduced the same fault bucket. This route is now high-risk and disabled by default behind `Diagnostics.EnableExistingRenderFuncProbe=false`.
 - Local static inspection confirms V Rising exposes HDRP FSR/upscale/DLSS landmarks, including `HDRenderPipeline.SetFSRParameters(float, bool)`, `GetUpscaleRes()`, `SetUpscaleFilter(DynamicResUpscaleFilter, float)`, `GetUpscaleFilter()`, `SetupDLSSForCameraDataAndDynamicResHandler(...)`, `GetPostprocessUpsampledOutputHandle(...)`, `DoDLSSPasses(...)`, `DoDLSSPass(...)`, and `DoTemporalAntialiasing(...)`. FSR1 is useful for locating the existing dynamic-resolution path, but it is not enough for DLSS because DLSS still needs aligned depth and motion-vector inputs.
-- Current next route: keep Stage 8A's passive builder/resource discovery, `GetTexture` postfix, and the new resource-materialization callback probe, but do not inject a new RenderGraph pass or patch compiler-generated render functions in normal diagnostics. Continue using V Rising's built-in dynamic-resolution/upscale/post-process symbols as landmarks.
+- Current next route: keep Stage 8A's passive builder/resource discovery, `GetTexture` postfix, and the resource-materialization callback probe, but do not inject a new RenderGraph pass or patch compiler-generated render functions in normal diagnostics. Use Stage 2B to confirm V Rising's built-in dynamic-resolution/upscale state while continuing to use those symbols as landmarks.
 - See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.
 
 ## Stage 8: First DLSS Evaluate

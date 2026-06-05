@@ -12,7 +12,7 @@ The current implementation goal is a source-only, legally conservative package:
 
 - Own C# BepInEx IL2CPP plugin.
 - Own native D3D11/DLSS bridge.
-- Read-only runtime diagnostics, HDRP DLSS/FSR/upscale route discovery, native render-event smoke tests, D3D11 texture pointer probes, HDRP frame resource probes, optional user-supplied DLSS runtime load/release probe, optional guarded NGX init/query probe, optional SDK-wrapper DLSS feature create/release probe, and optional real-frame DLSS evaluate input probe before any DLSS evaluate path.
+- Read-only runtime diagnostics, HDRP DLSS/FSR/upscale route discovery, optional FSR/upscale state snapshots, native render-event smoke tests, D3D11 texture pointer probes, HDRP frame resource probes, optional user-supplied DLSS runtime load/release probe, optional guarded NGX init/query probe, optional SDK-wrapper DLSS feature create/release probe, and optional real-frame DLSS evaluate input probe before any DLSS evaluate path.
 - No PureDark source or binaries in production code.
 - No bundled `nvngx_dlss.dll` by default.
 - Clear user-facing install, diagnostics, and risk documentation.

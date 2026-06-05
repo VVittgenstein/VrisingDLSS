@@ -24,6 +24,7 @@ This is engineering research, not legal advice.
 - Added a release-readiness status script that separates upload-shaped diagnostic package readiness from true DLSS MVP readiness. The script keeps Stage 8A and release DLSS enable/default config as explicit blocked gates instead of letting package validation be mistaken for product completion.
 - Rechecked NVIDIA DLSS/RTX SDK, Stunlock, and Unity RenderGraph sources. No source changed the current route decision: keep a source-safe package without bundled NVIDIA runtime by default; do not rely on PureDark binaries or ABI; continue Stage 8A through a RenderGraph-scoped execution path.
 - Rechecked Unity HDRP 14 DLSS/dynamic-resolution docs and the Unity 2022.3 Graphics source route. HDRP 14 supports DLSS on Windows x64 with DirectX 11, DirectX 12, and Vulkan, but it requires the NVIDIA package/module and per-HDRP-asset/per-camera enablement. Local V Rising metadata lists `UnityEngine.NVIDIAModule.dll`, but the local install does not contain a generated NVIDIA interop assembly or `NVUnityPlugin`/`nvngx` binary. The project therefore keeps the clean-room native NGX/D3D11 bridge as the primary path and now logs optional Unity NVIDIA module availability in the read-only hook probe.
+- Added a read-only upscaler-state probe for V Rising's built-in FSR/upscale controls. A main-menu run observed `SetFSRParameters(1, true)` and `SetUpscaleFilter(EdgeAdaptiveScalingUpres, 0.59)`, confirming the HDRP upscaler route is active at runtime and useful as a landmark. It still does not replace the DLSS depth/motion-vector input requirement.
 
 ## Sources Checked
 
@@ -110,6 +111,7 @@ Already aligned:
 - Stage 8A DLSS evaluate-input probing is implemented to validate real color/output/depth/motion D3D11 resources before calling evaluate. A main-menu run starts the probe but blocks because source/output RTHandles are not exposed there and `_CameraMotionVectorsTexture` remains `null`.
 - Later Stage 8A RenderGraph runs found the expected texture handles by name. The builder-declaration probe observes `CameraColor`, `CameraDepthStencil`, `Motion Vectors`, and `NormalBuffer` declarations without materializing textures. Ordinary prefixes still do not run inside a valid resource scope, so the current probe avoids direct prefix `GetTexture` calls and passively hooks engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` calls.
 - The loader-stage hook probe now also catalogs HDRP DLSS/FSR/upscale methods and optional Unity NVIDIA module types, so future runtime logs can distinguish "built-in Unity DLSS unavailable/stripped" from "native bridge route still blocked on frame resources."
+- Stage 2B upscaler-state probing now has main-menu proof that V Rising sets HDRP's FSR/upscale state at runtime: `CatmullRom`/`100` changed to `EdgeAdaptiveScalingUpres`/`58.999996` after `SetFSRParameters` and `SetUpscaleFilter`.
 
 Still missing for MVP:
 
@@ -163,7 +165,8 @@ Unknown/legal path:
 ## Next Engineering Steps
 
 1. Keep the optional `VRISINGDLSS_NGX_SDK_ROOT` / SDK-wrapper CMake path off by default for release-safe builds.
-2. Prototype a RenderGraph-scoped diagnostic pass or execution-stage hook where color/depth/motion handles are declared as pass inputs.
-3. Use the current `GetTexture` postfix as a passive detector while testing gameplay. Keep rejected high-risk routes disabled unless intentionally reproducing crash evidence.
-4. Run `dlss-evaluate-inputs` in an actual local/private gameplay scene after a safe resource-scope path exists, not just in the main menu.
-5. After Stage 8A proves frame resources are aligned, implement the smallest evaluate path with DLSS disabled by default until image correctness is verified.
+2. Use the upscaler-state probe during gameplay tests to confirm V Rising's active HDRP upscaler filter, render fraction, and dynamic-resolution state.
+3. Continue the safer RenderGraph resource materialization route instead of injecting a new pass or patching compiler-generated render functions.
+4. Use the current `GetTexture` postfix as a passive detector while testing gameplay. Keep rejected high-risk routes disabled unless intentionally reproducing crash evidence.
+5. Run `dlss-evaluate-inputs` in an actual local/private gameplay scene after a safe resource-scope path exists, not just in the main menu.
+6. After Stage 8A proves frame resources are aligned, implement the smallest evaluate path with DLSS disabled by default until image correctness is verified.

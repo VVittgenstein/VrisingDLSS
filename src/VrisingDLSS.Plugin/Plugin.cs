@@ -42,6 +42,11 @@ public sealed class Plugin : BasePlugin
             HookProbe.Run(_log);
         }
 
+        if (_config.EnableUpscalerStateProbe.Value)
+        {
+            UpscalerStateProbe.Install(_log);
+        }
+
         if (_config.EnableHarmonyCallProbe.Value)
         {
             HarmonyCallProbe.Install(_log);
@@ -89,6 +94,7 @@ public sealed class Plugin : BasePlugin
         {
             RenderThreadSmokeTest.Uninstall(_log);
             FrameResourceProbe.Uninstall(_log);
+            UpscalerStateProbe.Uninstall(_log);
             HarmonyCallProbe.Uninstall(_log);
         }
 

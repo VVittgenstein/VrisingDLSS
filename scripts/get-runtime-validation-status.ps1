@@ -74,6 +74,7 @@ function Get-ConfiguredStage {
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssInitQueryProbe") { return "dlss-init-query" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssRuntimeProbe") { return "dlss-runtime" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableFrameResourceProbe") { return "frame-resource" }
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableUpscalerStateProbe") { return "upscaler-state" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableD3D11TextureProbe") { return "d3d11" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderThreadSmokeTest") { return "render-thread" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeBridgeSmokeTest") { return "native" }
@@ -157,6 +158,11 @@ function Get-NextRecommendation {
     $hook = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 2"
     if ($hook -ne "Pass") {
         return "Keep Stage loader config until the hook probe finds CustomVignette; review Hook target log lines."
+    }
+
+    $upscaler = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 2B"
+    if ($upscaler -ne "Pass") {
+        return "powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath `"$($Inspect.GamePath)`" -Stage upscaler-state"
     }
 
     $native = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 4"

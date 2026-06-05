@@ -281,6 +281,7 @@ try {
             "EnableRenderGraphDiagnosticPass = false",
             "EnableExistingRenderFuncProbe = false",
             "EnableResourceMaterializationProbe = false",
+            "EnableUpscalerStateProbe = false",
             "EnableHookProbe = true"
         )) {
             if (-not (Test-TextContains -Text $configText -Needle $requiredConfigLine)) {

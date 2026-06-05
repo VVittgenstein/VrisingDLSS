@@ -135,6 +135,12 @@ $results.Add((New-StageResult `
     -StartedPatterns @("Running read-only HDRP hook probe.")))
 
 $results.Add((New-StageResult `
+    -Stage "Stage 2B Upscaler State Probe" `
+    -PassPatterns @("Upscaler state probe snapshot:", "Upscaler state probe call #") `
+    -FailPatterns @("Upscaler state probe failed", "Upscaler state probe postfix failed", "Upscaler state probe snapshot failed") `
+    -StartedPatterns @("Running read-only HDRP upscaler state probe.", "Upscaler state probe patched")))
+
+$results.Add((New-StageResult `
     -Stage "Stage 3 Harmony Call Probe" `
     -PassPatterns @("Harmony probe call #") `
     -FailPatterns @("Harmony runtime was not found", "Harmony runtime shape was not recognized", "Harmony probe failed to patch") `

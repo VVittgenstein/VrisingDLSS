@@ -29,13 +29,14 @@ The package zip keeps Thunderstore metadata at the root and places the plugin pa
 8. Confirm the log contains `VrisingDLSS 0.1.0 loaded`.
 9. Keep `Diagnostics.EnableHarmonyCallProbe=false` for the first run.
 10. After the basic hook probe finds candidate methods, enable `Diagnostics.EnableHarmonyCallProbe=true` for one diagnostic run, then disable it again.
-11. After the native bridge smoke test passes, enable `Diagnostics.EnableRenderThreadSmokeTest=true` for one diagnostic run, then disable it again.
-12. After the render-thread smoke test passes, enable `Diagnostics.EnableD3D11TextureProbe=true` for one diagnostic run, then disable it again.
-13. After the D3D11 probe passes, enable `Diagnostics.EnableFrameResourceProbe=true` for one diagnostic run, then disable it again.
-14. After the frame resource probe finds usable D3D11 frame resources, optionally set `DLSS.DlssRuntimePath` to a user-supplied production `nvngx_dlss.dll`, enable `Diagnostics.EnableDlssRuntimeProbe=true` for one diagnostic run, then disable it again.
-15. After the runtime load probe passes, optionally set `DLSS.DlssApplicationId`, enable `Diagnostics.EnableDlssInitQueryProbe=true` for one diagnostic run, then disable it again.
-16. For local SDK-wrapper research builds only, after the init/query probe passes, enable `Diagnostics.EnableDlssFeatureCreateProbe=true` for one diagnostic run, then disable it again.
-17. In a local/private gameplay scene, enable `Diagnostics.EnableDlssEvaluateInputProbe=true` for one diagnostic run to verify color/output/depth/motion native texture inputs before any DLSS evaluate work.
+11. Optionally enable `Diagnostics.EnableUpscalerStateProbe=true` for one diagnostic run to log current HDRP FSR/upscale and dynamic-resolution state, then disable it again.
+12. After the native bridge smoke test passes, enable `Diagnostics.EnableRenderThreadSmokeTest=true` for one diagnostic run, then disable it again.
+13. After the render-thread smoke test passes, enable `Diagnostics.EnableD3D11TextureProbe=true` for one diagnostic run, then disable it again.
+14. After the D3D11 probe passes, enable `Diagnostics.EnableFrameResourceProbe=true` for one diagnostic run, then disable it again.
+15. After the frame resource probe finds usable D3D11 frame resources, optionally set `DLSS.DlssRuntimePath` to a user-supplied production `nvngx_dlss.dll`, enable `Diagnostics.EnableDlssRuntimeProbe=true` for one diagnostic run, then disable it again.
+16. After the runtime load probe passes, optionally set `DLSS.DlssApplicationId`, enable `Diagnostics.EnableDlssInitQueryProbe=true` for one diagnostic run, then disable it again.
+17. For local SDK-wrapper research builds only, after the init/query probe passes, enable `Diagnostics.EnableDlssFeatureCreateProbe=true` for one diagnostic run, then disable it again.
+18. In a local/private gameplay scene, enable `Diagnostics.EnableDlssEvaluateInputProbe=true` for one diagnostic run to verify color/output/depth/motion native texture inputs before any DLSS evaluate work.
 
 ## Local Install Helper
 
@@ -65,6 +66,7 @@ After the mod folder exists, you can write a one-stage diagnostic config without
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage loader
+powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage upscaler-state
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage d3d11
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage frame-resource
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-evaluate-inputs
@@ -78,7 +80,7 @@ powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -Ga
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-feature-create -DlssRuntimePath "C:\path\to\nvngx_dlss.dll" -DlssApplicationId "0"
 ```
 
-Supported stages are `loader`, `native`, `render-thread`, `d3d11`, `frame-resource`, `dlss-runtime`, `dlss-init-query`, `dlss-feature-create`, and `dlss-evaluate-inputs`.
+Supported stages are `loader`, `native`, `render-thread`, `d3d11`, `frame-resource`, `upscaler-state`, `dlss-runtime`, `dlss-init-query`, `dlss-feature-create`, and `dlss-evaluate-inputs`.
 
 ## Log Analyzer
 
@@ -106,5 +108,7 @@ The next diagnostic switch, `Diagnostics.EnableDlssInitQueryProbe=true`, current
 For local SDK-wrapper research builds, `Diagnostics.EnableDlssFeatureCreateProbe=true` can create and immediately release a DLSS SuperSampling feature through the same temporary D3D11 device path. This still does not evaluate a frame.
 
 `Diagnostics.EnableDlssEvaluateInputProbe=true` validates whether real color/output/depth/motion frame resources are present and D3D11-compatible in the same hook callback. This does not require a DLSS runtime and still does not evaluate a frame. The `dlss-evaluate-inputs` helper also enables `Diagnostics.EnableResourceMaterializationProbe=true` to observe engine-owned RenderGraph texture creation callbacks. The ordinary diagnostic does not patch compiler-generated HDRP render functions; that rejected route is gated separately by `Diagnostics.EnableExistingRenderFuncProbe=false`.
+
+`Diagnostics.EnableUpscalerStateProbe=true` logs read-only HDRP FSR/upscale and dynamic-resolution state snapshots. It helps confirm whether V Rising's built-in FSR/upscale route is active, but it does not change the upscale filter and does not replace the DLSS depth/motion-vector requirement.
 
 Do not copy PureDark package files into this mod folder.

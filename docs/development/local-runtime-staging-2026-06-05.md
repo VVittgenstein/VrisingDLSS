@@ -50,6 +50,7 @@ Current validated evidence:
 
 - Stage 1 loader: pass. `VrisingDLSS 0.1.0 loaded.`
 - Stage 2 hook probe: pass. `CustomVignette` was found in `ProjectM`; `HDRenderPipeline.UpdateShaderVariablesGlobalCB(HDCamera, CommandBuffer)` was found in HDRP.
+- Stage 2B upscaler state probe: pass in a main-menu run. Initial HDRP upscale state was `GetUpscaleFilter=CatmullRom` and `GetUpscaleRes=100`. During startup V Rising called `HDRenderPipeline.SetFSRParameters(1, true)` and then `HDRenderPipeline.SetUpscaleFilter(EdgeAdaptiveScalingUpres, 0.59)`, after which the snapshot reported `GetUpscaleFilter=EdgeAdaptiveScalingUpres` and `GetUpscaleRes=58.999996`.
 - Stage 4 native bridge: pass. Native bridge API version `7` is the current build-validated bridge API. Archived runtime logs through Stage 7 used API version `6`.
 - Stage 5A render thread: pass. `HDRenderPipeline.UpdateShaderVariablesGlobalCB` issued `CommandBuffer.IssuePluginEvent`; native callback count advanced to `1`.
 - Stage 5B D3D11 texture: pass. Temporary `RenderTexture` pointer was recognized as a D3D11 resource/device.
@@ -84,6 +85,7 @@ Archived logs:
 
 - `artifacts/runtime-logs/LogOutput-first-interop-2026-06-05.log`
 - `artifacts/runtime-logs/LogOutput-stage1-loader-2026-06-05.log`
+- `artifacts/runtime-logs/LogOutput-stage2b-upscaler-state-main-menu-2026-06-05.log`
 - `artifacts/runtime-logs/LogOutput-stage4-native-2026-06-05.log`
 - `artifacts/runtime-logs/LogOutput-stage5a-render-thread-2026-06-05.log`
 - `artifacts/runtime-logs/LogOutput-stage5b-d3d11-2026-06-05.log`

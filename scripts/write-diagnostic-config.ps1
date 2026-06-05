@@ -5,6 +5,7 @@ param(
         "render-thread",
         "d3d11",
         "frame-resource",
+        "upscaler-state",
         "dlss-runtime",
         "dlss-init-query",
         "dlss-feature-create",
@@ -46,6 +47,7 @@ function New-ConfigMap {
             EnableRenderGraphDiagnosticPass = "false"
             EnableExistingRenderFuncProbe = "false"
             EnableResourceMaterializationProbe = "false"
+            EnableUpscalerStateProbe = "false"
             EnableHookProbe = "true"
             EnableHarmonyCallProbe = "false"
         }
@@ -100,6 +102,9 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableHarmonyCallProbe = "true"
             $Config.Diagnostics.EnableFrameResourceProbe = "true"
         }
+        "upscaler-state" {
+            $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+        }
         "dlss-runtime" {
             $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
             $Config.Diagnostics.EnableDlssRuntimeProbe = "true"
@@ -124,6 +129,7 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableFrameResourceProbe = "true"
             $Config.Diagnostics.EnableDlssEvaluateInputProbe = "true"
             $Config.Diagnostics.EnableResourceMaterializationProbe = "true"
+            $Config.Diagnostics.EnableUpscalerStateProbe = "true"
         }
     }
 }

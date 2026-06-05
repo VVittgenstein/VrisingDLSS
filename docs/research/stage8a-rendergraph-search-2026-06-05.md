@@ -15,6 +15,7 @@ This is engineering research, not legal advice.
 - Calling `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` from an ordinary Harmony prefix is not safe: the local log showed IL2CPP trampoline error output when the handle was outside a declared read/write pass scope.
 - The current diagnostic code therefore does not call `GetTexture` from prefixes. It records handle/resource state and listens for engine-owned `GetTexture` calls through a postfix.
 - Local static interop inspection also shows HDRP dynamic-resolution/upscale symbols in V Rising's build: `SetFSRParameters`, `GetUpscaleFilter`, `SetUpscaleFilter`, `HDDynamicResolution`, `DoDLSSPasses`, `DoDLSSPass`, `DoTemporalAntialiasing`, `UberPass`, and `FinalPass`.
+- A runtime upscaler-state probe in the main menu observed V Rising calling `HDRenderPipeline.SetFSRParameters(1, true)` followed by `HDRenderPipeline.SetUpscaleFilter(EdgeAdaptiveScalingUpres, 0.59)`. The initial static state was `CatmullRom`/`100`, and the later snapshot reported `EdgeAdaptiveScalingUpres`/`58.999996`.
 - The generated HDRP render-function methods include entries such as `_DoDLSSPass_b__969_0(DLSSData, RenderGraphContext)`, `_DoTemporalAntialiasing_b__1007_0(TemporalAntiAliasingData, RenderGraphContext)`, `_DoCustomPostProcess_b__997_0(CustomPostProcessData, RenderGraphContext)`, `_UberPass_b__1060_0(UberPostPassData, RenderGraphContext)`, and `_FinalPass_b__1069_0(FinalPassData, RenderGraphContext)`.
 
 ## Source Findings
