@@ -1,6 +1,6 @@
 # Install Guide
 
-Current status: scaffold only. This project does not enable DLSS yet.
+Current status: experimental scaffold. `DLSS.EnableDLSS=true` starts an unvalidated one-evaluate-per-frame candidate, but the package is not ready for public gameplay use yet.
 
 Use this guide once build outputs exist.
 
@@ -81,10 +81,11 @@ powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -Ga
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-feature-create -DlssRuntimePath "C:\path\to\nvngx_dlss.dll" -DlssApplicationId "0"
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-super-resolution-persistent-evaluate -DlssRuntimePath "C:\path\to\nvngx_dlss.dll" -DlssApplicationId "0"
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-super-resolution-frame-sequence -DlssRuntimePath "C:\path\to\nvngx_dlss.dll" -DlssApplicationId "0"
+powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-user-rendering -DlssRuntimePath "C:\path\to\nvngx_dlss.dll" -DlssApplicationId "0"
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-persistent-evaluate -DlssRuntimePath "C:\path\to\nvngx_dlss.dll" -DlssApplicationId "0"
 ```
 
-Supported stages are `loader`, `native`, `harmony-call`, `render-thread`, `d3d11`, `frame-resource`, `upscaler-state`, `dlss-runtime`, `dlss-init-query`, `dlss-feature-create`, `dlss-evaluate-inputs`, `dlss-super-resolution-inputs`, `dlss-super-resolution-evaluate`, `dlss-super-resolution-persistent-evaluate`, `dlss-super-resolution-frame-sequence`, `dlss-evaluate`, `dlss-persistent-evaluate`, and `dlsspass-resource`.
+Supported stages are `loader`, `native`, `harmony-call`, `render-thread`, `d3d11`, `frame-resource`, `upscaler-state`, `dlss-runtime`, `dlss-init-query`, `dlss-feature-create`, `dlss-evaluate-inputs`, `dlss-super-resolution-inputs`, `dlss-super-resolution-evaluate`, `dlss-super-resolution-persistent-evaluate`, `dlss-super-resolution-frame-sequence`, `dlss-visible-writeback`, `dlss-user-rendering`, `dlss-evaluate`, `dlss-persistent-evaluate`, and `dlsspass-resource`.
 
 ## Diagnostic Run Helper
 
@@ -143,7 +144,7 @@ By default, the analyzer and status script read `BepInEx\LogOutput.log`. Pass `-
 
 The source-only package intentionally does not include `nvngx_dlss.dll`.
 
-`VrisingDLSS.cfg` exposes the planned MVP DLSS and advanced configuration keys, including `DLSS.EnableDLSS`, `DLSS.QualityMode`, `DLSS.PresetMode`, `Advanced.RenderScaleOverride`, and `Advanced.MipBiasOverride`. In the current diagnostic package, `DLSS.EnableDLSS=true` only logs a warning and leaves native rendering unchanged.
+`VrisingDLSS.cfg` exposes the planned MVP DLSS and advanced configuration keys, including `DLSS.EnableDLSS`, `DLSS.QualityMode`, `DLSS.PresetMode`, `Advanced.RenderScaleOverride`, and `Advanced.MipBiasOverride`. In the current package, `DLSS.EnableDLSS=true` starts an experimental user-rendering candidate: it reuses the crash-safe RenderGraph `GetTexture` postfix route, waits for the accepted Super Resolution tuple, and asks the native frame-sequence path for one DLSS evaluate per accepted callback. This is still not public-MVP ready; image quality, performance, resize/reset behavior, and release-safe native/runtime distribution remain open.
 
 Keep `Diagnostics.EnableRenderGraphDiagnosticPass=false` and `Diagnostics.EnableExistingRenderFuncProbe=false` unless you are intentionally reproducing a crash-recovery research run. Both routes caused V Rising `coreclr.dll` access violations during Stage 8A testing.
 
@@ -164,6 +165,8 @@ For local SDK-wrapper research builds, `Diagnostics.EnableDlssFeatureCreateProbe
 `Diagnostics.EnableDlssSuperResolutionFrameSequenceEvaluateProbe=true` is the Stage 9A local research switch. It waits for Stage 8E, then asks the local SDK-wrapper native path to keep one DLSS feature alive across multiple RenderGraph callbacks for that SR tuple before shutdown. Release-safe builds report blocked. Use `scripts\run-vrising-diagnostic.ps1 -Stage dlss-super-resolution-frame-sequence` only in local/private testing with `DLSS.DlssRuntimePath` set.
 
 `Diagnostics.EnableDlssVisibleWritebackProbe=true` is the Stage 10A local research switch. It waits for Stage 8E, then asks the local SDK-wrapper native path to repeatedly evaluate DLSS into the selected Super Resolution output target across multiple RenderGraph callbacks before shutdown. Release-safe builds report blocked. Use `scripts\run-vrising-diagnostic.ps1 -Stage dlss-visible-writeback` only in local/private image-correctness testing with `DLSS.DlssRuntimePath` set. A Stage 10A pass proves a guarded visible-path candidate can run; it still does not prove that the final image looks correct.
+
+`DLSS.EnableDLSS=true`, or helper stage `dlss-user-rendering`, is the first normal-user-path candidate. It does not enable the Stage 10A hold/proof loop; it keeps one native frame sequence alive and evaluates once for each accepted Super Resolution RenderGraph callback. Release-safe builds without NVIDIA SDK wrapper support are expected to report blocked/fallback rather than crashing.
 
 `Diagnostics.EnableDlssEvaluateProbe=true` is the Stage 8B local research switch. It reuses a successful Stage 8A tuple, then asks a local SDK-wrapper native build to create a DLSS feature, call one guarded D3D11 DLSS evaluate, and release/shutdown immediately. After a successful evaluate, the plugin also performs Stage 8C output follow-up by watching later engine-owned `GetTexture` callbacks for the selected output resource/pointer and re-probing it as D3D11. Release-safe builds report blocked. Use `scripts\run-vrising-diagnostic.ps1 -Stage dlss-evaluate` only in local/private testing with `DLSS.DlssRuntimePath` set; this is still not the normal-user `DLSS.EnableDLSS` path.
 

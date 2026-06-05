@@ -252,6 +252,13 @@ $results.Add((New-StageResult `
     -BlockedPatterns @("DLSS visible write-back probe blocked:", "DLSS visible write-back probe blocked from") `
     -StartedPatterns @("DLSS visible write-back probe enabled.", "DLSS visible write-back probe candidate #")))
 
+$results.Add((New-StageResult `
+    -Stage "DLSS User Rendering Candidate" `
+    -PassPatterns @("DLSS user rendering evaluate succeeded from") `
+    -FailPatterns @("DLSS user rendering evaluate failed from", "DLSS user rendering evaluate skipped from", "DLSS user rendering shutdown failed:") `
+    -BlockedPatterns @("DLSS user rendering evaluate blocked from") `
+    -StartedPatterns @("DLSS user rendering candidate enabled.", "DLSS user rendering candidate #")))
+
 $results
 
 if ($FailOnProblems) {

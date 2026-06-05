@@ -416,7 +416,7 @@ if ($issues.Count -gt 0) {
     $result = New-Status `
         -Status "Pass" `
         -Evidence "Gameplay visual comparison, Stage 10A log, baseline/candidate performance summaries, and matching human review passed: $comparisonResolved" `
-        -NextRecommendation "Use this visual evidence while implementing normal-user DLSS.EnableDLSS integration, resize/reset handling, and fallback behavior." `
+        -NextRecommendation "Use this visual evidence while validating the experimental normal-user DLSS.EnableDLSS candidate, resize/reset handling, and fallback behavior." `
         -Issues @() `
         -Details $details
 }

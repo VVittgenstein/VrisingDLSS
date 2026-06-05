@@ -360,7 +360,7 @@ $items.Add((New-ReadinessItem `
     -Area "MVP" `
     -Requirement "Normal-user DLSS enable/disable changes rendering correctly and safely." `
     -Status "Blocked" `
-    -Evidence "EnableDLSS is exposed, and Stage 8A/8B/8C/8D/8E/8F/8G/9A/10A frame-input/evaluate/output-follow-up/persistent-lifecycle/SR-sizing/SR-evaluate/SR-persistent-lifecycle/frame-sequence/visible-path evidence is tracked by readiness when present, but image-correctness validation and normal-user rendering integration are not complete yet."))
+    -Evidence "EnableDLSS is exposed and wired to an experimental one-evaluate-per-frame candidate. Stage 8A/8B/8C/8D/8E/8F/8G/9A/10A frame-input/evaluate/output-follow-up/persistent-lifecycle/SR-sizing/SR-evaluate/SR-persistent-lifecycle/frame-sequence/visible-path evidence is tracked by readiness when present, but image-correctness, performance, resize/reset, and fallback validation are not complete yet."))
 
 $mvpBlockingStatuses = @("Fail", "Blocked", "Missing")
 $hardFailures = @($items | Where-Object { $_.Status -eq "Fail" })
@@ -388,12 +388,12 @@ $summary = [pscustomobject]@{
     NextRecommendation = if ($mvpReady) {
         "MVP evidence is complete. Prepare a final release review."
     } elseif ([string]::IsNullOrWhiteSpace($GamePath)) {
-        "Pass -GamePath to include local runtime evidence. Current MVP next step is resolving the visual gate, then implementing normal-user DLSS.EnableDLSS rendering with one evaluate per frame."
+        "Pass -GamePath to include local runtime evidence. Current MVP next step is resolving the visual gate, then validating the experimental DLSS.EnableDLSS one-evaluate-per-frame candidate."
     } elseif ($visualStatus.Status -ne "Pass" -and $visualStatus.HumanReviewStatus -eq "Pending") {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
         } else {
-            "Complete the pending human visual review, then implement normal-user DLSS.EnableDLSS rendering with one evaluate per frame."
+            "Complete the pending human visual review, then validate the experimental DLSS.EnableDLSS one-evaluate-per-frame candidate."
         }
     } elseif (@($items | Where-Object { $_.Requirement -like "Stage 8A*" -and $_.Status -ne "Pass" }).Count -gt 0) {
         if (-not [string]::IsNullOrWhiteSpace($runtimeNextRecommendation)) {

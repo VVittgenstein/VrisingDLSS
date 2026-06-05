@@ -249,7 +249,7 @@ try {
             Add-Violation -Violations $violations -Message "README.md must not be empty."
         } else {
             foreach ($requiredReadmePhrase in @(
-                "does not enable DLSS",
+                "experimental",
                 "not ready for public gameplay use",
                 "local/private",
                 "nvngx_dlss.dll"

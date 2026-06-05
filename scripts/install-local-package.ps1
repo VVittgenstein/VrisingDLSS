@@ -77,7 +77,7 @@ This folder intentionally does not include:
 - NVIDIA nvngx_dlss.dll.
 - V Rising game files.
 
-Normal-user DLSS rendering is not implemented yet. Guarded DLSS evaluate diagnostics are local research only and remain disabled by default.
+Normal-user DLSS rendering is still experimental and not MVP-validated. Guarded DLSS evaluate diagnostics remain disabled by default.
 "@
 
 $forbiddenNearbyNames = @(

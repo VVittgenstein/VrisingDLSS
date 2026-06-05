@@ -22,7 +22,7 @@ public sealed class Plugin : BasePlugin
         _config = new ModConfig(CreateModConfigFile());
 
         _log.LogInfo($"{PluginInfo.Name} {PluginInfo.Version} loaded.");
-        _log.LogInfo("This is a clean-room scaffold. Normal-user DLSS rendering is not implemented yet; guarded evaluate diagnostics are local research only.");
+        _log.LogInfo("This is a clean-room scaffold. DLSS rendering is experimental and not MVP-validated yet; guarded evaluate diagnostics are local research only.");
 
         WarnIfReferenceBinariesAreInstalled();
 
@@ -34,7 +34,7 @@ public sealed class Plugin : BasePlugin
 
         if (_config.EnableDlss.Value)
         {
-            _log.LogWarning("DLSS.EnableDLSS is true, but normal-user DLSS rendering is not implemented yet. Native rendering remains unchanged unless Diagnostics.EnableDlssEvaluateProbe is explicitly enabled for local research.");
+            _log.LogWarning("DLSS.EnableDLSS is true. The experimental user rendering path will use the crash-safe RenderGraph resource route and one DLSS evaluate per accepted frame when a compatible native bridge/runtime is available.");
         }
 
         if (_config.EnableHookProbe.Value)
@@ -61,7 +61,8 @@ public sealed class Plugin : BasePlugin
             || _config.EnableDlssVisibleWritebackProbe.Value
             || _config.EnableDlssEvaluateProbe.Value
             || _config.EnableDlssPersistentEvaluateProbe.Value
-            || _config.EnableDlssPassResourceProbe.Value)
+            || _config.EnableDlssPassResourceProbe.Value
+            || _config.EnableDlss.Value)
         {
             RunFrameResourceProbe();
         }
@@ -186,6 +187,7 @@ public sealed class Plugin : BasePlugin
             _config?.EnableDlssSuperResolutionPersistentEvaluateProbe.Value ?? false,
             _config?.EnableDlssSuperResolutionFrameSequenceEvaluateProbe.Value ?? false,
             _config?.EnableDlssVisibleWritebackProbe.Value ?? false,
+            _config?.EnableDlss.Value ?? false,
             _config?.KeepDlssVisibleWritebackProbeRunning.Value ?? false,
             CreateDlssEvaluateProbeSettings(),
             _config?.EnableRenderGraphDiagnosticPass.Value ?? false,
@@ -319,9 +321,9 @@ public sealed class Plugin : BasePlugin
         }
 
         var runtimePath = ResolveConfiguredRuntimePath(_config.DlssRuntimePath.Value);
-        if ((_config.EnableDlssEvaluateProbe.Value || _config.EnableDlssPersistentEvaluateProbe.Value || _config.EnableDlssSuperResolutionEvaluateProbe.Value || _config.EnableDlssSuperResolutionPersistentEvaluateProbe.Value || _config.EnableDlssSuperResolutionFrameSequenceEvaluateProbe.Value || _config.EnableDlssVisibleWritebackProbe.Value) && string.IsNullOrWhiteSpace(runtimePath))
+        if ((_config.EnableDlss.Value || _config.EnableDlssEvaluateProbe.Value || _config.EnableDlssPersistentEvaluateProbe.Value || _config.EnableDlssSuperResolutionEvaluateProbe.Value || _config.EnableDlssSuperResolutionPersistentEvaluateProbe.Value || _config.EnableDlssSuperResolutionFrameSequenceEvaluateProbe.Value || _config.EnableDlssVisibleWritebackProbe.Value) && string.IsNullOrWhiteSpace(runtimePath))
         {
-            _log?.LogWarning("DLSS evaluate/persistent/Super Resolution evaluate/persistent/frame-sequence/visible write-back probe is enabled, but DLSS.DlssRuntimePath is empty. The native probe will report skipped until a runtime path is configured.");
+            _log?.LogWarning("DLSS rendering/evaluate/persistent/Super Resolution evaluate/persistent/frame-sequence/visible write-back path is enabled, but DLSS.DlssRuntimePath is empty. The native path will report skipped until a runtime path is configured.");
         }
 
         if (!TryParseApplicationId(_config.DlssApplicationId.Value, out var applicationId))
