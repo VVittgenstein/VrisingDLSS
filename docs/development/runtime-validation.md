@@ -283,7 +283,7 @@ Implemented as an optional real-frame diagnostic:
 - Also discovers selected HDRP RenderGraph methods that carry `RenderGraph` plus `TextureHandle` parameters, including post-process, motion-vector, final-blit, and custom-post-process paths.
 - For RenderGraph callbacks, records resource handle index/type and checks `GetTextureResource(ResourceHandle&)` state. It does not call `GetTexture(TextureHandle&)` from a method prefix, because invalid-scope calls can produce IL2CPP trampoline errors even when caught.
 - Patches non-generic `RenderGraphBuilder` texture declaration methods (`UseColorBuffer`, `UseDepthBuffer`, `ReadTexture`, `WriteTexture`, `ReadWriteTexture`) to observe the resources HDRP declares for each pass. This path uses `GetRenderGraphResourceName(ResourceHandle&)` for names only; it does not materialize textures.
-- When local V Rising interop assemblies are available at build time, compiles a diagnostic RenderGraph pass path that uses `AddRenderPass`/`SetRenderFunc`, declares `CameraColor`, `CameraDepthStencil`, and `Motion Vectors`, and attempts native input validation inside the render function.
+- When local V Rising interop assemblies are available at build time, compiles a high-risk diagnostic RenderGraph pass path that uses `AddRenderPass`/`SetRenderFunc`, declares `CameraColor`, `CameraDepthStencil`, and `Motion Vectors`, and attempts native input validation inside the render function. This path is gated by `Diagnostics.EnableRenderGraphDiagnosticPass=false` by default.
 - Patches `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` with a read-only postfix to detect any engine-owned, valid-scope texture materialization and probe the returned `RTHandle`.
 - Reads global `_CameraDepthTexture` and `_CameraMotionVectorsTexture` as depth/motion candidates.
 - Passes color/output/depth/motion native pointers to `VrisingDlss_ProbeDlssEvaluateInputs`.
@@ -303,7 +303,6 @@ Evidence:
 
 - `BepInEx/LogOutput.log` line beginning with `DLSS evaluate input probe enabled`.
 - Log line beginning with `DLSS evaluate input probe succeeded`.
-- Or log line beginning with `DLSS evaluate input probe succeeded from RenderGraph diagnostic pass`.
 - Native status includes `color=`, `output=`, `depth=`, `motion=`, and `sameDevice=yes`.
 
 Current Stage 8A status:
@@ -317,8 +316,9 @@ Current Stage 8A status:
 - A `RenderGraph.PreRenderPassExecute` postfix probe patches cleanly, but it was not observed as called in a 45-second main-menu run. This suggests that main-menu RenderGraph execution does not traverse that managed interop wrapper.
 - A `RenderGraphPass<T>.Execute(RenderGraphContext)` open-generic prefix probe was tested and rejected: Harmony refused to patch the open generic method because `Type.ContainsGenericParameters` is true.
 - A `TextureHandle` implicit-conversion postfix probe was tested and rejected: patching the conversion methods produced repeated IL2CPP trampoline `NullReferenceException` logs in the main menu. The source code no longer patches those conversions.
-- A local-interop diagnostic RenderGraph pass now injects successfully with `hasRenderFunc=True` and `allowPassCulling=False`. It can be injected either from `DoCustomPostProcess` arguments or from aggregated `RenderGraphBuilder` declarations for `CameraColor`, `CameraDepthStencil`, and `Motion Vectors`.
-- In repeated main-menu runs, the diagnostic pass is configured and declared but the render function is not observed as called. The next verification gate is a local/private gameplay scene, or another graph path that is known to execute this pass.
+- A local-interop diagnostic RenderGraph pass injected successfully with `hasRenderFunc=True` and `allowPassCulling=False` in main-menu runs, but its render function was not observed as called there.
+- A local/private gameplay run on 2026-06-05 configured and injected the diagnostic pass twice, then V Rising crashed with a Windows `APPCRASH` in `coreclr.dll` (`0xc0000005`) before any diagnostic-pass render-function log. This route is now high-risk and disabled by default behind `Diagnostics.EnableRenderGraphDiagnosticPass=false`.
+- Current next route: keep Stage 8A's passive builder/resource discovery and `GetTexture` postfix, but do not inject a new RenderGraph pass in normal diagnostics. Find a known-executing HDRP/RenderGraph path or an engine-owned resource materialization point before attempting native input validation.
 - See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.
 
 ## Stage 8: First DLSS Evaluate

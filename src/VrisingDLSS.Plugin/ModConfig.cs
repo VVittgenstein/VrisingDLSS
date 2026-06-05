@@ -12,14 +12,22 @@ internal sealed class ModConfig
     internal ConfigEntry<bool> EnableDlssInitQueryProbe { get; }
     internal ConfigEntry<bool> EnableDlssFeatureCreateProbe { get; }
     internal ConfigEntry<bool> EnableDlssEvaluateInputProbe { get; }
+    internal ConfigEntry<bool> EnableRenderGraphDiagnosticPass { get; }
     internal ConfigEntry<bool> EnableHookProbe { get; }
     internal ConfigEntry<bool> EnableHarmonyCallProbe { get; }
     internal ConfigEntry<bool> EnableFrameResourceProbe { get; }
-    internal ConfigEntry<bool> ShowOverlay { get; }
+    internal ConfigEntry<bool> EnableDlss { get; }
     internal ConfigEntry<string> DlssRuntimePath { get; }
     internal ConfigEntry<string> DlssApplicationId { get; }
     internal ConfigEntry<string> QualityMode { get; }
+    internal ConfigEntry<string> PresetMode { get; }
     internal ConfigEntry<float> Sharpness { get; }
+    internal ConfigEntry<bool> AutoExposure { get; }
+    internal ConfigEntry<int> RenderScaleOverride { get; }
+    internal ConfigEntry<string> MipBiasOverride { get; }
+    internal ConfigEntry<bool> ResetOnCameraCut { get; }
+    internal ConfigEntry<string> LogLevel { get; }
+    internal ConfigEntry<bool> ShowOverlay { get; }
 
     internal ModConfig(ConfigFile config)
     {
@@ -31,13 +39,21 @@ internal sealed class ModConfig
         EnableDlssInitQueryProbe = config.Bind("Diagnostics", "EnableDlssInitQueryProbe", false, "Guarded NGX init/query diagnostic with a temporary RenderTexture D3D11 device. May report blocked until NVIDIA SDK wrapper integration exists; does not create or evaluate a DLSS feature.");
         EnableDlssFeatureCreateProbe = config.Bind("Diagnostics", "EnableDlssFeatureCreateProbe", false, "SDK-wrapper DLSS feature create/release diagnostic with a temporary RenderTexture D3D11 device. Diagnostic only; does not evaluate a frame.");
         EnableDlssEvaluateInputProbe = config.Bind("Diagnostics", "EnableDlssEvaluateInputProbe", false, "Validate same-frame color/output/depth/motion D3D11 texture inputs for the future DLSS evaluate path. Diagnostic only; does not evaluate a frame.");
+        EnableRenderGraphDiagnosticPass = config.Bind("Diagnostics", "EnableRenderGraphDiagnosticPass", false, "High-risk research-only RenderGraph pass injection for Stage 8A. Leave false unless crash-recovery testing is intentional.");
         EnableHookProbe = config.Bind("Diagnostics", "EnableHookProbe", true, "Scan loaded assemblies for candidate HDRP hook points and log the result.");
         EnableHarmonyCallProbe = config.Bind("Diagnostics", "EnableHarmonyCallProbe", false, "Patch candidate HDRP methods with read-only Harmony prefixes and log call counts. Diagnostic only.");
         EnableFrameResourceProbe = config.Bind("Diagnostics", "EnableFrameResourceProbe", false, "Patch candidate HDRP render methods with read-only Harmony prefixes and log source/destination/depth/motion native texture pointers. Diagnostic only.");
-        ShowOverlay = config.Bind("Diagnostics", "ShowOverlay", true, "Show a small diagnostic overlay when implemented.");
+        EnableDlss = config.Bind("DLSS", "EnableDLSS", false, "Enable DLSS Super Resolution when the evaluate path is implemented. Current diagnostic builds log and fall back safely.");
         DlssRuntimePath = config.Bind("DLSS", "DlssRuntimePath", string.Empty, "Optional path to a user-supplied production nvngx_dlss.dll.");
         DlssApplicationId = config.Bind("DLSS", "DlssApplicationId", "0", "Optional NVIDIA NGX application id for init/query diagnostics. Decimal or 0x-prefixed hexadecimal.");
-        QualityMode = config.Bind("DLSS", "QualityMode", "Quality", "Requested DLSS mode: Quality, Balanced, Performance, UltraPerformance, or DLAA.");
+        QualityMode = config.Bind("DLSS", "QualityMode", "Performance", "Requested DLSS mode: DLAA, Quality, Balanced, Performance, or UltraPerformance.");
+        PresetMode = config.Bind("DLSS", "PresetMode", "Recommended", "Requested DLSS preset mode: Recommended, Auto, PresetK, PresetL, or PresetM. Explicit presets are applied only after SDK mapping is verified.");
         Sharpness = config.Bind("DLSS", "Sharpness", 0.0f, "Optional sharpening value. 0 disables sharpening.");
+        AutoExposure = config.Bind("DLSS", "AutoExposure", true, "Use DLSS auto-exposure when supported and verified.");
+        RenderScaleOverride = config.Bind("Advanced", "RenderScaleOverride", 0, "Optional render-height override in pixels. 0 lets the selected DLSS quality mode choose the render scale.");
+        MipBiasOverride = config.Bind("Advanced", "MipBiasOverride", "Auto", "Optional mip-map bias override. Auto lets the plugin choose a DLSS-appropriate bias when implemented.");
+        ResetOnCameraCut = config.Bind("Advanced", "ResetOnCameraCut", true, "Reset temporal DLSS history on camera cuts when implemented.");
+        LogLevel = config.Bind("Advanced", "LogLevel", "Info", "Requested plugin log level: Info, Warning, Debug, or Trace.");
+        ShowOverlay = config.Bind("Advanced", "ShowOverlay", true, "Show a small diagnostic/status overlay when implemented.");
     }
 }

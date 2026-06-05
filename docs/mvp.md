@@ -25,7 +25,9 @@ The MVP user experience target is a normal-user package: drag the mod package in
 
 ## MVP Default Configuration Target
 
-Current diagnostic builds may keep destructive or rendering-changing behavior disabled until the DLSS path is proven. The release MVP target defaults are:
+Current diagnostic builds keep rendering-changing behavior disabled until the DLSS path is proven. The diagnostic package exposes the MVP configuration surface but uses `EnableDLSS=false` until Stage 8A and first evaluate are implemented.
+
+The release MVP target defaults are:
 
 ```ini
 [DLSS]

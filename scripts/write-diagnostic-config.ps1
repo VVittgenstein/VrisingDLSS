@@ -43,15 +43,25 @@ function New-ConfigMap {
             EnableDlssInitQueryProbe = "false"
             EnableDlssFeatureCreateProbe = "false"
             EnableDlssEvaluateInputProbe = "false"
+            EnableRenderGraphDiagnosticPass = "false"
             EnableHookProbe = "true"
             EnableHarmonyCallProbe = "false"
-            ShowOverlay = "true"
         }
         DLSS = [ordered]@{
+            EnableDLSS = "false"
             DlssRuntimePath = $DlssRuntimePath
             DlssApplicationId = $DlssApplicationId
-            QualityMode = "Quality"
+            QualityMode = "Performance"
+            PresetMode = "Recommended"
             Sharpness = "0"
+            AutoExposure = "true"
+        }
+        Advanced = [ordered]@{
+            RenderScaleOverride = "0"
+            MipBiasOverride = "Auto"
+            ResetOnCameraCut = "true"
+            LogLevel = "Info"
+            ShowOverlay = "true"
         }
     }
 

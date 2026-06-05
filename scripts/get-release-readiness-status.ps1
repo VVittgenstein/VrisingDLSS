@@ -226,12 +226,26 @@ $configTemplateText = if (Test-Path -LiteralPath $configTemplatePath) {
 } else {
     ""
 }
-$releaseConfigReady = $configTemplateText -match "EnableDLSS" -and $configTemplateText -match "PresetMode" -and $configTemplateText -match "RenderScaleOverride"
+$releaseConfigSurfaceReady = $configTemplateText -match "EnableDLSS" `
+    -and $configTemplateText -match "QualityMode" `
+    -and $configTemplateText -match "PresetMode" `
+    -and $configTemplateText -match "AutoExposure" `
+    -and $configTemplateText -match "RenderScaleOverride" `
+    -and $configTemplateText -match "MipBiasOverride" `
+    -and $configTemplateText -match "ResetOnCameraCut" `
+    -and $configTemplateText -match "LogLevel" `
+    -and $configTemplateText -match "ShowOverlay"
 $items.Add((New-ReadinessItem `
     -Area "MVP" `
-    -Requirement "Normal-user DLSS enable/disable and release defaults are implemented in config." `
-    -Status $(if ($releaseConfigReady) { "Pass" } else { "Blocked" }) `
-    -Evidence $(if ($releaseConfigReady) { $configTemplatePath } else { "Current config remains diagnostic; release DLSS defaults are documented in docs/mvp.md but not implemented." })))
+    -Requirement "Normal-user DLSS/Advanced configuration surface is present in the mod-folder config." `
+    -Status $(if ($releaseConfigSurfaceReady) { "Pass" } else { "Blocked" }) `
+    -Evidence $(if ($releaseConfigSurfaceReady) { $configTemplatePath } else { "Release DLSS defaults are documented in docs/mvp.md but the package config does not expose every key yet." })))
+
+$items.Add((New-ReadinessItem `
+    -Area "MVP" `
+    -Requirement "Normal-user DLSS enable/disable changes rendering correctly and safely." `
+    -Status "Blocked" `
+    -Evidence "EnableDLSS is exposed, but the guarded DLSS evaluate path is not implemented until Stage 8A frame inputs pass."))
 
 $mvpBlockingStatuses = @("Fail", "Blocked", "Missing")
 $hardFailures = @($items | Where-Object { $_.Status -eq "Fail" })

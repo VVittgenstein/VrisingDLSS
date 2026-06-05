@@ -32,6 +32,11 @@ public sealed class Plugin : BasePlugin
             return;
         }
 
+        if (_config.EnableDlss.Value)
+        {
+            _log.LogWarning("DLSS.EnableDLSS is true, but this diagnostic build does not evaluate DLSS yet. Native rendering remains unchanged.");
+        }
+
         if (_config.EnableHookProbe.Value)
         {
             HookProbe.Run(_log);
@@ -154,7 +159,11 @@ public sealed class Plugin : BasePlugin
             return;
         }
 
-        FrameResourceProbe.Install(_log, bridge, _config?.EnableDlssEvaluateInputProbe.Value ?? false);
+        FrameResourceProbe.Install(
+            _log,
+            bridge,
+            _config?.EnableDlssEvaluateInputProbe.Value ?? false,
+            _config?.EnableRenderGraphDiagnosticPass.Value ?? false);
     }
 
     private ConfigFile CreateModConfigFile()

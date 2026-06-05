@@ -95,6 +95,10 @@ The analyzer only reads `BepInEx\LogOutput.log`. The status script combines inst
 
 The source-only package intentionally does not include `nvngx_dlss.dll`.
 
+`VrisingDLSS.cfg` exposes the planned MVP DLSS and advanced configuration keys, including `DLSS.EnableDLSS`, `DLSS.QualityMode`, `DLSS.PresetMode`, `Advanced.RenderScaleOverride`, and `Advanced.MipBiasOverride`. In the current diagnostic package, `DLSS.EnableDLSS=true` only logs a warning and leaves native rendering unchanged.
+
+Keep `Diagnostics.EnableRenderGraphDiagnosticPass=false` unless you are intentionally reproducing a crash-recovery research run. That injected-pass route caused a V Rising `coreclr.dll` access violation during Stage 8A gameplay testing.
+
 The current diagnostic scaffold can optionally load and immediately release a user-supplied production `nvngx_dlss.dll` when `Diagnostics.EnableDlssRuntimeProbe=true` and `DLSS.DlssRuntimePath` points to that file. This is only a path/export probe.
 
 The next diagnostic switch, `Diagnostics.EnableDlssInitQueryProbe=true`, currently uses a temporary RenderTexture D3D11 device to confirm the native path and then checks whether the loaded runtime exposes the helper exports needed for NGX capability query. Release-safe builds are expected to report `DLSS init/query probe blocked` with only a production `nvngx_dlss.dll`. Local SDK-wrapper research builds can run the full init/capability query, but they are not enabled or packaged by default.

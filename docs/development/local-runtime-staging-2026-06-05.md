@@ -77,6 +77,7 @@ Current validated evidence:
   - A local-interop diagnostic RenderGraph pass using `AddRenderPass`/`SetRenderFunc` now injects and configures successfully. Evidence: `RenderGraph diagnostic pass configured ... hasRenderFunc=True; allowPassCulling=False`.
   - The diagnostic pass can be injected from `DoCustomPostProcess` arguments and from aggregated `RenderGraphBuilder` declarations once `CameraColor`, `CameraDepthStencil`, and `Motion Vectors` have all been observed in the same graph.
   - In repeated main-menu runs, the diagnostic pass is declared and configured but the render function is not observed as called. Current conclusion: Stage 8A needs a local/private gameplay-scene run or another known-executing graph path; main-menu evidence is no longer sufficient.
+  - A local/private gameplay run on 2026-06-05 configured/injected that diagnostic pass twice and then crashed `VRising.exe` in `coreclr.dll` with `0xc0000005` before the diagnostic render function logged. Evidence was archived from BepInEx and Windows Error Reporting. The diagnostic pass injection route is now considered high-risk and is disabled by default behind `Diagnostics.EnableRenderGraphDiagnosticPass=false`.
 - Local GPU/driver for Stage 6/7 pass: NVIDIA GeForce RTX 5060, driver `610.47`.
 
 Archived logs:
@@ -110,11 +111,13 @@ Archived logs:
 - `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-diagnostic-pass-declared-readwrite-main-menu-2026-06-05-031103.log`
 - `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-diagnostic-pass-has-renderfunc-main-menu-2026-06-05-031250.log`
 - `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-diagnostic-pass-builder-aggregate-main-menu-2026-06-05-031812.log`
+- `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-diagnostic-pass-crash-gameplay-2026-06-05-083418.log`
+- `artifacts/runtime-logs/WER-stage8a-rendergraph-diagnostic-pass-crash-gameplay-2026-06-05-083423.wer`
 
 No PureDark files were copied into the game plugin folder. The NVIDIA runtime was copied only into `ref/` for local research and was not added to the release package.
 
 Next implementation gate:
 
-- Run `dlss-evaluate-inputs` in a local/private gameplay scene with the diagnostic RenderGraph pass enabled, because the main-menu graph configures but does not execute the diagnostic pass.
-- If gameplay also configures without executing, move the diagnostic pass injection to a later known-executing graph path or attach it to a concrete HDRP pass output rather than the main-menu custom-post-process path.
+- Keep ordinary `dlss-evaluate-inputs` diagnostics safe by leaving `Diagnostics.EnableRenderGraphDiagnosticPass=false`.
+- Find a later known-executing HDRP/RenderGraph path or an engine-owned resource materialization point instead of injecting a new diagnostic RenderGraph pass into the graph.
 - Implement the smallest SDK-wrapper-backed DLSS evaluate probe only after Stage 8A proves frame resources are aligned and native D3D11 pointers are available in the same frame.

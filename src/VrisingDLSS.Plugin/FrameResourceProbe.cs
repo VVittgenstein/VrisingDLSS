@@ -42,24 +42,35 @@ internal static class FrameResourceProbe
     private static Type? HarmonyType;
     private static bool Installed;
     private static bool DlssEvaluateInputProbeEnabled;
+    private static bool RenderGraphDiagnosticPassEnabled;
     private static bool DlssEvaluateInputProbeSucceeded;
 
-    internal static void Install(ManualLogSource log, NativeBridge bridge, bool enableDlssEvaluateInputProbe = false)
+    internal static void Install(
+        ManualLogSource log,
+        NativeBridge bridge,
+        bool enableDlssEvaluateInputProbe = false,
+        bool enableRenderGraphDiagnosticPass = false)
     {
         if (Installed)
         {
             log.LogInfo("Frame resource probe is already installed.");
             DlssEvaluateInputProbeEnabled = DlssEvaluateInputProbeEnabled || enableDlssEvaluateInputProbe;
+            RenderGraphDiagnosticPassEnabled = RenderGraphDiagnosticPassEnabled || enableRenderGraphDiagnosticPass;
             return;
         }
 
         Log = log;
         Bridge = bridge;
         DlssEvaluateInputProbeEnabled = enableDlssEvaluateInputProbe;
+        RenderGraphDiagnosticPassEnabled = enableRenderGraphDiagnosticPass;
         DlssEvaluateInputProbeSucceeded = false;
         if (DlssEvaluateInputProbeEnabled)
         {
             log.LogInfo("DLSS evaluate input probe enabled.");
+        }
+        if (RenderGraphDiagnosticPassEnabled)
+        {
+            log.LogWarning("High-risk RenderGraph diagnostic pass injection is enabled. This route has caused a CoreCLR access violation in V Rising and should be used only for crash-recovery research.");
         }
 
         var assemblies = AppDomain.CurrentDomain.GetAssemblies();
@@ -230,6 +241,7 @@ internal static class FrameResourceProbe
             Log = null;
             Bridge = null;
             DlssEvaluateInputProbeEnabled = false;
+            RenderGraphDiagnosticPassEnabled = false;
             DlssEvaluateInputProbeSucceeded = false;
             lock (Sync)
             {
@@ -628,7 +640,7 @@ internal static class FrameResourceProbe
             }
 
 #if VRISINGDLSS_LOCAL_INTEROP
-            if (DlssEvaluateInputProbeEnabled)
+            if (DlssEvaluateInputProbeEnabled && RenderGraphDiagnosticPassEnabled)
             {
                 RenderGraphDiagnosticPass.TryInject(log, bridge, __originalMethod, __args);
             }
@@ -687,6 +699,7 @@ internal static class FrameResourceProbe
 
 #if VRISINGDLSS_LOCAL_INTEROP
             if (DlssEvaluateInputProbeEnabled
+                && RenderGraphDiagnosticPassEnabled
                 && Bridge is { } bridge
                 && TryGetRenderGraphBuilderDeclarationDetails(__instance, __args, out var textureHandle, out var resourceName))
             {
