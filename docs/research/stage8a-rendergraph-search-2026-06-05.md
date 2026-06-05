@@ -119,6 +119,10 @@ Follow-up evidence: a main-menu diagnostic run on 2026-06-05 patched 10 compiler
 
 Updated route decision after that follow-up: continue passive RenderGraph discovery and engine-owned `GetTexture` postfix monitoring, but do not inject a new diagnostic pass and do not patch compiler-generated HDRP render functions in ordinary diagnostics. The FSR/dynamic-resolution symbols remain landmarks for the eventual route, not a safe hook mechanism by themselves.
 
+Implementation follow-up: the next safer candidate is `RenderGraphResourceRegistry.CreateTextureCallback(RenderGraphContext, IRenderGraphResource)`, paired with `BeginExecute(int)` for per-execution reset. Static interop inspection shows `TextureResource` inherits the generic RenderGraph resource base that exposes `graphicsResource`; when Unity's callback returns success, a postfix can observe the already-created `RTHandle`/Texture path without calling `GetTexture(TextureHandle&)` from an invalid prefix scope. This is now implemented behind `Diagnostics.EnableResourceMaterializationProbe=false` by default and enabled by the `dlss-evaluate-inputs` helper stage. It is build/package validated but not yet runtime-validated in gameplay.
+
+Additional FSR evidence: local metadata and interop inspection confirm V Rising exposes `AMD FSR 1.0`, `SetFSRParameters(float, bool)`, `GetUpscaleRes()`, `SetUpscaleFilter(DynamicResUpscaleFilter, float)`, `GetUpscaleFilter()`, `SetupDLSSForCameraDataAndDynamicResHandler(...)`, `GetPostprocessUpsampledOutputHandle(...)`, `DoDLSSPasses(...)`, and `DoDLSSPass(...)`. FSR1 helps identify the existing dynamic-resolution/upscale controls, but it remains a spatial upscaler and does not remove DLSS's requirement for depth and motion-vector inputs.
+
 Rejected or deferred:
 
 - Calling `GetTexture(TextureHandle&)` from ordinary Harmony prefixes.
@@ -126,6 +130,7 @@ Rejected or deferred:
 - Patching `TextureHandle` implicit conversion operators as a broad diagnostic route.
 - Injecting a new diagnostic RenderGraph pass as part of ordinary `dlss-evaluate-inputs`; this caused a CoreCLR access violation in gameplay and is high-risk only.
 - Patching compiler-generated HDRP RenderGraph render-function delegates as part of ordinary `dlss-evaluate-inputs`; this reproduced the same CoreCLR access-violation crash before the postfix logged.
+- Treating FSR1 as a DLSS replacement instead of an upscale-path landmark.
 - Evaluating DLSS from main-menu HDCamera exposure/global texture evidence.
 - Replacing the primary route with Streamline before first direct-NGX evaluate.
 - Bundling `nvngx_dlss.dll` before a separate release review.

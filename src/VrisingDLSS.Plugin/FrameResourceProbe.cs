@@ -20,6 +20,8 @@ internal static class FrameResourceProbe
     private const int MaxExistingRenderFuncLogs = 80;
     private const int MaxExistingRenderFuncRegistryMissingLogs = 12;
     private const int MaxExistingRenderFuncEvaluateAttempts = 12;
+    private const int MaxRenderGraphResourceMaterializationLogs = 80;
+    private const int MaxRenderGraphResourceMaterializationEvaluateAttempts = 12;
     private const int MaxRenderGraphGetTextureLogs = 40;
     private const int MaxTextureSearchDepth = 3;
     private static readonly FrameProbeTarget[] Targets =
@@ -35,7 +37,11 @@ internal static class FrameResourceProbe
     private static int ExistingRenderFuncCallCount;
     private static int ExistingRenderFuncRegistryMissingCallCount;
     private static int ExistingRenderFuncEvaluateAttemptCount;
+    private static int RenderGraphResourceMaterializationCallCount;
+    private static int RenderGraphResourceMaterializationEvaluateAttemptCount;
+    private static int RenderGraphResourceMaterializationEpoch;
     private static int RenderGraphGetTextureCallCount;
+    private static readonly Dictionary<string, RenderGraphTextureCandidate> RenderGraphResourceMaterializationCandidates = new(StringComparer.OrdinalIgnoreCase);
     private static readonly string[] GlobalTextureNames =
     {
         "_CameraDepthTexture",
@@ -50,6 +56,7 @@ internal static class FrameResourceProbe
     private static bool DlssEvaluateInputProbeEnabled;
     private static bool RenderGraphDiagnosticPassEnabled;
     private static bool ExistingRenderFuncProbeEnabled;
+    private static bool ResourceMaterializationProbeEnabled;
     private static bool DlssEvaluateInputProbeSucceeded;
 
     internal static void Install(
@@ -57,7 +64,8 @@ internal static class FrameResourceProbe
         NativeBridge bridge,
         bool enableDlssEvaluateInputProbe = false,
         bool enableRenderGraphDiagnosticPass = false,
-        bool enableExistingRenderFuncProbe = false)
+        bool enableExistingRenderFuncProbe = false,
+        bool enableResourceMaterializationProbe = false)
     {
         if (Installed)
         {
@@ -65,6 +73,7 @@ internal static class FrameResourceProbe
             DlssEvaluateInputProbeEnabled = DlssEvaluateInputProbeEnabled || enableDlssEvaluateInputProbe;
             RenderGraphDiagnosticPassEnabled = RenderGraphDiagnosticPassEnabled || enableRenderGraphDiagnosticPass;
             ExistingRenderFuncProbeEnabled = ExistingRenderFuncProbeEnabled || enableExistingRenderFuncProbe;
+            ResourceMaterializationProbeEnabled = ResourceMaterializationProbeEnabled || enableResourceMaterializationProbe;
             return;
         }
 
@@ -73,6 +82,7 @@ internal static class FrameResourceProbe
         DlssEvaluateInputProbeEnabled = enableDlssEvaluateInputProbe;
         RenderGraphDiagnosticPassEnabled = enableRenderGraphDiagnosticPass;
         ExistingRenderFuncProbeEnabled = enableExistingRenderFuncProbe;
+        ResourceMaterializationProbeEnabled = enableResourceMaterializationProbe;
         DlssEvaluateInputProbeSucceeded = false;
         if (DlssEvaluateInputProbeEnabled)
         {
@@ -85,6 +95,10 @@ internal static class FrameResourceProbe
         if (ExistingRenderFuncProbeEnabled)
         {
             log.LogWarning("High-risk existing HDRP render-func patching is enabled. This route has caused a CoreCLR access violation in V Rising and should be used only for crash-recovery research.");
+        }
+        if (ResourceMaterializationProbeEnabled)
+        {
+            log.LogInfo("RenderGraph resource materialization probe enabled.");
         }
 
         var assemblies = AppDomain.CurrentDomain.GetAssemblies();
@@ -206,6 +220,22 @@ internal static class FrameResourceProbe
                 patched++;
             }
 
+            if (ResourceMaterializationProbeEnabled)
+            {
+                var resourceMaterializationPatched = TryPatchRenderGraphResourceMaterializationMethods(
+                    log,
+                    assemblies,
+                    harmonyMethodConstructor,
+                    patchMethod,
+                    patchedMethodKeys);
+                patched += resourceMaterializationPatched;
+                log.LogInfo($"Frame resource RenderGraph materialization probe patched {resourceMaterializationPatched} method(s).");
+            }
+            else
+            {
+                log.LogInfo("Frame resource RenderGraph materialization probe skipped.");
+            }
+
             if (ExistingRenderFuncProbeEnabled)
             {
                 var existingRenderFuncPatched = TryPatchExistingRenderFuncMethods(
@@ -273,16 +303,21 @@ internal static class FrameResourceProbe
             DlssEvaluateInputProbeEnabled = false;
             RenderGraphDiagnosticPassEnabled = false;
             ExistingRenderFuncProbeEnabled = false;
+            ResourceMaterializationProbeEnabled = false;
             DlssEvaluateInputProbeSucceeded = false;
             lock (Sync)
             {
                 CallCounts.Clear();
+                RenderGraphResourceMaterializationCandidates.Clear();
                 RenderGraphBuilderDeclarationCallCount = 0;
                 RenderGraphExecutionScopeCallCount = 0;
                 RenderGraphScopedEvaluateAttemptCount = 0;
                 ExistingRenderFuncCallCount = 0;
                 ExistingRenderFuncRegistryMissingCallCount = 0;
                 ExistingRenderFuncEvaluateAttemptCount = 0;
+                RenderGraphResourceMaterializationCallCount = 0;
+                RenderGraphResourceMaterializationEvaluateAttemptCount = 0;
+                RenderGraphResourceMaterializationEpoch = 0;
                 RenderGraphGetTextureCallCount = 0;
             }
         }
@@ -411,6 +446,57 @@ internal static class FrameResourceProbe
             log.LogWarning($"Frame resource RenderGraph execution scope failed to patch {HookTargetCatalog.FormatMethod(method)}: {GetExceptionMessage(ex)}");
             return false;
         }
+    }
+
+    private static int TryPatchRenderGraphResourceMaterializationMethods(
+        ManualLogSource log,
+        IEnumerable<Assembly> assemblies,
+        ConstructorInfo harmonyMethodConstructor,
+        MethodInfo patchMethod,
+        ISet<string> patchedMethodKeys)
+    {
+        var patched = 0;
+        var beginExecute = FindRenderGraphRegistryBeginExecuteMethod(assemblies);
+        var beginExecutePrefix = typeof(FrameResourceProbe).GetMethod(nameof(RenderGraphRegistryBeginExecutePrefix), BindingFlags.NonPublic | BindingFlags.Static);
+        if (beginExecute is not null
+            && beginExecutePrefix is not null
+            && TryPatchFrameResourceMethod(
+                log,
+                beginExecute,
+                harmonyMethodConstructor,
+                patchMethod,
+                beginExecutePrefix,
+                patchedMethodKeys,
+                "Frame resource RenderGraph materialization begin-execute"))
+        {
+            patched++;
+        }
+        else
+        {
+            log.LogWarning("Frame resource RenderGraph materialization begin-execute target was not found.");
+        }
+
+        var createTextureCallback = FindRenderGraphRegistryCreateTextureCallbackMethod(assemblies);
+        var createTexturePostfix = typeof(FrameResourceProbe).GetMethod(nameof(RenderGraphCreateTextureCallbackPostfix), BindingFlags.NonPublic | BindingFlags.Static);
+        if (createTextureCallback is not null
+            && createTexturePostfix is not null
+            && TryPatchPostfixMethod(
+                log,
+                createTextureCallback,
+                harmonyMethodConstructor,
+                patchMethod,
+                createTexturePostfix,
+                patchedMethodKeys,
+                "Frame resource RenderGraph texture materialization"))
+        {
+            patched++;
+        }
+        else
+        {
+            log.LogWarning("Frame resource RenderGraph texture materialization target was not found.");
+        }
+
+        return patched;
     }
 
     private static int TryPatchExistingRenderFuncMethods(
@@ -778,6 +864,57 @@ internal static class FrameResourceProbe
             });
     }
 
+    private static MethodInfo? FindRenderGraphRegistryBeginExecuteMethod(IEnumerable<Assembly> assemblies)
+    {
+        var registryType = FindRuntimeType(
+            assemblies,
+            "UnityEngine.Experimental.Rendering.RenderGraphModule.RenderGraphResourceRegistry");
+        if (registryType is null)
+        {
+            return null;
+        }
+
+        return registryType
+            .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+            .FirstOrDefault(method =>
+            {
+                if (!string.Equals(method.Name, "BeginExecute", StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                var parameters = method.GetParameters();
+                return parameters.Length == 1 && parameters[0].ParameterType == typeof(int);
+            });
+    }
+
+    private static MethodInfo? FindRenderGraphRegistryCreateTextureCallbackMethod(IEnumerable<Assembly> assemblies)
+    {
+        var registryType = FindRuntimeType(
+            assemblies,
+            "UnityEngine.Experimental.Rendering.RenderGraphModule.RenderGraphResourceRegistry");
+        if (registryType is null)
+        {
+            return null;
+        }
+
+        return registryType
+            .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+            .FirstOrDefault(method =>
+            {
+                if (!string.Equals(method.Name, "CreateTextureCallback", StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                var parameters = method.GetParameters();
+                return parameters.Length == 2
+                    && TypeNameContains(parameters[0].ParameterType, "RenderGraphContext")
+                    && TypeNameContains(parameters[1].ParameterType, "IRenderGraphResource")
+                    && method.ReturnType == typeof(bool);
+            });
+    }
+
     private static IEnumerable<MethodInfo> DiscoverRenderGraphBuilderDeclarationMethods(IEnumerable<Assembly> assemblies)
     {
         var builderType = FindRuntimeType(
@@ -1067,6 +1204,105 @@ internal static class FrameResourceProbe
         }
     }
 
+    private static void RenderGraphRegistryBeginExecutePrefix(MethodBase __originalMethod, object? __instance, object?[]? __args)
+    {
+        try
+        {
+            if (!DlssEvaluateInputProbeEnabled || !ResourceMaterializationProbeEnabled)
+            {
+                return;
+            }
+
+            lock (Sync)
+            {
+                RenderGraphResourceMaterializationCandidates.Clear();
+                RenderGraphResourceMaterializationEpoch++;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log?.LogWarning($"RenderGraph materialization begin-execute prefix failed: {GetExceptionMessage(ex)}");
+        }
+    }
+
+    private static void RenderGraphCreateTextureCallbackPostfix(MethodBase __originalMethod, object? __instance, object?[]? __args, object? __result)
+    {
+        try
+        {
+            if (!DlssEvaluateInputProbeEnabled || !ResourceMaterializationProbeEnabled || DlssEvaluateInputProbeSucceeded)
+            {
+                return;
+            }
+
+            var log = Log;
+            var bridge = Bridge;
+            if (log is null || bridge is null || __args is null || __args.Length < 2 || !TryConvertToBoolean(__result))
+            {
+                return;
+            }
+
+            var resource = __args[1];
+            if (resource is null || !TypeNameContains(resource.GetType(), "TextureResource"))
+            {
+                return;
+            }
+
+            var resourceName = TryInvokeParameterlessString(resource, "GetName")
+                ?? TryReadPropertyString(resource, "name")
+                ?? SummarizeValue(resource);
+            var graphicsResource = TryReadPropertyObject(resource, "graphicsResource")
+                ?? TryReadFieldObject(resource, "graphicsResource");
+
+            object? owner = null;
+            var pointer = IntPtr.Zero;
+            var hasPointer = graphicsResource is not null
+                && TryFindNativeTexturePtr(graphicsResource, out owner, out pointer)
+                && pointer != IntPtr.Zero;
+
+            int count;
+            int epoch;
+            lock (Sync)
+            {
+                RenderGraphResourceMaterializationCallCount++;
+                count = RenderGraphResourceMaterializationCallCount;
+                epoch = RenderGraphResourceMaterializationEpoch;
+            }
+
+            if (IsRenderGraphDlssRelevantResource(resourceName) || count <= MaxRenderGraphResourceMaterializationLogs || count % 300 == 0)
+            {
+                var status = graphicsResource is null
+                    ? "graphicsResource=null"
+                    : hasPointer
+                        ? $"nativeOwner={SummarizeValue(owner ?? graphicsResource)} nativePtr=0x{pointer.ToInt64():X}"
+                        : $"graphicsResource={SummarizeValue(graphicsResource)} nativePtr=not found";
+                log.LogInfo($"RenderGraph texture materialization #{count}: epoch={epoch}; resourceName={resourceName}; {status}");
+            }
+
+            if (!hasPointer || !IsRenderGraphDlssRelevantResource(resourceName))
+            {
+                return;
+            }
+
+            IReadOnlyList<RenderGraphTextureCandidate> snapshot;
+            lock (Sync)
+            {
+                var candidate = new RenderGraphTextureCandidate(
+                    "RenderGraphResourceRegistry.CreateTextureCallback",
+                    resourceName,
+                    pointer,
+                    $"TextureResource.graphicsResource nativeOwner={SummarizeValue(owner ?? graphicsResource!)} epoch={epoch}");
+                RenderGraphResourceMaterializationCandidates[resourceName] = candidate;
+                snapshot = RenderGraphResourceMaterializationCandidates.Values.ToArray();
+            }
+
+            TryRunRenderGraphMaterializationDlssEvaluateInputProbe(log, bridge, snapshot);
+        }
+        catch (Exception ex)
+        {
+            Log?.LogWarning($"RenderGraph texture materialization postfix failed: {GetExceptionMessage(ex)}");
+        }
+    }
+
     private static void RenderGraphGetTexturePostfix(MethodBase __originalMethod, object? __instance, object?[]? __args, object? __result)
     {
         try
@@ -1310,6 +1546,74 @@ internal static class FrameResourceProbe
         else
         {
             log.LogWarning($"DLSS evaluate input probe failed from existing HDRP render-func: {status}");
+        }
+    }
+
+    private static void TryRunRenderGraphMaterializationDlssEvaluateInputProbe(
+        ManualLogSource log,
+        NativeBridge bridge,
+        IReadOnlyList<RenderGraphTextureCandidate> candidates)
+    {
+        if (DlssEvaluateInputProbeSucceeded)
+        {
+            return;
+        }
+
+        var available = candidates.Where(candidate => candidate.Pointer != IntPtr.Zero).ToArray();
+        var color = FindExistingRenderFuncCandidate(available, static candidate =>
+            CandidateNameContains(candidate, "source")
+            || CandidateNameContains(candidate, "input")
+            || CandidateNameContains(candidate, "color")
+            || string.Equals(candidate.ResourceName, "CameraColor", StringComparison.Ordinal));
+        var output = FindExistingRenderFuncCandidate(available, static candidate =>
+            CandidateNameContains(candidate, "destination")
+            || CandidateNameContains(candidate, "output")
+            || CandidateNameContains(candidate, "target")
+            || CandidateNameContains(candidate, "backbuffer")
+            || CandidateNameContains(candidate, "afterpost")
+            || CandidateNameContains(candidate, "final"));
+        var depth = FindExistingRenderFuncCandidate(available, static candidate =>
+            CandidateNameContains(candidate, "depth")
+            || string.Equals(candidate.ResourceName, "CameraDepthStencil", StringComparison.Ordinal));
+        var motion = FindExistingRenderFuncCandidate(available, static candidate =>
+            CandidateNameContains(candidate, "motion")
+            || string.Equals(candidate.ResourceName, "Motion Vectors", StringComparison.Ordinal));
+
+        if (color is null || output is null || depth is null || motion is null)
+        {
+            return;
+        }
+
+        int attempt;
+        lock (Sync)
+        {
+            if (RenderGraphResourceMaterializationEvaluateAttemptCount >= MaxRenderGraphResourceMaterializationEvaluateAttempts)
+            {
+                return;
+            }
+
+            RenderGraphResourceMaterializationEvaluateAttemptCount++;
+            attempt = RenderGraphResourceMaterializationEvaluateAttemptCount;
+        }
+
+        var outputSameAsColor = output.Value.Pointer == color.Value.Pointer;
+        log.LogInfo(
+            $"DLSS evaluate input probe RenderGraph materialization candidate #{attempt}: color={color.Value.ResourceName} 0x{color.Value.Pointer.ToInt64():X}; output={output.Value.ResourceName} 0x{output.Value.Pointer.ToInt64():X}{(outputSameAsColor ? " same-as-color" : string.Empty)}; depth={depth.Value.ResourceName} 0x{depth.Value.Pointer.ToInt64():X}; motion={motion.Value.ResourceName} 0x{motion.Value.Pointer.ToInt64():X}");
+
+        var success = bridge.ProbeDlssEvaluateInputs(
+            color.Value.Pointer,
+            output.Value.Pointer,
+            depth.Value.Pointer,
+            motion.Value.Pointer);
+        var status = bridge.GetDlssEvaluateInputStatus();
+        if (success)
+        {
+            DlssEvaluateInputProbeSucceeded = true;
+            log.LogInfo($"DLSS evaluate input probe succeeded from RenderGraph materialization: {status}");
+        }
+        else
+        {
+            log.LogWarning($"DLSS evaluate input probe failed from RenderGraph materialization: {status}");
         }
     }
 
@@ -2607,6 +2911,41 @@ internal static class FrameResourceProbe
             }
 
             return property.GetValue(instance);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool TryConvertToBoolean(object? value)
+    {
+        try
+        {
+            return value switch
+            {
+                bool boolean => boolean,
+                null => false,
+                _ => Convert.ToBoolean(value)
+            };
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string? TryInvokeParameterlessString(object instance, string methodName)
+    {
+        try
+        {
+            var method = instance.GetType()
+                .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                .FirstOrDefault(candidate =>
+                    string.Equals(candidate.Name, methodName, StringComparison.Ordinal)
+                    && candidate.GetParameters().Length == 0);
+
+            return method?.Invoke(instance, Array.Empty<object>())?.ToString();
         }
         catch
         {

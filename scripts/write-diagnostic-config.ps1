@@ -45,6 +45,7 @@ function New-ConfigMap {
             EnableDlssEvaluateInputProbe = "false"
             EnableRenderGraphDiagnosticPass = "false"
             EnableExistingRenderFuncProbe = "false"
+            EnableResourceMaterializationProbe = "false"
             EnableHookProbe = "true"
             EnableHarmonyCallProbe = "false"
         }
@@ -122,6 +123,7 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableHarmonyCallProbe = "true"
             $Config.Diagnostics.EnableFrameResourceProbe = "true"
             $Config.Diagnostics.EnableDlssEvaluateInputProbe = "true"
+            $Config.Diagnostics.EnableResourceMaterializationProbe = "true"
         }
     }
 }

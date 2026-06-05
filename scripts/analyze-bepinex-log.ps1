@@ -186,10 +186,10 @@ $results.Add((New-StageResult `
 
 $results.Add((New-StageResult `
     -Stage "Stage 8A DLSS Evaluate Inputs" `
-    -PassPatterns @("DLSS evaluate input probe succeeded:", "DLSS evaluate input probe succeeded from RenderGraph diagnostic pass:", "DLSS evaluate input probe succeeded from existing HDRP render-func:") `
-    -FailPatterns @("DLSS evaluate input probe failed:", "DLSS evaluate input probe failed from existing HDRP render-func:") `
+    -PassPatterns @("DLSS evaluate input probe succeeded:", "DLSS evaluate input probe succeeded from RenderGraph diagnostic pass:", "DLSS evaluate input probe succeeded from existing HDRP render-func:", "DLSS evaluate input probe succeeded from RenderGraph materialization:") `
+    -FailPatterns @("DLSS evaluate input probe failed:", "DLSS evaluate input probe failed from existing HDRP render-func:", "DLSS evaluate input probe failed from RenderGraph materialization:") `
     -BlockedPatterns @("DLSS evaluate input probe blocked:") `
-    -StartedPatterns @("DLSS evaluate input probe enabled.", "RenderGraph diagnostic pass injected", "RenderGraph diagnostic pass configured", "Frame resource existing HDRP render-func probe patched", "Existing HDRP render-func scope")))
+    -StartedPatterns @("DLSS evaluate input probe enabled.", "RenderGraph diagnostic pass injected", "RenderGraph diagnostic pass configured", "Frame resource existing HDRP render-func probe patched", "Existing HDRP render-func scope", "RenderGraph resource materialization probe enabled.", "Frame resource RenderGraph materialization probe patched", "RenderGraph texture materialization #")))
 
 $results
 

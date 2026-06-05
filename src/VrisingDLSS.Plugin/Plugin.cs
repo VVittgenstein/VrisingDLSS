@@ -164,7 +164,8 @@ public sealed class Plugin : BasePlugin
             bridge,
             _config?.EnableDlssEvaluateInputProbe.Value ?? false,
             _config?.EnableRenderGraphDiagnosticPass.Value ?? false,
-            _config?.EnableExistingRenderFuncProbe.Value ?? false);
+            _config?.EnableExistingRenderFuncProbe.Value ?? false,
+            _config?.EnableResourceMaterializationProbe.Value ?? false);
     }
 
     private ConfigFile CreateModConfigFile()
