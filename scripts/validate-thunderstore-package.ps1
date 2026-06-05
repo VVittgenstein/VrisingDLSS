@@ -289,6 +289,7 @@ try {
         foreach ($requiredConfigLine in @(
             "EnableDLSS = false",
             "EnableDlssEvaluateInputProbe = false",
+            "EnableDlssOptimalSettingsProbe = false",
             "EnableDlssSuperResolutionInputProbe = false",
             "EnableDlssSuperResolutionEvaluateProbe = false",
             "EnableDlssSuperResolutionPersistentEvaluateProbe = false",

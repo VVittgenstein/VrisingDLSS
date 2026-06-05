@@ -113,6 +113,20 @@ If the log says `DLSS init/query probe blocked`, the current native build does n
 
 If NGX init succeeds but `SuperSampling.Available=0`, the runtime/device/driver path is reachable but DLSS is unavailable for that machine or configuration. If init returns a failure result, keep DLSS disabled and preserve the full status line from `BepInEx/LogOutput.log`.
 
+## DLSS Optimal-Settings Probe Is Blocked Or Fails
+
+`EnableDlssOptimalSettingsProbe` creates one temporary RenderTexture to get a D3D11 device, then asks the optional SDK-wrapper native path for DLSS-recommended render dimensions for a 3840x2160 output target and the selected `DLSS.QualityMode`.
+
+Check:
+
+- `EnableD3D11TextureProbe` passes first.
+- `EnableDlssRuntimeProbe` passes first.
+- `EnableDlssInitQueryProbe` passes first in the same SDK-wrapper build route.
+- `EnableNativeBridgeSmokeTest` logs bridge API version `12` or newer.
+- The runtime is a current production `nvngx_dlss.dll` from an approved NVIDIA distribution path.
+
+If the log says `DLSS optimal-settings probe blocked`, the current native bridge was built without the optional NVIDIA SDK wrapper path. If the query fails, preserve the full status line because it includes output size, quality mode, NGX result, cleanup results, and any returned render-size fields.
+
 ## DLSS Feature Create Probe Is Blocked Or Fails
 
 `EnableDlssFeatureCreateProbe` creates one temporary RenderTexture to get a D3D11 device/context, then asks the optional SDK-wrapper native path to create and immediately release a DLSS SuperSampling feature.

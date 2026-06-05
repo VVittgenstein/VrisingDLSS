@@ -72,6 +72,23 @@ The same local SDK-wrapper research route passed Stage 7 by calling `NGX_D3D11_C
 
 This proves the SDK-wrapper create/release path can work locally. It still does not prove frame evaluation, image correctness, motion-vector availability, resize handling, or playable stability.
 
+## Optimal Settings Query Route
+
+NVIDIA's Streamline DLSS guide exposes the ideal production contract as `slDLSSGetOptimalSettings`: provide the selected DLSS mode and output size, then render the viewport at the returned render width and height. The returned data also includes dynamic-resolution min/max source sizes when available.
+
+The current NGX-wrapper research route has an equivalent SDK-helper path. The local `ref/NVIDIA-DLSS-main/include/nvsdk_ngx_helpers.h` helper `NGX_DLSS_GET_OPTIMAL_SETTINGS(...)` reads the `DLSSOptimalSettingsCallback` from capability parameters, sets output width/height plus perf-quality mode, and returns optimal render size, dynamic min/max render size, and recommended sharpness. The helper returns an out-of-date failure when the callback is missing, including the case where allocated parameters were used instead of capability parameters.
+
+The local `ref/NVIDIA-DLSS-310.6.0/sample-snippets/NGXWrapper.cpp` sample wraps this as `QueryOptimalSettings(...)` and falls back to display-size render settings if NGX is not initialized or if the query fails. That pattern matches this project's release-safe stance: query when the SDK-wrapper route is explicitly enabled, otherwise use logged, source-backed fallback percentages.
+
+Unity HDRP's 2022.3 `DLSSPass` also calls `GetOptimalSettings(...)` for the final viewport and selected DLSS quality, then converts the returned min/max sizes into dynamic-resolution percentages when automatic settings are enabled. This confirms that the mod-owned render-scale route should control HDRP dynamic resolution while V Rising FSR remains Off for the MVP comparison.
+
+Implementation rule:
+
+- Keep `RenderScaleControlProbe` fixed percentages as diagnostic fallback only.
+- For 4K Performance validation, the fallback tuple is `1920x1080 -> 3840x2160`.
+- Use the API version 12 native optimal-settings diagnostic export only through the SDK-wrapper research build path unless a separate release review approves a new distribution boundary.
+- Do not treat the bare production `nvngx_dlss.dll` as enough for this query; the local export check already showed the capability-parameter helper route is not directly available from that DLL alone.
+
 ## Preset Notes
 
 The public `nvsdk_ngx_defs.h` header defines `NVSDK_NGX_DLSS_Hint_Render_Preset` values including:

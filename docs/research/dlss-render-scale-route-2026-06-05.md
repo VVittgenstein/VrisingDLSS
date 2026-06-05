@@ -36,6 +36,8 @@ For 4K validation, `DLSS.QualityMode=Performance` is therefore the right default
 
 The production integration should still prefer runtime-provided optimal settings over fixed percentages. NVIDIA's Streamline DLSS guide says to call `slDLSSGetOptimalSettings` with the selected DLSS mode and output size, then set the viewport to the returned `renderWidth` and `renderHeight`. The current `RenderScaleControlProbe` percentages are therefore a diagnostic fallback and a stable way to reproduce the 4K Performance test tuple until the native bridge exposes an optimal-settings query.
 
+See also [DLSS optimal settings route](dlss-optimal-settings-route-2026-06-05.md), which records the local NGX SDK-helper and Unity HDRP source checks behind this decision.
+
 ## Local V Rising Interop Findings
 
 The local V Rising install exposes HDRP/Core interop methods that match the official route:

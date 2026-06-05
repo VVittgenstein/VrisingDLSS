@@ -9,6 +9,7 @@ param(
         "upscaler-state",
         "dlss-runtime",
         "dlss-init-query",
+        "dlss-optimal-settings",
         "dlss-feature-create",
         "dlss-evaluate-inputs",
         "dlss-super-resolution-inputs",
@@ -54,6 +55,7 @@ function New-ConfigMap {
             EnableFrameResourceProbe = "false"
             EnableDlssRuntimeProbe = "false"
             EnableDlssInitQueryProbe = "false"
+            EnableDlssOptimalSettingsProbe = "false"
             EnableDlssFeatureCreateProbe = "false"
             EnableDlssEvaluateInputProbe = "false"
             EnableDlssSuperResolutionInputProbe = "false"
@@ -139,11 +141,19 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableDlssRuntimeProbe = "true"
             $Config.Diagnostics.EnableDlssInitQueryProbe = "true"
         }
+        "dlss-optimal-settings" {
+            $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
+            $Config.Diagnostics.EnableD3D11TextureProbe = "true"
+            $Config.Diagnostics.EnableDlssRuntimeProbe = "true"
+            $Config.Diagnostics.EnableDlssInitQueryProbe = "true"
+            $Config.Diagnostics.EnableDlssOptimalSettingsProbe = "true"
+        }
         "dlss-feature-create" {
             $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
             $Config.Diagnostics.EnableD3D11TextureProbe = "true"
             $Config.Diagnostics.EnableDlssRuntimeProbe = "true"
             $Config.Diagnostics.EnableDlssInitQueryProbe = "true"
+            $Config.Diagnostics.EnableDlssOptimalSettingsProbe = "true"
             $Config.Diagnostics.EnableDlssFeatureCreateProbe = "true"
         }
         "dlss-evaluate-inputs" {

@@ -190,6 +190,13 @@ $results.Add((New-StageResult `
     -StartedPatterns @("Running DLSS init/query probe.")))
 
 $results.Add((New-StageResult `
+    -Stage "Stage 6B DLSS Optimal Settings" `
+    -PassPatterns @("DLSS optimal-settings probe succeeded:") `
+    -FailPatterns @("DLSS optimal-settings probe failed:", "DLSS optimal-settings probe skipped:") `
+    -BlockedPatterns @("DLSS optimal-settings probe blocked:") `
+    -StartedPatterns @("Running DLSS optimal-settings probe")))
+
+$results.Add((New-StageResult `
     -Stage "Stage 7 DLSS Feature Create" `
     -PassPatterns @("DLSS feature create probe succeeded:") `
     -FailPatterns @("DLSS feature create probe failed:", "DLSS feature create probe skipped:") `

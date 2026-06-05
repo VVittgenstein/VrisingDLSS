@@ -10,6 +10,7 @@ internal sealed class ModConfig
     internal ConfigEntry<bool> EnableD3D11TextureProbe { get; }
     internal ConfigEntry<bool> EnableDlssRuntimeProbe { get; }
     internal ConfigEntry<bool> EnableDlssInitQueryProbe { get; }
+    internal ConfigEntry<bool> EnableDlssOptimalSettingsProbe { get; }
     internal ConfigEntry<bool> EnableDlssFeatureCreateProbe { get; }
     internal ConfigEntry<bool> EnableDlssEvaluateInputProbe { get; }
     internal ConfigEntry<bool> EnableDlssSuperResolutionInputProbe { get; }
@@ -50,6 +51,7 @@ internal sealed class ModConfig
         EnableD3D11TextureProbe = config.Bind("Diagnostics", "EnableD3D11TextureProbe", false, "Create a temporary RenderTexture, pass its native texture pointer to VrisingDLSS.Native.dll, and verify D3D11 resource/device access. Diagnostic only.");
         EnableDlssRuntimeProbe = config.Bind("Diagnostics", "EnableDlssRuntimeProbe", false, "Try loading and releasing the user-supplied DLSS runtime path. Diagnostic only; does not initialize or evaluate DLSS.");
         EnableDlssInitQueryProbe = config.Bind("Diagnostics", "EnableDlssInitQueryProbe", false, "Guarded NGX init/query diagnostic with a temporary RenderTexture D3D11 device. May report blocked until NVIDIA SDK wrapper integration exists; does not create or evaluate a DLSS feature.");
+        EnableDlssOptimalSettingsProbe = config.Bind("Diagnostics", "EnableDlssOptimalSettingsProbe", false, "SDK-wrapper diagnostic that queries DLSS optimal render size for a 4K output target and the selected quality mode. Diagnostic only; does not create or evaluate a DLSS feature.");
         EnableDlssFeatureCreateProbe = config.Bind("Diagnostics", "EnableDlssFeatureCreateProbe", false, "SDK-wrapper DLSS feature create/release diagnostic with a temporary RenderTexture D3D11 device. Diagnostic only; does not evaluate a frame.");
         EnableDlssEvaluateInputProbe = config.Bind("Diagnostics", "EnableDlssEvaluateInputProbe", false, "Validate same-frame color/output/depth/motion D3D11 texture inputs for the future DLSS evaluate path. Diagnostic only; does not evaluate a frame.");
         EnableDlssSuperResolutionInputProbe = config.Bind("Diagnostics", "EnableDlssSuperResolutionInputProbe", false, "Validate a DLSS Super Resolution-sized real-frame tuple where color/depth/motion render inputs are smaller than the output target. Diagnostic only; does not evaluate a frame.");

@@ -12,6 +12,7 @@ param(
         "upscaler-state",
         "dlss-runtime",
         "dlss-init-query",
+        "dlss-optimal-settings",
         "dlss-feature-create",
         "dlss-evaluate-inputs",
         "dlss-super-resolution-inputs",

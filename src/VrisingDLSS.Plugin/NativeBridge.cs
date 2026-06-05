@@ -21,6 +21,8 @@ internal sealed class NativeBridge
     private GetStringPointerDelegate? _getDlssRuntimeProbeStatus;
     private ProbeDlssInitQueryDelegate? _probeDlssInitQuery;
     private GetStringPointerDelegate? _getDlssInitQueryStatus;
+    private ProbeDlssOptimalSettingsDelegate? _probeDlssOptimalSettings;
+    private GetStringPointerDelegate? _getDlssOptimalSettingsStatus;
     private ProbeDlssFeatureCreateDelegate? _probeDlssFeatureCreate;
     private GetStringPointerDelegate? _getDlssFeatureCreateStatus;
     private ProbeDlssEvaluateInputsDelegate? _probeDlssEvaluateInputs;
@@ -67,6 +69,8 @@ internal sealed class NativeBridge
         _getDlssRuntimeProbeStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetDlssRuntimeProbeStatus");
         _probeDlssInitQuery = GetOptionalExport<ProbeDlssInitQueryDelegate>("VrisingDlss_ProbeDlssInitQuery");
         _getDlssInitQueryStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetDlssInitQueryStatus");
+        _probeDlssOptimalSettings = GetOptionalExport<ProbeDlssOptimalSettingsDelegate>("VrisingDlss_ProbeDlssOptimalSettings");
+        _getDlssOptimalSettingsStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetDlssOptimalSettingsStatus");
         _probeDlssFeatureCreate = GetOptionalExport<ProbeDlssFeatureCreateDelegate>("VrisingDlss_ProbeDlssFeatureCreate");
         _getDlssFeatureCreateStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetDlssFeatureCreateStatus");
         _probeDlssEvaluateInputs = GetOptionalExport<ProbeDlssEvaluateInputsDelegate>("VrisingDlss_ProbeDlssEvaluateInputs");
@@ -116,6 +120,25 @@ internal sealed class NativeBridge
         _probeDlssInitQuery?.Invoke(nativeTexturePtr, runtimePath, applicationDataPath, applicationId) == 1;
 
     internal string GetDlssInitQueryStatus() => PtrToString(_getDlssInitQueryStatus?.Invoke() ?? IntPtr.Zero);
+
+    internal bool ProbeDlssOptimalSettings(
+        IntPtr nativeTexturePtr,
+        string runtimePath,
+        string applicationDataPath,
+        ulong applicationId,
+        uint outputWidth,
+        uint outputHeight,
+        int perfQualityValue) =>
+        _probeDlssOptimalSettings?.Invoke(
+            nativeTexturePtr,
+            runtimePath,
+            applicationDataPath,
+            applicationId,
+            outputWidth,
+            outputHeight,
+            perfQualityValue) == 1;
+
+    internal string GetDlssOptimalSettingsStatus() => PtrToString(_getDlssOptimalSettingsStatus?.Invoke() ?? IntPtr.Zero);
 
     internal bool ProbeDlssFeatureCreate(
         IntPtr nativeTexturePtr,
@@ -317,6 +340,16 @@ internal sealed class NativeBridge
         [MarshalAs(UnmanagedType.LPWStr)] string runtimePath,
         [MarshalAs(UnmanagedType.LPWStr)] string applicationDataPath,
         ulong applicationId);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+    private delegate int ProbeDlssOptimalSettingsDelegate(
+        IntPtr nativeTexturePtr,
+        [MarshalAs(UnmanagedType.LPWStr)] string runtimePath,
+        [MarshalAs(UnmanagedType.LPWStr)] string applicationDataPath,
+        ulong applicationId,
+        uint outputWidth,
+        uint outputHeight,
+        int perfQualityValue);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
     private delegate int ProbeDlssFeatureCreateDelegate(

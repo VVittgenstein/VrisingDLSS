@@ -25,6 +25,15 @@ extern "C"
         const wchar_t* applicationDataPath,
         unsigned long long applicationId);
     VRISINGDLSS_API const char* __cdecl VrisingDlss_GetDlssInitQueryStatus();
+    VRISINGDLSS_API int __cdecl VrisingDlss_ProbeDlssOptimalSettings(
+        void* nativeTexturePtr,
+        const wchar_t* runtimePath,
+        const wchar_t* applicationDataPath,
+        unsigned long long applicationId,
+        unsigned int outputWidth,
+        unsigned int outputHeight,
+        int perfQualityValue);
+    VRISINGDLSS_API const char* __cdecl VrisingDlss_GetDlssOptimalSettingsStatus();
     VRISINGDLSS_API int __cdecl VrisingDlss_ProbeDlssFeatureCreate(
         void* nativeTexturePtr,
         const wchar_t* runtimePath,

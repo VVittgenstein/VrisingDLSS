@@ -29,6 +29,7 @@ namespace
     char g_d3d11ProbeStatus[512] = "D3D11 texture probe has not run";
     char g_dlssRuntimeProbeStatus[1536] = "DLSS runtime probe has not run";
     char g_dlssInitQueryStatus[1024] = "DLSS init/query probe has not run";
+    char g_dlssOptimalSettingsStatus[1536] = "DLSS optimal-settings probe has not run";
     char g_dlssFeatureCreateStatus[1024] = "DLSS feature create probe has not run";
     char g_dlssEvaluateInputStatus[1536] = "DLSS evaluate input probe has not run";
     char g_dlssSuperResolutionInputStatus[1536] = "DLSS super-resolution input probe has not run";
@@ -74,6 +75,12 @@ namespace
     {
         std::lock_guard<std::mutex> lock(g_probeStatusMutex);
         std::snprintf(g_dlssInitQueryStatus, sizeof(g_dlssInitQueryStatus), "%s", message);
+    }
+
+    void SetDlssOptimalSettingsStatus(const char* message)
+    {
+        std::lock_guard<std::mutex> lock(g_probeStatusMutex);
+        std::snprintf(g_dlssOptimalSettingsStatus, sizeof(g_dlssOptimalSettingsStatus), "%s", message);
     }
 
     void SetDlssFeatureCreateStatus(const char* message)
@@ -1007,6 +1014,136 @@ namespace
         return destroyResult == NVSDK_NGX_Result_Success && shutdownResult == NVSDK_NGX_Result_Success ? 1 : 0;
     }
 
+    int ProbeDlssOptimalSettingsWithSdkWrapper(
+        ID3D11Device* device,
+        const wchar_t* runtimePath,
+        const wchar_t* applicationDataPath,
+        unsigned long long applicationId,
+        unsigned int outputWidth,
+        unsigned int outputHeight,
+        int perfQualityValue)
+    {
+        NVSDK_NGX_FeatureCommonInfo featureInfo{};
+        std::wstring runtimeDirectory;
+        const char* initRoute = "";
+        NVSDK_NGX_Result initResult = InitializeNgxD3D11WithSdkWrapper(
+            device,
+            runtimePath,
+            applicationDataPath,
+            applicationId,
+            &featureInfo,
+            &runtimeDirectory,
+            &initRoute);
+
+        if (initResult != NVSDK_NGX_Result_Success)
+        {
+            char message[384];
+            std::snprintf(
+                message,
+                sizeof(message),
+                "DLSS optimal-settings probe failed: %s init returned 0x%08X; applicationId=%llu; runtimeDir=%ls",
+                initRoute,
+                static_cast<NgxResult>(initResult),
+                applicationId,
+                runtimeDirectory.c_str());
+            SetDlssOptimalSettingsStatus(message);
+            return 0;
+        }
+
+        NVSDK_NGX_Parameter* parameters = nullptr;
+        NVSDK_NGX_Result capabilityResult = NVSDK_NGX_D3D11_GetCapabilityParameters(&parameters);
+        if (capabilityResult != NVSDK_NGX_Result_Success || parameters == nullptr)
+        {
+            NVSDK_NGX_Result shutdownResult = NVSDK_NGX_D3D11_Shutdown1(device);
+            char message[384];
+            std::snprintf(
+                message,
+                sizeof(message),
+                "DLSS optimal-settings probe failed: GetCapabilityParameters returned 0x%08X; shutdown=0x%08X",
+                static_cast<NgxResult>(capabilityResult),
+                static_cast<NgxResult>(shutdownResult));
+            SetDlssOptimalSettingsStatus(message);
+            return 0;
+        }
+
+        int available = -1;
+        NgxResult availableResult = 0;
+        bool hasAvailable = TryGetNgxIntParameterFromSdkWrapper(parameters, NVSDK_NGX_Parameter_SuperSampling_Available, &available, &availableResult);
+        if (!hasAvailable || available != 1)
+        {
+            NVSDK_NGX_Result destroyResult = NVSDK_NGX_D3D11_DestroyParameters(parameters);
+            NVSDK_NGX_Result shutdownResult = NVSDK_NGX_D3D11_Shutdown1(device);
+            char message[512];
+            std::snprintf(
+                message,
+                sizeof(message),
+                "DLSS optimal-settings probe failed: SuperSampling.Available=%d(result=0x%08X); destroy=0x%08X; shutdown=0x%08X",
+                available,
+                availableResult,
+                static_cast<NgxResult>(destroyResult),
+                static_cast<NgxResult>(shutdownResult));
+            SetDlssOptimalSettingsStatus(message);
+            return 0;
+        }
+
+        unsigned int optimalWidth = 0;
+        unsigned int optimalHeight = 0;
+        unsigned int maxWidth = 0;
+        unsigned int maxHeight = 0;
+        unsigned int minWidth = 0;
+        unsigned int minHeight = 0;
+        float sharpness = 0.0f;
+        NVSDK_NGX_Result optimalResult = NGX_DLSS_GET_OPTIMAL_SETTINGS(
+            parameters,
+            outputWidth,
+            outputHeight,
+            static_cast<NVSDK_NGX_PerfQuality_Value>(perfQualityValue),
+            &optimalWidth,
+            &optimalHeight,
+            &maxWidth,
+            &maxHeight,
+            &minWidth,
+            &minHeight,
+            &sharpness);
+
+        NVSDK_NGX_Result destroyResult = NVSDK_NGX_D3D11_DestroyParameters(parameters);
+        NVSDK_NGX_Result shutdownResult = NVSDK_NGX_D3D11_Shutdown1(device);
+
+        char message[1024];
+        std::snprintf(
+            message,
+            sizeof(message),
+            "DLSS optimal-settings probe completed via %s; appId=%llu; init=0x%08X; capability=0x%08X; available=%d(result=0x%08X); output=%ux%u; perfQuality=%d; optimal=0x%08X; render=%ux%u; dynamicMax=%ux%u; dynamicMin=%ux%u; sharpness=%.3f; destroy=0x%08X; shutdown=0x%08X",
+            initRoute,
+            applicationId,
+            static_cast<NgxResult>(initResult),
+            static_cast<NgxResult>(capabilityResult),
+            available,
+            availableResult,
+            outputWidth,
+            outputHeight,
+            perfQualityValue,
+            static_cast<NgxResult>(optimalResult),
+            optimalWidth,
+            optimalHeight,
+            maxWidth,
+            maxHeight,
+            minWidth,
+            minHeight,
+            static_cast<double>(sharpness),
+            static_cast<NgxResult>(destroyResult),
+            static_cast<NgxResult>(shutdownResult));
+        SetDlssOptimalSettingsStatus(message);
+
+        return optimalResult == NVSDK_NGX_Result_Success
+            && optimalWidth > 0
+            && optimalHeight > 0
+            && destroyResult == NVSDK_NGX_Result_Success
+            && shutdownResult == NVSDK_NGX_Result_Success
+            ? 1
+            : 0;
+    }
+
     int ProbeDlssFeatureCreateWithSdkWrapper(
         ID3D11Device* device,
         const wchar_t* runtimePath,
@@ -1687,7 +1824,7 @@ extern "C"
 {
     int __cdecl VrisingDlss_GetBridgeApiVersion()
     {
-        return 11;
+        return 12;
     }
 
     const char* __cdecl VrisingDlss_GetBridgeVersion()
@@ -2104,6 +2241,91 @@ extern "C"
     {
         std::lock_guard<std::mutex> lock(g_probeStatusMutex);
         return g_dlssInitQueryStatus;
+    }
+
+    int __cdecl VrisingDlss_ProbeDlssOptimalSettings(
+        void* nativeTexturePtr,
+        const wchar_t* runtimePath,
+        const wchar_t* applicationDataPath,
+        unsigned long long applicationId,
+        unsigned int outputWidth,
+        unsigned int outputHeight,
+        int perfQualityValue)
+    {
+        if (nativeTexturePtr == nullptr)
+        {
+            SetDlssOptimalSettingsStatus("DLSS optimal-settings probe failed: native texture pointer was null");
+            return 0;
+        }
+
+        if (runtimePath == nullptr || runtimePath[0] == L'\0')
+        {
+            SetDlssOptimalSettingsStatus("DLSS optimal-settings probe failed: runtime path was empty");
+            return 0;
+        }
+
+        if (outputWidth == 0 || outputHeight == 0)
+        {
+            SetDlssOptimalSettingsStatus("DLSS optimal-settings probe failed: output dimensions must be non-zero");
+            return 0;
+        }
+
+        const wchar_t* appDataPath = applicationDataPath != nullptr && applicationDataPath[0] != L'\0'
+            ? applicationDataPath
+            : L".";
+
+#if !defined(VRISINGDLSS_ENABLE_NGX_SDK_WRAPPER)
+        (void)nativeTexturePtr;
+        (void)appDataPath;
+        (void)applicationId;
+        (void)outputWidth;
+        (void)outputHeight;
+        (void)perfQualityValue;
+        SetDlssOptimalSettingsStatus("DLSS optimal-settings probe blocked: native bridge was built without NVIDIA SDK wrapper integration");
+        return 0;
+#else
+        ID3D11Resource* resource = nullptr;
+        HRESULT hr = static_cast<IUnknown*>(nativeTexturePtr)->QueryInterface(
+            __uuidof(ID3D11Resource),
+            reinterpret_cast<void**>(&resource));
+        if (FAILED(hr) || resource == nullptr)
+        {
+            char message[256];
+            std::snprintf(
+                message,
+                sizeof(message),
+                "DLSS optimal-settings probe failed: QueryInterface(ID3D11Resource) returned hr=0x%08X",
+                static_cast<unsigned int>(hr));
+            SetDlssOptimalSettingsStatus(message);
+            return 0;
+        }
+
+        ID3D11Device* device = nullptr;
+        resource->GetDevice(&device);
+        resource->Release();
+        if (device == nullptr)
+        {
+            SetDlssOptimalSettingsStatus("DLSS optimal-settings probe failed: resource did not return a D3D11 device");
+            return 0;
+        }
+
+        int result = ProbeDlssOptimalSettingsWithSdkWrapper(
+            device,
+            runtimePath,
+            appDataPath,
+            applicationId,
+            outputWidth,
+            outputHeight,
+            perfQualityValue);
+        device->Release();
+        return result;
+#endif
+    }
+
+    const char* __cdecl VrisingDlss_GetDlssOptimalSettingsStatus()
+    {
+        std::lock_guard<std::mutex> lock(g_probeStatusMutex);
+        return g_dlssOptimalSettingsStatus;
     }
 
     int __cdecl VrisingDlss_ProbeDlssFeatureCreate(

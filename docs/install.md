@@ -35,8 +35,9 @@ The package zip keeps Thunderstore metadata at the root and places the plugin pa
 14. After the D3D11 probe passes, enable `Diagnostics.EnableFrameResourceProbe=true` for one diagnostic run, then disable it again.
 15. After the frame resource probe finds usable D3D11 frame resources, optionally set `DLSS.DlssRuntimePath` to a user-supplied production `nvngx_dlss.dll`, enable `Diagnostics.EnableDlssRuntimeProbe=true` for one diagnostic run, then disable it again.
 16. After the runtime load probe passes, optionally set `DLSS.DlssApplicationId`, enable `Diagnostics.EnableDlssInitQueryProbe=true` for one diagnostic run, then disable it again.
-17. For local SDK-wrapper research builds only, after the init/query probe passes, enable `Diagnostics.EnableDlssFeatureCreateProbe=true` for one diagnostic run, then disable it again.
-18. In a local/private gameplay scene, enable `Diagnostics.EnableDlssEvaluateInputProbe=true` for one diagnostic run to verify color/output/depth/motion native texture inputs before any DLSS evaluate work.
+17. For local SDK-wrapper research builds only, after the init/query probe passes, enable `Diagnostics.EnableDlssOptimalSettingsProbe=true` for one diagnostic run to query the runtime-recommended render size for the selected quality mode, then disable it again.
+18. For local SDK-wrapper research builds only, after the optimal-settings probe passes or is explicitly skipped, enable `Diagnostics.EnableDlssFeatureCreateProbe=true` for one diagnostic run, then disable it again.
+19. In a local/private gameplay scene, enable `Diagnostics.EnableDlssEvaluateInputProbe=true` for one diagnostic run to verify color/output/depth/motion native texture inputs before any DLSS evaluate work.
 
 ## Local Install Helper
 
@@ -78,6 +79,7 @@ For DLSS runtime diagnostics:
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-runtime -DlssRuntimePath "C:\path\to\nvngx_dlss.dll"
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-init-query -DlssRuntimePath "C:\path\to\nvngx_dlss.dll" -DlssApplicationId "0"
+powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-optimal-settings -DlssRuntimePath "C:\path\to\nvngx_dlss.dll" -DlssApplicationId "0"
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-feature-create -DlssRuntimePath "C:\path\to\nvngx_dlss.dll" -DlssApplicationId "0"
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-super-resolution-persistent-evaluate -DlssRuntimePath "C:\path\to\nvngx_dlss.dll" -DlssApplicationId "0"
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-super-resolution-frame-sequence -DlssRuntimePath "C:\path\to\nvngx_dlss.dll" -DlssApplicationId "0"
@@ -85,7 +87,7 @@ powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -Ga
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-persistent-evaluate -DlssRuntimePath "C:\path\to\nvngx_dlss.dll" -DlssApplicationId "0"
 ```
 
-Supported stages are `loader`, `native`, `harmony-call`, `render-thread`, `d3d11`, `frame-resource`, `upscaler-state`, `render-scale-control`, `dlss-runtime`, `dlss-init-query`, `dlss-feature-create`, `dlss-evaluate-inputs`, `dlss-super-resolution-inputs`, `dlss-super-resolution-evaluate`, `dlss-super-resolution-persistent-evaluate`, `dlss-super-resolution-frame-sequence`, `dlss-visible-writeback`, `dlss-user-rendering`, `dlss-evaluate`, `dlss-persistent-evaluate`, and `dlsspass-resource`.
+Supported stages are `loader`, `native`, `harmony-call`, `render-thread`, `d3d11`, `frame-resource`, `upscaler-state`, `render-scale-control`, `dlss-runtime`, `dlss-init-query`, `dlss-optimal-settings`, `dlss-feature-create`, `dlss-evaluate-inputs`, `dlss-super-resolution-inputs`, `dlss-super-resolution-evaluate`, `dlss-super-resolution-persistent-evaluate`, `dlss-super-resolution-frame-sequence`, `dlss-visible-writeback`, `dlss-user-rendering`, `dlss-evaluate`, `dlss-persistent-evaluate`, and `dlsspass-resource`.
 
 ## Diagnostic Run Helper
 
@@ -177,6 +179,8 @@ Keep `Diagnostics.EnableRenderGraphDiagnosticPass=false` and `Diagnostics.Enable
 The current diagnostic scaffold can optionally load and immediately release a user-supplied production `nvngx_dlss.dll` when `Diagnostics.EnableDlssRuntimeProbe=true` and `DLSS.DlssRuntimePath` points to that file. This is only a path/export probe.
 
 The next diagnostic switch, `Diagnostics.EnableDlssInitQueryProbe=true`, currently uses a temporary RenderTexture D3D11 device to confirm the native path and then checks whether the loaded runtime exposes the helper exports needed for NGX capability query. Release-safe builds are expected to report `DLSS init/query probe blocked` with only a production `nvngx_dlss.dll`. Local SDK-wrapper research builds can run the full init/capability query, but they are not enabled or packaged by default.
+
+For local SDK-wrapper research builds, `Diagnostics.EnableDlssOptimalSettingsProbe=true` queries the DLSS runtime's recommended render size for a 3840x2160 output target and the selected `DLSS.QualityMode`. This does not create a feature or evaluate a frame.
 
 For local SDK-wrapper research builds, `Diagnostics.EnableDlssFeatureCreateProbe=true` can create and immediately release a DLSS SuperSampling feature through the same temporary D3D11 device path. This still does not evaluate a frame.
 

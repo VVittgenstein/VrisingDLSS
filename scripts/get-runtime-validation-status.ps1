@@ -91,6 +91,7 @@ function Get-ConfiguredStage {
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssEvaluateInputProbe") { return "dlss-evaluate-inputs" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssPassResourceProbe") { return "dlsspass-resource" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssFeatureCreateProbe") { return "dlss-feature-create" }
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssOptimalSettingsProbe") { return "dlss-optimal-settings" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssInitQueryProbe") { return "dlss-init-query" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssRuntimeProbe") { return "dlss-runtime" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableFrameResourceProbe") { return "frame-resource" }
@@ -386,6 +387,15 @@ function Get-NextRecommendation {
 
     if ($initQuery -ne "Pass") {
         return "Set DLSS.DlssRuntimePath/DlssApplicationId, then run write-diagnostic-config.ps1 -Stage dlss-init-query."
+    }
+
+    $optimalSettings = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 6B"
+    if ($optimalSettings -eq "Blocked") {
+        return "Stage 6B optimal-settings query is blocked until the native bridge is built with the optional NVIDIA SDK wrapper path."
+    }
+
+    if ($optimalSettings -ne "Pass") {
+        return "Use the optional SDK-wrapper native build, then run write-diagnostic-config.ps1 -Stage dlss-optimal-settings."
     }
 
     $featureCreate = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 7"

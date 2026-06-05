@@ -97,6 +97,11 @@ public sealed class Plugin : BasePlugin
             RunDlssInitQueryProbe();
         }
 
+        if (_config.EnableDlssOptimalSettingsProbe.Value)
+        {
+            RunDlssOptimalSettingsProbe();
+        }
+
         if (_config.EnableDlssFeatureCreateProbe.Value)
         {
             RunDlssFeatureCreateProbe();
@@ -317,6 +322,42 @@ public sealed class Plugin : BasePlugin
 
         var pluginDirectory = ResolvePluginDirectory();
         DlssFeatureCreateProbe.Run(_log, bridge, runtimePath, pluginDirectory, applicationId, _config.QualityMode.Value);
+    }
+
+    private void RunDlssOptimalSettingsProbe()
+    {
+        if (_log is null || _config is null)
+        {
+            return;
+        }
+
+        var runtimePath = ResolveConfiguredRuntimePath(_config.DlssRuntimePath.Value);
+        if (string.IsNullOrWhiteSpace(runtimePath))
+        {
+            _log.LogWarning("DLSS optimal-settings probe skipped: DLSS.DlssRuntimePath is empty.");
+            return;
+        }
+
+        if (!File.Exists(runtimePath))
+        {
+            _log.LogWarning($"DLSS optimal-settings probe skipped: file does not exist: {runtimePath}");
+            return;
+        }
+
+        if (!TryParseApplicationId(_config.DlssApplicationId.Value, out var applicationId))
+        {
+            _log.LogWarning($"DLSS optimal-settings probe skipped: DLSS.DlssApplicationId is invalid: {_config.DlssApplicationId.Value}");
+            return;
+        }
+
+        var bridge = TryLoadNativeBridge();
+        if (bridge is null)
+        {
+            return;
+        }
+
+        var pluginDirectory = ResolvePluginDirectory();
+        DlssOptimalSettingsProbe.Run(_log, bridge, runtimePath, pluginDirectory, applicationId, _config.QualityMode.Value);
     }
 
     private DlssEvaluateProbeSettings CreateDlssEvaluateProbeSettings()

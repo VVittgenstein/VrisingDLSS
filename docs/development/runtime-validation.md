@@ -293,6 +293,34 @@ Current Stage 6 status:
 - Re-running `dlss-init-query` with only a production `nvngx_dlss.dll` is expected to report `Blocked`, not `Pass`.
 - A local MSVC SDK-wrapper research build passed Stage 6 with ProjectID init: `init=0x00000001`, `capability=0x00000001`, `available=1`, `needsUpdatedDriver=0`, `minDriver=470.0`, `featureInitResult=1`, `destroy=0x00000001`, `shutdown=0x00000001`.
 
+## Stage 6B: DLSS Optimal-Settings Probe
+
+Implemented and build-validated as an optional SDK-wrapper research diagnostic. It has not yet been game-runtime validated.
+
+Scope:
+
+- Config key: `Diagnostics.EnableDlssOptimalSettingsProbe=false` by default.
+- Helper stage: `scripts\run-vrising-diagnostic.ps1 -Stage dlss-optimal-settings`.
+- Creates a temporary 64x64 Unity `RenderTexture` only to acquire the D3D11 device path.
+- Queries DLSS optimal settings for a 3840x2160 output target and the selected `DLSS.QualityMode`.
+- Does not create a DLSS feature.
+- Does not use game color/depth/motion-vector textures.
+- Does not evaluate DLSS.
+
+Pass criteria:
+
+- Stage 5D and Stage 6 have already passed in the same native integration route.
+- The native build has the optional NVIDIA SDK wrapper integration path.
+- `NGX_DLSS_GET_OPTIMAL_SETTINGS` succeeds.
+- Native status reports non-zero `render=`, `dynamicMax=`, and `dynamicMin=` fields.
+- Parameter destruction and NGX shutdown succeed.
+
+Current Stage 6B status:
+
+- C# and native bridge API version 12 are build-validated in both release-safe and SDK-wrapper native builds.
+- Release-safe builds are expected to report blocked because the NVIDIA SDK wrapper path is not enabled or packaged by default.
+- Game-runtime validation has not been run yet.
+
 ## Stage 7: DLSS Feature Create/Release Probe
 
 Implemented as an optional SDK-wrapper research diagnostic:
