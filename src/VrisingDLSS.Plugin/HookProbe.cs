@@ -17,7 +17,16 @@ internal static class HookProbe
             var type = HookTargetCatalog.FindType(assemblies, target.TypeName);
             if (type is null)
             {
-                log.LogWarning($"Hook target type not found: {target.TypeName}");
+                var message = $"Hook target type not found: {target.TypeName}";
+                if (target.Optional)
+                {
+                    log.LogInfo($"{message} (optional)");
+                }
+                else
+                {
+                    log.LogWarning(message);
+                }
+
                 continue;
             }
 
@@ -27,7 +36,16 @@ internal static class HookProbe
                 var methods = HookTargetCatalog.FindMethods(type, memberName);
                 if (methods.Count == 0)
                 {
-                    log.LogWarning($"Hook target member not found: {target.TypeName}.{memberName}");
+                    var message = $"Hook target member not found: {target.TypeName}.{memberName}";
+                    if (target.Optional)
+                    {
+                        log.LogInfo($"{message} (optional)");
+                    }
+                    else
+                    {
+                        log.LogWarning(message);
+                    }
+
                     continue;
                 }
 

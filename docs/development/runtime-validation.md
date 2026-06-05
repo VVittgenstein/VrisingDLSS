@@ -58,6 +58,7 @@ Pass criteria:
   - `HDCamera`
   - `DynamicResolutionHandler`
   - `HDRenderPipeline`
+- Optional HDRP DLSS/FSR/upscale and Unity NVIDIA module landmarks are logged when present. Missing optional NVIDIA module types are informational and do not fail the loader-stage probe.
 - Candidate methods and signatures are logged.
 
 Evidence:

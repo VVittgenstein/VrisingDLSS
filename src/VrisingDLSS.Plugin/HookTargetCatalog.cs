@@ -12,8 +12,39 @@ internal static class HookTargetCatalog
         new("UnityEngine.Rendering.HighDefinition.CustomVignette", new[] { "IsActive", "Render", "Cleanup" }),
         new("UnityEngine.Rendering.HighDefinition.HDCamera", new[] { "UpdateAllViewConstants", "UpdateAntialiasing" }),
         new("UnityEngine.Rendering.DynamicResolutionHandler", new[] { "DynamicResolutionEnabled", "SetDynamicResScaler" }),
+        new("HDDynamicResolution", new[] { "Update", "ResetScale", "ResetCounters", "UpdateFrameStats" }, Optional: true),
         new("UnityEngine.Rendering.HighDefinition.SkyManager", new[] { "IsLightingSkyValid" }),
-        new("UnityEngine.Rendering.HighDefinition.HDRenderPipeline", new[] { "UpdateShaderVariablesGlobalCB" })
+        new("UnityEngine.Rendering.HighDefinition.HDRenderPipeline", new[]
+        {
+            "UpdateShaderVariablesGlobalCB",
+            "SetFSRParameters",
+            "GetUpscaleRes",
+            "SetUpscaleFilter",
+            "GetUpscaleFilter",
+            "SetupDLSSForCameraDataAndDynamicResHandler",
+            "GetPostprocessUpsampledOutputHandle",
+            "DoDLSSPasses",
+            "DoDLSSPass",
+            "DoTemporalAntialiasing"
+        }),
+        new("UnityEngine.Rendering.HighDefinition.DLSSPass", new[]
+        {
+            "SetupFeature",
+            "SetupDRSScaling",
+            "GetViewResources",
+            "CreateCameraResources",
+            "GetCameraResources",
+            "Render"
+        }, Optional: true),
+        new("NVIDIA.Plugins", new[] { "LoadPlugin" }, Optional: true),
+        new("NVIDIA.GraphicsDevice", new[]
+        {
+            "IsFeatureAvailable",
+            "GetOptimalSettings",
+            "CreateFeature",
+            "ExecuteDLSS",
+            "DestroyFeature"
+        }, Optional: true)
     };
 
     internal static Type? FindType(IEnumerable<Assembly> assemblies, string fullName)
@@ -96,5 +127,5 @@ internal static class HookTargetCatalog
         }
     }
 
-    internal readonly record struct ProbeTarget(string TypeName, IReadOnlyList<string> MemberNames);
+    internal readonly record struct ProbeTarget(string TypeName, IReadOnlyList<string> MemberNames, bool Optional = false);
 }

@@ -20,7 +20,7 @@ This package template is not ready for public gameplay use yet. The current sour
 
 - Loads a clean-room BepInEx plugin scaffold.
 - Optionally loads a native bridge smoke-test DLL if built and configured.
-- Logs a read-only HDRP hook probe.
+- Logs a read-only HDRP hook probe, including HDRP DLSS/FSR/upscale landmarks and optional Unity NVIDIA module availability.
 - Optionally logs read-only Harmony call counts for candidate HDRP methods.
 - Optionally sends one native render-thread smoke-test event.
 - Optionally probes a temporary RenderTexture native pointer as a D3D11 resource.

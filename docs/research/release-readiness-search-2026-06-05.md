@@ -23,6 +23,7 @@ This is engineering research, not legal advice.
 - Added a GitHub Actions build/package workflow pinned to `windows-2022`/Visual Studio 2022. Current GitHub runner-image notices say `windows-latest` is moving to newer Windows/Visual Studio images in June 2026, so pinning avoids an avoidable native-build variable while the MVP is still stabilizing.
 - Added a release-readiness status script that separates upload-shaped diagnostic package readiness from true DLSS MVP readiness. The script keeps Stage 8A and release DLSS enable/default config as explicit blocked gates instead of letting package validation be mistaken for product completion.
 - Rechecked NVIDIA DLSS/RTX SDK, Stunlock, and Unity RenderGraph sources. No source changed the current route decision: keep a source-safe package without bundled NVIDIA runtime by default; do not rely on PureDark binaries or ABI; continue Stage 8A through a RenderGraph-scoped execution path.
+- Rechecked Unity HDRP 14 DLSS/dynamic-resolution docs and the Unity 2022.3 Graphics source route. HDRP 14 supports DLSS on Windows x64 with DirectX 11, DirectX 12, and Vulkan, but it requires the NVIDIA package/module and per-HDRP-asset/per-camera enablement. Local V Rising metadata lists `UnityEngine.NVIDIAModule.dll`, but the local install does not contain a generated NVIDIA interop assembly or `NVUnityPlugin`/`nvngx` binary. The project therefore keeps the clean-room native NGX/D3D11 bridge as the primary path and now logs optional Unity NVIDIA module availability in the read-only hook probe.
 
 ## Sources Checked
 
@@ -77,6 +78,14 @@ This is engineering research, not legal advice.
   - `TextureHandle` is tied to one RenderGraph record+execute phase, may not represent an allocated texture, and should not be used outside RenderGraph execution.
 - Unity Core RP 14.1 RenderGraphBuilder docs: `https://docs.unity.cn/cn/Packages-cn/com.unity.render-pipelines.core%4014.1/api/UnityEngine.Rendering.RenderGraphModule.RenderGraphBuilder.html`
   - Documents Unity 2022-era `ReadTexture`, `ReadWriteTexture`, `UseColorBuffer`, `UseDepthBuffer`, and `SetRenderFunc` APIs.
+- Unity HDRP 14 DLSS docs: `https://docs.unity.cn/Packages/com.unity.render-pipelines.high-definition%4014.0/manual/deep-learning-super-sampling-in-hdrp.html`
+  - Documents HDRP-native DLSS support on Windows x64 for DirectX 11, DirectX 12, and Vulkan.
+  - Requires adding/enabling the NVIDIA package, enabling DLSS in the HDRP Asset, enabling dynamic resolution and DLSS per camera, and setting a DLSS quality mode.
+- Unity HDRP 14 dynamic-resolution docs: `https://docs.unity.cn/Packages/com.unity.render-pipelines.high-definition%4014.0/manual/Dynamic-Resolution.html`
+  - Dynamic resolution lowers the main render target resolution and upscales to the back buffer at the end of the frame.
+  - HDRP's upscale filter list includes DLSS, FSR1, TAA Upscale, CAS, and Catmull-Rom, with FSR1 documented as a spatial upscaler.
+- Unity 2022.3 NVIDIA module scripting API: `https://docs.unity3d.com/2022.3/Documentation/ScriptReference/UnityEngine.NVIDIAModule.html`
+  - Documents the Unity NVIDIA module, plugin loading, DLSS context/resource structures, and feature availability APIs.
 - Unity RenderGraph texture-use manual: `https://docs.unity.cn/6000.0/Documentation/Manual/urp/render-graph-read-write-texture.html`
   - Documents declaring texture inputs/outputs during graph recording and using handles in `SetRenderFunc`.
 - Stage 8A focused search note: `docs/research/stage8a-rendergraph-search-2026-06-05.md`
@@ -100,6 +109,7 @@ Already aligned:
 - A local SDK-wrapper research build has passed Stage 6 DLSS capability query and Stage 7 DLSS feature create/release.
 - Stage 8A DLSS evaluate-input probing is implemented to validate real color/output/depth/motion D3D11 resources before calling evaluate. A main-menu run starts the probe but blocks because source/output RTHandles are not exposed there and `_CameraMotionVectorsTexture` remains `null`.
 - Later Stage 8A RenderGraph runs found the expected texture handles by name. The builder-declaration probe observes `CameraColor`, `CameraDepthStencil`, `Motion Vectors`, and `NormalBuffer` declarations without materializing textures. Ordinary prefixes still do not run inside a valid resource scope, so the current probe avoids direct prefix `GetTexture` calls and passively hooks engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` calls.
+- The loader-stage hook probe now also catalogs HDRP DLSS/FSR/upscale methods and optional Unity NVIDIA module types, so future runtime logs can distinguish "built-in Unity DLSS unavailable/stripped" from "native bridge route still blocked on frame resources."
 
 Still missing for MVP:
 
