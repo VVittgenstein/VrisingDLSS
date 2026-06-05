@@ -16,7 +16,20 @@ The release-safe route remains:
 4. Keep the first playable public target to DLSS Super Resolution on Windows/D3D11, local/private gameplay first.
 5. Treat public/official server use as not guaranteed and keep the package explicitly unofficial, graphics-only, free, and non-commercial.
 
-The current repository is already aligned with that route for a diagnostic package. It is not a playable DLSS MVP yet because `DLSS.EnableDLSS=true` does not change visible rendering. Stage 10A guarded visible-path write-back validation has passed locally; the next engineering step is screenshot/visual image-correctness validation.
+The current repository is already aligned with that route for a diagnostic package. It is not a playable DLSS MVP yet because `DLSS.EnableDLSS=true` does not change visible rendering. Stage 10A guarded visible-path write-back validation has passed locally, and a static main-menu visual smoke comparison did not show a gross black/white/wrong-window failure. The next engineering step is local/private gameplay image-correctness validation.
+
+## 2026-06-05 Source Refresh
+
+Latest source checks did not change the release route:
+
+- Thunderstore still lists `BepInEx-BepInExPack_V_Rising-1.733.2` as the latest V Rising BepInExPack dependency, uploaded on 2025-05-17. Source: https://new.thunderstore.io/c/v-rising/p/BepInEx/BepInExPack_V_Rising/versions
+- Thunderstore package docs still require zip-root package metadata and warn that zipping the parent folder instead of the individual root files makes the package invalid. Source: https://wiki.thunderstore.io/mods/creating-a-package
+- The V Rising Mod Wiki still documents V Rising as a BepInEx/IL2CPP interop workflow and expects package metadata such as `icon.png`, `README.md`, optional `CHANGELOG.md`, and `manifest.json`. Sources: https://wiki.vrisingmods.com/dev/how-mods-work.html and https://wiki.vrisingmods.com/dev/upload_to_thunderstore.html
+- GitHub reports NVIDIA/DLSS latest release as `v310.6.0` / `DLSS 310.6.0 SDK`, published on 2026-04-21. Source: https://github.com/NVIDIA/DLSS/releases/tag/v310.6.0
+- NVIDIA's current public DLSS Super Resolution integration checklist still calls out application ID, early post-processing placement, mip bias, accurate motion vectors, compatible jitter, exposure, selectable modes/dynamic-resolution testing, production `nvngx_dlss.dll`, camera reset, and NGX cleanup. Source: https://developer.nvidia.com/blog/how-to-integrate-nvidia-dlss-4-into-your-game-with-nvidia-streamline/
+- Stunlock's EULA still treats unauthorized third-party programs and mods as a risk for official server access, so public wording must keep local/private testing and no official-server guarantee. Source: https://store.steampowered.com/eula/1604030_eula_0
+
+Current implication: keep the Thunderstore dependency unchanged, keep the zip root/package route unchanged, keep the no-bundled-runtime release boundary, and continue direct NGX/D3D11 SR work before considering Streamline or a runtime-bundled convenience package.
 
 ## Source Findings
 
@@ -137,7 +150,7 @@ Reasoning:
 
 - Current validated runtime path is D3D11/NGX-oriented.
 - Stage 8A through Stage 9A already prove same-device D3D11 resources, SR-sized input/output dimensions, successful NGX evaluate, persistent feature reuse, and cross-RenderGraph-callback feature reuse.
-- Stage 10A proves a guarded visible-path write-back candidate can repeatedly evaluate into the selected SR output target 30 times before clean shutdown, but it still needs screenshot/visual image-correctness validation.
+- Stage 10A proves a guarded visible-path write-back candidate can repeatedly evaluate into the selected SR output target 30 times before clean shutdown. A static main-menu visual smoke comparison passed, but gameplay image correctness is still unproven.
 - Streamline would add interposer/common/plugin DLL distribution and swapchain/present integration complexity that is not needed for DLSS Super Resolution only.
 
 Current validated evidence:
@@ -149,8 +162,8 @@ Current validated evidence:
 
 Next route:
 
-1. Validate that Stage 10A output appears in the visible game image without black screen, stale frame, ghosting beyond expected DLSS behavior, or post-process breakage.
-2. Capture/preserve screenshots or visual comparison evidence for DLSS off versus the Stage 10A candidate.
+1. Validate that Stage 10A output appears in an actual local/private gameplay image without black screen, stale frame, ghosting beyond expected DLSS behavior, or post-process breakage.
+2. Capture/preserve gameplay screenshots or visual comparison evidence for DLSS off versus the Stage 10A candidate.
 3. Add resize/reset/state recreation.
 4. Add quality-mode/render-scale and mip-bias handling.
 5. Add fallback and user-facing status.
