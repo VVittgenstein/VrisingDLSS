@@ -106,6 +106,18 @@ For paired local/private gameplay visual comparison after Stage 10A research bui
 powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\path\to\VRising" -DurationSeconds 240 -CaptureAtSeconds 170 -DlssRuntimePath "C:\path\to\nvngx_dlss.dll"
 ```
 
+For an operator-controlled capture, use `-ManualCapture` and create the ready file after entering the target local/private gameplay scene. The helper removes the ready file before each run, waits for it, and does not capture before `-CaptureAtSeconds`.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\path\to\VRising" -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -DlssRuntimePath "C:\path\to\nvngx_dlss.dll"
+```
+
+After the scene is ready, create the ready file from another PowerShell session, or have Codex create it:
+
+```powershell
+New-Item -ItemType File -Force -Path "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt"
+```
+
 Use `-DryRun` first to inspect artifact paths and timing without launching the game.
 
 ## Log Analyzer

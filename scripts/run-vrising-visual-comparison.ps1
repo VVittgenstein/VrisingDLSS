@@ -10,6 +10,9 @@ param(
     [int]$DurationSeconds = 220,
     [int]$CaptureAtSeconds = 150,
     [int]$CaptureWaitSeconds = 20,
+    [switch]$ManualCapture,
+    [string]$ReadyFile,
+    [int]$ReadyTimeoutSeconds = 600,
     [string]$DlssRuntimePath = "",
     [string]$DlssApplicationId = "0",
     [string]$SdkWrapperNativePath,
@@ -35,6 +38,10 @@ if ($CaptureWaitSeconds -lt 0) {
     throw "CaptureWaitSeconds cannot be negative."
 }
 
+if ($ReadyTimeoutSeconds -lt 30) {
+    throw "ReadyTimeoutSeconds must be at least 30."
+}
+
 if ([string]::IsNullOrWhiteSpace($Root)) {
     $Root = Split-Path -Parent $PSScriptRoot
 }
@@ -54,6 +61,14 @@ if ([string]::IsNullOrWhiteSpace($ArtifactLabel)) {
 } else {
     $ArtifactLabel = $ArtifactLabel -replace "[^A-Za-z0-9_.-]", "-"
 }
+
+if ([string]::IsNullOrWhiteSpace($ReadyFile)) {
+    $ReadyFile = Join-Path $visualRoot "$ArtifactLabel.ready"
+} elseif (-not [System.IO.Path]::IsPathRooted($ReadyFile)) {
+    $ReadyFile = Join-Path $resolvedRoot $ReadyFile
+}
+
+$readyFileResolved = [System.IO.Path]::GetFullPath($ReadyFile)
 
 if ([string]::IsNullOrWhiteSpace($SdkWrapperNativePath)) {
     $SdkWrapperNativePath = Join-Path $resolvedRoot "artifacts\native-build-msvc-wrapper\Release\VrisingDLSS.Native.dll"
@@ -202,6 +217,66 @@ function Wait-UntilRunSecond {
     return $true
 }
 
+function Wait-ForManualCaptureReady {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Diagnostics.Process]$Process,
+
+        [Parameter(Mandatory = $true)]
+        [datetime]$RunStart,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Label
+    )
+
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $readyFileResolved) | Out-Null
+    Remove-Item -LiteralPath $readyFileResolved -Force -ErrorAction SilentlyContinue
+
+    Write-Host "ManualCaptureReadyFile=$readyFileResolved"
+    Write-Host "Create the ready file after entering the target scene. Capture will not happen before +$CaptureAtSeconds seconds."
+
+    $deadline = (Get-Date).AddSeconds($ReadyTimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        if (-not (Get-Process -Id $Process.Id -ErrorAction SilentlyContinue)) {
+            return [pscustomobject]@{
+                Ready = $false
+                TimedOut = $false
+                ProcessExited = $true
+                ReadyDetectedAt = $null
+            }
+        }
+
+        if (Test-Path -LiteralPath $readyFileResolved) {
+            $readyDetectedAt = Get-Date
+            Remove-Item -LiteralPath $readyFileResolved -Force -ErrorAction SilentlyContinue
+            if (-not (Wait-UntilRunSecond -Process $Process -RunStart $RunStart -Second $CaptureAtSeconds)) {
+                return [pscustomobject]@{
+                    Ready = $false
+                    TimedOut = $false
+                    ProcessExited = $true
+                    ReadyDetectedAt = $readyDetectedAt
+                }
+            }
+
+            return [pscustomobject]@{
+                Ready = $true
+                TimedOut = $false
+                ProcessExited = $false
+                ReadyDetectedAt = $readyDetectedAt
+            }
+        }
+
+        Start-Sleep -Seconds 2
+    }
+
+    return [pscustomobject]@{
+        Ready = $false
+        TimedOut = $true
+        ProcessExited = $false
+        ReadyDetectedAt = $null
+    }
+}
+
 function Invoke-VisualRun {
     param(
         [Parameter(Mandatory = $true)]
@@ -219,6 +294,8 @@ function Invoke-VisualRun {
     $capture = $null
     $closedByScript = $false
     $exitedBeforeCapture = $false
+    $captureReadyTimedOut = $false
+    $manualReadyDetectedAt = $null
 
     try {
         if (-not $SkipInstall) {
@@ -247,14 +324,30 @@ function Invoke-VisualRun {
         Write-Host "VisualRunStart=$($runStart.ToString('o'))"
         Write-Host "VisualRunStage=$Stage"
         Write-Host "VisualRunLabel=$Label"
-        Write-Host "Enter the same local/private gameplay scene before capture at +$CaptureAtSeconds seconds."
+        if ($ManualCapture) {
+            Write-Host "Enter the same local/private gameplay scene, then create the ready file when the scene is stable."
+        } else {
+            Write-Host "Enter the same local/private gameplay scene before capture at +$CaptureAtSeconds seconds."
+        }
 
         $process = Start-Process -FilePath $exePath -WorkingDirectory $resolvedGamePath -PassThru
         Write-Host "Started VRising pid=$($process.Id)"
 
-        if (-not (Wait-UntilRunSecond -Process $process -RunStart $runStart -Second $CaptureAtSeconds)) {
-            $exitedBeforeCapture = $true
+        if ($ManualCapture) {
+            $ready = Wait-ForManualCaptureReady -Process $process -RunStart $runStart -Label $Label
+            $manualReadyDetectedAt = $ready.ReadyDetectedAt
+            $captureReadyTimedOut = $ready.TimedOut
+            $exitedBeforeCapture = $ready.ProcessExited
+            if (-not $ready.Ready) {
+                Write-Warning "Manual capture was not ready for ${Label}; TimedOut=$($ready.TimedOut); ProcessExited=$($ready.ProcessExited)"
+            }
         } else {
+            if (-not (Wait-UntilRunSecond -Process $process -RunStart $runStart -Second $CaptureAtSeconds)) {
+                $exitedBeforeCapture = $true
+            }
+        }
+
+        if (-not $exitedBeforeCapture -and -not $captureReadyTimedOut) {
             $capture = Invoke-ProjectScript -RelativePath "scripts\capture-vrising-window.ps1" -Parameters @{
                 ArtifactLabel = $Label
                 WaitSeconds = $CaptureWaitSeconds
@@ -278,6 +371,10 @@ function Invoke-VisualRun {
         Label = $Label
         CapturePath = $(if ($capture) { $capture.Path } else { "" })
         CaptureMethod = $(if ($capture) { $capture.Method } else { "" })
+        ManualCapture = [bool]$ManualCapture
+        ManualReadyFile = $(if ($ManualCapture) { $readyFileResolved } else { "" })
+        ManualReadyDetectedAt = $(if ($manualReadyDetectedAt) { $manualReadyDetectedAt.ToString("o") } else { "" })
+        CaptureReadyTimedOut = $captureReadyTimedOut
         Width = $(if ($capture) { $capture.Width } else { 0 })
         Height = $(if ($capture) { $capture.Height } else { 0 })
         AverageLuma = $(if ($capture) { $capture.AverageLuma } else { 0 })
@@ -313,6 +410,9 @@ $plan = [pscustomobject]@{
     DurationSeconds = $DurationSeconds
     CaptureAtSeconds = $CaptureAtSeconds
     CaptureWaitSeconds = $CaptureWaitSeconds
+    ManualCapture = [bool]$ManualCapture
+    ReadyFile = $(if ($ManualCapture) { $readyFileResolved } else { "" })
+    ReadyTimeoutSeconds = $(if ($ManualCapture) { $ReadyTimeoutSeconds } else { 0 })
     ArtifactLabel = $ArtifactLabel
     BaselineCapture = $(if ($Mode -ne "CandidateOnly") { $baselinePath } else { "" })
     CandidateCapture = $(if ($Mode -ne "BaselineOnly") { $candidatePath } else { "" })
