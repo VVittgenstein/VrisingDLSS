@@ -4,13 +4,23 @@ param(
 
     [string]$LogPath,
 
-    [string]$Root
+    [string]$Root,
+
+    [switch]$IncludeArchivedLogs,
+
+    [string]$ArchivedLogRoot,
+
+    [int]$MaxArchivedAnalysisFiles = 120
 )
 
 $ErrorActionPreference = "Stop"
 
 if ([string]::IsNullOrWhiteSpace($Root)) {
     $Root = Split-Path -Parent $PSScriptRoot
+}
+
+if ($MaxArchivedAnalysisFiles -lt 1) {
+    throw "MaxArchivedAnalysisFiles must be positive."
 }
 
 function Get-ConfigValueMap {
@@ -107,6 +117,87 @@ function Get-FirstStageStatus {
     }
 
     return "Missing"
+}
+
+function Get-StatusRank {
+    param([string]$Status)
+
+    switch ($Status) {
+        "Pass" { return 5 }
+        "Fail" { return 4 }
+        "Blocked" { return 3 }
+        "Partial" { return 2 }
+        "Missing" { return 1 }
+        default { return 0 }
+    }
+}
+
+function Add-StageEvidenceSource {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Result,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Source
+    )
+
+    [pscustomobject]@{
+        Stage = $Result.Stage
+        Status = $Result.Status
+        Evidence = "$($Result.Evidence); Source=$Source"
+    }
+}
+
+function Read-AnalysisStageResults {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $results = New-Object System.Collections.Generic.List[object]
+    foreach ($line in Get-Content -LiteralPath $Path) {
+        if ($line -match "^\s*(?<Stage>.+?)\s+(?<Status>Pass|Fail|Blocked|Partial|Missing)\s+(?<Evidence>.*)$") {
+            $stage = $Matches.Stage.Trim()
+            if ([string]::IsNullOrWhiteSpace($stage) -or $stage -eq "Stage") {
+                continue
+            }
+
+            $results.Add([pscustomobject]@{
+                Stage = $stage
+                Status = $Matches.Status.Trim()
+                Evidence = "$($Matches.Evidence.Trim()); Source=$Path"
+            })
+        }
+    }
+
+    return $results.ToArray()
+}
+
+function Merge-StageResults {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object[]]$ResultSets
+    )
+
+    $merged = [ordered]@{}
+    foreach ($result in $ResultSets) {
+        if (-not $result -or [string]::IsNullOrWhiteSpace([string]$result.Stage)) {
+            continue
+        }
+
+        $key = [string]$result.Stage
+        if (-not $merged.Contains($key)) {
+            $merged[$key] = $result
+            continue
+        }
+
+        $existing = $merged[$key]
+        if ((Get-StatusRank -Status $result.Status) -gt (Get-StatusRank -Status $existing.Status)) {
+            $merged[$key] = $result
+        }
+    }
+
+    return @($merged.Values)
 }
 
 function Get-NextRecommendation {
@@ -295,6 +386,13 @@ function Get-NextRecommendation {
 }
 
 $resolvedRoot = (Resolve-Path -LiteralPath $Root).Path
+$resolvedArchivedLogRoot = if ([string]::IsNullOrWhiteSpace($ArchivedLogRoot)) {
+    Join-Path $resolvedRoot "artifacts\runtime-logs"
+} elseif ([System.IO.Path]::IsPathRooted($ArchivedLogRoot)) {
+    [System.IO.Path]::GetFullPath($ArchivedLogRoot)
+} else {
+    [System.IO.Path]::GetFullPath((Join-Path $resolvedRoot $ArchivedLogRoot))
+}
 $inspectScript = Join-Path $resolvedRoot "scripts\inspect-vrising-install.ps1"
 $analyzeScript = Join-Path $resolvedRoot "scripts\analyze-bepinex-log.ps1"
 
@@ -320,7 +418,34 @@ $effectiveLogExists = -not [string]::IsNullOrWhiteSpace($effectiveLogPath) -and 
 $inspect.LogPath = $effectiveLogPath
 $inspect.LogExists = $effectiveLogExists
 
-$logResults = @(& $analyzeScript -GamePath $inspect.GamePath -LogPath $effectiveLogPath)
+$currentLogResults = @(& $analyzeScript -GamePath $inspect.GamePath -LogPath $effectiveLogPath | ForEach-Object {
+        Add-StageEvidenceSource -Result $_ -Source $effectiveLogPath
+    })
+$archivedAnalysisCount = 0
+$archivedLogResults = @()
+if ($IncludeArchivedLogs -and (Test-Path -LiteralPath $resolvedArchivedLogRoot)) {
+    $analysisFiles = @(Get-ChildItem -LiteralPath $resolvedArchivedLogRoot -Filter "Analysis-*.txt" -File -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First $MaxArchivedAnalysisFiles)
+
+    $archivedAnalysisCount = $analysisFiles.Count
+    $archivedLogResultList = New-Object System.Collections.Generic.List[object]
+    foreach ($analysisFile in $analysisFiles) {
+        foreach ($result in @(Read-AnalysisStageResults -Path $analysisFile.FullName)) {
+            if ($result -and -not [string]::IsNullOrWhiteSpace([string]$result.Stage)) {
+                $archivedLogResultList.Add($result)
+            }
+        }
+    }
+
+    $archivedLogResults = @($archivedLogResultList.ToArray())
+}
+
+$logResults = if ($IncludeArchivedLogs) {
+    Merge-StageResults -ResultSets @($currentLogResults + $archivedLogResults)
+} else {
+    $currentLogResults
+}
 $recommendation = Get-NextRecommendation `
     -Inspect $inspect `
     -PluginInstalled $pluginInstalled `
@@ -338,6 +463,9 @@ $recommendation = Get-NextRecommendation `
     InteropGenerated = $inspect.InteropGenerated
     LogExists = $effectiveLogExists
     LogPath = $effectiveLogPath
+    IncludeArchivedLogs = [bool]$IncludeArchivedLogs
+    ArchivedLogRoot = $(if ($IncludeArchivedLogs) { $resolvedArchivedLogRoot } else { "" })
+    ArchivedAnalysisCount = $(if ($IncludeArchivedLogs) { $archivedAnalysisCount } else { 0 })
     StageResults = $logResults
     NextRecommendation = $recommendation
     LaunchesGame = $false

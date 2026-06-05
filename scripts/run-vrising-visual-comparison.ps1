@@ -656,7 +656,17 @@ function Invoke-VisualRun {
     } finally {
         $closedByScript = Close-VisualRunProcess -Process $process
         $runEnd = Get-Date
-        $archived = Archive-VisualRunLog -Label $Label -RunStart $runStart -RunEnd $runEnd
+        $archived = if ($process) {
+            Archive-VisualRunLog -Label $Label -RunStart $runStart -RunEnd $runEnd
+        } else {
+            Write-Warning "Log archive skipped for ${Label}: VRising was not launched or attached."
+            [pscustomobject]@{
+                LogArtifact = ""
+                AnalysisArtifact = ""
+                WerArtifact = ""
+                CrashEventCount = 0
+            }
+        }
         Restore-ReleaseSafeState
     }
 

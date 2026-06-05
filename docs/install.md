@@ -152,7 +152,7 @@ powershell -ExecutionPolicy Bypass -File scripts\analyze-bepinex-log.ps1 -GamePa
 powershell -ExecutionPolicy Bypass -File scripts\get-runtime-validation-status.ps1 -GamePath "C:\path\to\VRising"
 ```
 
-By default, the analyzer and status script read `BepInEx\LogOutput.log`. Pass `-LogPath "path\to\archived.log"` to analyze an archived diagnostic log after restoring the game folder to the safe loader config. The status script combines install preflight, current diagnostic config, log analysis, and a next recommended command. Neither script launches or modifies the game.
+By default, the analyzer and status script read `BepInEx\LogOutput.log`. Pass `-LogPath "path\to\archived.log"` to analyze an archived diagnostic log after restoring the game folder to the safe loader config. `get-runtime-validation-status.ps1` also supports `-IncludeArchivedLogs`, which merges the current game log with `artifacts\runtime-logs\Analysis-*.txt` so readiness does not lose earlier Stage 8/9/10 proof when a later loader or negative-control run overwrites `BepInEx\LogOutput.log`. `get-release-readiness-status.ps1 -GamePath ...` uses that archived-evidence mode. The status scripts combine install preflight, current diagnostic config, log analysis, and next recommended commands. They do not launch or modify the game.
 
 ## DLSS Runtime
 

@@ -199,6 +199,7 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
     $runtimeArgs = @{
         Root = $resolvedRoot
         GamePath = $GamePath
+        IncludeArchivedLogs = $true
     }
     if (-not [string]::IsNullOrWhiteSpace($LogPath)) {
         $runtimeArgs["LogPath"] = $LogPath
@@ -206,6 +207,11 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
 
     $runtimeStatus = & (Join-Path $resolvedRoot "scripts\get-runtime-validation-status.ps1") @runtimeArgs
     $runtimeNextRecommendation = $runtimeStatus.NextRecommendation
+    $runtimeEvidenceSource = if ($runtimeStatus.IncludeArchivedLogs) {
+        "Log=$($runtimeStatus.LogPath); ArchivedAnalysisCount=$($runtimeStatus.ArchivedAnalysisCount)"
+    } else {
+        "Log=$($runtimeStatus.LogPath)"
+    }
     $stageResults = @($runtimeStatus.StageResults)
     $stage8A = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 8A"
     $stage8B = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 8B"
@@ -226,10 +232,10 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
         -Area "Runtime" `
         -Requirement "Local staged install has loaded the plugin at least once." `
         -Status $(if ($loader -eq "Pass") { "Pass" } elseif ($loader -eq "Missing") { "Missing" } else { "Fail" }) `
-        -Evidence "Stage 1 Loader=$loader; Log=$($runtimeStatus.LogPath)"))
+        -Evidence "Stage 1 Loader=$loader; $runtimeEvidenceSource"))
     $items.Add((New-ReadinessItem `
         -Area "Runtime" `
-        -Requirement "SDK-wrapper init/query and feature-create diagnostics have local proof." `
+        -Requirement "SDK-wrapper DLSS path has local proof through init/query, feature-create, or guarded evaluate evidence." `
         -Status $sdkWrapperProofStatus `
         -Evidence "Stage 6=$stage6; Stage 7=$stage7; Stage 8B=$stage8B"))
     $items.Add((New-ReadinessItem `
