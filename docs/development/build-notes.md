@@ -130,3 +130,9 @@ powershell -ExecutionPolicy Bypass -File scripts\probe-vrising-render-metadata.p
 ```
 
 When BepInEx interop has already been generated and `ilspycmd` is available, the same command also statically checks the generated HDRP interop assembly for `DLSSPass` source/output/depth/motion-vector resource fields and the local FSR/upscale/DLSS route methods. This probe is read-only and does not launch V Rising.
+
+To run a short local diagnostic while automatically restoring the loader config and archiving logs:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\path\to\VRising" -Stage dlsspass-resource -DurationSeconds 90
+```

@@ -81,7 +81,21 @@ powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -Ga
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-feature-create -DlssRuntimePath "C:\path\to\nvngx_dlss.dll" -DlssApplicationId "0"
 ```
 
-Supported stages are `loader`, `native`, `harmony-call`, `render-thread`, `d3d11`, `frame-resource`, `upscaler-state`, `dlss-runtime`, `dlss-init-query`, `dlss-feature-create`, and `dlss-evaluate-inputs`.
+Supported stages are `loader`, `native`, `harmony-call`, `render-thread`, `d3d11`, `frame-resource`, `upscaler-state`, `dlss-runtime`, `dlss-init-query`, `dlss-feature-create`, `dlss-evaluate-inputs`, and `dlsspass-resource`.
+
+## Diagnostic Run Helper
+
+For repeatable local diagnostics, use the run helper. It installs the current build unless `-SkipInstall` is passed, writes one diagnostic config, launches V Rising for a fixed window, archives the BepInEx log plus matching Windows Application Error events, then restores the loader config.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\path\to\VRising" -Stage dlsspass-resource -DurationSeconds 90
+```
+
+For a gameplay-scene Stage 8A test, use a longer window and enter a local/private world while the helper is running:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-evaluate-inputs -DurationSeconds 240
+```
 
 ## Log Analyzer
 

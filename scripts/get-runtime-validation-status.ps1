@@ -70,6 +70,7 @@ function Get-ConfiguredStage {
     )
 
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssEvaluateInputProbe") { return "dlss-evaluate-inputs" }
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssPassResourceProbe") { return "dlsspass-resource" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssFeatureCreateProbe") { return "dlss-feature-create" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssInitQueryProbe") { return "dlss-init-query" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssRuntimeProbe") { return "dlss-runtime" }
@@ -145,7 +146,7 @@ function Get-NextRecommendation {
     }
 
     if ($evaluateInputs -eq "Blocked") {
-        return "Stage 8A evaluate-input probing is blocked until color/output/depth/motion native textures are present in the same frame; try a local/private gameplay scene or another HDRP hook point."
+        return "Stage 8A is blocked until color/output/depth/motion native textures are present in the same frame; try scripts\run-vrising-diagnostic.ps1 -GamePath `"$($Inspect.GamePath)`" -Stage dlss-evaluate-inputs -DurationSeconds 240 and enter a local/private gameplay scene."
     }
 
     if ($evaluateInputs -eq "Fail") {
@@ -153,7 +154,7 @@ function Get-NextRecommendation {
     }
 
     if ($evaluateInputs -eq "Partial") {
-        return "Stage 8A evaluate-input probing started but did not produce pass/blocked/fail evidence. If this was the main menu, run a local/private gameplay scene or another later HDRP resource point, then preserve the BepInEx log."
+        return "Stage 8A started but did not produce pass/blocked/fail evidence. If this was the main menu, run scripts\run-vrising-diagnostic.ps1 -GamePath `"$($Inspect.GamePath)`" -Stage dlss-evaluate-inputs -DurationSeconds 240 and enter a local/private gameplay scene, then preserve the archived log."
     }
 
     $hook = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 2"
@@ -209,7 +210,7 @@ function Get-NextRecommendation {
         return "Use the optional SDK-wrapper native build, then run write-diagnostic-config.ps1 -Stage dlss-feature-create."
     }
 
-    return "Run write-diagnostic-config.ps1 -Stage dlss-evaluate-inputs in a local/private gameplay scene to prove the real frame resources can enter the native evaluate ABI."
+    return "Run scripts\run-vrising-diagnostic.ps1 -GamePath `"$($Inspect.GamePath)`" -Stage dlss-evaluate-inputs -DurationSeconds 240 in a local/private gameplay scene to prove the real frame resources can enter the native evaluate ABI."
 }
 
 $resolvedRoot = (Resolve-Path -LiteralPath $Root).Path
