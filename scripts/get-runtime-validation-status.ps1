@@ -94,6 +94,7 @@ function Get-ConfiguredStage {
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssInitQueryProbe") { return "dlss-init-query" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssRuntimeProbe") { return "dlss-runtime" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableFrameResourceProbe") { return "frame-resource" }
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe") { return "render-scale-control" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableUpscalerStateProbe") { return "upscaler-state" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableHarmonyCallProbe") { return "harmony-call" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableD3D11TextureProbe") { return "d3d11" }
@@ -342,6 +343,15 @@ function Get-NextRecommendation {
     $upscaler = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 2B"
     if ($upscaler -ne "Pass") {
         return "powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath `"$($Inspect.GamePath)`" -Stage upscaler-state"
+    }
+
+    $renderScaleControl = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 2C"
+    if ($renderScaleControl -eq "Fail") {
+        return "Render-scale control probe failed. Preserve BepInEx\LogOutput.log and inspect the first Render-scale control failure before running DLSS user-rendering with FSR Off."
+    }
+
+    if ($renderScaleControl -ne "Pass") {
+        return "powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath `"$($Inspect.GamePath)`" -Stage render-scale-control"
     }
 
     $native = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 4"

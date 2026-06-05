@@ -47,6 +47,11 @@ public sealed class Plugin : BasePlugin
             UpscalerStateProbe.Install(_log);
         }
 
+        if (_config.EnableRenderScaleControlProbe.Value || _config.EnableDlss.Value)
+        {
+            RenderScaleControlProbe.Install(_log, _config.QualityMode.Value, _config.RenderScaleOverride.Value);
+        }
+
         if (_config.EnableHarmonyCallProbe.Value)
         {
             HarmonyCallProbe.Install(_log);
@@ -104,6 +109,7 @@ public sealed class Plugin : BasePlugin
         {
             RenderThreadSmokeTest.Uninstall(_log);
             FrameResourceProbe.Uninstall(_log);
+            RenderScaleControlProbe.Uninstall(_log);
             UpscalerStateProbe.Uninstall(_log);
             HarmonyCallProbe.Uninstall(_log);
         }

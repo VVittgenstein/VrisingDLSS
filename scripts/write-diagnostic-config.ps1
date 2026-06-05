@@ -16,6 +16,7 @@ param(
         "dlss-super-resolution-persistent-evaluate",
         "dlss-super-resolution-frame-sequence",
         "dlss-visible-writeback",
+        "render-scale-control",
         "dlss-user-rendering",
         "dlss-evaluate",
         "dlss-persistent-evaluate",
@@ -68,6 +69,7 @@ function New-ConfigMap {
             EnableResourceMaterializationProbe = "false"
             EnableDlssPassResourceProbe = "false"
             EnableUpscalerStateProbe = "false"
+            EnableRenderScaleControlProbe = "false"
             EnableHookProbe = "true"
             EnableHarmonyCallProbe = "false"
         }
@@ -203,12 +205,17 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableResourceMaterializationProbe = "true"
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"
         }
+        "render-scale-control" {
+            $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+            $Config.Diagnostics.EnableRenderScaleControlProbe = "true"
+        }
         "dlss-user-rendering" {
             $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
             $Config.Diagnostics.EnableD3D11TextureProbe = "true"
             $Config.Diagnostics.EnableDlssRuntimeProbe = "true"
             $Config.Diagnostics.EnableResourceMaterializationProbe = "true"
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+            $Config.Diagnostics.EnableRenderScaleControlProbe = "true"
             $Config.DLSS.EnableDLSS = "true"
         }
         "dlss-evaluate" {

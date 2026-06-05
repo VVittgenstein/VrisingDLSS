@@ -48,9 +48,10 @@ It is not the MVP route. The MVP product-value comparison is:
 The implementation route should therefore target a guarded dynamic-resolution/DLSS integration:
 
 1. Done: the read-only upscaler-state probe now observes `DynamicResolutionHandler` state, camera upscale filters, `HDCamera.RequestDynamicResolution`, `HDCamera.IsDLSSEnabled`, `HDCamera.UpsampleSyncPoint`, and `HDRenderPipeline.SetupDLSSForCameraDataAndDynamicResHandler`.
-2. Next: add a guarded local diagnostic that requests DLSS Performance scale while leaving V Rising `FsrQualityMode=Off`.
-3. Reuse the existing native bridge only after the frame has the correct low-resolution color, output-resolution target, depth, and motion-vector resources.
-4. Validate one DLSS evaluate per Unity frame, resize/reset cleanup, image quality, and FPS improvement against native 4K FSR Off.
+2. Done: `Diagnostics.EnableRenderScaleControlProbe=true` now requests a DLSS-Performance-equivalent HDRP dynamic-resolution percentage while leaving V Rising `FsrQualityMode=Off`. It forces HDRP dynamic resolution and uses `TAAU` as the non-FSR upscaler landmark; it does not force Unity's internal DLSS pass.
+3. Next: runtime-validate that the probe produces a render-input-smaller-than-output tuple under `FsrQualityMode=Off`.
+4. Reuse the existing native bridge only after the frame has the correct low-resolution color, output-resolution target, depth, and motion-vector resources.
+5. Validate one DLSS evaluate per Unity frame, resize/reset cleanup, image quality, and FPS improvement against native 4K FSR Off.
 
 The similar names are easy to mix up:
 

@@ -88,6 +88,30 @@ Evidence:
 - Optional call lines beginning with `Upscaler state probe call`.
 - For render-scale route research, useful fields include `allowDynamicResolution`, `allowDeepLearningSuperSampling`, `cameraCanRenderDLSS`, `enableDLSS`, `DLSSUseOptimalSettings`, `upsampleFilter`, `forcedPercentage`, and `DynamicResolutionHandler.GetCurrentScale`.
 
+## Stage 2C: Render-Scale Control Probe
+
+Implemented as a guarded local/private diagnostic switch:
+
+- Config key: `Diagnostics.EnableRenderScaleControlProbe=false` by default.
+- Helper stage: `scripts\run-vrising-diagnostic.ps1 -Stage render-scale-control`.
+- The `dlss-user-rendering` helper also enables this probe so V Rising can stay at `FsrQualityMode=Off` while the mod requests the lower render resolution.
+- Patches HDRP dynamic-resolution setup/update calls and requests `allowDynamicResolution=true`.
+- Mutates `GlobalDynamicResolutionSettings` to `enabled=true`, `forceResolution=true`, `forcedPercentage=<DLSS quality percentage>`, and `upsampleFilter=TAAU`.
+- Does not force Unity's internal DLSS pass, load NGX, create a DLSS feature, evaluate a frame, or use V Rising's FSR setting as the render-scale control.
+
+Pass criteria:
+
+- The probe patches at least one HDRP/Core RP setup/update method.
+- Runtime logs include `Render-scale control prefix #` or `Render-scale control postfix #`.
+- The changed settings include `forceResolution=true`, a `forcedPercentage` below `100` for Performance/Balanced/Quality modes, and no crash/black-screen during a local/private gameplay run.
+- A follow-up `dlss-user-rendering` run with V Rising `FsrQualityMode=Off` accepts a render-input-smaller-than-output tuple.
+
+Evidence:
+
+- `BepInEx/LogOutput.log` lines beginning with `Render-scale control patched`.
+- `BepInEx/LogOutput.log` lines beginning with `Render-scale control prefix #` or `Render-scale control postfix #`.
+- Stage 8E or `DLSS user rendering` evidence showing the accepted tuple after this probe is enabled.
+
 ## Stage 3: Read-Only Harmony Probe
 
 Implemented as an optional diagnostic switch:

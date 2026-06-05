@@ -291,6 +291,7 @@ try {
             "EnableResourceMaterializationProbe = false",
             "EnableDlssPassResourceProbe = false",
             "EnableUpscalerStateProbe = false",
+            "EnableRenderScaleControlProbe = false",
             "EnableHookProbe = true"
         )) {
             if (-not (Test-TextContains -Text $configText -Needle $requiredConfigLine)) {

@@ -141,6 +141,12 @@ $results.Add((New-StageResult `
     -StartedPatterns @("Running read-only HDRP upscaler state probe.", "Upscaler state probe patched")))
 
 $results.Add((New-StageResult `
+    -Stage "Stage 2C Render-Scale Control Probe" `
+    -PassPatterns @("Render-scale control prefix #", "Render-scale control postfix #") `
+    -FailPatterns @("Render-scale control failed to patch", "Render-scale control prefix failed", "Render-scale control postfix failed") `
+    -StartedPatterns @("Render-scale control probe patched", "Render-scale control patched:")))
+
+$results.Add((New-StageResult `
     -Stage "Stage 3 Harmony Call Probe" `
     -PassPatterns @("Harmony probe call #") `
     -FailPatterns @("Harmony runtime was not found", "Harmony runtime shape was not recognized", "Harmony probe failed to patch") `
