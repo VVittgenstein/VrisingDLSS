@@ -216,6 +216,7 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
     $stage8G = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 8G"
     $stage9A = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 9A"
     $stage10A = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 10A"
+    $userRendering = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "DLSS User Rendering Candidate"
     $stage7 = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 7"
     $stage6 = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 6"
     $loader = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 1"
@@ -276,6 +277,11 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
         -Requirement "Stage 10A proves a guarded visible-path candidate can repeatedly evaluate DLSS into the selected Super Resolution output target." `
         -Status $(if ($stage10A -eq "Pass") { "Pass" } elseif ($stage10A -eq "Fail") { "Fail" } elseif ($stage10A -eq "Missing") { "Missing" } else { "Blocked" }) `
         -Evidence "Stage 10A=$stage10A; Next=$($runtimeStatus.NextRecommendation)"))
+    $items.Add((New-ReadinessItem `
+        -Area "Runtime" `
+        -Requirement "Experimental EnableDLSS user-rendering candidate can evaluate through the SDK-wrapper frame-sequence path." `
+        -Status $(if ($userRendering -eq "Pass") { "Pass" } elseif ($userRendering -eq "Fail") { "Fail" } elseif ($userRendering -eq "Missing") { "Missing" } else { "Blocked" }) `
+        -Evidence "DLSS User Rendering Candidate=$userRendering; Next=$($runtimeStatus.NextRecommendation)"))
 } else {
     $items.Add((New-ReadinessItem `
         -Area "Runtime" `
@@ -322,6 +328,11 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
         -Requirement "Stage 10A proves a guarded visible-path candidate can repeatedly evaluate DLSS into the selected Super Resolution output target." `
         -Status "Missing" `
         -Evidence "Pass -GamePath to include runtime validation evidence."))
+    $items.Add((New-ReadinessItem `
+        -Area "Runtime" `
+        -Requirement "Experimental EnableDLSS user-rendering candidate can evaluate through the SDK-wrapper frame-sequence path." `
+        -Status "Missing" `
+        -Evidence "Pass -GamePath or -LogPath to include runtime validation evidence."))
 }
 
 $configTemplateText = if (Test-Path -LiteralPath $configTemplatePath) {
@@ -360,7 +371,7 @@ $items.Add((New-ReadinessItem `
     -Area "MVP" `
     -Requirement "Normal-user DLSS enable/disable changes rendering correctly and safely." `
     -Status "Blocked" `
-    -Evidence "EnableDLSS is exposed and wired to an experimental one-evaluate-per-frame candidate. Stage 8A/8B/8C/8D/8E/8F/8G/9A/10A frame-input/evaluate/output-follow-up/persistent-lifecycle/SR-sizing/SR-evaluate/SR-persistent-lifecycle/frame-sequence/visible-path evidence is tracked by readiness when present, but image-correctness, performance, resize/reset, and fallback validation are not complete yet."))
+    -Evidence "EnableDLSS is exposed and wired to an experimental one-evaluate-per-accepted-frame candidate. Stage 8A/8B/8C/8D/8E/8F/8G/9A/10A frame-input/evaluate/output-follow-up/persistent-lifecycle/SR-sizing/SR-evaluate/SR-persistent-lifecycle/frame-sequence/visible-path evidence and the user-rendering candidate evidence are tracked by readiness when present, but image-correctness, performance, resize/reset, and fallback validation are not complete yet."))
 
 $mvpBlockingStatuses = @("Fail", "Blocked", "Missing")
 $hardFailures = @($items | Where-Object { $_.Status -eq "Fail" })
@@ -388,12 +399,12 @@ $summary = [pscustomobject]@{
     NextRecommendation = if ($mvpReady) {
         "MVP evidence is complete. Prepare a final release review."
     } elseif ([string]::IsNullOrWhiteSpace($GamePath)) {
-        "Pass -GamePath to include local runtime evidence. Current MVP next step is resolving the visual gate, then validating the experimental DLSS.EnableDLSS one-evaluate-per-frame candidate."
+        "Pass -GamePath to include local runtime evidence. Current MVP next step is resolving the visual gate, then capturing visual/performance evidence for the experimental DLSS.EnableDLSS user-rendering candidate."
     } elseif ($visualStatus.Status -ne "Pass" -and $visualStatus.HumanReviewStatus -eq "Pending") {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
         } else {
-            "Complete the pending human visual review, then validate the experimental DLSS.EnableDLSS one-evaluate-per-frame candidate."
+            "Complete the pending human visual review, then capture visual/performance evidence for the experimental DLSS.EnableDLSS user-rendering candidate."
         }
     } elseif (@($items | Where-Object { $_.Requirement -like "Stage 8A*" -and $_.Status -ne "Pass" }).Count -gt 0) {
         if (-not [string]::IsNullOrWhiteSpace($runtimeNextRecommendation)) {
@@ -449,6 +460,8 @@ $summary = [pscustomobject]@{
         } else {
             "Run scripts\run-vrising-diagnostic.ps1 -Stage dlss-visible-writeback with a local SDK-wrapper native build, DLSS runtime path, and DLSS disabled by default."
         }
+    } elseif (@($items | Where-Object { $_.Requirement -like "Experimental EnableDLSS user-rendering*" -and $_.Status -ne "Pass" }).Count -gt 0) {
+        "Run scripts\run-vrising-diagnostic.ps1 -Stage dlss-user-rendering -UseSdkWrapperNative with a local DLSS runtime path, then capture visual/performance evidence for that normal-user candidate route."
     } elseif (@($items | Where-Object { $_.Requirement -like "Gameplay visual comparison*" -and $_.Status -ne "Pass" }).Count -gt 0) {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation

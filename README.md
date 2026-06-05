@@ -4,7 +4,7 @@ Clean-room work toward an unofficial, distributable DLSS Super Resolution mod fo
 
 ## Current Status
 
-This repository is at the research and scaffold stage. It can build and package the current diagnostic scaffold, and `DLSS.EnableDLSS=true` now starts an experimental one-evaluate-per-frame rendering candidate. That candidate is not MVP-ready or image-quality validated yet.
+This repository is at the research and scaffold stage. It can build and package the current diagnostic scaffold, and `DLSS.EnableDLSS=true` now starts an experimental one-evaluate-per-accepted-frame rendering candidate. That candidate is not MVP-ready or image-quality/performance validated yet.
 
 The MVP target is a free, non-commercial, clean-room V Rising DLSS Super Resolution mod that can be distributed through GitHub/source release and the V Rising mod ecosystem. See [MVP definition](docs/mvp.md).
 
@@ -54,7 +54,9 @@ Third-party material lives under `ref/` for static research only. See [ref/READM
 
 See [docs/research/vrising-dlss-distributable-mod-research.md](docs/research/vrising-dlss-distributable-mod-research.md).
 
-Latest release-readiness search snapshot: [docs/research/release-readiness-search-2026-06-05.md](docs/research/release-readiness-search-2026-06-05.md).
+Latest distribution MVP search snapshot: [docs/research/distribution-mvp-search-2026-06-05.md](docs/research/distribution-mvp-search-2026-06-05.md).
+
+Earlier release-readiness search snapshot: [docs/research/release-readiness-search-2026-06-05.md](docs/research/release-readiness-search-2026-06-05.md).
 
 ## Local Preflight
 
