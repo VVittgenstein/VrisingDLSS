@@ -143,8 +143,17 @@ function Get-NextRecommendation {
 
     $evaluateInputs = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 8A"
     $evaluate = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 8B"
+    $outputFollowup = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 8C"
     if ($evaluate -eq "Pass") {
-        return "Stage 8B DLSS evaluate passed. Next engineering step is image-correctness validation, output selection, resize/reset handling, and fallback behavior in local/private gameplay."
+        if ($outputFollowup -eq "Pass") {
+            return "Stage 8B DLSS evaluate and Stage 8C output follow-up passed. Next engineering step is image-correctness validation, output selection, resize/reset handling, and fallback behavior in local/private gameplay."
+        }
+
+        if ($outputFollowup -eq "Fail") {
+            return "Stage 8B DLSS evaluate passed, but Stage 8C output follow-up failed. Preserve the follow-up status line and inspect whether the selected output texture remains D3D11-accessible after evaluate."
+        }
+
+        return "Stage 8B DLSS evaluate passed. Next engineering step is rerunning scripts\run-vrising-diagnostic.ps1 -Stage dlss-evaluate with the output follow-up probe, then image-correctness validation."
     }
 
     if ($evaluate -eq "Blocked") {

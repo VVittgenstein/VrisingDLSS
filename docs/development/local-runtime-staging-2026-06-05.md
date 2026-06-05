@@ -1,6 +1,6 @@
 # Local Runtime Staging - 2026-06-05
 
-This records local staging progress for runtime validation. It does not mean DLSS evaluate works yet.
+This records local staging progress for runtime validation. Stage 8B guarded DLSS evaluate and Stage 8C output follow-up now have local proof, but normal-user DLSS rendering is not implemented yet.
 
 ## Inputs
 
@@ -86,6 +86,14 @@ Current validated evidence:
   - The default `dlss-evaluate-inputs` helper was then narrowed to registry-level `RenderGraphResourceRegistry.BeginExecute(int)`, `CreateTextureCallback(RenderGraphContext, IRenderGraphResource)`, the passive `GetTexture(TextureHandle&)` postfix, and upscaler/native D3D11 validation. It no longer enables ordinary frame-resource prefixes, RenderGraph builder declaration probes, execution-scope probes, broad Harmony call logging, diagnostic pass injection, or generated render-function patching.
   - A 75-second scripted local run completed without a matching Windows crash event after this narrowing.
   - After `GetTexture` candidate aggregation was added and broad `Final` output matching was removed, Stage 8A passed. Evidence: `DLSS evaluate input probe RenderGraph GetTexture candidate #1: color=CameraColor; output=Apply Exposure Destination; depth=CameraDepthStencil; motion=Motion Vectors`, followed by `DLSS evaluate input probe succeeded from RenderGraph GetTexture` with `sameDevice=yes` and `720x480` for color, output, depth, and motion.
+- Stage 8B DLSS evaluate:
+  - A 90-second scripted `dlss-evaluate` run on 2026-06-05 completed without a matching Windows crash event. The script closed V Rising after the diagnostic window and restored the loader config.
+  - Evidence: `DLSS evaluate probe succeeded from RenderGraph GetTexture`, with SDK-wrapper ProjectID init/capability success, `render=720x480`, `target=720x480`, `perfQuality=0`, `flags=0x00000040`, `create=0x00000001`, `evaluate=0x00000001`, `release=0x00000001`, `destroy=0x00000001`, and `shutdown=0x00000001`.
+  - This was one guarded evaluate call against the accepted real-frame resource tuple. It does not prove image correctness or normal-user DLSS rendering.
+- Stage 8C DLSS output follow-up:
+  - A follow-up build records the selected output resource name/native pointer after Stage 8B success and watches later engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` callbacks.
+  - The same 2026-06-05 scripted run passed Stage 8C. Evidence: `DLSS evaluate output follow-up #1` observed `Apply Exposure Destination` again one `GetTexture` call later with `sameResourceName=True`, `samePointer=True`, and D3D11 probe success.
+  - Later follow-up lines observed the same native pointer under downstream post-process resource names including `Prepped Motion Vectors` and `Uber Post Destination`, also with D3D11 probe success. This suggests the selected output participates in the post-process resource chain, but screenshot/image-correctness validation is still required.
 - Local GPU/driver for Stage 6/7 pass: NVIDIA GeForce RTX 5060, driver `610.47`.
 
 Archived logs:
@@ -130,11 +138,16 @@ Archived logs:
 - `artifacts/runtime-logs/LogOutput-dlsspass-resource-mainmenu-2026-06-05.log`
 - `artifacts/runtime-logs/LogOutput-dlss-evaluate-inputs-20260605-113722.log`
 - `artifacts/runtime-logs/Analysis-dlss-evaluate-inputs-20260605-113722.txt`
+- `artifacts/runtime-logs/LogOutput-dlss-evaluate-20260605-121132.log`
+- `artifacts/runtime-logs/Analysis-dlss-evaluate-20260605-121132.txt`
+- `artifacts/runtime-logs/LogOutput-dlss-evaluate-20260605-121942.log`
+- `artifacts/runtime-logs/Analysis-dlss-evaluate-20260605-121942.txt`
 
 No PureDark files were copied into the game plugin folder. The NVIDIA runtime was copied only into `ref/` for local research and was not added to the release package.
 
 Next implementation gate:
 
 - Keep ordinary `dlss-evaluate-inputs` diagnostics safe by leaving `Diagnostics.EnableRenderGraphDiagnosticPass=false`, `Diagnostics.EnableExistingRenderFuncProbe=false`, `Diagnostics.EnableFrameResourceProbe=false`, and `Diagnostics.EnableHarmonyCallProbe=false`.
-- Run the Stage 8B SDK-wrapper-backed DLSS evaluate diagnostic from the accepted passive `GetTexture` input tuple while keeping `DLSS.EnableDLSS=false` by default.
-- Validate output selection, image correctness, jitter/pre-exposure, resize/reset behavior, and fallback behavior in a local/private gameplay scene before any public MVP release.
+- Keep Stage 8B/8C as guarded diagnostics while `DLSS.EnableDLSS=false` remains the package default.
+- Implement a guarded normal-user rendering path only after choosing a safe output/writeback strategy from the accepted passive `GetTexture` evidence.
+- Validate image correctness, render-scale behavior, jitter/pre-exposure, resize/reset behavior, and fallback behavior in a local/private gameplay scene before any public MVP release.

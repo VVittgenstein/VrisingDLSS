@@ -204,6 +204,12 @@ $results.Add((New-StageResult `
     -BlockedPatterns @("DLSS evaluate probe blocked:", "DLSS evaluate probe blocked from") `
     -StartedPatterns @("DLSS evaluate probe enabled.", "DLSS evaluate probe candidate #")))
 
+$results.Add((New-StageResult `
+    -Stage "Stage 8C DLSS Output Follow-up" `
+    -PassPatterns @("DLSS evaluate output follow-up #") `
+    -FailPatterns @("DLSS evaluate output follow-up failed #") `
+    -StartedPatterns @("DLSS evaluate probe succeeded:", "DLSS evaluate probe succeeded from")))
+
 $results
 
 if ($FailOnProblems) {

@@ -358,12 +358,12 @@ Current Stage 8A status:
 - A follow-up scripted run also exited early with the same `coreclr.dll` `0xc0000005` bucket after only the RenderGraph builder declaration, execution-scope, GetTexture postfix, and materialization probes were enabled. The log stopped at builder declaration #40 and did not show materialization/GetTexture callbacks, so ordinary `dlss-evaluate-inputs` now also skips builder declaration and execution-scope prefix/postfix probes by default.
 - A later scripted `dlss-evaluate-inputs` run on 2026-06-05 limited ordinary Stage 8A to registry-level `BeginExecute(int)`, `CreateTextureCallback(RenderGraphContext, IRenderGraphResource)`, and the passive `GetTexture(TextureHandle&)` postfix. It ran for the full 75-second diagnostic window with no matching Windows crash event. The log reported `DLSS evaluate input probe succeeded from RenderGraph GetTexture` with same-device D3D11 resources: `CameraColor`, `Apply Exposure Destination`, `CameraDepthStencil`, and `Motion Vectors`, all at `720x480`.
 - Local static inspection confirms V Rising exposes HDRP FSR/upscale/DLSS landmarks, including `HDRenderPipeline.SetFSRParameters(float, bool)`, `GetUpscaleRes()`, `SetUpscaleFilter(DynamicResUpscaleFilter, float)`, `GetUpscaleFilter()`, `SetupDLSSForCameraDataAndDynamicResHandler(...)`, `GetPostprocessUpsampledOutputHandle(...)`, `DoDLSSPasses(...)`, `DoDLSSPass(...)`, and `DoTemporalAntialiasing(...)`. FSR1 is useful for locating the existing dynamic-resolution path, but it is not enough for DLSS because DLSS still needs aligned depth and motion-vector inputs.
-- Current next route: keep the accepted Stage 8A path limited to the `GetTexture` postfix plus resource-materialization callback probe by default, then runtime-test the Stage 8B guarded SDK-wrapper DLSS evaluate diagnostic while `DLSS.EnableDLSS=false` remains the package default. Do not inject a new RenderGraph pass, patch compiler-generated render functions, patch ordinary HDRP render-resource prefix targets, or patch RenderGraph builder declaration methods in normal diagnostics.
+- Current next route: keep the accepted Stage 8A path limited to the `GetTexture` postfix plus resource-materialization callback probe by default. Stage 8B guarded SDK-wrapper DLSS evaluate and Stage 8C output follow-up now have local runtime proof while `DLSS.EnableDLSS=false` remains the package default. The next work is guarded normal-user rendering integration plus image-correctness, render-scale, resize/reset, and fallback validation. Do not inject a new RenderGraph pass, patch compiler-generated render functions, patch ordinary HDRP render-resource prefix targets, or patch RenderGraph builder declaration methods in normal diagnostics.
 - See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.
 
 ## Stage 8B: First Guarded DLSS Evaluate Diagnostic
 
-Implemented and build-validated, but not yet game-runtime validated.
+Implemented and locally game-runtime validated with the SDK-wrapper research native build.
 
 Scope:
 
@@ -386,4 +386,31 @@ Current Stage 8B status:
 - Implemented in C# and native bridge API version 8.
 - Release-safe w64devkit native build passes.
 - Local MSVC SDK-wrapper native build passes.
-- Runtime validation against V Rising is pending.
+- Runtime validation against V Rising passed on 2026-06-05 in a 90-second scripted `dlss-evaluate` run with no matching Windows crash event.
+- Evidence: `DLSS evaluate probe completed via SDK wrapper ProjectID; appId=0; init=0x00000001; capability=0x00000001; available=1(result=0x00000001); render=720x480; target=720x480; perfQuality=0; flags=0x00000040; jitter=(0.0000,0.0000); mvScale=(1.0000,1.0000); sharpness=0.0000; reset=1; create=0x00000001; feature=yes; evaluate=0x00000001; release=0x00000001; destroy=0x00000001; shutdown=0x00000001`.
+- This is still diagnostic-only. It does not make `DLSS.EnableDLSS=true` a normal-user rendering path, and it does not by itself prove image correctness.
+
+## Stage 8C: DLSS Output Follow-up
+
+Implemented and locally game-runtime validated.
+
+Scope:
+
+- Runs after a successful Stage 8B evaluate.
+- Records the selected output resource name and native D3D11 pointer.
+- Watches later engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` callbacks for either the same resource name or the same native pointer.
+- Re-probes the observed output pointer with the native D3D11 texture probe.
+- Does not change the game image and does not require a normal-user `DLSS.EnableDLSS` path.
+
+Pass criteria:
+
+- Stage 8B passes in the same run.
+- At least one later `GetTexture` callback observes the selected output resource name or native pointer.
+- The observed pointer remains D3D11-accessible.
+- Game does not black-screen or crash.
+
+Current Stage 8C status:
+
+- Runtime validation against V Rising passed on 2026-06-05 in the same 90-second scripted `dlss-evaluate` run.
+- Evidence: `DLSS evaluate output follow-up #1: call=152; deltaCalls=1; resourceName=Apply Exposure Destination; expectedResourceName=Apply Exposure Destination; sameResourceName=True; samePointer=True; nativePtr=...; D3D11 texture probe succeeded`.
+- Follow-up lines later observed the same native pointer under downstream post-process names, including `Prepped Motion Vectors` and `Uber Post Destination`, with D3D11 probe success. This is useful output-chain evidence, but it still needs image-correctness validation before a public MVP release.

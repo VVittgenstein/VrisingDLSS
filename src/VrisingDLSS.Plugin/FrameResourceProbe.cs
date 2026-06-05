@@ -26,6 +26,7 @@ internal static class FrameResourceProbe
     private const int MaxDlssPassResourceHelperLogs = 40;
     private const int MaxDlssPassResourceEvaluateAttempts = 12;
     private const int MaxDlssEvaluateProbeAttempts = 3;
+    private const int MaxDlssEvaluateOutputFollowupLogs = 12;
     private const int MaxTextureSearchDepth = 3;
     private static readonly FrameProbeTarget[] Targets =
     {
@@ -48,6 +49,10 @@ internal static class FrameResourceProbe
     private static int DlssPassResourceHelperCallCount;
     private static int DlssPassResourceEvaluateAttemptCount;
     private static int DlssEvaluateProbeAttemptCount;
+    private static int DlssEvaluateOutputFollowupLogCount;
+    private static int DlssEvaluateOutputFollowupStartGetTextureCallCount;
+    private static IntPtr DlssEvaluateOutputFollowupPointer;
+    private static string? DlssEvaluateOutputFollowupResourceName;
     private static readonly Dictionary<string, RenderGraphTextureCandidate> RenderGraphResourceMaterializationCandidates = new(StringComparer.OrdinalIgnoreCase);
     private static readonly Dictionary<string, RenderGraphTextureCandidate> RenderGraphGetTextureCandidates = new(StringComparer.OrdinalIgnoreCase);
     private static readonly string[] GlobalTextureNames =
@@ -390,6 +395,10 @@ internal static class FrameResourceProbe
                 RenderGraphGetTextureCallCount = 0;
                 RenderGraphGetTextureEvaluateAttemptCount = 0;
                 DlssEvaluateProbeAttemptCount = 0;
+                DlssEvaluateOutputFollowupLogCount = 0;
+                DlssEvaluateOutputFollowupStartGetTextureCallCount = 0;
+                DlssEvaluateOutputFollowupPointer = IntPtr.Zero;
+                DlssEvaluateOutputFollowupResourceName = null;
                 RenderGraphGetTextureCandidates.Clear();
                 DlssPassResourceHelperCallCount = 0;
                 DlssPassResourceEvaluateAttemptCount = 0;
@@ -1551,6 +1560,8 @@ internal static class FrameResourceProbe
                 TryRunRenderGraphGetTextureDlssEvaluateInputProbe(log, bridge, snapshot);
             }
 
+            TryLogDlssEvaluateOutputFollowup(log, bridge, count, resourceName, pointer);
+
             if (!ShouldLogRenderGraphGetTexture(count))
             {
                 return;
@@ -1837,7 +1848,8 @@ internal static class FrameResourceProbe
                 color.Value.Pointer,
                 output.Value.Pointer,
                 depth.Value.Pointer,
-                motion.Value.Pointer);
+                motion.Value.Pointer,
+                output.Value.ResourceName);
         }
         else
         {
@@ -1907,7 +1919,8 @@ internal static class FrameResourceProbe
                 color.Value.Pointer,
                 output.Pointer,
                 depth.Value.Pointer,
-                motion.Value.Pointer);
+                motion.Value.Pointer,
+                output.ResourceName);
         }
         else
         {
@@ -1971,7 +1984,8 @@ internal static class FrameResourceProbe
                 color.Value.Pointer,
                 output.Value.Pointer,
                 depth.Value.Pointer,
-                motion.Value.Pointer);
+                motion.Value.Pointer,
+                output.Value.Label);
         }
         else
         {
@@ -1986,7 +2000,8 @@ internal static class FrameResourceProbe
         IntPtr colorPointer,
         IntPtr outputPointer,
         IntPtr depthPointer,
-        IntPtr motionPointer)
+        IntPtr motionPointer,
+        string? outputResourceName)
     {
         if (!DlssEvaluateProbeEnabled || DlssEvaluateProbeSucceeded)
         {
@@ -2028,6 +2043,7 @@ internal static class FrameResourceProbe
         if (success)
         {
             DlssEvaluateProbeSucceeded = true;
+            TrackDlssEvaluateOutputFollowup(outputPointer, outputResourceName);
             log.LogInfo($"DLSS evaluate probe succeeded from {source}: {status}");
         }
         else if (status.IndexOf("blocked", StringComparison.OrdinalIgnoreCase) >= 0)
@@ -2041,6 +2057,77 @@ internal static class FrameResourceProbe
         else
         {
             log.LogWarning($"DLSS evaluate probe failed from {source}: {status}");
+        }
+    }
+
+    private static void TrackDlssEvaluateOutputFollowup(IntPtr outputPointer, string? outputResourceName)
+    {
+        lock (Sync)
+        {
+            DlssEvaluateOutputFollowupPointer = outputPointer;
+            DlssEvaluateOutputFollowupResourceName = string.IsNullOrWhiteSpace(outputResourceName)
+                ? null
+                : outputResourceName;
+            DlssEvaluateOutputFollowupStartGetTextureCallCount = RenderGraphGetTextureCallCount;
+            DlssEvaluateOutputFollowupLogCount = 0;
+        }
+    }
+
+    private static void TryLogDlssEvaluateOutputFollowup(
+        ManualLogSource log,
+        NativeBridge bridge,
+        int getTextureCallCount,
+        string? resourceName,
+        IntPtr pointer)
+    {
+        int followup;
+        int deltaCalls;
+        bool samePointer;
+        bool sameResourceName;
+        string expectedResourceName;
+        lock (Sync)
+        {
+            if (!DlssEvaluateProbeSucceeded || DlssEvaluateOutputFollowupPointer == IntPtr.Zero)
+            {
+                return;
+            }
+
+            samePointer = pointer == DlssEvaluateOutputFollowupPointer;
+            sameResourceName = !string.IsNullOrWhiteSpace(resourceName)
+                && string.Equals(resourceName, DlssEvaluateOutputFollowupResourceName, StringComparison.OrdinalIgnoreCase);
+            if (!samePointer && !sameResourceName)
+            {
+                return;
+            }
+
+            if (DlssEvaluateOutputFollowupLogCount >= MaxDlssEvaluateOutputFollowupLogs)
+            {
+                return;
+            }
+
+            var candidateDeltaCalls = getTextureCallCount - DlssEvaluateOutputFollowupStartGetTextureCallCount;
+            if (candidateDeltaCalls <= 0)
+            {
+                return;
+            }
+
+            DlssEvaluateOutputFollowupLogCount++;
+            followup = DlssEvaluateOutputFollowupLogCount;
+            deltaCalls = candidateDeltaCalls;
+            expectedResourceName = DlssEvaluateOutputFollowupResourceName ?? "unavailable";
+        }
+
+        var success = bridge.ProbeD3D11Texture(pointer);
+        var status = bridge.GetD3D11ProbeStatus();
+        var message =
+            $"call={getTextureCallCount}; deltaCalls={deltaCalls}; resourceName={resourceName ?? "unavailable"}; expectedResourceName={expectedResourceName}; sameResourceName={sameResourceName}; samePointer={samePointer}; nativePtr=0x{pointer.ToInt64():X}; {status}";
+        if (success)
+        {
+            log.LogInfo($"DLSS evaluate output follow-up #{followup}: {message}");
+        }
+        else
+        {
+            log.LogWarning($"DLSS evaluate output follow-up failed #{followup}: {message}");
         }
     }
 

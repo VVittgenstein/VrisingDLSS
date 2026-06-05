@@ -8,13 +8,13 @@ This is engineering research, not legal advice.
 
 1. The project should continue as a clean-room BepInEx IL2CPP plugin plus a clean-room native D3D11/NGX bridge. This remains the smallest viable path for DLSS Super Resolution in V Rising.
 2. The public GitHub repository should contain only first-party source, scripts, package metadata, documentation, and notices. Local research material under `ref/`, build outputs under `artifacts/` and `dist/`, chat logs, PureDark files, NVIDIA SDK copies, and NVIDIA runtime DLLs should stay out of Git.
-3. Thunderstore is still a good mod-ecosystem target, but the current package must be labeled as diagnostic until DLSS evaluate works. The MVP release package must include root `manifest.json`, `README.md`, `icon.png`, and preferably `CHANGELOG.md` and `ThirdPartyNotices.md`.
+3. Thunderstore is still a good mod-ecosystem target, but the current package must be labeled as diagnostic until normal-user DLSS rendering and image correctness are proven. The MVP release package must include root `manifest.json`, `README.md`, `icon.png`, and preferably `CHANGELOG.md` and `ThirdPartyNotices.md`.
 4. Current V Rising mod ecosystem dependency remains `BepInEx-BepInExPack_V_Rising-1.733.2`. The current project dependency string is still correct.
 5. NVIDIA's current public DLSS SDK release is `DLSS 310.6.0 SDK`, released on 2026-04-21. This matches the local research runtime already tested.
 6. NVIDIA SDK/runtime redistribution is not a simple "just ship nvngx_dlss.dll" decision. The SDK license allows object-code distribution when incorporated into a materially functional application, but it also forbids standalone SDK distribution, implied NVIDIA sponsorship, and making SDK parts subject to open-source license terms. NVIDIA's RTX SDK supplement also says DLSS/NGX integrations in applications, including plugins to commercial applications, have notification/trademark/stability obligations. The fallback package without bundled NVIDIA runtime must stay available.
 7. Stunlock's current official posture is conservative for mods: no official V Rising modding tools are planned, and the EULA restricts unauthorized third-party programs, mods, add-ons, and interference with online/network play. The public README must keep saying local/private-world testing first and no official-server safety guarantee.
 8. Streamline remains a second-phase route. For the first DLSS SR MVP, direct NGX/D3D11 is still preferable because Streamline adds `sl.interposer.dll`, `sl.common.dll`, feature DLL packaging, interposer/device lifecycle constraints, and signature-validation work.
-9. Stage 8A is now specifically an accepted passive RenderGraph resource-scope route, not an ordinary method-prefix route. Latest local evidence validated same-device D3D11 `CameraColor`, `Apply Exposure Destination`, `CameraDepthStencil`, and `Motion Vectors` textures through engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` callbacks. The next technical route is a guarded first DLSS evaluate path, not more broad hook discovery.
+9. Stage 8A is now specifically an accepted passive RenderGraph resource-scope route, not an ordinary method-prefix route. Latest local evidence validated same-device D3D11 `CameraColor`, `Apply Exposure Destination`, `CameraDepthStencil`, and `Motion Vectors` textures through engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` callbacks. Stage 8B guarded evaluate and Stage 8C output follow-up have also passed locally, so the next technical route is guarded normal-user rendering integration and image-correctness validation, not more broad hook discovery.
 
 2026-06-05 continuation update:
 
@@ -30,6 +30,7 @@ This is engineering research, not legal advice.
 - Inspected Unity HDRP `DLSSPass` interop and confirmed its resource model contains `source`, `output`, `depth`, and `motionVectors`. A targeted runtime prefix on `DLSSPass.Render` was rejected after it crashed V Rising in `UnityPlayer.dll` with `0x80000003` before the prefix logged.
 - Cross-checked Unity's 2022.3 HDRP `DLSSPass.cs` source against the local V Rising interop. The official source confirms the same source/output/depth/motion-vector grouping and shows that HDRP's NVIDIA path also depends on render size, final viewport, TAA jitter, reset state, and pre-exposure. The local metadata probe now records this as a static interop check.
 - Added passive `GetTexture` candidate aggregation and removed broad `Final` output matching. A 75-second scripted local run passed Stage 8A with no matching Windows crash event: `CameraColor`, `Apply Exposure Destination`, `CameraDepthStencil`, and `Motion Vectors` were validated as same-device D3D11 textures at `720x480`.
+- Added Stage 8B guarded one-shot SDK-wrapper DLSS evaluate and Stage 8C output follow-up evidence. A 90-second scripted local `dlss-evaluate` run on 2026-06-05 had no matching Windows crash event, returned success for NGX create/evaluate/release/destroy/shutdown, and later re-observed the selected output pointer as D3D11-accessible under `Apply Exposure Destination` and downstream post-process names including `Uber Post Destination`.
 
 ## Sources Checked
 
@@ -118,7 +119,8 @@ Already aligned:
 - A local SDK-wrapper research build has passed Stage 6 DLSS capability query and Stage 7 DLSS feature create/release.
 - Stage 8A DLSS evaluate-input probing is implemented to validate real color/output/depth/motion D3D11 resources before calling evaluate. Earlier main-menu and broad-prefix runs blocked or crashed, which rejected several unsafe hook routes.
 - The accepted Stage 8A route is now passive aggregation of engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` callbacks. A 75-second scripted local run validated `CameraColor`, `Apply Exposure Destination`, `CameraDepthStencil`, and `Motion Vectors` as same-device `720x480` D3D11 resources.
-- Stage 8B guarded DLSS evaluate is now implemented as a diagnostic-only path and build-validated in both release-safe and local SDK-wrapper native builds. It still needs V Rising runtime validation before it counts as image or gameplay proof.
+- Stage 8B guarded DLSS evaluate is now implemented as a diagnostic-only path and runtime-validated in a local SDK-wrapper V Rising run. It proves one accepted frame tuple can create/evaluate/release a DLSS feature without a crash, but it does not count as image or gameplay proof.
+- Stage 8C output follow-up is now implemented and runtime-validated in the same local run. It proves the selected output pointer remains D3D11-accessible after evaluate and later appears in downstream RenderGraph texture callbacks, but it still does not prove image correctness.
 - The loader-stage hook probe now also catalogs HDRP DLSS/FSR/upscale methods and optional Unity NVIDIA module types, so future runtime logs can distinguish "built-in Unity DLSS unavailable/stripped" from "native bridge route still blocked on frame resources."
 - Stage 2B upscaler-state probing now has main-menu proof that V Rising sets HDRP's FSR/upscale state at runtime: `CatmullRom`/`100` changed to `EdgeAdaptiveScalingUpres`/`58.999996` after `SetFSRParameters` and `SetUpscaleFilter`.
 - Stage 8A helper configs now avoid broad Harmony call logging by default; this keeps the safer resource-materialization route distinct from the rejected high-frequency `DLSSPass.Render` call-count route.
@@ -126,9 +128,9 @@ Already aligned:
 
 Still missing for MVP:
 
-- Real DLSS evaluate path with game frame resources.
-- Stage 8B runtime pass and image-correctness evidence from an actual local/private gameplay scene.
-- Persistent DLSS feature lifecycle around actual color/depth/motion-vector resources.
+- Normal-user `DLSS.EnableDLSS` rendering path that can be enabled and disabled safely.
+- Image-correctness evidence from an actual local/private gameplay scene.
+- Persistent DLSS feature lifecycle around actual color/depth/motion-vector resources and output/writeback strategy.
 - Render-scale control, mip-map bias handling, camera reset, resize handling, quality modes, overlay, and safe fallback.
 - Release review for any package that bundles `nvngx_dlss.dll`.
 
@@ -139,9 +141,9 @@ Primary route for MVP:
 1. Keep using BepInEx IL2CPP and Harmony/reflective probes.
 2. Keep using the optional local NVIDIA SDK root CMake path for SDK-wrapper research builds.
 3. Keep NVIDIA SDK headers/libs out of the public repository unless a separate review approves the exact files and notices.
-4. Runtime-test the first guarded DLSS evaluate probe from the accepted Stage 8A input tuple while keeping `DLSS.EnableDLSS=false` by default.
+4. Keep Stage 8B/8C as guarded diagnostics while converting the accepted frame tuple into a normal-user rendering path.
 5. Test motion vectors, output selection, jitter/pre-exposure, and image correctness in an actual gameplay scene before treating the route as playable.
-6. Use Thunderstore as the mod-manager package shape, but do not publicly upload until DLSS evaluate is proven and the README accurately describes the package.
+6. Use Thunderstore as the mod-manager package shape, but do not publicly upload until normal-user rendering, fallback behavior, and README/package wording are accurate.
 
 Avoid for MVP:
 
@@ -155,13 +157,13 @@ Avoid for MVP:
 
 This estimate starts from the current 2026-06-05 evidence, not from an empty repository.
 
-Fast path, now that passive RenderGraph `GetTexture` aggregation has passed Stage 8A:
+Fast path, now that passive RenderGraph `GetTexture` aggregation, guarded evaluate, and output follow-up have passed Stage 8A/8B/8C:
 
 - First SDK-wrapper-backed capability query and DLSS create/release: validated locally on 2026-06-05.
 - First DLSS evaluate-input pass: validated locally on 2026-06-05.
-- First DLSS evaluate visible image: 1-3 weeks.
+- First visible DLSS image: 1-2 weeks if output/writeback and render-scale control follow the observed post-process chain cleanly.
 - Private-world playable alpha: 3-6 weeks after first visible image.
-- Public Thunderstore/GitHub MVP release: 5-8 weeks on the fast path.
+- Public Thunderstore/GitHub MVP release: 4-8 weeks on the fast path.
 
 Harder path, if output selection, jitter/pre-exposure, motion-vector semantics, or runtime-bundling review force another route change:
 
@@ -177,7 +179,7 @@ Unknown/legal path:
 
 1. Keep the optional `VRISINGDLSS_NGX_SDK_ROOT` / SDK-wrapper CMake path off by default for release-safe builds.
 2. Use the upscaler-state probe during gameplay tests to confirm V Rising's active HDRP upscaler filter, render fraction, and dynamic-resolution state.
-3. Runtime-test the smallest guarded evaluate path on top of the accepted passive `GetTexture` aggregation.
+3. Convert the accepted passive `GetTexture` tuple and Stage 8C output-chain evidence into a guarded normal-user rendering path.
 4. Keep rejected high-risk routes disabled unless intentionally reproducing crash evidence.
 5. Validate the first evaluate image in an actual local/private gameplay scene, including output selection, motion vectors, jitter/pre-exposure, reset, and resize behavior.
 6. Keep DLSS disabled by default until image correctness and fallback behavior are verified.
