@@ -31,6 +31,85 @@ Latest source checks did not change the release route:
 
 Current implication: keep the Thunderstore dependency unchanged, keep the zip root/package route unchanged, keep the no-bundled-runtime release boundary, and continue direct NGX/D3D11 SR work before considering Streamline or a runtime-bundled convenience package.
 
+## 2026-06-05 Follow-up: Borrowability, Compliance, and Next Test Gate
+
+This follow-up was added after the user restated two operating rules: keep durable local records, and do not blind-test. The current conclusion is still to advance the MVP directly, but every runtime test should be tied to a sourced hypothesis and a narrow pass/fail signal.
+
+### Sources checked in this pass
+
+- PureDark `VRisingPerfMod` public page and local reference checkout. Sources: https://thunderstore.io/c/v-rising/p/PureDark/VRisingPerfMod/ and `ref/PureDark-VRisingPerfMod/`
+- NVIDIA DLSS SDK public repository and local license mirror. Sources: https://github.com/NVIDIA/DLSS and `ref/NVIDIA-DLSS-main/LICENSE.txt`
+- NVIDIA Streamline DLSS programming guide. Source: https://github.com/NVIDIA-RTX/Streamline/blob/main/docs/ProgrammingGuideDLSS.md
+- OptiScaler current project description. Source: https://github.com/optiscaler/OptiScaler
+- Thunderstore package requirements. Source: https://wiki.thunderstore.io/mods/creating-a-package/
+- V Rising EULA and V Rising Mod Wiki upload/development pages. Sources: https://store.steampowered.com/eula/1604030_eula_0, https://wiki.vrisingmods.com/dev/upload_to_thunderstore.html, and https://wiki.vrisingmods.com/dev/how-mods-work.html
+- Unity HDRP/Core RP source mirror under `ref/UnityGraphics-2022.3/`.
+
+### PureDark reference: useful ideas only
+
+PureDark remains useful as a checklist for what a V Rising temporal upscaler integration had to solve, not as source material to copy. The local reference shows these idea-level requirements:
+
+- Force or confirm depth and motion-vector availability before evaluating the upscaler.
+- Derive or request a render size smaller than the output size through HDRP dynamic resolution.
+- Feed jitter, motion-vector scale, reset/camera-cut state, near/far plane, FOV, sharpness, and mip-bias related state into the upscaler path.
+- Use a managed/native render-thread bridge pattern such as Unity plugin events.
+- Avoid repeated feature recreation and avoid repeated evaluate calls for the same presented frame.
+
+Those are implementation concerns the MVP must address independently. They do not make PureDark a dependency.
+
+Do not reuse PureDark C# source, native ABI, DLLs, package layout, hotkey UX, bundled NVIDIA/FSR/XeSS binaries, or support/monetization wording. The local checkout has no license file, and the Thunderstore package targets an old BepInEx dependency. The current project should remain clean-room and should continue using PureDark only as ignored reference material under `ref/`.
+
+### OptiScaler/CyberFSR2 route assessment
+
+OptiScaler is not a direct MVP route for V Rising because it acts as middleware that intercepts an existing upscaler input API and redirects it to another backend. V Rising's current MVP problem is earlier in the pipeline: making HDRP render a correct low-resolution color buffer, collecting depth and motion vectors, and evaluating DLSS into the right output target while V Rising's own FSR setting remains `Off`.
+
+Borrowable ideas from OptiScaler are architectural, not dependency-level:
+
+- Keep the upscaler backend isolated behind a narrow bridge.
+- Treat input API shape, backend selection, and diagnostics as separate concerns.
+- Provide explicit fallback/status when the required input API or resources are missing.
+
+Rejected for MVP: depending on OptiScaler, shipping its binaries, or assuming it can create the missing V Rising DLSS integration point.
+
+### NVIDIA and distribution compliance
+
+The NVIDIA DLSS license mirror under `ref/NVIDIA-DLSS-main/LICENSE.txt` supports a stricter release boundary than a normal open-source DLL project:
+
+- SDK material may be distributed only under the license's distribution requirements, and not as a standalone SDK redistribution.
+- No reverse engineering, decompiling, or removing proprietary notices.
+- Do not imply NVIDIA sponsorship or endorsement without agreement.
+- SDK use must not make NVIDIA SDK material subject to an open-source license.
+- A commercial release of an application or plugin to a commercial application that incorporates or is based on the DLSS/NGX SDK has a notification requirement.
+
+Project implication: a free, non-commercial mod still needs a release review before bundling `nvngx_dlss.dll`, SDK-wrapper-linked binaries, Streamline DLLs, or NVIDIA SDK material. The safest public package remains source-safe/no-runtime by default, with user-supplied runtime instructions from an approved source. Any bundled-runtime package should be treated as a separate release path with exact binary provenance, notices, trademark wording, and notification/contact handling.
+
+### Unity/HDRP route gates
+
+Unity HDRP source reinforces the next implementation gates:
+
+- `DLSSUseOptimalSettings` and `GetOptimalSettings` are first-class HDRP concepts, so the new API 12 optimal-settings probe is the right next diagnostic rather than hard-coding ratios forever.
+- DLSS/TAAU dynamic resolution interacts with `DynamicResolutionHandler`, `SetDynamicResScaler`, `SetActiveDynamicScalerSlot`, camera requests, mip bias, and upsampler schedule.
+- HDRP places DLSS around post-processing injection points; output order and UI/post-process placement must be validated rather than assumed.
+- Resize/camera reset behavior matters because HDRP has explicit state and history reset paths.
+
+Current technical implication: the next safe runtime proof is:
+
+1. Stage 6B `dlss-optimal-settings` with the SDK-wrapper native DLL, to prove `NGX_DLSS_GET_OPTIMAL_SETTINGS` in the actual V Rising D3D11 device route.
+2. Then the FSR Off render-scale protocol: V Rising `FsrQualityMode=Off`, `DLSS.EnableDLSS=true`, mod-owned render-scale request, and acceptance of an output-larger-than-input tuple such as the Performance-mode 4K target's expected `1920x1080 -> 3840x2160` shape.
+3. Only after that, run paired visual/performance gameplay comparison with both baseline and candidate using V Rising `FsrQualityMode=Off`.
+
+Do not run another gameplay capture merely to observe FPS. The current evidence already explains why built-in FSR Performance produced the expected tuple and why FSR Off currently blocks SR: the mod-owned render-scale path is the missing proof.
+
+### Updated time estimate
+
+The time estimate remains conditional:
+
+- Stage 6B runtime proof plus FSR Off render-scale proof: 1-3 focused days if HDRP accepts the existing render-scale-control probe; longer if V Rising overrides dynamic-resolution state after the probe.
+- First credible visible DLSS output under FSR Off: 2-5 focused engineering days after the render-scale proof.
+- Private playable alpha: 1-3 weeks for resize/reset, mip bias, status/fallback, and image checks.
+- Public Thunderstore beta without bundled NVIDIA runtime: 2-5 weeks if image correctness and performance are good.
+- Public package with bundled NVIDIA runtime: still unknown until the separate NVIDIA/runtime distribution review is resolved.
+
 ## Source Findings
 
 ### V Rising policy and ecosystem
