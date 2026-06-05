@@ -6,7 +6,7 @@
 - Added read-only discovery for HDRP DLSS/FSR/upscale route landmarks and optional Unity NVIDIA module APIs.
 - Added optional read-only FSR/upscale state snapshots for HDRP dynamic-resolution route diagnosis.
 - Added read-only HDRP hook probe.
-- Added optional read-only Harmony call probe.
+- Added optional read-only Harmony call probe with a conservative target list.
 - Added native bridge smoke-test interface.
 - Added native render-thread smoke-test interface.
 - Added D3D11 texture pointer probe interface.
@@ -18,6 +18,7 @@
 - Added real-frame DLSS evaluate input probe interface; validates color/output/depth/motion D3D11 resources but does not evaluate DLSS.
 - Added BepInExPack staging helper for local/offline tests.
 - Added source-side diagnostic config, log analysis, and runtime status helpers.
+- Kept Stage 8A helper configs from enabling broad Harmony call logging by default.
 - Added local install helper and third-party notices.
 - Added Thunderstore package validation for diagnostic-package wording and safe default config toggles.
 - No DLSS frame evaluation yet.

@@ -66,6 +66,7 @@ After the mod folder exists, you can write a one-stage diagnostic config without
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage loader
+powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage harmony-call
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage upscaler-state
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage d3d11
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage frame-resource
@@ -80,7 +81,7 @@ powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -Ga
 powershell -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\path\to\VRising" -Stage dlss-feature-create -DlssRuntimePath "C:\path\to\nvngx_dlss.dll" -DlssApplicationId "0"
 ```
 
-Supported stages are `loader`, `native`, `render-thread`, `d3d11`, `frame-resource`, `upscaler-state`, `dlss-runtime`, `dlss-init-query`, `dlss-feature-create`, and `dlss-evaluate-inputs`.
+Supported stages are `loader`, `native`, `harmony-call`, `render-thread`, `d3d11`, `frame-resource`, `upscaler-state`, `dlss-runtime`, `dlss-init-query`, `dlss-feature-create`, and `dlss-evaluate-inputs`.
 
 ## Log Analyzer
 
@@ -107,7 +108,7 @@ The next diagnostic switch, `Diagnostics.EnableDlssInitQueryProbe=true`, current
 
 For local SDK-wrapper research builds, `Diagnostics.EnableDlssFeatureCreateProbe=true` can create and immediately release a DLSS SuperSampling feature through the same temporary D3D11 device path. This still does not evaluate a frame.
 
-`Diagnostics.EnableDlssEvaluateInputProbe=true` validates whether real color/output/depth/motion frame resources are present and D3D11-compatible in the same hook callback. This does not require a DLSS runtime and still does not evaluate a frame. The `dlss-evaluate-inputs` helper also enables `Diagnostics.EnableResourceMaterializationProbe=true` to observe engine-owned RenderGraph texture creation callbacks. The ordinary diagnostic does not patch compiler-generated HDRP render functions; that rejected route is gated separately by `Diagnostics.EnableExistingRenderFuncProbe=false`.
+`Diagnostics.EnableDlssEvaluateInputProbe=true` validates whether real color/output/depth/motion frame resources are present and D3D11-compatible in the same hook callback. This does not require a DLSS runtime and still does not evaluate a frame. The `dlss-evaluate-inputs` helper also enables `Diagnostics.EnableResourceMaterializationProbe=true` and `Diagnostics.EnableUpscalerStateProbe=true`, but leaves `Diagnostics.EnableHarmonyCallProbe=false` so broad call logging does not interfere with Stage 8A. The ordinary diagnostic does not patch compiler-generated HDRP render functions; that rejected route is gated separately by `Diagnostics.EnableExistingRenderFuncProbe=false`.
 
 `Diagnostics.EnableUpscalerStateProbe=true` logs read-only HDRP FSR/upscale and dynamic-resolution state snapshots. It helps confirm whether V Rising's built-in FSR/upscale route is active, but it does not change the upscale filter and does not replace the DLSS depth/motion-vector requirement.
 

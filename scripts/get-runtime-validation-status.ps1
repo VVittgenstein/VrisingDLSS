@@ -75,6 +75,7 @@ function Get-ConfiguredStage {
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssRuntimeProbe") { return "dlss-runtime" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableFrameResourceProbe") { return "frame-resource" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableUpscalerStateProbe") { return "upscaler-state" }
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableHarmonyCallProbe") { return "harmony-call" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableD3D11TextureProbe") { return "d3d11" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderThreadSmokeTest") { return "render-thread" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeBridgeSmokeTest") { return "native" }
@@ -152,7 +153,7 @@ function Get-NextRecommendation {
     }
 
     if ($evaluateInputs -eq "Partial") {
-        return "Stage 8A evaluate-input probing started but did not produce pass/blocked/fail evidence. Let the scene render longer, then preserve the BepInEx log."
+        return "Stage 8A evaluate-input probing started but did not produce pass/blocked/fail evidence. If this was the main menu, run a local/private gameplay scene or another later HDRP resource point, then preserve the BepInEx log."
     }
 
     $hook = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 2"

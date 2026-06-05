@@ -122,6 +122,10 @@ Updated route decision after that follow-up: continue passive RenderGraph discov
 
 Implementation follow-up: the next safer candidate is `RenderGraphResourceRegistry.CreateTextureCallback(RenderGraphContext, IRenderGraphResource)`, paired with `BeginExecute(int)` for per-execution reset. Static interop inspection shows `TextureResource` inherits the generic RenderGraph resource base that exposes `graphicsResource`; when Unity's callback returns success, a postfix can observe the already-created `RTHandle`/Texture path without calling `GetTexture(TextureHandle&)` from an invalid prefix scope. This is now implemented behind `Diagnostics.EnableResourceMaterializationProbe=false` by default and enabled by the `dlss-evaluate-inputs` helper stage. It is build/package validated but not yet runtime-validated in gameplay.
 
+Additional negative evidence: a later main-menu Stage 8A helper run enabled the broad Harmony call probe at the same time as the materialization route. That broad probe patched `DLSSPass.Render`, logged hundreds of calls, and V Rising crashed in `coreclr.dll` with `0xc00000fd`. This does not reject the resource-materialization route by itself; it rejects combining Stage 8A with broad call logging. The helper now leaves `Diagnostics.EnableHarmonyCallProbe=false`, and Harmony call probing uses a conservative target list instead of the expanded HookProbe catalog.
+
+Follow-up after narrowing: a main-menu Stage 8A run with broad Harmony call logging disabled ran for the diagnostic window without a Windows crash event. It patched `RenderGraphResourceRegistry.BeginExecute(int)` and `CreateTextureCallback(RenderGraphContext, IRenderGraphResource)`, but no `RenderGraph texture materialization #` or successful `RenderGraph GetTexture` callback was observed before the run was stopped. This keeps the materialization route alive, but the main menu is still not enough evidence for Stage 8A pass.
+
 Additional FSR evidence: local metadata and interop inspection confirm V Rising exposes `AMD FSR 1.0`, `SetFSRParameters(float, bool)`, `GetUpscaleRes()`, `SetUpscaleFilter(DynamicResUpscaleFilter, float)`, `GetUpscaleFilter()`, `SetupDLSSForCameraDataAndDynamicResHandler(...)`, `GetPostprocessUpsampledOutputHandle(...)`, `DoDLSSPasses(...)`, and `DoDLSSPass(...)`. FSR1 helps identify the existing dynamic-resolution/upscale controls, but it remains a spatial upscaler and does not remove DLSS's requirement for depth and motion-vector inputs.
 
 Rejected or deferred:
@@ -131,6 +135,7 @@ Rejected or deferred:
 - Patching `TextureHandle` implicit conversion operators as a broad diagnostic route.
 - Injecting a new diagnostic RenderGraph pass as part of ordinary `dlss-evaluate-inputs`; this caused a CoreCLR access violation in gameplay and is high-risk only.
 - Patching compiler-generated HDRP RenderGraph render-function delegates as part of ordinary `dlss-evaluate-inputs`; this reproduced the same CoreCLR access-violation crash before the postfix logged.
+- Combining ordinary `dlss-evaluate-inputs` with broad Harmony call logging; this patched `DLSSPass.Render` and produced a CoreCLR stack-overflow crash.
 - Treating FSR1 as a DLSS replacement instead of an upscale-path landmark.
 - Evaluating DLSS from main-menu HDCamera exposure/global texture evidence.
 - Replacing the primary route with Streamline before first direct-NGX evaluate.

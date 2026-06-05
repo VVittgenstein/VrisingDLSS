@@ -79,6 +79,8 @@ Current validated evidence:
   - The diagnostic pass can be injected from `DoCustomPostProcess` arguments and from aggregated `RenderGraphBuilder` declarations once `CameraColor`, `CameraDepthStencil`, and `Motion Vectors` have all been observed in the same graph.
   - In repeated main-menu runs, the diagnostic pass is declared and configured but the render function is not observed as called. Current conclusion: Stage 8A needs a local/private gameplay-scene run or another known-executing graph path; main-menu evidence is no longer sufficient.
   - A local/private gameplay run on 2026-06-05 configured/injected that diagnostic pass twice and then crashed `VRising.exe` in `coreclr.dll` with `0xc0000005` before the diagnostic render function logged. Evidence was archived from BepInEx and Windows Error Reporting. The diagnostic pass injection route is now considered high-risk and is disabled by default behind `Diagnostics.EnableRenderGraphDiagnosticPass=false`.
+  - A later main-menu Stage 8A helper run with broad Harmony call logging enabled crashed `VRising.exe` in `coreclr.dll` with `0xc00000fd` after `DLSSPass.Render` logged hundreds of calls. Evidence was archived from BepInEx and Windows Error Reporting. This narrowed the helper configuration: `dlss-evaluate-inputs` no longer enables `Diagnostics.EnableHarmonyCallProbe`, and Harmony call probing now uses a conservative target list instead of the expanded HookProbe catalog.
+  - A follow-up main-menu Stage 8A run with broad Harmony call logging disabled ran for the diagnostic window without a Windows crash event. It reached `Partial`: all safe RenderGraph materialization patches installed, but no `RenderGraph texture materialization #` or successful `RenderGraph GetTexture` callback was observed in the main-menu window.
 - Local GPU/driver for Stage 6/7 pass: NVIDIA GeForce RTX 5060, driver `610.47`.
 
 Archived logs:
@@ -115,6 +117,9 @@ Archived logs:
 - `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-diagnostic-pass-builder-aggregate-main-menu-2026-06-05-031812.log`
 - `artifacts/runtime-logs/LogOutput-stage8a-rendergraph-diagnostic-pass-crash-gameplay-2026-06-05-083418.log`
 - `artifacts/runtime-logs/WER-stage8a-rendergraph-diagnostic-pass-crash-gameplay-2026-06-05-083423.wer`
+- `artifacts/runtime-logs/LogOutput-stage8a-safe-materialization-broad-harmony-crash-2026-06-05.log`
+- `artifacts/runtime-logs/WER-stage8a-safe-materialization-broad-harmony-crash-2026-06-05.wer`
+- `artifacts/runtime-logs/LogOutput-stage8a-safe-materialization-main-menu-no-harmony-2026-06-05.log`
 
 No PureDark files were copied into the game plugin folder. The NVIDIA runtime was copied only into `ref/` for local research and was not added to the release package.
 

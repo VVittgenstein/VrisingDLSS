@@ -2,6 +2,7 @@ param(
     [ValidateSet(
         "loader",
         "native",
+        "harmony-call",
         "render-thread",
         "d3d11",
         "frame-resource",
@@ -87,6 +88,9 @@ function Set-SwitchesForStage {
         "native" {
             $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
         }
+        "harmony-call" {
+            $Config.Diagnostics.EnableHarmonyCallProbe = "true"
+        }
         "render-thread" {
             $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
             $Config.Diagnostics.EnableRenderThreadSmokeTest = "true"
@@ -99,7 +103,6 @@ function Set-SwitchesForStage {
         "frame-resource" {
             $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
             $Config.Diagnostics.EnableD3D11TextureProbe = "true"
-            $Config.Diagnostics.EnableHarmonyCallProbe = "true"
             $Config.Diagnostics.EnableFrameResourceProbe = "true"
         }
         "upscaler-state" {
@@ -125,7 +128,6 @@ function Set-SwitchesForStage {
         "dlss-evaluate-inputs" {
             $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
             $Config.Diagnostics.EnableD3D11TextureProbe = "true"
-            $Config.Diagnostics.EnableHarmonyCallProbe = "true"
             $Config.Diagnostics.EnableFrameResourceProbe = "true"
             $Config.Diagnostics.EnableDlssEvaluateInputProbe = "true"
             $Config.Diagnostics.EnableResourceMaterializationProbe = "true"

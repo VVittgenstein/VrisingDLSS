@@ -25,6 +25,8 @@ This is engineering research, not legal advice.
 - Rechecked NVIDIA DLSS/RTX SDK, Stunlock, and Unity RenderGraph sources. No source changed the current route decision: keep a source-safe package without bundled NVIDIA runtime by default; do not rely on PureDark binaries or ABI; continue Stage 8A through a RenderGraph-scoped execution path.
 - Rechecked Unity HDRP 14 DLSS/dynamic-resolution docs and the Unity 2022.3 Graphics source route. HDRP 14 supports DLSS on Windows x64 with DirectX 11, DirectX 12, and Vulkan, but it requires the NVIDIA package/module and per-HDRP-asset/per-camera enablement. Local V Rising metadata lists `UnityEngine.NVIDIAModule.dll`, but the local install does not contain a generated NVIDIA interop assembly or `NVUnityPlugin`/`nvngx` binary. The project therefore keeps the clean-room native NGX/D3D11 bridge as the primary path and now logs optional Unity NVIDIA module availability in the read-only hook probe.
 - Added a read-only upscaler-state probe for V Rising's built-in FSR/upscale controls. A main-menu run observed `SetFSRParameters(1, true)` and `SetUpscaleFilter(EdgeAdaptiveScalingUpres, 0.59)`, confirming the HDRP upscaler route is active at runtime and useful as a landmark. It still does not replace the DLSS depth/motion-vector input requirement.
+- Narrowed Stage 8A helper configuration after a main-menu run crashed with `coreclr.dll` `0xc00000fd` while broad Harmony call logging patched `DLSSPass.Render`. `dlss-evaluate-inputs` no longer enables broad call logging, and Harmony call probing now uses a conservative target list.
+- Re-ran the narrowed Stage 8A helper in the main menu with broad Harmony call logging disabled. It ran through the diagnostic window without a Windows crash event, but produced only `Partial` evidence because no RenderGraph texture materialization or successful engine-owned `GetTexture` callback was observed there.
 
 ## Sources Checked
 
@@ -112,6 +114,8 @@ Already aligned:
 - Later Stage 8A RenderGraph runs found the expected texture handles by name. The builder-declaration probe observes `CameraColor`, `CameraDepthStencil`, `Motion Vectors`, and `NormalBuffer` declarations without materializing textures. Ordinary prefixes still do not run inside a valid resource scope, so the current probe avoids direct prefix `GetTexture` calls and passively hooks engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` calls.
 - The loader-stage hook probe now also catalogs HDRP DLSS/FSR/upscale methods and optional Unity NVIDIA module types, so future runtime logs can distinguish "built-in Unity DLSS unavailable/stripped" from "native bridge route still blocked on frame resources."
 - Stage 2B upscaler-state probing now has main-menu proof that V Rising sets HDRP's FSR/upscale state at runtime: `CatmullRom`/`100` changed to `EdgeAdaptiveScalingUpres`/`58.999996` after `SetFSRParameters` and `SetUpscaleFilter`.
+- Stage 8A helper configs now avoid broad Harmony call logging by default; this keeps the safer resource-materialization route distinct from the rejected high-frequency `DLSSPass.Render` call-count route.
+- The narrowed Stage 8A helper has main-menu stability evidence, but still needs gameplay-scene or later-resource-scope evidence before first evaluate can be implemented.
 
 Still missing for MVP:
 

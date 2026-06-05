@@ -10,6 +10,15 @@ internal static class HarmonyCallProbe
 {
     private const string HarmonyId = PluginInfo.Guid + ".readonly-call-probe";
     private const int MaxInitialLogsPerMethod = 3;
+    private static readonly HarmonyProbeTarget[] Targets =
+    {
+        new("UnityEngine.Rendering.HighDefinition.CustomVignette", new[] { "IsActive", "Render", "Cleanup" }),
+        new("UnityEngine.Rendering.HighDefinition.HDCamera", new[] { "UpdateAllViewConstants", "UpdateAntialiasing" }),
+        new("UnityEngine.Rendering.DynamicResolutionHandler", new[] { "DynamicResolutionEnabled", "SetDynamicResScaler" }),
+        new("HDDynamicResolution", new[] { "Update", "ResetScale", "ResetCounters", "UpdateFrameStats" }, Optional: true),
+        new("UnityEngine.Rendering.HighDefinition.SkyManager", new[] { "IsLightingSkyValid" }),
+        new("UnityEngine.Rendering.HighDefinition.HDRenderPipeline", new[] { "UpdateShaderVariablesGlobalCB" })
+    };
     private static readonly object Sync = new();
     private static readonly Dictionary<string, int> CallCounts = new(StringComparer.Ordinal);
 
@@ -52,12 +61,21 @@ internal static class HarmonyCallProbe
         HarmonyType = harmonyType;
 
         var patched = 0;
-        foreach (var target in HookTargetCatalog.Targets)
+        foreach (var target in Targets)
         {
             var type = HookTargetCatalog.FindType(assemblies, target.TypeName);
             if (type is null)
             {
-                log.LogWarning($"Harmony probe target type not found: {target.TypeName}");
+                var message = $"Harmony probe target type not found: {target.TypeName}";
+                if (target.Optional)
+                {
+                    log.LogInfo($"{message} (optional)");
+                }
+                else
+                {
+                    log.LogWarning(message);
+                }
+
                 continue;
             }
 
@@ -315,4 +333,6 @@ internal static class HarmonyCallProbe
             ? ex.InnerException.Message
             : ex.Message;
     }
+
+    private readonly record struct HarmonyProbeTarget(string TypeName, IReadOnlyList<string> MemberNames, bool Optional = false);
 }

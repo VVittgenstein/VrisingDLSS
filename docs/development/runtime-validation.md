@@ -91,7 +91,8 @@ Implemented as an optional diagnostic switch:
 
 - Config key: `Diagnostics.EnableHarmonyCallProbe=false` by default.
 - Uses reflection to call the Harmony runtime loaded by BepInEx, so the plugin does not add a compile-time Harmony dependency.
-- Adds read-only prefixes to candidate HDRP methods and logs capped call counts plus argument summaries.
+- Adds read-only prefixes to a conservative candidate list and logs capped call counts plus argument summaries.
+- Does not patch `DLSSPass`, RenderGraph/DLSS pass methods, optional Unity NVIDIA module methods, or the expanded HookProbe catalog.
 - Does not change return values.
 - Does not call the native bridge or DLSS runtime.
 
@@ -107,6 +108,10 @@ Evidence:
 
 - `BepInEx/LogOutput.log` lines beginning with `Harmony probe patched` and `Harmony probe call`.
 - No black screen, crash, or persistent rendering change after disabling `EnableHarmonyCallProbe`.
+
+Negative evidence:
+
+- A Stage 8A main-menu run on 2026-06-05 crashed in `coreclr.dll` with `0xc00000fd` after the helper had enabled broad Harmony call logging and patched `DLSSPass.Render`, which logged hundreds of calls. The `dlss-evaluate-inputs` helper no longer enables `EnableHarmonyCallProbe`, and the call probe now uses its own conservative target list instead of the expanded HookProbe catalog.
 
 ## Stage 4: Native Bridge Smoke Test
 
@@ -342,6 +347,8 @@ Current Stage 8A status:
 - A local-interop diagnostic RenderGraph pass injected successfully with `hasRenderFunc=True` and `allowPassCulling=False` in main-menu runs, but its render function was not observed as called there.
 - A local/private gameplay run on 2026-06-05 configured and injected the diagnostic pass twice, then V Rising crashed with a Windows `APPCRASH` in `coreclr.dll` (`0xc0000005`) before any diagnostic-pass render-function log. This route is now high-risk and disabled by default behind `Diagnostics.EnableRenderGraphDiagnosticPass=false`.
 - A main-menu run on 2026-06-05 patched 10 compiler-generated existing HDRP render functions, including `DoTemporalAntialiasing`, `DoCustomPostProcess`, `UberPass`, and `FinalPass`, then V Rising crashed with Windows `APPCRASH` in `coreclr.dll` (`0xc0000005`) before any `Existing HDRP render-func scope` log. Re-running reproduced the same fault bucket. This route is now high-risk and disabled by default behind `Diagnostics.EnableExistingRenderFuncProbe=false`.
+- A later Stage 8A main-menu run crashed with Windows `APPCRASH` in `coreclr.dll` (`0xc00000fd`) after broad Harmony call logging patched `DLSSPass.Render` and logged hundreds of calls. This was a diagnostic helper composition problem, not DLSS evaluate. The Stage 8A helper no longer enables broad Harmony call logging.
+- A follow-up Stage 8A main-menu run with `EnableHarmonyCallProbe=false` ran for the diagnostic window without a Windows crash event. It reached `Partial`: the safe materialization patches installed, but no `RenderGraph texture materialization #` or successful `RenderGraph GetTexture` callback was observed in the main-menu window.
 - Local static inspection confirms V Rising exposes HDRP FSR/upscale/DLSS landmarks, including `HDRenderPipeline.SetFSRParameters(float, bool)`, `GetUpscaleRes()`, `SetUpscaleFilter(DynamicResUpscaleFilter, float)`, `GetUpscaleFilter()`, `SetupDLSSForCameraDataAndDynamicResHandler(...)`, `GetPostprocessUpsampledOutputHandle(...)`, `DoDLSSPasses(...)`, `DoDLSSPass(...)`, and `DoTemporalAntialiasing(...)`. FSR1 is useful for locating the existing dynamic-resolution path, but it is not enough for DLSS because DLSS still needs aligned depth and motion-vector inputs.
 - Current next route: keep Stage 8A's passive builder/resource discovery, `GetTexture` postfix, and the resource-materialization callback probe, but do not inject a new RenderGraph pass or patch compiler-generated render functions in normal diagnostics. Use Stage 2B to confirm V Rising's built-in dynamic-resolution/upscale state while continuing to use those symbols as landmarks.
 - See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.

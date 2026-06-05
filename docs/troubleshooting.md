@@ -163,6 +163,8 @@ Check:
 
 If the log says the Harmony runtime shape was not recognized, leave `EnableHarmonyCallProbe=false` and capture the loaded assembly list from `BepInEx/LogOutput.log`.
 
+Do not combine `EnableHarmonyCallProbe=true` with Stage 8A diagnostics. The `dlss-evaluate-inputs` helper intentionally leaves it disabled because broad Harmony call logging previously patched `DLSSPass.Render` and crashed V Rising in `coreclr.dll` with `0xc00000fd`. Use `write-diagnostic-config.ps1 -Stage harmony-call` as a separate short run only.
+
 ## Do Not Mix With PureDark Files
 
 Remove these if they are next to this plugin:
