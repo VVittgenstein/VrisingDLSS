@@ -81,6 +81,7 @@ function Get-FirstStageStatus {
 $resolvedRoot = (Resolve-Path -LiteralPath $Root).Path
 $items = New-Object System.Collections.Generic.List[object]
 $runtimeNextRecommendation = $null
+$visualNextRecommendation = $null
 
 $manifestPath = Join-Path $resolvedRoot "package\thunderstore\manifest.json"
 $packageReadmePath = Join-Path $resolvedRoot "package\thunderstore\README.md"
@@ -88,6 +89,7 @@ $thirdPartyNoticesPath = Join-Path $resolvedRoot "package\thunderstore\ThirdPart
 $installDocPath = Join-Path $resolvedRoot "docs\install.md"
 $troubleshootingDocPath = Join-Path $resolvedRoot "docs\troubleshooting.md"
 $mvpDocPath = Join-Path $resolvedRoot "docs\mvp.md"
+$measurementPlanPath = Join-Path $resolvedRoot "docs\development\measurement-plan.md"
 $workflowPath = Join-Path $resolvedRoot ".github\workflows\build-package.yml"
 $configTemplatePath = Join-Path $resolvedRoot "package\thunderstore\VrisingDLSS.cfg"
 
@@ -121,6 +123,7 @@ foreach ($doc in @(
         [pscustomobject]@{ Area = "Docs"; Requirement = "Troubleshooting guide exists."; Path = $troubleshootingDocPath },
         [pscustomobject]@{ Area = "Docs"; Requirement = "Third-party notices exist."; Path = $thirdPartyNoticesPath },
         [pscustomobject]@{ Area = "Docs"; Requirement = "MVP definition exists."; Path = $mvpDocPath },
+        [pscustomobject]@{ Area = "Docs"; Requirement = "DLSS visual/performance measurement plan exists."; Path = $measurementPlanPath },
         [pscustomobject]@{ Area = "Docs"; Requirement = "Package README exists."; Path = $packageReadmePath }
     )) {
     $exists = Test-Path -LiteralPath $doc.Path
@@ -341,6 +344,18 @@ $items.Add((New-ReadinessItem `
     -Status $(if ($releaseConfigSurfaceReady) { "Pass" } else { "Blocked" }) `
     -Evidence $(if ($releaseConfigSurfaceReady) { $configTemplatePath } else { "Release DLSS defaults are documented in docs/mvp.md but the package config does not expose every key yet." })))
 
+$visualStatus = & (Join-Path $resolvedRoot "scripts\get-visual-validation-status.ps1") -Root $resolvedRoot
+$visualNextRecommendation = $visualStatus.NextRecommendation
+$visualEvidence = "$($visualStatus.Evidence)"
+if (@($visualStatus.Issues).Count -gt 0) {
+    $visualEvidence = "$visualEvidence; Issues=$(@($visualStatus.Issues) -join ' | ')"
+}
+$items.Add((New-ReadinessItem `
+    -Area "MVP" `
+    -Requirement "Gameplay visual comparison proves the Stage 10A candidate is image-correct enough for normal-user DLSS integration." `
+    -Status $visualStatus.Status `
+    -Evidence $visualEvidence))
+
 $items.Add((New-ReadinessItem `
     -Area "MVP" `
     -Requirement "Normal-user DLSS enable/disable changes rendering correctly and safely." `
@@ -427,6 +442,12 @@ $summary = [pscustomobject]@{
             $runtimeNextRecommendation
         } else {
             "Run scripts\run-vrising-diagnostic.ps1 -Stage dlss-visible-writeback with a local SDK-wrapper native build, DLSS runtime path, and DLSS disabled by default."
+        }
+    } elseif (@($items | Where-Object { $_.Requirement -like "Gameplay visual comparison*" -and $_.Status -ne "Pass" }).Count -gt 0) {
+        if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
+            $visualNextRecommendation
+        } else {
+            "Run a paired Stage 10A gameplay visual comparison, capture performance, and add a matching human review file."
         }
     } else {
         "Validate image correctness, output selection, resize/reset handling, and fallback behavior before public release."

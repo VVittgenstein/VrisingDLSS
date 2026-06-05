@@ -600,6 +600,8 @@ Added local-only helpers for the next validation step:
 
 - `scripts\capture-vrising-window.ps1` captures the current V Rising client window to `artifacts\visual-validation`.
 - `scripts\compare-image-artifacts.ps1` compares two captured PNGs and writes a bounded summary with dimensions, sampled RGB/luma deltas, near-black/near-white ratios, and hashes.
+- `scripts\get-visual-validation-status.ps1` reads the latest paired comparison and reports whether it is strong enough for the MVP visual gate. It requires gameplay-resolution captures, Stage 10A log evidence, a candidate performance summary, and a matching human review JSON before returning `Pass`.
+- `docs\development\measurement-plan.md` records the source-backed measurement rules and review-file template.
 
 These helpers launch no game process and write only ignored local artifacts. They are intended to catch gross visual regressions such as black frames, capture failures, or obvious write-back problems. They are not by themselves proof of DLSS image quality or final user-facing rendering correctness.
 
@@ -659,6 +661,14 @@ New-Item -ItemType File -Force -Path "Z:\VrisingDLSS\artifacts\visual-validation
 ```
 
 This helper still does not make the mod MVP-ready. It is the controlled evidence path for deciding whether Stage 10A is actually visible and image-correct in gameplay before building a normal-user `DLSS.EnableDLSS=true` route.
+
+After a paired run, inspect readiness with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\get-visual-validation-status.ps1
+```
+
+The current readiness gate intentionally treats the existing `480x320` main-menu smoke comparisons as `Blocked`, not `Pass`, because they are harness smoke evidence rather than gameplay image-correctness evidence.
 
 Current helper smoke status:
 
