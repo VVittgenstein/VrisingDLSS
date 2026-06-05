@@ -10,10 +10,14 @@ Primary references:
 
 - NVIDIA DLSS developer page: `https://developer.nvidia.com/rtx/dlss`
 - NVIDIA Streamline DLSS programming guide: `https://github.com/NVIDIA-RTX/Streamline/blob/main/docs/ProgrammingGuideDLSS.md`
+- NVIDIA Streamline programming guide: `https://github.com/NVIDIA-RTX/Streamline/blob/main/docs/ProgrammingGuide.md`
 - NVIDIA FrameView overview: `https://www.nvidia.com/en-gb/geforce/technologies/frameview/`
 - NVIDIA FrameView benchmarking article: `https://www.nvidia.com/en-us/geforce/news/nvidia-frameview-power-and-performance-benchmarking-app-download/`
 - FrameView user guide PDF: `https://images.nvidia.com/content/geforce/technologies/frameview/frameview-1-7-user-guide-web-version.pdf`
 - PresentMon console application README: `https://github.com/GameTechDev/PresentMon/blob/main/README-ConsoleApplication.md`
+- Unity HDRP DLSS documentation: `https://docs.unity.cn/Packages/com.unity.render-pipelines.high-definition%4012.0/manual/deep-learning-super-sampling-in-hdrp.html`
+- Unity HDRP Camera documentation: `https://docs.unity.cn/Packages/com.unity.render-pipelines.high-definition%4017.0/manual/HDRP-Camera.html`
+- Unity Core RP DynamicResolutionHandler API: `https://docs.unity.cn/Packages/com.unity.render-pipelines.core%4012.1/api/UnityEngine.Rendering.DynamicResolutionHandler.html`
 - Unity resolution scaling overview: `https://docs.unity.cn/6000.0/Documentation/Manual/resolution-scale-introduction.html`
 - Unity HDRP motion vectors manual: `https://docs.unity3d.com/cn/Packages/com.unity.render-pipelines.high-definition%4010.4/manual/Motion-Vectors.html`
 
@@ -85,15 +89,17 @@ Do not confuse the mod's intended DLSS defaults with V Rising's built-in FSR set
 
 The final product-value comparison must use V Rising `FsrQualityMode=Off` for both sides: native 4K with `DLSS.EnableDLSS=false` versus mod-owned `DLSS.EnableDLSS=true` with the plugin controlling render scale/upscale. Existing negative-control evidence showed that with FSR Off and no mod-owned render-scale control, the current candidate sees `CameraColor` and output both at `3840x2160`, so it cannot prove a DLSS performance uplift yet.
 
-Use `scripts/set-vrising-fsr-mode.ps1` for local test setup when changing V Rising's built-in FSR mode. It backs up `ClientSettings.json` under ignored local artifacts before writing and does not launch the game. The visual comparison helper can do this automatically with `-FsrMode Performance`; it restores the previous value during cleanup.
+Use `scripts/set-vrising-fsr-mode.ps1` for local test setup when changing V Rising's built-in FSR mode. It backs up `ClientSettings.json` under ignored local artifacts before writing and does not launch the game. The visual comparison helper can do this automatically with `-FsrMode Off` for the final MVP comparison, or `-FsrMode Performance` for explicitly labeled transition diagnostics; it restores the previous value during cleanup.
 
 When `KeepDlssVisibleWritebackProbeRunning=true` is used, candidate performance captures measure diagnostic hold-mode overhead. A large negative FPS delta under that mode means the proof loop is too expensive, not that the normal-user DLSS path is necessarily slow. Use `-CandidateStage dlss-user-rendering` for the MVP performance question: one persistent feature, at most one evaluate per Unity frame, no repeated proof loop, and explicit cleanup on resize/settings changes.
 
-Recommended normal-user candidate command shape:
+Recommended MVP command shape, after the candidate owns render-scale/upscale while V Rising FSR remains Off:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\path\to\VRising" -CandidateStage dlss-user-rendering -FsrMode Performance -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -CapturePerformance:$true -WaitForUserRendering:$true -DlssRuntimePath "C:\path\to\nvngx_dlss.dll"
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\path\to\VRising" -CandidateStage dlss-user-rendering -FsrMode Off -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -CapturePerformance:$true -WaitForUserRendering:$true -DlssRuntimePath "C:\path\to\nvngx_dlss.dll"
 ```
+
+If a test still requires `-FsrMode Performance`, label it as transition evidence. It can prove DLSS evaluate behavior on an HDRP Super Resolution tuple, but it cannot prove that the mod delivers normal-user value over native 4K with the game's FSR setting disabled.
 
 Before creating the ready file for a tester-coordinated capture, confirm Codex can see the game process and likely game window:
 

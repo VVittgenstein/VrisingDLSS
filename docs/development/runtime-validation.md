@@ -646,8 +646,10 @@ powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.p
 Example manual-ready paired gameplay run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\Software\VRising" -CandidateStage dlss-user-rendering -FsrMode Performance -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -CapturePerformance:$true -WaitForUserRendering:$true -DlssRuntimePath "Z:\VrisingDLSS\ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll"
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\Software\VRising" -CandidateStage dlss-user-rendering -FsrMode Off -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -CapturePerformance:$true -WaitForUserRendering:$true -DlssRuntimePath "Z:\VrisingDLSS\ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll"
 ```
+
+Use `-FsrMode Performance` only for explicitly labeled transition diagnostics. Those runs can prove the DLSS evaluate path against an HDRP Super Resolution tuple, but they cannot satisfy the MVP product-value comparison because V Rising's built-in FSR is participating in the render-scale change.
 
 When `-ManualCapture` is used, the tester enters the matching local/private scene and then creates the ready file. Capture waits for the ready file and will not fire before `-CaptureAtSeconds`, which keeps the candidate from being captured before its evidence line and scene warm-up are ready.
 
@@ -696,3 +698,4 @@ Current helper smoke status:
 - Candidate performance in that diagnostic hold-mode run was `AverageFps=45.982`, `OnePercentLowFps=29.982`, `P95FrameMs=29.648`, `AverageGpuUtilPercent=100`, and `AverageProcessCpuPercent=3.356`. Treat this as diagnostic overhead from repeated visible write-back proof, not as normal-user DLSS performance. The next rendering step is a persistent user path with one DLSS evaluate per frame and explicit resize/settings cleanup.
 - The first `dlss-user-rendering` release-safe smoke run on 2026-06-05 proved `DLSS.EnableDLSS=true` installs the crash-safe RenderGraph route and starts the user-rendering candidate. With V Rising's built-in FSR Off, the run had no crash event and restored loader config, but no Super Resolution tuple was accepted because `CameraColor` and output were both `3840x2160`.
 - A follow-up `dlss-user-rendering` release-safe smoke run temporarily set V Rising's built-in `FsrQualityMode=Performance`, accepted a `1920x1080 -> 3840x2160` tuple, attempted the user-rendering evaluate once, received the expected release-safe native response `blocked: native bridge was built without NVIDIA SDK wrapper integration`, disabled the candidate for the session, reported no matching Windows crash event, restored loader config, and restored `FsrQualityMode=Off`.
+- Current route decision: DLSS itself does not depend on FSR. The final MVP validation must keep V Rising `FsrQualityMode=Off` for baseline and candidate, while the mod controls render scale/upscale through HDRP dynamic-resolution/DLSS-path integration.

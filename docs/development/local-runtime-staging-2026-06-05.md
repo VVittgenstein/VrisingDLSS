@@ -205,7 +205,7 @@ Next implementation gate:
 
 - Keep ordinary `dlss-evaluate-inputs` diagnostics safe by leaving `Diagnostics.EnableRenderGraphDiagnosticPass=false`, `Diagnostics.EnableExistingRenderFuncProbe=false`, `Diagnostics.EnableFrameResourceProbe=false`, and `Diagnostics.EnableHarmonyCallProbe=false`.
 - Keep Stage 8B/8C/8D/8E/8F/8G/9A/10A as guarded diagnostics while `DLSS.EnableDLSS=false` remains the package default.
-- Capture visual output and FPS/CPU/GPU evidence for the experimental `DLSS.EnableDLSS=true` one-evaluate-per-Unity-frame candidate in the same FSR Performance 4K route before treating it as normal-user behavior.
+- Replace the transition FSR Performance route with a guarded mod-owned render-scale route. The next MVP-target visual/performance capture must keep V Rising `FsrQualityMode=Off` for both baseline and candidate, then prove that `DLSS.EnableDLSS=true` controls the render scale/upscale path and improves over native 4K.
 - Use `scripts\run-vrising-diagnostic.ps1 -Stage dlss-user-rendering -UseSdkWrapperNative -DlssRuntimePath "Z:\VrisingDLSS\ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll"` for local/private SDK-wrapper user-rendering smoke runs. The helper temporarily stages the SDK-wrapper native DLL and restores the release-safe native DLL plus loader config after cleanup.
 - Implement a guarded normal-user rendering path only after choosing a safe output/writeback strategy from the accepted passive `GetTexture` evidence.
 - Validate image correctness, render-scale behavior, jitter/pre-exposure, resize/reset behavior, and fallback behavior in a local/private gameplay scene before any public MVP release.

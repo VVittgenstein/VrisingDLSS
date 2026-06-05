@@ -405,12 +405,12 @@ $summary = [pscustomobject]@{
     NextRecommendation = if ($mvpReady) {
         "MVP evidence is complete. Prepare a final release review."
     } elseif ([string]::IsNullOrWhiteSpace($GamePath)) {
-        "Pass -GamePath to include local runtime evidence. Current MVP next step is capturing normal-user dlss-user-rendering visual/performance evidence and completing the matching human review."
+        "Pass -GamePath to include local runtime evidence. Current MVP next step is mod-owned render-scale control with V Rising FSR Off, then normal-user dlss-user-rendering visual/performance evidence and matching human review."
     } elseif ($visualStatus.Status -ne "Pass" -and $visualStatus.HumanReviewStatus -eq "Pending") {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
         } else {
-            "Complete the pending human visual review, then capture visual/performance evidence for the experimental DLSS.EnableDLSS user-rendering candidate."
+            "Complete the pending human visual review only after confirming the candidate uses V Rising FSR Off with mod-owned render-scale control."
         }
     } elseif (@($items | Where-Object { $_.Requirement -like "Stage 8A*" -and $_.Status -ne "Pass" }).Count -gt 0) {
         if (-not [string]::IsNullOrWhiteSpace($runtimeNextRecommendation)) {
@@ -467,12 +467,12 @@ $summary = [pscustomobject]@{
             "Run scripts\run-vrising-diagnostic.ps1 -Stage dlss-visible-writeback with a local SDK-wrapper native build, DLSS runtime path, and DLSS disabled by default."
         }
     } elseif (@($items | Where-Object { $_.Requirement -like "Experimental EnableDLSS user-rendering*" -and $_.Status -ne "Pass" }).Count -gt 0) {
-        "Run scripts\run-vrising-diagnostic.ps1 -Stage dlss-user-rendering -UseSdkWrapperNative with a local DLSS runtime path, then capture visual/performance evidence for that normal-user candidate route."
+        "Implement or validate mod-owned render-scale control with V Rising FSR Off, then run scripts\run-vrising-diagnostic.ps1 -Stage dlss-user-rendering -UseSdkWrapperNative with a local DLSS runtime path."
     } elseif (@($items | Where-Object { $_.Requirement -like "Normal-user dlss-user-rendering gameplay visual/performance comparison*" -and $_.Status -ne "Pass" }).Count -gt 0) {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
         } else {
-            "Run a paired dlss-user-rendering gameplay visual comparison, capture performance, and add a matching human review file."
+            "After mod-owned render-scale control is active with V Rising FSR Off, run a paired dlss-user-rendering gameplay visual comparison, capture performance, and add a matching human review file."
         }
     } else {
         "Validate image correctness, output selection, resize/reset handling, and fallback behavior before public release."

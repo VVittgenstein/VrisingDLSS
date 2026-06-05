@@ -169,10 +169,10 @@ function Get-VisualNextRecommendation {
 
     if ($Stage -eq "dlss-user-rendering") {
         if ([string]::IsNullOrWhiteSpace($ReviewPath)) {
-            return "Run scripts\run-vrising-visual-comparison.ps1 -CandidateStage dlss-user-rendering -FsrMode Performance in a stable gameplay scene, capture performance, then add a matching human review file."
+            return "After the candidate owns render-scale control with V Rising FSR Off, run scripts\run-vrising-visual-comparison.ps1 -CandidateStage dlss-user-rendering -FsrMode Off in a stable gameplay scene, capture performance, then add a matching human review file."
         }
 
-        return "Run scripts\run-vrising-visual-comparison.ps1 -CandidateStage dlss-user-rendering -FsrMode Performance in a stable gameplay scene, capture performance, then create $ReviewPath after human review with matching image SHA256 values."
+        return "After the candidate owns render-scale control with V Rising FSR Off, run scripts\run-vrising-visual-comparison.ps1 -CandidateStage dlss-user-rendering -FsrMode Off in a stable gameplay scene, capture performance, then create $ReviewPath after human review with matching image SHA256 values."
     }
 
     if ($Stage -eq "dlss-visible-writeback") {
@@ -516,7 +516,7 @@ if (Test-Path -LiteralPath $reviewResolved) {
 }
 
 if (@($issues | Where-Object { $_ -like "Candidate * regressed*" -or $_ -like "Candidate P95 frame time worsened*" }).Count -gt 0) {
-    $nextRecommendation = "Fix the dlss-user-rendering performance regression, rerun the paired gameplay visual/performance comparison, then create the matching human review file only if performance and image quality are acceptable."
+    $nextRecommendation = "Fix the dlss-user-rendering render-scale/evaluate performance regression, then rerun the paired gameplay visual/performance comparison with V Rising FSR Off and mod-owned render-scale control. Create the matching human review file only if performance and image quality are acceptable."
 }
 
 if ($issues.Count -gt 0) {
