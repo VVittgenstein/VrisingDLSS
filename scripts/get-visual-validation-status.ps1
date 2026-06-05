@@ -7,6 +7,9 @@ param(
     [int]$MinimumHeight = 720,
     [double]$MaxNearBlackRatio = 0.95,
     [double]$MaxNearWhiteRatio = 0.95,
+    [double]$MinimumAverageFpsDeltaPercent = -10.0,
+    [double]$MinimumOnePercentLowFpsDeltaPercent = -15.0,
+    [double]$MaximumP95FrameMsDeltaPercent = 15.0,
     [ValidateSet("Any", "dlss-visible-writeback", "dlss-user-rendering")]
     [string]$RequiredCandidateStage = "Any",
     [switch]$Json,
@@ -232,9 +235,11 @@ function New-Status {
         BaselineOnePercentLowFps = $(if ($Details.ContainsKey("BaselineOnePercentLowFps")) { $Details.BaselineOnePercentLowFps } else { $null })
         CandidateOnePercentLowFps = $(if ($Details.ContainsKey("CandidateOnePercentLowFps")) { $Details.CandidateOnePercentLowFps } else { $null })
         OnePercentLowFpsDelta = $(if ($Details.ContainsKey("OnePercentLowFpsDelta")) { $Details.OnePercentLowFpsDelta } else { $null })
+        OnePercentLowFpsDeltaPercent = $(if ($Details.ContainsKey("OnePercentLowFpsDeltaPercent")) { $Details.OnePercentLowFpsDeltaPercent } else { $null })
         BaselineP95FrameMs = $(if ($Details.ContainsKey("BaselineP95FrameMs")) { $Details.BaselineP95FrameMs } else { $null })
         CandidateP95FrameMs = $(if ($Details.ContainsKey("CandidateP95FrameMs")) { $Details.CandidateP95FrameMs } else { $null })
         P95FrameMsDelta = $(if ($Details.ContainsKey("P95FrameMsDelta")) { $Details.P95FrameMsDelta } else { $null })
+        P95FrameMsDeltaPercent = $(if ($Details.ContainsKey("P95FrameMsDeltaPercent")) { $Details.P95FrameMsDeltaPercent } else { $null })
         HumanReviewStatus = $(if ($Details.ContainsKey("HumanReviewStatus")) { $Details.HumanReviewStatus } else { "" })
         LaunchesGame = $false
     }
@@ -357,9 +362,11 @@ $details = @{
     BaselineOnePercentLowFps = $baselineOnePercentLowFps
     CandidateOnePercentLowFps = $candidateOnePercentLowFps
     OnePercentLowFpsDelta = Get-Delta -Baseline $baselineOnePercentLowFps -Candidate $candidateOnePercentLowFps
+    OnePercentLowFpsDeltaPercent = Get-DeltaPercent -Baseline $baselineOnePercentLowFps -Candidate $candidateOnePercentLowFps
     BaselineP95FrameMs = $baselineP95FrameMs
     CandidateP95FrameMs = $candidateP95FrameMs
     P95FrameMsDelta = Get-Delta -Baseline $baselineP95FrameMs -Candidate $candidateP95FrameMs
+    P95FrameMsDeltaPercent = Get-DeltaPercent -Baseline $baselineP95FrameMs -Candidate $candidateP95FrameMs
     HumanReviewStatus = ""
 }
 
@@ -433,6 +440,20 @@ if (-not $details.CandidatePerformanceSummaryPresent) {
     $issues.Add("Candidate performance summary is missing.")
 }
 
+if ($candidateStage -eq "dlss-user-rendering" -and $details.BaselinePerformanceSummaryPresent -and $details.CandidatePerformanceSummaryPresent) {
+    if ($null -ne $details.AverageFpsDeltaPercent -and [double]$details.AverageFpsDeltaPercent -lt $MinimumAverageFpsDeltaPercent) {
+        $issues.Add("Candidate average FPS regressed by $($details.AverageFpsDeltaPercent)% versus baseline; minimum allowed is $MinimumAverageFpsDeltaPercent%.")
+    }
+
+    if ($null -ne $details.OnePercentLowFpsDeltaPercent -and [double]$details.OnePercentLowFpsDeltaPercent -lt $MinimumOnePercentLowFpsDeltaPercent) {
+        $issues.Add("Candidate 1% low FPS regressed by $($details.OnePercentLowFpsDeltaPercent)% versus baseline; minimum allowed is $MinimumOnePercentLowFpsDeltaPercent%.")
+    }
+
+    if ($null -ne $details.P95FrameMsDeltaPercent -and [double]$details.P95FrameMsDeltaPercent -gt $MaximumP95FrameMsDeltaPercent) {
+        $issues.Add("Candidate P95 frame time worsened by $($details.P95FrameMsDeltaPercent)% versus baseline; maximum allowed is $MaximumP95FrameMsDeltaPercent%.")
+    }
+}
+
 $reviewResolved = Resolve-OptionalPath -Path $ReviewPath -Base $resolvedRoot
 if ([string]::IsNullOrWhiteSpace($reviewResolved)) {
     $reviewResolved = [System.IO.Path]::ChangeExtension($comparisonResolved, ".review.json")
@@ -492,6 +513,10 @@ if (Test-Path -LiteralPath $reviewResolved) {
     } elseif (-not [string]::IsNullOrWhiteSpace([string]$details.HumanReviewStatus)) {
         $nextRecommendation = "Resolve the listed visual review issue in $reviewResolved, rerunning the paired comparison if the existing candidate is not image-correct."
     }
+}
+
+if (@($issues | Where-Object { $_ -like "Candidate * regressed*" -or $_ -like "Candidate P95 frame time worsened*" }).Count -gt 0) {
+    $nextRecommendation = "Fix the dlss-user-rendering performance regression, rerun the paired gameplay visual/performance comparison, then create the matching human review file only if performance and image quality are acceptable."
 }
 
 if ($issues.Count -gt 0) {

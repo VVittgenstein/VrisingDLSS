@@ -67,6 +67,8 @@ Review file shape:
 
 Use `scripts/get-visual-validation-status.ps1` to inspect paired visual comparisons. It returns `Pass` only when the comparison artifact, candidate evidence log, baseline/candidate performance summaries, gameplay-resolution captures, and matching human review are all present. The script recognizes both Stage 10A `baseline-vs-stage10a` artifacts and normal-user `baseline-vs-user-rendering` artifacts; pass `-RequiredCandidateStage dlss-user-rendering` for the MVP release gate.
 
+For `dlss-user-rendering` MVP checks, the status script also blocks obvious performance regressions before any human review can pass the artifact. Defaults are: average FPS may not regress more than `10%`, 1% low FPS may not regress more than `15%`, and P95 frame time may not worsen more than `15%`. These are guardrails for MVP evidence, not the final performance target.
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\get-visual-validation-status.ps1 -RequiredCandidateStage dlss-user-rendering
 ```
@@ -83,7 +85,7 @@ Do not confuse the mod's intended DLSS defaults with V Rising's built-in FSR set
 
 Use `scripts/set-vrising-fsr-mode.ps1` for local test setup when changing V Rising's built-in FSR mode. It backs up `ClientSettings.json` under ignored local artifacts before writing and does not launch the game. The visual comparison helper can do this automatically with `-FsrMode Performance`; it restores the previous value during cleanup.
 
-When `KeepDlssVisibleWritebackProbeRunning=true` is used, candidate performance captures measure diagnostic hold-mode overhead. A large negative FPS delta under that mode means the proof loop is too expensive, not that the normal-user DLSS path is necessarily slow. Use `-CandidateStage dlss-user-rendering` for the MVP performance question: one persistent feature, one evaluate per accepted frame, no repeated proof loop, and explicit cleanup on resize/settings changes.
+When `KeepDlssVisibleWritebackProbeRunning=true` is used, candidate performance captures measure diagnostic hold-mode overhead. A large negative FPS delta under that mode means the proof loop is too expensive, not that the normal-user DLSS path is necessarily slow. Use `-CandidateStage dlss-user-rendering` for the MVP performance question: one persistent feature, at most one evaluate per Unity frame, no repeated proof loop, and explicit cleanup on resize/settings changes.
 
 Recommended normal-user candidate command shape:
 

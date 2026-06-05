@@ -1,6 +1,6 @@
 # Local Runtime Staging - 2026-06-05
 
-This records local staging progress for runtime validation. Stage 8B guarded DLSS evaluate, Stage 8C output follow-up, Stage 8D persistent repeated evaluate, Stage 8E Super Resolution input sizing, Stage 8F Super Resolution evaluate, Stage 8G Super Resolution persistent repeated evaluate, Stage 9A Super Resolution frame-sequence evaluate, and Stage 10A visible write-back candidate now have local proof. Normal-user DLSS rendering now has an experimental one-evaluate-per-accepted-frame candidate, but it is not MVP-validated yet.
+This records local staging progress for runtime validation. Stage 8B guarded DLSS evaluate, Stage 8C output follow-up, Stage 8D persistent repeated evaluate, Stage 8E Super Resolution input sizing, Stage 8F Super Resolution evaluate, Stage 8G Super Resolution persistent repeated evaluate, Stage 9A Super Resolution frame-sequence evaluate, and Stage 10A visible write-back candidate now have local proof. Normal-user DLSS rendering now has an experimental one-evaluate-per-Unity-frame candidate, but it is not MVP-validated yet.
 
 ## Inputs
 
@@ -131,7 +131,7 @@ Current validated evidence:
   - This proves the guarded visible-path candidate can repeatedly evaluate into the selected SR output target. It still does not prove screenshot/visual image correctness, resize/reset behavior, or final normal-user enable/disable behavior.
   - A later 4K FSR Performance gameplay comparison reached Stage 10A on a `1920x1080 -> 3840x2160` tuple and captured a valid candidate screenshot, but hold-mode candidate performance dropped to `AverageFps=45.982` versus a baseline `AverageFps=159.851`. This is diagnostic overhead, not a normal-user DLSS performance result.
 - Experimental `DLSS.EnableDLSS=true` user-rendering candidate:
-  - Implemented as a one-evaluate-per-accepted-RenderGraph-callback path reusing the Stage 10A visible output target selection.
+  - Implemented as a one-evaluate-per-Unity-frame path reusing the Stage 10A visible output target selection.
   - It does not enable `Diagnostics.EnableDlssVisibleWritebackProbe`, does not run the 30-success proof loop, and keeps the package default `EnableDLSS=false`.
   - Release-safe smoke with V Rising FSR Off had no crash event but no SR tuple because `CameraColor` and output were both `3840x2160`.
   - Release-safe smoke with V Rising FSR Performance accepted `1920x1080 -> 3840x2160`, attempted one user-rendering evaluate, received expected SDK-wrapper-blocked status, disabled the candidate for the session, had `CrashEventCount=0`, and restored FSR Off plus loader config.
@@ -205,7 +205,7 @@ Next implementation gate:
 
 - Keep ordinary `dlss-evaluate-inputs` diagnostics safe by leaving `Diagnostics.EnableRenderGraphDiagnosticPass=false`, `Diagnostics.EnableExistingRenderFuncProbe=false`, `Diagnostics.EnableFrameResourceProbe=false`, and `Diagnostics.EnableHarmonyCallProbe=false`.
 - Keep Stage 8B/8C/8D/8E/8F/8G/9A/10A as guarded diagnostics while `DLSS.EnableDLSS=false` remains the package default.
-- Capture visual output and FPS/CPU/GPU evidence for the experimental `DLSS.EnableDLSS=true` one-evaluate-per-accepted-frame candidate in the same FSR Performance 4K route before treating it as normal-user behavior.
+- Capture visual output and FPS/CPU/GPU evidence for the experimental `DLSS.EnableDLSS=true` one-evaluate-per-Unity-frame candidate in the same FSR Performance 4K route before treating it as normal-user behavior.
 - Use `scripts\run-vrising-diagnostic.ps1 -Stage dlss-user-rendering -UseSdkWrapperNative -DlssRuntimePath "Z:\VrisingDLSS\ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll"` for local/private SDK-wrapper user-rendering smoke runs. The helper temporarily stages the SDK-wrapper native DLL and restores the release-safe native DLL plus loader config after cleanup.
 - Implement a guarded normal-user rendering path only after choosing a safe output/writeback strategy from the accepted passive `GetTexture` evidence.
 - Validate image correctness, render-scale behavior, jitter/pre-exposure, resize/reset behavior, and fallback behavior in a local/private gameplay scene before any public MVP release.

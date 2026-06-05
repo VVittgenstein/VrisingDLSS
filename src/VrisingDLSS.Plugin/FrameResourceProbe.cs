@@ -33,11 +33,13 @@ internal static class FrameResourceProbe
     private const int MaxDlssSuperResolutionFrameSequenceEvaluateProbeAttempts = 24;
     private const int TargetDlssSuperResolutionFrameSequenceEvaluateSuccesses = 3;
     private const int MaxDlssUserRenderingFailureLogs = 8;
+    private const int DlssUserRenderingFallbackMaxAttemptsPerSecond = 240;
     private const int MaxDlssVisibleWritebackProbeAttempts = 120;
     private const int MaxDlssVisibleWritebackHoldAttempts = 30000;
     private const int TargetDlssVisibleWritebackProbeSuccesses = 30;
     private const int MaxDlssEvaluateOutputFollowupLogs = 12;
     private const int MaxTextureSearchDepth = 3;
+    private static readonly long DlssUserRenderingFallbackMinAttemptTicks = Math.Max(1L, Stopwatch.Frequency / DlssUserRenderingFallbackMaxAttemptsPerSecond);
     private static readonly FrameProbeTarget[] Targets =
     {
         new("UnityEngine.Rendering.HighDefinition.CustomVignette", "Render"),
@@ -68,6 +70,8 @@ internal static class FrameResourceProbe
     private static int DlssUserRenderingAttemptCount;
     private static int DlssUserRenderingSuccessCount;
     private static int DlssUserRenderingFailureLogCount;
+    private static int DlssUserRenderingLastAttemptFrameCount = -1;
+    private static long DlssUserRenderingLastAttemptTimestamp;
     private static int DlssVisibleWritebackProbeAttemptCount;
     private static int DlssVisibleWritebackProbeSuccessCount;
     private static int DlssEvaluateOutputFollowupLogCount;
@@ -111,11 +115,14 @@ internal static class FrameResourceProbe
     private static bool DlssUserRenderingSucceeded;
     private static bool DlssUserRenderingBlocked;
     private static bool DlssUserRenderingShutdownLogged;
+    private static bool DlssUserRenderingFrameThrottleFallbackLogged;
     private static bool DlssVisibleWritebackProbeEnabled;
     private static bool KeepDlssVisibleWritebackProbeRunning;
     private static bool DlssVisibleWritebackProbeSucceeded;
     private static bool DlssVisibleWritebackShutdownLogged;
     private static DlssEvaluateProbeSettings DlssEvaluateSettings;
+    private static bool UnityTimeLookupAttempted;
+    private static PropertyInfo? UnityTimeFrameCountProperty;
 
     internal static void Install(
         ManualLogSource log,
@@ -230,7 +237,7 @@ internal static class FrameResourceProbe
         }
         if (DlssUserRenderingEnabled)
         {
-            log.LogWarning("DLSS user rendering candidate enabled. This uses the Stage 10A visible-path output target with one DLSS evaluate per accepted RenderGraph callback and falls back safely when the native path is unavailable.");
+            log.LogWarning("DLSS user rendering candidate enabled. This uses the Stage 10A visible-path output target with at most one DLSS evaluate per Unity frame and falls back safely when the native path is unavailable.");
         }
         if (RenderGraphDiagnosticPassEnabled)
         {
@@ -540,6 +547,9 @@ internal static class FrameResourceProbe
                 DlssUserRenderingAttemptCount = 0;
                 DlssUserRenderingSuccessCount = 0;
                 DlssUserRenderingFailureLogCount = 0;
+                DlssUserRenderingLastAttemptFrameCount = -1;
+                DlssUserRenderingLastAttemptTimestamp = 0;
+                DlssUserRenderingFrameThrottleFallbackLogged = false;
                 DlssVisibleWritebackProbeAttemptCount = 0;
                 DlssVisibleWritebackProbeSuccessCount = 0;
                 DlssSuperResolutionInputProbeAttemptKeys.Clear();
@@ -2751,6 +2761,11 @@ internal static class FrameResourceProbe
             return;
         }
 
+        if (WasDlssUserRenderingAttemptedThisFrameOrInterval())
+        {
+            return;
+        }
+
         var available = candidates.Where(candidate => candidate.Pointer != IntPtr.Zero).ToArray();
         var color = FindExistingRenderFuncCandidate(available, static candidate =>
             string.Equals(candidate.ResourceName, "CameraColor", StringComparison.Ordinal));
@@ -2814,6 +2829,11 @@ internal static class FrameResourceProbe
             return;
         }
 
+        if (!TryReserveDlssUserRenderingAttempt(log, out var unityFrame, out var unityFrameKnown))
+        {
+            return;
+        }
+
         int attempt;
         int successCount;
         lock (Sync)
@@ -2826,8 +2846,9 @@ internal static class FrameResourceProbe
         var reset = successCount == 0 ? DlssEvaluateSettings.Reset : 0;
         if (ShouldLogDlssUserRenderingAttempt(attempt))
         {
+            var unityFrameLabel = unityFrameKnown ? unityFrame.ToString() : "unknown";
             log.LogInfo(
-                $"DLSS user rendering candidate #{attempt} from {source}: color=0x{colorPointer.ToInt64():X}; output=0x{outputPointer.ToInt64():X}; depth=0x{depthPointer.ToInt64():X}; motion=0x{motionPointer.ToInt64():X}; outputResourceName={outputResourceName ?? "unavailable"}; perfQuality={DlssEvaluateSettings.PerfQualityValue}; flags=0x{DlssEvaluateSettings.FeatureFlags:X}; sharpness={DlssEvaluateSettings.Sharpness}; reset={reset}");
+                $"DLSS user rendering candidate #{attempt} from {source}: unityFrame={unityFrameLabel}; color=0x{colorPointer.ToInt64():X}; output=0x{outputPointer.ToInt64():X}; depth=0x{depthPointer.ToInt64():X}; motion=0x{motionPointer.ToInt64():X}; outputResourceName={outputResourceName ?? "unavailable"}; perfQuality={DlssEvaluateSettings.PerfQualityValue}; flags=0x{DlssEvaluateSettings.FeatureFlags:X}; sharpness={DlssEvaluateSettings.Sharpness}; reset={reset}");
         }
 
         var success = bridge.EvaluateDlssFrameSequence(
@@ -2862,7 +2883,8 @@ internal static class FrameResourceProbe
             TrackDlssEvaluateOutputFollowup(outputPointer, outputResourceName);
             if (firstSuccess || currentSuccessCount <= 5 || currentSuccessCount % 300 == 0)
             {
-                log.LogInfo($"DLSS user rendering evaluate succeeded from {source}: sequenceSuccesses={currentSuccessCount}; outputResourceName={outputResourceName ?? "unavailable"}; {status}");
+                var unityFrameLabel = unityFrameKnown ? unityFrame.ToString() : "unknown";
+                log.LogInfo($"DLSS user rendering evaluate succeeded from {source}: sequenceSuccesses={currentSuccessCount}; unityFrame={unityFrameLabel}; outputResourceName={outputResourceName ?? "unavailable"}; {status}");
             }
         }
         else
@@ -2886,6 +2908,92 @@ internal static class FrameResourceProbe
 
                 log.LogWarning("DLSS user rendering candidate disabled for this session after a non-retryable native response. Check DLSS.DlssRuntimePath and native SDK-wrapper availability before re-enabling.");
             }
+        }
+    }
+
+    private static bool WasDlssUserRenderingAttemptedThisFrameOrInterval()
+    {
+        if (TryGetUnityFrameCount(out var frameCount))
+        {
+            lock (Sync)
+            {
+                return DlssUserRenderingLastAttemptFrameCount == frameCount;
+            }
+        }
+
+        var lastAttemptTimestamp = 0L;
+        lock (Sync)
+        {
+            lastAttemptTimestamp = DlssUserRenderingLastAttemptTimestamp;
+        }
+
+        return lastAttemptTimestamp != 0
+            && Stopwatch.GetTimestamp() - lastAttemptTimestamp < DlssUserRenderingFallbackMinAttemptTicks;
+    }
+
+    private static bool TryReserveDlssUserRenderingAttempt(ManualLogSource log, out int unityFrame, out bool unityFrameKnown)
+    {
+        unityFrameKnown = TryGetUnityFrameCount(out unityFrame);
+        if (unityFrameKnown)
+        {
+            lock (Sync)
+            {
+                if (DlssUserRenderingLastAttemptFrameCount == unityFrame)
+                {
+                    return false;
+                }
+
+                DlssUserRenderingLastAttemptFrameCount = unityFrame;
+                return true;
+            }
+        }
+
+        var now = Stopwatch.GetTimestamp();
+        lock (Sync)
+        {
+            if (DlssUserRenderingLastAttemptTimestamp != 0
+                && now - DlssUserRenderingLastAttemptTimestamp < DlssUserRenderingFallbackMinAttemptTicks)
+            {
+                return false;
+            }
+
+            DlssUserRenderingLastAttemptTimestamp = now;
+            if (!DlssUserRenderingFrameThrottleFallbackLogged)
+            {
+                DlssUserRenderingFrameThrottleFallbackLogged = true;
+                log.LogWarning($"DLSS user rendering could not read UnityEngine.Time.frameCount; using a {DlssUserRenderingFallbackMaxAttemptsPerSecond} Hz wall-clock throttle.");
+            }
+
+            return true;
+        }
+    }
+
+    private static bool TryGetUnityFrameCount(out int frameCount)
+    {
+        frameCount = 0;
+        try
+        {
+            if (!UnityTimeLookupAttempted)
+            {
+                UnityTimeLookupAttempted = true;
+                UnityTimeFrameCountProperty = AppDomain.CurrentDomain.GetAssemblies()
+                    .Select(assembly => assembly.GetType("UnityEngine.Time", throwOnError: false))
+                    .FirstOrDefault(type => type is not null)
+                    ?.GetProperty("frameCount", BindingFlags.Public | BindingFlags.Static);
+            }
+
+            var value = UnityTimeFrameCountProperty?.GetValue(null);
+            if (value is int intValue)
+            {
+                frameCount = intValue;
+                return true;
+            }
+
+            return value is not null && int.TryParse(value.ToString(), out frameCount);
+        }
+        catch
+        {
+            return false;
         }
     }
 

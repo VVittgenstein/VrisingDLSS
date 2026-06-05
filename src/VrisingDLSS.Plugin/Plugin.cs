@@ -34,7 +34,7 @@ public sealed class Plugin : BasePlugin
 
         if (_config.EnableDlss.Value)
         {
-            _log.LogWarning("DLSS.EnableDLSS is true. The experimental user rendering path will use the crash-safe RenderGraph resource route and one DLSS evaluate per accepted frame when a compatible native bridge/runtime is available.");
+            _log.LogWarning("DLSS.EnableDLSS is true. The experimental user rendering path will use the crash-safe RenderGraph resource route and at most one DLSS evaluate per Unity frame when a compatible native bridge/runtime is available.");
         }
 
         if (_config.EnableHookProbe.Value)

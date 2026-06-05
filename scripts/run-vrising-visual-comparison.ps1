@@ -519,6 +519,31 @@ function Invoke-PerformanceCapture {
     return $performance
 }
 
+function Invoke-VisibilityPreflight {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Label
+    )
+
+    $preflight = Invoke-ProjectScript -RelativePath "scripts\inspect-vrising-visibility.ps1" -Parameters @{
+        GamePath = $resolvedGamePath
+    }
+
+    Write-Host "VisibilityPreflightLabel=$Label"
+    Write-Host "VisibilityPreflightStatus=$($preflight.Status)"
+    Write-Host "VisibilityPreflightProcessCount=$($preflight.ProcessCount)"
+    if ($preflight.SelectedProcess) {
+        Write-Host "VisibilityPreflightSelectedProcessId=$($preflight.SelectedProcess.Id)"
+        Write-Host "VisibilityPreflightSelectedWindowTitle=$($preflight.SelectedProcess.MainWindowTitle)"
+    }
+
+    if ($preflight.Status -ne "VisibleGameWindow") {
+        Write-Warning "Visibility preflight did not find a visible V Rising game window for ${Label}: $(@($preflight.Issues) -join ' ')"
+    }
+
+    return $preflight
+}
+
 function Invoke-VisualRun {
     param(
         [Parameter(Mandatory = $true)]
@@ -537,6 +562,7 @@ function Invoke-VisualRun {
     $process = $null
     $capture = $null
     $performance = $null
+    $visibilityPreflight = $null
     $closedByScript = $false
     $exitedBeforeCapture = $false
     $captureReadyTimedOut = $false
@@ -639,6 +665,7 @@ function Invoke-VisualRun {
         }
 
         if (-not $exitedBeforeCapture -and -not $captureReadyTimedOut -and -not $stage10AReadyTimedOut -and -not $userRenderingReadyTimedOut) {
+            $visibilityPreflight = Invoke-VisibilityPreflight -Label $Label
             $capture = Invoke-ProjectScript -RelativePath "scripts\capture-vrising-window.ps1" -Parameters @{
                 ArtifactLabel = $Label
                 WaitSeconds = $CaptureWaitSeconds
@@ -688,6 +715,11 @@ function Invoke-VisualRun {
         AverageGpuUtilPercent = $(if ($performance) { $performance.AverageGpuUtilPercent } else { $null })
         AverageGpuMemoryUsedMb = $(if ($performance) { $performance.AverageGpuMemoryUsedMb } else { $null })
         AverageGpuPowerW = $(if ($performance) { $performance.AverageGpuPowerW } else { $null })
+        VisibilityPreflightStatus = $(if ($visibilityPreflight) { $visibilityPreflight.Status } else { "" })
+        VisibilityPreflightProcessCount = $(if ($visibilityPreflight) { $visibilityPreflight.ProcessCount } else { 0 })
+        VisibilityPreflightSelectedProcessId = $(if ($visibilityPreflight -and $visibilityPreflight.SelectedProcess) { $visibilityPreflight.SelectedProcess.Id } else { 0 })
+        VisibilityPreflightSelectedWindowTitle = $(if ($visibilityPreflight -and $visibilityPreflight.SelectedProcess) { $visibilityPreflight.SelectedProcess.MainWindowTitle } else { "" })
+        VisibilityPreflightIssues = $(if ($visibilityPreflight) { @($visibilityPreflight.Issues) -join " | " } else { "" })
         ManualCapture = [bool]$ManualCapture
         ManualReadyFile = $(if ($ManualCapture) { $readyFileResolved } else { "" })
         ManualReadyDetectedAt = $(if ($manualReadyDetectedAt) { $manualReadyDetectedAt.ToString("o") } else { "" })

@@ -377,7 +377,7 @@ $items.Add((New-ReadinessItem `
     -Area "MVP" `
     -Requirement "Normal-user DLSS enable/disable changes rendering correctly and safely." `
     -Status "Blocked" `
-    -Evidence "EnableDLSS is exposed and wired to an experimental one-evaluate-per-accepted-frame candidate. Stage 8A/8B/8C/8D/8E/8F/8G/9A/10A frame-input/evaluate/output-follow-up/persistent-lifecycle/SR-sizing/SR-evaluate/SR-persistent-lifecycle/frame-sequence/visible-path evidence and the user-rendering candidate evidence are tracked by readiness when present, but image-correctness, performance, resize/reset, and fallback validation are not complete yet."))
+    -Evidence "EnableDLSS is exposed and wired to an experimental one-evaluate-per-Unity-frame candidate. Stage 8A/8B/8C/8D/8E/8F/8G/9A/10A frame-input/evaluate/output-follow-up/persistent-lifecycle/SR-sizing/SR-evaluate/SR-persistent-lifecycle/frame-sequence/visible-path evidence and the user-rendering candidate evidence are tracked by readiness when present, but image-correctness, performance, resize/reset, and fallback validation are not complete yet."))
 
 $mvpBlockingStatuses = @("Fail", "Blocked", "Missing")
 $hardFailures = @($items | Where-Object { $_.Status -eq "Fail" })

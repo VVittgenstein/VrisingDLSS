@@ -67,7 +67,7 @@ internal sealed class ModConfig
         EnableHookProbe = config.Bind("Diagnostics", "EnableHookProbe", true, "Scan loaded assemblies for candidate HDRP hook points and log the result.");
         EnableHarmonyCallProbe = config.Bind("Diagnostics", "EnableHarmonyCallProbe", false, "Patch candidate HDRP methods with read-only Harmony prefixes and log call counts. Diagnostic only.");
         EnableFrameResourceProbe = config.Bind("Diagnostics", "EnableFrameResourceProbe", false, "Patch candidate HDRP render methods with read-only Harmony prefixes and log source/destination/depth/motion native texture pointers. Diagnostic only.");
-        EnableDlss = config.Bind("DLSS", "EnableDLSS", false, "Enable DLSS Super Resolution when the evaluate path is implemented. Current diagnostic builds log and fall back safely.");
+        EnableDlss = config.Bind("DLSS", "EnableDLSS", false, "Enable the experimental DLSS Super Resolution user-rendering candidate. Current builds throttle it to at most one evaluate per Unity frame, log evidence, and fall back safely.");
         DlssRuntimePath = config.Bind("DLSS", "DlssRuntimePath", string.Empty, "Optional path to a user-supplied production nvngx_dlss.dll.");
         DlssApplicationId = config.Bind("DLSS", "DlssApplicationId", "0", "Optional NVIDIA NGX application id for init/query diagnostics. Decimal or 0x-prefixed hexadecimal.");
         QualityMode = config.Bind("DLSS", "QualityMode", "Performance", "Requested DLSS mode: DLAA, Quality, Balanced, Performance, or UltraPerformance.");
