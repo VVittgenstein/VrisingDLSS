@@ -26,6 +26,7 @@ param(
     [string]$OutputPath,
     [string]$DlssRuntimePath = "",
     [string]$DlssApplicationId = "0",
+    [switch]$KeepVisibleWritebackRunning,
     [switch]$DryRun
 )
 
@@ -58,6 +59,7 @@ function New-ConfigMap {
             EnableDlssSuperResolutionPersistentEvaluateProbe = "false"
             EnableDlssSuperResolutionFrameSequenceEvaluateProbe = "false"
             EnableDlssVisibleWritebackProbe = "false"
+            KeepDlssVisibleWritebackProbeRunning = "false"
             EnableDlssEvaluateProbe = "false"
             EnableDlssPersistentEvaluateProbe = "false"
             EnableRenderGraphDiagnosticPass = "false"
@@ -194,6 +196,9 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableDlssEvaluateInputProbe = "true"
             $Config.Diagnostics.EnableDlssSuperResolutionInputProbe = "true"
             $Config.Diagnostics.EnableDlssVisibleWritebackProbe = "true"
+            if ($KeepVisibleWritebackRunning) {
+                $Config.Diagnostics.KeepDlssVisibleWritebackProbeRunning = "true"
+            }
             $Config.Diagnostics.EnableResourceMaterializationProbe = "true"
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"
         }

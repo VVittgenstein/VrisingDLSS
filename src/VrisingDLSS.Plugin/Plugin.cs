@@ -186,6 +186,7 @@ public sealed class Plugin : BasePlugin
             _config?.EnableDlssSuperResolutionPersistentEvaluateProbe.Value ?? false,
             _config?.EnableDlssSuperResolutionFrameSequenceEvaluateProbe.Value ?? false,
             _config?.EnableDlssVisibleWritebackProbe.Value ?? false,
+            _config?.KeepDlssVisibleWritebackProbeRunning.Value ?? false,
             CreateDlssEvaluateProbeSettings(),
             _config?.EnableRenderGraphDiagnosticPass.Value ?? false,
             _config?.EnableExistingRenderFuncProbe.Value ?? false,

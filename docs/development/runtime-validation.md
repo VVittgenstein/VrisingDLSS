@@ -622,6 +622,7 @@ Scope:
 - Archives each run's BepInEx log and matching Windows Application Error events.
 - Restores the release-safe native DLL and loader config after each run, including after the SDK-wrapper Stage 10A candidate.
 - Writes only ignored local artifacts under `artifacts\runtime-logs` and `artifacts\visual-validation`.
+- Candidate visual runs default to `KeepDlssVisibleWritebackProbeRunning=true` and `WaitForStage10A=true`, so screenshots wait for the `sequenceSuccesses=30/30` milestone while the visible write-back candidate keeps evaluating until cleanup.
 
 Example dry run:
 
@@ -632,13 +633,13 @@ powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.p
 Example paired gameplay run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\Software\VRising" -DurationSeconds 240 -CaptureAtSeconds 170 -DlssRuntimePath "Z:\VrisingDLSS\ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll"
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\Software\VRising" -DurationSeconds 240 -CaptureAtSeconds 170 -WaitForStage10A $true -KeepCandidateWritebackRunning $true -DlssRuntimePath "Z:\VrisingDLSS\ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll"
 ```
 
 Example manual-ready paired gameplay run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\Software\VRising" -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -DlssRuntimePath "Z:\VrisingDLSS\ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll"
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\Software\VRising" -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -WaitForStage10A $true -KeepCandidateWritebackRunning $true -DlssRuntimePath "Z:\VrisingDLSS\ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll"
 ```
 
 When `-ManualCapture` is used, the tester enters the matching local/private scene and then creates the ready file. Capture waits for the ready file and will not fire before `-CaptureAtSeconds`, which keeps the Stage 10A candidate from being captured too early.
@@ -657,3 +658,4 @@ Current helper smoke status:
 - A `CandidateOnly` smoke run on 2026-06-05 copied the local SDK-wrapper native DLL, launched Stage 10A `dlss-visible-writeback`, reached `sequenceSuccesses=30/30`, captured the `UnityWndClass` game window, reported no matching Windows crash event, closed the game, and restored the release-safe native DLL plus loader config.
 - The helper smoke PNGs matched dimensions (`480x320`) and had `MeanAbsRgbDelta=0`, `MaxAbsRgbDelta=0`, and identical SHA-256 hashes for the static main-menu state. This remains a harness smoke test, not gameplay image-correctness proof.
 - A manual-ready `BaselineOnly` smoke run on 2026-06-05 used a ready file to trigger capture, captured successfully after the ready marker appeared, reported child script exit code `0`, archived logs, closed the game, reported no matching Windows crash event, and restored the release-safe native DLL plus loader config.
+- A later `CandidateOnly` smoke run on 2026-06-05 used `WaitForStage10A=true` and hold mode. The helper waited until the BepInEx log contained `sequenceSuccesses=30/30`, captured while `keepRunning=True`, archived logs, reported no matching Windows crash event, closed the game, and restored the release-safe native DLL plus loader config.

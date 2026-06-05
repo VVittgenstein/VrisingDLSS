@@ -13,6 +13,9 @@ param(
     [switch]$ManualCapture,
     [string]$ReadyFile,
     [int]$ReadyTimeoutSeconds = 600,
+    [bool]$WaitForStage10A = $true,
+    [int]$Stage10ATimeoutSeconds = 600,
+    [bool]$KeepCandidateWritebackRunning = $true,
     [string]$DlssRuntimePath = "",
     [string]$DlssApplicationId = "0",
     [string]$SdkWrapperNativePath,
@@ -40,6 +43,10 @@ if ($CaptureWaitSeconds -lt 0) {
 
 if ($ReadyTimeoutSeconds -lt 30) {
     throw "ReadyTimeoutSeconds must be at least 30."
+}
+
+if ($Stage10ATimeoutSeconds -lt 30) {
+    throw "Stage10ATimeoutSeconds must be at least 30."
 }
 
 if ([string]::IsNullOrWhiteSpace($Root)) {
@@ -277,6 +284,83 @@ function Wait-ForManualCaptureReady {
     }
 }
 
+function Read-LogSinceOffset {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+
+        [Parameter(Mandatory = $true)]
+        [long]$Offset
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return ""
+    }
+
+    $stream = $null
+    $reader = $null
+    try {
+        $stream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        if ($stream.Length -ge $Offset) {
+            [void]$stream.Seek($Offset, [System.IO.SeekOrigin]::Begin)
+        } else {
+            [void]$stream.Seek(0, [System.IO.SeekOrigin]::Begin)
+        }
+
+        $reader = New-Object System.IO.StreamReader($stream)
+        return $reader.ReadToEnd()
+    } finally {
+        if ($reader) {
+            $reader.Dispose()
+        } elseif ($stream) {
+            $stream.Dispose()
+        }
+    }
+}
+
+function Wait-ForStage10AVisibleWriteback {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Diagnostics.Process]$Process,
+
+        [Parameter(Mandatory = $true)]
+        [long]$LogStartOffset
+    )
+
+    Write-Host "Waiting for Stage 10A visible write-back success in BepInEx log."
+
+    $deadline = (Get-Date).AddSeconds($Stage10ATimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        if (-not (Get-Process -Id $Process.Id -ErrorAction SilentlyContinue)) {
+            return [pscustomobject]@{
+                Ready = $false
+                TimedOut = $false
+                ProcessExited = $true
+                DetectedAt = $null
+            }
+        }
+
+        $text = Read-LogSinceOffset -Path $logPath -Offset $LogStartOffset
+        if ($text -match "DLSS visible write-back probe succeeded" -and $text -match "sequenceSuccesses=30/30") {
+            return [pscustomobject]@{
+                Ready = $true
+                TimedOut = $false
+                ProcessExited = $false
+                DetectedAt = Get-Date
+            }
+        }
+
+        Start-Sleep -Seconds 2
+    }
+
+    return [pscustomobject]@{
+        Ready = $false
+        TimedOut = $true
+        ProcessExited = $false
+        DetectedAt = $null
+    }
+}
+
 function Invoke-VisualRun {
     param(
         [Parameter(Mandatory = $true)]
@@ -296,6 +380,9 @@ function Invoke-VisualRun {
     $exitedBeforeCapture = $false
     $captureReadyTimedOut = $false
     $manualReadyDetectedAt = $null
+    $stage10AReadyTimedOut = $false
+    $stage10ADetectedAt = $null
+    $waitedForStage10A = $WaitForStage10A -and $UseSdkWrapperNative -and $Stage -eq "dlss-visible-writeback"
 
     try {
         if (-not $SkipInstall) {
@@ -319,6 +406,7 @@ function Invoke-VisualRun {
             Stage = $Stage
             DlssRuntimePath = $DlssRuntimePath
             DlssApplicationId = $DlssApplicationId
+            KeepVisibleWritebackRunning = ($UseSdkWrapperNative -and $Stage -eq "dlss-visible-writeback" -and $KeepCandidateWritebackRunning)
         } | Out-Host
 
         Write-Host "VisualRunStart=$($runStart.ToString('o'))"
@@ -330,6 +418,7 @@ function Invoke-VisualRun {
             Write-Host "Enter the same local/private gameplay scene before capture at +$CaptureAtSeconds seconds."
         }
 
+        $logStartOffset = if (Test-Path -LiteralPath $logPath) { (Get-Item -LiteralPath $logPath).Length } else { 0L }
         $process = Start-Process -FilePath $exePath -WorkingDirectory $resolvedGamePath -PassThru
         Write-Host "Started VRising pid=$($process.Id)"
 
@@ -347,7 +436,17 @@ function Invoke-VisualRun {
             }
         }
 
-        if (-not $exitedBeforeCapture -and -not $captureReadyTimedOut) {
+        if (-not $exitedBeforeCapture -and -not $captureReadyTimedOut -and $waitedForStage10A) {
+            $stage10A = Wait-ForStage10AVisibleWriteback -Process $process -LogStartOffset $logStartOffset
+            $stage10ADetectedAt = $stage10A.DetectedAt
+            $stage10AReadyTimedOut = $stage10A.TimedOut
+            $exitedBeforeCapture = $stage10A.ProcessExited
+            if (-not $stage10A.Ready) {
+                Write-Warning "Stage 10A visible write-back success was not observed before capture for ${Label}; TimedOut=$($stage10A.TimedOut); ProcessExited=$($stage10A.ProcessExited)"
+            }
+        }
+
+        if (-not $exitedBeforeCapture -and -not $captureReadyTimedOut -and -not $stage10AReadyTimedOut) {
             $capture = Invoke-ProjectScript -RelativePath "scripts\capture-vrising-window.ps1" -Parameters @{
                 ArtifactLabel = $Label
                 WaitSeconds = $CaptureWaitSeconds
@@ -375,6 +474,10 @@ function Invoke-VisualRun {
         ManualReadyFile = $(if ($ManualCapture) { $readyFileResolved } else { "" })
         ManualReadyDetectedAt = $(if ($manualReadyDetectedAt) { $manualReadyDetectedAt.ToString("o") } else { "" })
         CaptureReadyTimedOut = $captureReadyTimedOut
+        WaitedForStage10A = $waitedForStage10A
+        Stage10ADetectedAt = $(if ($stage10ADetectedAt) { $stage10ADetectedAt.ToString("o") } else { "" })
+        Stage10AReadyTimedOut = $stage10AReadyTimedOut
+        KeepCandidateWritebackRunning = $(if ($UseSdkWrapperNative -and $Stage -eq "dlss-visible-writeback") { $KeepCandidateWritebackRunning } else { $false })
         Width = $(if ($capture) { $capture.Width } else { 0 })
         Height = $(if ($capture) { $capture.Height } else { 0 })
         AverageLuma = $(if ($capture) { $capture.AverageLuma } else { 0 })
@@ -413,6 +516,9 @@ $plan = [pscustomobject]@{
     ManualCapture = [bool]$ManualCapture
     ReadyFile = $(if ($ManualCapture) { $readyFileResolved } else { "" })
     ReadyTimeoutSeconds = $(if ($ManualCapture) { $ReadyTimeoutSeconds } else { 0 })
+    WaitForStage10A = [bool]$WaitForStage10A
+    Stage10ATimeoutSeconds = $(if ($Mode -ne "BaselineOnly" -and $WaitForStage10A) { $Stage10ATimeoutSeconds } else { 0 })
+    KeepCandidateWritebackRunning = $(if ($Mode -ne "BaselineOnly") { $KeepCandidateWritebackRunning } else { $false })
     ArtifactLabel = $ArtifactLabel
     BaselineCapture = $(if ($Mode -ne "CandidateOnly") { $baselinePath } else { "" })
     CandidateCapture = $(if ($Mode -ne "BaselineOnly") { $candidatePath } else { "" })

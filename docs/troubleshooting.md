@@ -208,6 +208,7 @@ Check:
 - `EnableNativeBridgeSmokeTest` logs bridge API version `11` or newer.
 - The log shows `DLSS visible write-back probe candidate #`.
 - A passing status should include `sequenceEvaluates=30`, `evaluateSuccesses=30`, `feature=yes`, `evaluateLast=0x00000001`, `outputResourceName=Edge Adaptive Spatial Upsampling` when the known SR tuple is selected, and a later `DLSS visible write-back shutdown succeeded` line with release/destroy/shutdown all `0x00000001`.
+- If `KeepDlssVisibleWritebackProbeRunning=true` is set for a visual comparison run, the success line should include `keepRunning=True` and the probe should keep evaluating after `sequenceSuccesses=30/30` until cleanup or the hold attempt limit.
 
 If this stage passes but the image looks wrong, preserve screenshots and the archived BepInEx log. Stage 10A proves the guarded visible-path candidate ran; it does not by itself prove image correctness, jitter correctness, resize/reset behavior, or final normal-user fallback behavior.
 

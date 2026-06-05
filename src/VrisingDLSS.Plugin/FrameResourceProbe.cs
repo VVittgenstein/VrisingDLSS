@@ -33,6 +33,7 @@ internal static class FrameResourceProbe
     private const int MaxDlssSuperResolutionFrameSequenceEvaluateProbeAttempts = 24;
     private const int TargetDlssSuperResolutionFrameSequenceEvaluateSuccesses = 3;
     private const int MaxDlssVisibleWritebackProbeAttempts = 120;
+    private const int MaxDlssVisibleWritebackHoldAttempts = 30000;
     private const int TargetDlssVisibleWritebackProbeSuccesses = 30;
     private const int MaxDlssEvaluateOutputFollowupLogs = 12;
     private const int MaxTextureSearchDepth = 3;
@@ -103,6 +104,7 @@ internal static class FrameResourceProbe
     private static bool DlssSuperResolutionFrameSequenceEvaluateProbeSucceeded;
     private static bool DlssSuperResolutionFrameSequenceShutdownLogged;
     private static bool DlssVisibleWritebackProbeEnabled;
+    private static bool KeepDlssVisibleWritebackProbeRunning;
     private static bool DlssVisibleWritebackProbeSucceeded;
     private static bool DlssVisibleWritebackShutdownLogged;
     private static DlssEvaluateProbeSettings DlssEvaluateSettings;
@@ -119,6 +121,7 @@ internal static class FrameResourceProbe
         bool enableDlssSuperResolutionPersistentEvaluateProbe = false,
         bool enableDlssSuperResolutionFrameSequenceEvaluateProbe = false,
         bool enableDlssVisibleWritebackProbe = false,
+        bool keepDlssVisibleWritebackProbeRunning = false,
         DlssEvaluateProbeSettings dlssEvaluateSettings = default,
         bool enableRenderGraphDiagnosticPass = false,
         bool enableExistingRenderFuncProbe = false,
@@ -136,6 +139,7 @@ internal static class FrameResourceProbe
             DlssSuperResolutionPersistentEvaluateProbeEnabled = DlssSuperResolutionPersistentEvaluateProbeEnabled || enableDlssSuperResolutionPersistentEvaluateProbe;
             DlssSuperResolutionFrameSequenceEvaluateProbeEnabled = DlssSuperResolutionFrameSequenceEvaluateProbeEnabled || enableDlssSuperResolutionFrameSequenceEvaluateProbe;
             DlssVisibleWritebackProbeEnabled = DlssVisibleWritebackProbeEnabled || enableDlssVisibleWritebackProbe;
+            KeepDlssVisibleWritebackProbeRunning = KeepDlssVisibleWritebackProbeRunning || (enableDlssVisibleWritebackProbe && keepDlssVisibleWritebackProbeRunning);
             if (enableDlssEvaluateProbe || enableDlssPersistentEvaluateProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe || enableDlssVisibleWritebackProbe)
             {
                 DlssEvaluateSettings = dlssEvaluateSettings;
@@ -158,6 +162,7 @@ internal static class FrameResourceProbe
         DlssSuperResolutionPersistentEvaluateProbeEnabled = enableDlssSuperResolutionPersistentEvaluateProbe;
         DlssSuperResolutionFrameSequenceEvaluateProbeEnabled = enableDlssSuperResolutionFrameSequenceEvaluateProbe;
         DlssVisibleWritebackProbeEnabled = enableDlssVisibleWritebackProbe;
+        KeepDlssVisibleWritebackProbeRunning = enableDlssVisibleWritebackProbe && keepDlssVisibleWritebackProbeRunning;
         DlssEvaluateSettings = dlssEvaluateSettings;
         RenderGraphDiagnosticPassEnabled = enableRenderGraphDiagnosticPass;
         ExistingRenderFuncProbeEnabled = enableExistingRenderFuncProbe;
@@ -204,6 +209,10 @@ internal static class FrameResourceProbe
         if (DlssVisibleWritebackProbeEnabled)
         {
             log.LogWarning("DLSS visible write-back probe enabled. This diagnostic repeatedly evaluates NGX into the selected Super Resolution output target and should only be used in local/private image-correctness testing.");
+            if (KeepDlssVisibleWritebackProbeRunning)
+            {
+                log.LogWarning("DLSS visible write-back probe hold mode enabled. The probe will continue evaluating after the 30-success milestone until cleanup or the hold attempt limit.");
+            }
         }
         if (RenderGraphDiagnosticPassEnabled)
         {
@@ -472,6 +481,7 @@ internal static class FrameResourceProbe
             DlssSuperResolutionPersistentEvaluateProbeEnabled = false;
             DlssSuperResolutionFrameSequenceEvaluateProbeEnabled = false;
             DlssVisibleWritebackProbeEnabled = false;
+            KeepDlssVisibleWritebackProbeRunning = false;
             DlssEvaluateInputProbeSucceeded = false;
             DlssEvaluateProbeSucceeded = false;
             DlssPersistentEvaluateProbeSucceeded = false;
@@ -2694,7 +2704,7 @@ internal static class FrameResourceProbe
         string source,
         IReadOnlyList<RenderGraphTextureCandidate> candidates)
     {
-        if (!DlssVisibleWritebackProbeEnabled || DlssVisibleWritebackProbeSucceeded)
+        if (!DlssVisibleWritebackProbeEnabled || (DlssVisibleWritebackProbeSucceeded && !KeepDlssVisibleWritebackProbeRunning))
         {
             return;
         }
@@ -2757,7 +2767,7 @@ internal static class FrameResourceProbe
         IntPtr motionPointer,
         string? outputResourceName)
     {
-        if (!DlssVisibleWritebackProbeEnabled || DlssVisibleWritebackProbeSucceeded)
+        if (!DlssVisibleWritebackProbeEnabled || (DlssVisibleWritebackProbeSucceeded && !KeepDlssVisibleWritebackProbeRunning))
         {
             return;
         }
@@ -2765,11 +2775,16 @@ internal static class FrameResourceProbe
         var attempt = 0;
         var successCount = 0;
         var shutdownForAttemptLimit = false;
+        var successCountAtAttemptLimit = 0;
         lock (Sync)
         {
-            if (DlssVisibleWritebackProbeAttemptCount >= MaxDlssVisibleWritebackProbeAttempts)
+            var maxAttempts = KeepDlssVisibleWritebackProbeRunning
+                ? MaxDlssVisibleWritebackHoldAttempts
+                : MaxDlssVisibleWritebackProbeAttempts;
+            if (DlssVisibleWritebackProbeAttemptCount >= maxAttempts)
             {
                 shutdownForAttemptLimit = true;
+                successCountAtAttemptLimit = DlssVisibleWritebackProbeSuccessCount;
             }
             else
             {
@@ -2781,14 +2796,24 @@ internal static class FrameResourceProbe
 
         if (shutdownForAttemptLimit)
         {
-            log.LogWarning($"DLSS visible write-back probe failed: attempt limit reached before {TargetDlssVisibleWritebackProbeSuccesses} successful evaluates.");
+            if (KeepDlssVisibleWritebackProbeRunning && successCountAtAttemptLimit >= TargetDlssVisibleWritebackProbeSuccesses)
+            {
+                log.LogInfo($"DLSS visible write-back hold reached attempt limit after {successCountAtAttemptLimit} successful evaluates; shutting down.");
+            }
+            else
+            {
+                log.LogWarning($"DLSS visible write-back probe failed: attempt limit reached before {TargetDlssVisibleWritebackProbeSuccesses} successful evaluates.");
+            }
             TryShutdownDlssVisibleWriteback(log);
             return;
         }
 
         var reset = successCount == 0 ? DlssEvaluateSettings.Reset : 0;
-        log.LogInfo(
-            $"DLSS visible write-back probe candidate #{attempt} from {source}: color=0x{colorPointer.ToInt64():X}; output=0x{outputPointer.ToInt64():X}; depth=0x{depthPointer.ToInt64():X}; motion=0x{motionPointer.ToInt64():X}; outputResourceName={outputResourceName ?? "unavailable"}; perfQuality={DlssEvaluateSettings.PerfQualityValue}; flags=0x{DlssEvaluateSettings.FeatureFlags:X}; sharpness={DlssEvaluateSettings.Sharpness}; reset={reset}; targetSuccesses={TargetDlssVisibleWritebackProbeSuccesses}");
+        if (ShouldLogDlssVisibleWritebackAttempt(attempt, successCount))
+        {
+            log.LogInfo(
+                $"DLSS visible write-back probe candidate #{attempt} from {source}: color=0x{colorPointer.ToInt64():X}; output=0x{outputPointer.ToInt64():X}; depth=0x{depthPointer.ToInt64():X}; motion=0x{motionPointer.ToInt64():X}; outputResourceName={outputResourceName ?? "unavailable"}; perfQuality={DlssEvaluateSettings.PerfQualityValue}; flags=0x{DlssEvaluateSettings.FeatureFlags:X}; sharpness={DlssEvaluateSettings.Sharpness}; reset={reset}; targetSuccesses={TargetDlssVisibleWritebackProbeSuccesses}; keepRunning={KeepDlssVisibleWritebackProbeRunning}");
+        }
 
         var success = bridge.EvaluateDlssFrameSequence(
             colorPointer,
@@ -2810,22 +2835,34 @@ internal static class FrameResourceProbe
         if (success)
         {
             int currentSuccessCount;
+            bool reachedTargetNow;
             lock (Sync)
             {
                 DlssVisibleWritebackProbeSuccessCount++;
                 currentSuccessCount = DlssVisibleWritebackProbeSuccessCount;
+                reachedTargetNow = currentSuccessCount >= TargetDlssVisibleWritebackProbeSuccesses && !DlssVisibleWritebackProbeSucceeded;
+                if (reachedTargetNow)
+                {
+                    DlssVisibleWritebackProbeSucceeded = true;
+                }
             }
 
             TrackDlssEvaluateOutputFollowup(outputPointer, outputResourceName);
-            if (currentSuccessCount >= TargetDlssVisibleWritebackProbeSuccesses)
+            if (reachedTargetNow)
             {
-                DlssVisibleWritebackProbeSucceeded = true;
-                log.LogInfo($"DLSS visible write-back probe succeeded from {source}: sequenceSuccesses={currentSuccessCount}/{TargetDlssVisibleWritebackProbeSuccesses}; outputResourceName={outputResourceName ?? "unavailable"}; {status}");
-                TryShutdownDlssVisibleWriteback(log);
+                log.LogInfo($"DLSS visible write-back probe succeeded from {source}: sequenceSuccesses={currentSuccessCount}/{TargetDlssVisibleWritebackProbeSuccesses}; outputResourceName={outputResourceName ?? "unavailable"}; keepRunning={KeepDlssVisibleWritebackProbeRunning}; {status}");
+                if (!KeepDlssVisibleWritebackProbeRunning)
+                {
+                    TryShutdownDlssVisibleWriteback(log);
+                }
             }
             else if (currentSuccessCount <= 5 || currentSuccessCount % 10 == 0)
             {
                 log.LogInfo($"DLSS visible write-back probe step succeeded from {source}: sequenceSuccesses={currentSuccessCount}/{TargetDlssVisibleWritebackProbeSuccesses}; outputResourceName={outputResourceName ?? "unavailable"}; {status}");
+            }
+            else if (KeepDlssVisibleWritebackProbeRunning && currentSuccessCount > TargetDlssVisibleWritebackProbeSuccesses && currentSuccessCount % 60 == 0)
+            {
+                log.LogInfo($"DLSS visible write-back hold step succeeded from {source}: sequenceSuccesses={currentSuccessCount}/{TargetDlssVisibleWritebackProbeSuccesses}; outputResourceName={outputResourceName ?? "unavailable"}; {status}");
             }
         }
         else if (status.IndexOf("blocked", StringComparison.OrdinalIgnoreCase) >= 0)
@@ -2840,6 +2877,19 @@ internal static class FrameResourceProbe
         {
             log.LogWarning($"DLSS visible write-back probe failed from {source}: {status}");
         }
+    }
+
+    private static bool ShouldLogDlssVisibleWritebackAttempt(int attempt, int successCount)
+    {
+        if (!KeepDlssVisibleWritebackProbeRunning)
+        {
+            return true;
+        }
+
+        return attempt <= 5
+            || attempt == TargetDlssVisibleWritebackProbeSuccesses
+            || successCount < TargetDlssVisibleWritebackProbeSuccesses
+            || attempt % 60 == 0;
     }
 
     private static void TryShutdownDlssVisibleWriteback(ManualLogSource log)
