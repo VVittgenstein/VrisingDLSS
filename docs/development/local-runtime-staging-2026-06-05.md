@@ -82,6 +82,7 @@ Current validated evidence:
   - A later main-menu Stage 8A helper run with broad Harmony call logging enabled crashed `VRising.exe` in `coreclr.dll` with `0xc00000fd` after `DLSSPass.Render` logged hundreds of calls. Evidence was archived from BepInEx and Windows Error Reporting. This narrowed the helper configuration: `dlss-evaluate-inputs` no longer enables `Diagnostics.EnableHarmonyCallProbe`, and Harmony call probing now uses a conservative target list instead of the expanded HookProbe catalog.
   - A follow-up main-menu Stage 8A run with broad Harmony call logging disabled ran for the diagnostic window without a Windows crash event. It reached `Partial`: all safe RenderGraph materialization patches installed, but no `RenderGraph texture materialization #` or successful `RenderGraph GetTexture` callback was observed in the main-menu window.
   - Static inspection of `DLSSPass` found `ViewResourceHandles.source/output/depth/motionVectors/biasColorMask` and matching `CameraResources.resources` `Texture` fields. A targeted Harmony prefix on `DLSSPass.Render(Parameters, CameraResources, CommandBuffer)` was then tested and rejected: V Rising crashed in `UnityPlayer.dll` with `0x80000003` after patching and before any prefix call logged.
+  - A separate main-menu run with `Diagnostics.EnableDlssPassResourceProbe=true` patched only `DLSSPass.GetViewResources` and `DLSSPass.GetCameraResources`, not `DLSSPass.Render`. The run stayed up for the diagnostic window and had no matching Windows Application Error event, but no `DLSSPass resource helper #` callback was observed before shutdown. This is patch-stability evidence for the helper route only; it is not Stage 8A resource-input evidence yet.
 - Local GPU/driver for Stage 6/7 pass: NVIDIA GeForce RTX 5060, driver `610.47`.
 
 Archived logs:
@@ -123,6 +124,7 @@ Archived logs:
 - `artifacts/runtime-logs/LogOutput-stage8a-safe-materialization-main-menu-no-harmony-2026-06-05.log`
 - `artifacts/runtime-logs/LogOutput-dlsspass-render-targeted-patch-crash-2026-06-05.log`
 - `artifacts/runtime-logs/WER-dlsspass-render-targeted-patch-crash-2026-06-05.wer`
+- `artifacts/runtime-logs/LogOutput-dlsspass-resource-mainmenu-2026-06-05.log`
 
 No PureDark files were copied into the game plugin folder. The NVIDIA runtime was copied only into `ref/` for local research and was not added to the release package.
 

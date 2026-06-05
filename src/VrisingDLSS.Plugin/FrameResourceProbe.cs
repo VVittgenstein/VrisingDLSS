@@ -286,7 +286,7 @@ internal static class FrameResourceProbe
         }
 
         Installed = patched > 0;
-        log.LogInfo($"Frame resource probe patched {patched} method(s).");
+        log.LogInfo($"Frame resource probe total patched {patched} method(s).");
     }
 
     internal static void Uninstall(ManualLogSource log)
