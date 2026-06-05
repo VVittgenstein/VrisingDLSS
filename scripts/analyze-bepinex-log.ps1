@@ -217,6 +217,13 @@ $results.Add((New-StageResult `
     -BlockedPatterns @("DLSS persistent evaluate probe blocked:", "DLSS persistent evaluate probe blocked from") `
     -StartedPatterns @("DLSS persistent evaluate probe enabled.", "DLSS persistent evaluate probe candidate #")))
 
+$results.Add((New-StageResult `
+    -Stage "Stage 8E DLSS Super Resolution Inputs" `
+    -PassPatterns @("DLSS super-resolution input probe succeeded:", "DLSS super-resolution input probe succeeded from") `
+    -FailPatterns @("DLSS super-resolution input probe failed:", "DLSS super-resolution input probe failed from") `
+    -BlockedPatterns @("DLSS super-resolution input probe blocked:", "DLSS super-resolution input probe blocked from") `
+    -StartedPatterns @("DLSS super-resolution input probe enabled.", "DLSS super-resolution input probe candidate #", "DLSS super-resolution input probe not accepted from")))
+
 $results
 
 if ($FailOnProblems) {

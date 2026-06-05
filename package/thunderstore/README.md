@@ -30,6 +30,7 @@ This package template is not ready for public gameplay use yet. The current sour
 - Optionally runs a guarded NGX init/query diagnostic; current source-only builds are expected to report blocked until NVIDIA SDK wrapper integration exists.
 - Optionally runs an SDK-wrapper DLSS feature create/release diagnostic in local research builds; release-safe builds are expected to report blocked.
 - Optionally validates real-frame color/output/depth/motion D3D11 inputs for the future DLSS evaluate path.
+- Optionally validates a Super Resolution-sized real-frame tuple where color/depth/motion render inputs are smaller than the selected output target.
 - Optionally runs a guarded one-shot DLSS evaluate diagnostic in local SDK-wrapper research builds; release-safe builds are expected to report blocked and the packaged config keeps this disabled.
 - Optionally logs Stage 8C output follow-up after a successful guarded evaluate by checking whether the selected output resource/pointer remains D3D11-accessible in later RenderGraph texture callbacks.
 - Optionally runs a Stage 8D persistent-feature repeated-evaluate diagnostic in local SDK-wrapper research builds; release-safe builds are expected to report blocked and the packaged config keeps this disabled.

@@ -14,6 +14,7 @@ param(
         "dlss-init-query",
         "dlss-feature-create",
         "dlss-evaluate-inputs",
+        "dlss-super-resolution-inputs",
         "dlss-evaluate",
         "dlss-persistent-evaluate",
         "dlsspass-resource"

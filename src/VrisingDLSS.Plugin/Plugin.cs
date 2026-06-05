@@ -54,6 +54,7 @@ public sealed class Plugin : BasePlugin
 
         if (_config.EnableFrameResourceProbe.Value
             || _config.EnableDlssEvaluateInputProbe.Value
+            || _config.EnableDlssSuperResolutionInputProbe.Value
             || _config.EnableDlssEvaluateProbe.Value
             || _config.EnableDlssPersistentEvaluateProbe.Value
             || _config.EnableDlssPassResourceProbe.Value)
@@ -176,6 +177,7 @@ public sealed class Plugin : BasePlugin
             _config?.EnableDlssEvaluateInputProbe.Value ?? false,
             _config?.EnableDlssEvaluateProbe.Value ?? false,
             _config?.EnableDlssPersistentEvaluateProbe.Value ?? false,
+            _config?.EnableDlssSuperResolutionInputProbe.Value ?? false,
             CreateDlssEvaluateProbeSettings(),
             _config?.EnableRenderGraphDiagnosticPass.Value ?? false,
             _config?.EnableExistingRenderFuncProbe.Value ?? false,

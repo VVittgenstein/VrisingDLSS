@@ -31,6 +31,7 @@ namespace
     char g_dlssInitQueryStatus[1024] = "DLSS init/query probe has not run";
     char g_dlssFeatureCreateStatus[1024] = "DLSS feature create probe has not run";
     char g_dlssEvaluateInputStatus[1536] = "DLSS evaluate input probe has not run";
+    char g_dlssSuperResolutionInputStatus[1536] = "DLSS super-resolution input probe has not run";
     char g_dlssEvaluateStatus[2048] = "DLSS evaluate probe has not run";
     char g_dlssPersistentEvaluateStatus[2048] = "DLSS persistent evaluate probe has not run";
     constexpr unsigned int kNgxResultSuccess = 0x00000001;
@@ -84,6 +85,12 @@ namespace
     {
         std::lock_guard<std::mutex> lock(g_probeStatusMutex);
         std::snprintf(g_dlssEvaluateInputStatus, sizeof(g_dlssEvaluateInputStatus), "%s", message);
+    }
+
+    void SetDlssSuperResolutionInputStatus(const char* message)
+    {
+        std::lock_guard<std::mutex> lock(g_probeStatusMutex);
+        std::snprintf(g_dlssSuperResolutionInputStatus, sizeof(g_dlssSuperResolutionInputStatus), "%s", message);
     }
 
     void SetDlssEvaluateStatus(const char* message)
@@ -1217,7 +1224,7 @@ extern "C"
 {
     int __cdecl VrisingDlss_GetBridgeApiVersion()
     {
-        return 9;
+        return 10;
     }
 
     const char* __cdecl VrisingDlss_GetBridgeVersion()
@@ -1794,6 +1801,133 @@ extern "C"
     {
         std::lock_guard<std::mutex> lock(g_probeStatusMutex);
         return g_dlssEvaluateInputStatus;
+    }
+
+    int __cdecl VrisingDlss_ProbeDlssSuperResolutionInputs(
+        void* colorTexturePtr,
+        void* outputTexturePtr,
+        void* depthTexturePtr,
+        void* motionTexturePtr)
+    {
+        EvaluateTextureInfo color{};
+        EvaluateTextureInfo output{};
+        EvaluateTextureInfo depth{};
+        EvaluateTextureInfo motion{};
+        char error[384] = {};
+
+        if (!TryDescribeEvaluateTexture("color", colorTexturePtr, &color, error, sizeof(error))
+            || !TryDescribeEvaluateTexture("output", outputTexturePtr, &output, error, sizeof(error))
+            || !TryDescribeEvaluateTexture("depth", depthTexturePtr, &depth, error, sizeof(error))
+            || !TryDescribeEvaluateTexture("motion", motionTexturePtr, &motion, error, sizeof(error)))
+        {
+            char message[512];
+            std::snprintf(message, sizeof(message), "DLSS super-resolution input probe rejected: %s", error);
+            SetDlssSuperResolutionInputStatus(message);
+            ReleaseEvaluateTextureInfo(&color);
+            ReleaseEvaluateTextureInfo(&output);
+            ReleaseEvaluateTextureInfo(&depth);
+            ReleaseEvaluateTextureInfo(&motion);
+            return 0;
+        }
+
+        const bool sameDevice = color.device == output.device
+            && color.device == depth.device
+            && color.device == motion.device;
+        if (!sameDevice)
+        {
+            SetDlssSuperResolutionInputStatus("DLSS super-resolution input probe rejected: color/output/depth/motion textures were not on the same D3D11 device");
+            ReleaseEvaluateTextureInfo(&color);
+            ReleaseEvaluateTextureInfo(&output);
+            ReleaseEvaluateTextureInfo(&depth);
+            ReleaseEvaluateTextureInfo(&motion);
+            return 0;
+        }
+
+        const bool depthMatchesColor = EvaluateInputDimensionsMatch(color, depth);
+        const bool motionMatchesColor = EvaluateInputDimensionsMatch(color, motion);
+        if (!depthMatchesColor || !motionMatchesColor)
+        {
+            char message[640];
+            std::snprintf(
+                message,
+                sizeof(message),
+                "DLSS super-resolution input probe rejected: input dimensions were not frame-aligned; color=%ux%u depth=%ux%u motion=%ux%u",
+                color.width,
+                color.height,
+                depth.width,
+                depth.height,
+                motion.width,
+                motion.height);
+            SetDlssSuperResolutionInputStatus(message);
+            ReleaseEvaluateTextureInfo(&color);
+            ReleaseEvaluateTextureInfo(&output);
+            ReleaseEvaluateTextureInfo(&depth);
+            ReleaseEvaluateTextureInfo(&motion);
+            return 0;
+        }
+
+        const bool outputLargerThanColor = output.width > color.width && output.height > color.height;
+        if (!outputLargerThanColor)
+        {
+            char message[512];
+            std::snprintf(
+                message,
+                sizeof(message),
+                "DLSS super-resolution input probe not accepted: output was not larger than render input; color=%ux%u output=%ux%u",
+                color.width,
+                color.height,
+                output.width,
+                output.height);
+            SetDlssSuperResolutionInputStatus(message);
+            ReleaseEvaluateTextureInfo(&color);
+            ReleaseEvaluateTextureInfo(&output);
+            ReleaseEvaluateTextureInfo(&depth);
+            ReleaseEvaluateTextureInfo(&motion);
+            return 0;
+        }
+
+        const double widthScale = static_cast<double>(output.width) / static_cast<double>(color.width);
+        const double heightScale = static_cast<double>(output.height) / static_cast<double>(color.height);
+        char message[1500];
+        std::snprintf(
+            message,
+            sizeof(message),
+            "DLSS super-resolution input probe succeeded; sameDevice=yes; color=%ux%u fmt=%u mips=%u array=%u; output=%ux%u fmt=%u mips=%u array=%u; depth=%ux%u fmt=%u mips=%u array=%u; motion=%ux%u fmt=%u mips=%u array=%u; scale=(%.3fx,%.3fx)",
+            color.width,
+            color.height,
+            static_cast<unsigned int>(color.format),
+            color.mipLevels,
+            color.arraySize,
+            output.width,
+            output.height,
+            static_cast<unsigned int>(output.format),
+            output.mipLevels,
+            output.arraySize,
+            depth.width,
+            depth.height,
+            static_cast<unsigned int>(depth.format),
+            depth.mipLevels,
+            depth.arraySize,
+            motion.width,
+            motion.height,
+            static_cast<unsigned int>(motion.format),
+            motion.mipLevels,
+            motion.arraySize,
+            widthScale,
+            heightScale);
+        SetDlssSuperResolutionInputStatus(message);
+
+        ReleaseEvaluateTextureInfo(&color);
+        ReleaseEvaluateTextureInfo(&output);
+        ReleaseEvaluateTextureInfo(&depth);
+        ReleaseEvaluateTextureInfo(&motion);
+        return 1;
+    }
+
+    const char* __cdecl VrisingDlss_GetDlssSuperResolutionInputStatus()
+    {
+        std::lock_guard<std::mutex> lock(g_probeStatusMutex);
+        return g_dlssSuperResolutionInputStatus;
     }
 
     int __cdecl VrisingDlss_ProbeDlssEvaluate(

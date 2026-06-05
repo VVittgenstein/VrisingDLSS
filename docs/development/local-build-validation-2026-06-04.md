@@ -56,6 +56,8 @@ Result:
   - `VrisingDlss_GetDlssFeatureCreateStatus`
   - `VrisingDlss_ProbeDlssEvaluateInputs`
   - `VrisingDlss_GetDlssEvaluateInputStatus`
+  - `VrisingDlss_ProbeDlssSuperResolutionInputs`
+  - `VrisingDlss_GetDlssSuperResolutionInputStatus`
   - `VrisingDlss_ProbeDlssEvaluate`
   - `VrisingDlss_GetDlssEvaluateStatus`
 

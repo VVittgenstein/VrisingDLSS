@@ -199,6 +199,7 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
     $stage8B = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 8B"
     $stage8C = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 8C"
     $stage8D = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 8D"
+    $stage8E = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 8E"
     $stage7 = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 7"
     $stage6 = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 6"
     $loader = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 1"
@@ -234,6 +235,11 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
         -Requirement "Stage 8D proves one DLSS feature can persist across multiple evaluate calls before release/shutdown." `
         -Status $(if ($stage8D -eq "Pass") { "Pass" } elseif ($stage8D -eq "Fail") { "Fail" } elseif ($stage8D -eq "Missing") { "Missing" } else { "Blocked" }) `
         -Evidence "Stage 8D=$stage8D; Next=$($runtimeStatus.NextRecommendation)"))
+    $items.Add((New-ReadinessItem `
+        -Area "Runtime" `
+        -Requirement "Stage 8E proves a real-frame DLSS Super Resolution tuple with render inputs smaller than the output target." `
+        -Status $(if ($stage8E -eq "Pass") { "Pass" } elseif ($stage8E -eq "Fail") { "Fail" } elseif ($stage8E -eq "Missing") { "Missing" } else { "Blocked" }) `
+        -Evidence "Stage 8E=$stage8E; Next=$($runtimeStatus.NextRecommendation)"))
 } else {
     $items.Add((New-ReadinessItem `
         -Area "Runtime" `
@@ -253,6 +259,11 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
     $items.Add((New-ReadinessItem `
         -Area "Runtime" `
         -Requirement "Stage 8D proves one DLSS feature can persist across multiple evaluate calls before release/shutdown." `
+        -Status "Missing" `
+        -Evidence "Pass -GamePath to include runtime validation evidence."))
+    $items.Add((New-ReadinessItem `
+        -Area "Runtime" `
+        -Requirement "Stage 8E proves a real-frame DLSS Super Resolution tuple with render inputs smaller than the output target." `
         -Status "Missing" `
         -Evidence "Pass -GamePath to include runtime validation evidence."))
 }
@@ -281,7 +292,7 @@ $items.Add((New-ReadinessItem `
     -Area "MVP" `
     -Requirement "Normal-user DLSS enable/disable changes rendering correctly and safely." `
     -Status "Blocked" `
-    -Evidence "EnableDLSS is exposed, and Stage 8A/8B/8C/8D frame-input/evaluate/output-follow-up/persistent-lifecycle evidence is tracked by readiness when present, but image-correctness validation and normal-user rendering integration are not complete yet."))
+    -Evidence "EnableDLSS is exposed, and Stage 8A/8B/8C/8D/8E frame-input/evaluate/output-follow-up/persistent-lifecycle/SR-sizing evidence is tracked by readiness when present, but image-correctness validation and normal-user rendering integration are not complete yet."))
 
 $mvpBlockingStatuses = @("Fail", "Blocked", "Missing")
 $hardFailures = @($items | Where-Object { $_.Status -eq "Fail" })
@@ -325,6 +336,12 @@ $summary = [pscustomobject]@{
             $runtimeNextRecommendation
         } else {
             "Run scripts\run-vrising-diagnostic.ps1 -Stage dlss-persistent-evaluate with a local SDK-wrapper native build, DLSS runtime path, and DLSS disabled by default."
+        }
+    } elseif (@($items | Where-Object { $_.Requirement -like "Stage 8E*" -and $_.Status -ne "Pass" }).Count -gt 0) {
+        if (-not [string]::IsNullOrWhiteSpace($runtimeNextRecommendation)) {
+            $runtimeNextRecommendation
+        } else {
+            "Run scripts\run-vrising-diagnostic.ps1 -Stage dlss-super-resolution-inputs to prove a render-input-smaller-than-output tuple."
         }
     } elseif (@($items | Where-Object { $_.Requirement -like "Stage 8A*" -and $_.Status -ne "Pass" }).Count -gt 0) {
         if (-not [string]::IsNullOrWhiteSpace($runtimeNextRecommendation)) {

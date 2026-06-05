@@ -141,6 +141,20 @@ Check:
 
 If the log says `DLSS evaluate input probe blocked`, preserve the surrounding frame-resource lines. Missing motion vectors usually means the current scene/settings/hook point is not enough for DLSS evaluate yet. If the probe fails after all four pointers are present, the native status line should identify a D3D11 resource, device, or dimension mismatch.
 
+## DLSS Super Resolution Input Probe Does Not Pass
+
+`EnableDlssSuperResolutionInputProbe` uses the same passive RenderGraph `GetTexture` stream as Stage 8A, but it keeps searching until color/depth/motion render inputs are smaller than the output target. It does not load DLSS or evaluate a frame.
+
+Check:
+
+- `EnableDlssEvaluateInputProbe` can already pass through the passive RenderGraph route.
+- `EnableNativeBridgeSmokeTest` logs bridge API version `10` or newer.
+- The log shows candidate lines beginning with `DLSS super-resolution input probe candidate #`.
+- If candidates say `output was not larger than render input`, keep the game running longer or use a scene/settings combination where HDRP dynamic resolution drops below the output resolution.
+- A passing status should include `sameDevice=yes`, matching color/depth/motion dimensions, a larger output size, and `scale=`.
+
+If Stage 8E passes but DLSS is still not visible, that is expected in the current scaffold. Stage 8E proves resource sizing only; visible write-back and image correctness are still separate MVP work.
+
 ## DLSSPass Resource Helper Probe
 
 `EnableDlssPassResourceProbe` is disabled by default. It patches only `DLSSPass.GetViewResources` and `DLSSPass.GetCameraResources`, then logs any returned source/output/depth/motion-vector `Texture` native pointers. It does not patch `DLSSPass.Render`, does not load DLSS, and does not evaluate a frame.

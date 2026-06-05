@@ -14,7 +14,7 @@ This is engineering research, not legal advice.
 6. NVIDIA SDK/runtime redistribution is not a simple "just ship nvngx_dlss.dll" decision. The SDK license allows object-code distribution when incorporated into a materially functional application, but it also forbids standalone SDK distribution, implied NVIDIA sponsorship, and making SDK parts subject to open-source license terms. NVIDIA's RTX SDK supplement also says DLSS/NGX integrations in applications, including plugins to commercial applications, have notification/trademark/stability obligations. The fallback package without bundled NVIDIA runtime must stay available.
 7. Stunlock's current official posture is conservative for mods: no official V Rising modding tools are planned, and the EULA restricts unauthorized third-party programs, mods, add-ons, and interference with online/network play. The public README must keep saying local/private-world testing first and no official-server safety guarantee.
 8. Streamline remains a second-phase route. For the first DLSS SR MVP, direct NGX/D3D11 is still preferable because Streamline adds `sl.interposer.dll`, `sl.common.dll`, feature DLL packaging, interposer/device lifecycle constraints, and signature-validation work.
-9. Stage 8A is now specifically an accepted passive RenderGraph resource-scope route, not an ordinary method-prefix route. Latest local evidence validated same-device D3D11 `CameraColor`, `Apply Exposure Destination`, `CameraDepthStencil`, and `Motion Vectors` textures through engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` callbacks. Stage 8B guarded evaluate, Stage 8C output follow-up, and Stage 8D persistent repeated evaluate have also passed locally, so the next technical route is guarded normal-user rendering integration and image-correctness validation, not more broad hook discovery.
+9. Stage 8A is now specifically an accepted passive RenderGraph resource-scope route, not an ordinary method-prefix route. Latest local evidence validated same-device D3D11 `CameraColor`, `Apply Exposure Destination`, `CameraDepthStencil`, and `Motion Vectors` textures through engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` callbacks. Stage 8B guarded evaluate, Stage 8C output follow-up, Stage 8D persistent repeated evaluate, and Stage 8E Super Resolution input sizing have also passed locally, so the next technical route is guarded visible write-back, normal-user rendering integration, and image-correctness validation, not more broad hook discovery.
 
 2026-06-05 continuation update:
 
@@ -143,7 +143,7 @@ Primary route for MVP:
 1. Keep using BepInEx IL2CPP and Harmony/reflective probes.
 2. Keep using the optional local NVIDIA SDK root CMake path for SDK-wrapper research builds.
 3. Keep NVIDIA SDK headers/libs out of the public repository unless a separate review approves the exact files and notices.
-4. Keep Stage 8B/8C/8D as guarded diagnostics while converting the accepted frame tuple into a normal-user rendering path.
+4. Keep Stage 8B/8C/8D/8E as guarded diagnostics while converting the accepted frame tuple into a normal-user rendering path.
 5. Test motion vectors, output selection, jitter/pre-exposure, and image correctness in an actual gameplay scene before treating the route as playable.
 6. Use Thunderstore as the mod-manager package shape, but do not publicly upload until normal-user rendering, fallback behavior, and README/package wording are accurate.
 
@@ -159,7 +159,7 @@ Avoid for MVP:
 
 This estimate starts from the current 2026-06-05 evidence, not from an empty repository.
 
-Fast path, now that passive RenderGraph `GetTexture` aggregation, guarded evaluate, output follow-up, and persistent repeated evaluate have passed Stage 8A/8B/8C/8D:
+Fast path, now that passive RenderGraph `GetTexture` aggregation, guarded evaluate, output follow-up, persistent repeated evaluate, and Super Resolution input sizing have passed Stage 8A/8B/8C/8D/8E:
 
 - First SDK-wrapper-backed capability query and DLSS create/release: validated locally on 2026-06-05.
 - First DLSS evaluate-input pass: validated locally on 2026-06-05.

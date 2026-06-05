@@ -43,6 +43,12 @@ extern "C"
         void* depthTexturePtr,
         void* motionTexturePtr);
     VRISINGDLSS_API const char* __cdecl VrisingDlss_GetDlssEvaluateInputStatus();
+    VRISINGDLSS_API int __cdecl VrisingDlss_ProbeDlssSuperResolutionInputs(
+        void* colorTexturePtr,
+        void* outputTexturePtr,
+        void* depthTexturePtr,
+        void* motionTexturePtr);
+    VRISINGDLSS_API const char* __cdecl VrisingDlss_GetDlssSuperResolutionInputStatus();
     VRISINGDLSS_API int __cdecl VrisingDlss_ProbeDlssEvaluate(
         void* colorTexturePtr,
         void* outputTexturePtr,

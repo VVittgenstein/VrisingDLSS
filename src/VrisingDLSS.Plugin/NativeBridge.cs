@@ -25,6 +25,8 @@ internal sealed class NativeBridge
     private GetStringPointerDelegate? _getDlssFeatureCreateStatus;
     private ProbeDlssEvaluateInputsDelegate? _probeDlssEvaluateInputs;
     private GetStringPointerDelegate? _getDlssEvaluateInputStatus;
+    private ProbeDlssEvaluateInputsDelegate? _probeDlssSuperResolutionInputs;
+    private GetStringPointerDelegate? _getDlssSuperResolutionInputStatus;
     private ProbeDlssEvaluateDelegate? _probeDlssEvaluate;
     private GetStringPointerDelegate? _getDlssEvaluateStatus;
     private ProbeDlssPersistentEvaluateDelegate? _probeDlssPersistentEvaluate;
@@ -66,6 +68,8 @@ internal sealed class NativeBridge
         _getDlssFeatureCreateStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetDlssFeatureCreateStatus");
         _probeDlssEvaluateInputs = GetOptionalExport<ProbeDlssEvaluateInputsDelegate>("VrisingDlss_ProbeDlssEvaluateInputs");
         _getDlssEvaluateInputStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetDlssEvaluateInputStatus");
+        _probeDlssSuperResolutionInputs = GetOptionalExport<ProbeDlssEvaluateInputsDelegate>("VrisingDlss_ProbeDlssSuperResolutionInputs");
+        _getDlssSuperResolutionInputStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetDlssSuperResolutionInputStatus");
         _probeDlssEvaluate = GetOptionalExport<ProbeDlssEvaluateDelegate>("VrisingDlss_ProbeDlssEvaluate");
         _getDlssEvaluateStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetDlssEvaluateStatus");
         _probeDlssPersistentEvaluate = GetOptionalExport<ProbeDlssPersistentEvaluateDelegate>("VrisingDlss_ProbeDlssPersistentEvaluate");
@@ -140,6 +144,15 @@ internal sealed class NativeBridge
         _probeDlssEvaluateInputs?.Invoke(colorTexturePtr, outputTexturePtr, depthTexturePtr, motionTexturePtr) == 1;
 
     internal string GetDlssEvaluateInputStatus() => PtrToString(_getDlssEvaluateInputStatus?.Invoke() ?? IntPtr.Zero);
+
+    internal bool ProbeDlssSuperResolutionInputs(
+        IntPtr colorTexturePtr,
+        IntPtr outputTexturePtr,
+        IntPtr depthTexturePtr,
+        IntPtr motionTexturePtr) =>
+        _probeDlssSuperResolutionInputs?.Invoke(colorTexturePtr, outputTexturePtr, depthTexturePtr, motionTexturePtr) == 1;
+
+    internal string GetDlssSuperResolutionInputStatus() => PtrToString(_getDlssSuperResolutionInputStatus?.Invoke() ?? IntPtr.Zero);
 
     internal bool ProbeDlssEvaluate(
         IntPtr colorTexturePtr,
