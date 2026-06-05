@@ -45,10 +45,10 @@ It is not the MVP route. The MVP product-value comparison is:
 1. Baseline: V Rising FSR Off, native 4K output, `DLSS.EnableDLSS=false`.
 2. Candidate: V Rising FSR Off, same output resolution and scene, `DLSS.EnableDLSS=true`, with the mod controlling render scale/upscale.
 
-The next implementation route should therefore target a guarded dynamic-resolution/DLSS integration:
+The implementation route should therefore target a guarded dynamic-resolution/DLSS integration:
 
-1. Add read-only probes around `DynamicResolutionHandler` state, camera upscale filters, and HDRP DLSS setup decisions.
-2. Add a guarded local diagnostic that requests DLSS Performance scale while leaving V Rising `FsrQualityMode=Off`.
+1. Done: the read-only upscaler-state probe now observes `DynamicResolutionHandler` state, camera upscale filters, `HDCamera.RequestDynamicResolution`, `HDCamera.IsDLSSEnabled`, `HDCamera.UpsampleSyncPoint`, and `HDRenderPipeline.SetupDLSSForCameraDataAndDynamicResHandler`.
+2. Next: add a guarded local diagnostic that requests DLSS Performance scale while leaving V Rising `FsrQualityMode=Off`.
 3. Reuse the existing native bridge only after the frame has the correct low-resolution color, output-resolution target, depth, and motion-vector resources.
 4. Validate one DLSS evaluate per Unity frame, resize/reset cleanup, image quality, and FPS improvement against native 4K FSR Off.
 

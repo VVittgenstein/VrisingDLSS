@@ -29,7 +29,7 @@ The package zip keeps Thunderstore metadata at the root and places the plugin pa
 8. Confirm the log contains `VrisingDLSS 0.1.0 loaded`.
 9. Keep `Diagnostics.EnableHarmonyCallProbe=false` for the first run.
 10. After the basic hook probe finds candidate methods, enable `Diagnostics.EnableHarmonyCallProbe=true` for one diagnostic run, then disable it again.
-11. Optionally enable `Diagnostics.EnableUpscalerStateProbe=true` for one diagnostic run to log current HDRP FSR/upscale and dynamic-resolution state, then disable it again.
+11. Optionally enable `Diagnostics.EnableUpscalerStateProbe=true` for one diagnostic run to log current HDRP FSR/upscale, dynamic-resolution, camera DLSS, and HDRP DLSS setup state, then disable it again.
 12. After the native bridge smoke test passes, enable `Diagnostics.EnableRenderThreadSmokeTest=true` for one diagnostic run, then disable it again.
 13. After the render-thread smoke test passes, enable `Diagnostics.EnableD3D11TextureProbe=true` for one diagnostic run, then disable it again.
 14. After the D3D11 probe passes, enable `Diagnostics.EnableFrameResourceProbe=true` for one diagnostic run, then disable it again.
@@ -200,6 +200,6 @@ For local SDK-wrapper research builds, `Diagnostics.EnableDlssFeatureCreateProbe
 
 `Diagnostics.EnableDlssPassResourceProbe=true` is a separate research switch for the HDRP DLSSPass resource-helper route. It patches `DLSSPass.GetViewResources` and `DLSSPass.GetCameraResources`, not `DLSSPass.Render`, and logs source/output/depth/motion-vector texture pointers when those helpers return real `Texture` objects. Use `scripts\write-diagnostic-config.ps1 -Stage dlsspass-resource` for this isolated test; it is not enabled by the ordinary `dlss-evaluate-inputs` helper.
 
-`Diagnostics.EnableUpscalerStateProbe=true` logs read-only HDRP FSR/upscale and dynamic-resolution state snapshots. It helps confirm whether V Rising's built-in FSR/upscale route is active, but it does not change the upscale filter and does not replace the DLSS depth/motion-vector requirement.
+`Diagnostics.EnableUpscalerStateProbe=true` logs read-only HDRP FSR/upscale, dynamic-resolution, camera DLSS, and HDRP DLSS setup state snapshots. It helps confirm whether V Rising's built-in FSR/upscale route is active and whether the FSR Off route is blocked by camera or global dynamic-resolution settings, but it does not change the upscale filter and does not replace the DLSS depth/motion-vector requirement.
 
 Do not copy PureDark package files into this mod folder.

@@ -70,20 +70,23 @@ Evidence:
 Implemented as an optional diagnostic switch:
 
 - Config key: `Diagnostics.EnableUpscalerStateProbe=false` by default.
-- Patches ordinary HDRP/dynamic-resolution setter methods such as `HDRenderPipeline.SetUpscaleFilter`, `HDRenderPipeline.SetFSRParameters`, and `DynamicResolutionHandler.SetDynamicResScaler` with read-only postfixes.
-- Logs snapshots from `HDRenderPipeline.GetUpscaleFilter()`, `HDRenderPipeline.GetUpscaleRes()`, and the current existing `DynamicResolutionHandler` instance fields/properties when available.
+- Patches ordinary HDRP/dynamic-resolution setter and setup methods such as `HDRenderPipeline.SetUpscaleFilter`, `HDRenderPipeline.SetFSRParameters`, `HDRenderPipeline.SetupDLSSForCameraDataAndDynamicResHandler`, `DynamicResolutionHandler.SetDynamicResScaler`, and `HDCamera.RequestDynamicResolution` with read-only postfixes.
+- Logs snapshots from `HDRenderPipeline.GetUpscaleFilter()`, `HDRenderPipeline.GetUpscaleRes()`, per-camera upscale filters, and the current existing `DynamicResolutionHandler` instance fields/properties when available.
+- When HDRP calls the DLSS/dynamic-resolution setup path, argument summaries include camera `allowDynamicResolution`, `allowDeepLearningSuperSampling`, `cameraCanRenderDLSS`, DLSS quality/optimal-settings fields, and `GlobalDynamicResolutionSettings` fields such as `enableDLSS`, `DLSSPerfQualitySetting`, `upsampleFilter`, and `forcedPercentage`.
 - Does not change the upscale filter, force FSR, inject RenderGraph passes, load DLSS, or evaluate DLSS.
 
 Pass criteria:
 
 - The initial snapshot logs without crashing.
 - At least one relevant setter is patched when HDRP/Core RP exposes it.
-- In a gameplay run, any FSR/upscale setter calls are capped and include a current state snapshot.
+- In a gameplay run, any FSR/upscale/DLSS setup calls are capped and include a current state snapshot.
+- For the FSR Off MVP route, this stage should show whether HDRP/camera state is blocking dynamic resolution or DLSS before any render-scale mutation is attempted.
 
 Evidence:
 
 - `BepInEx/LogOutput.log` lines beginning with `Upscaler state probe snapshot`.
 - Optional call lines beginning with `Upscaler state probe call`.
+- For render-scale route research, useful fields include `allowDynamicResolution`, `allowDeepLearningSuperSampling`, `cameraCanRenderDLSS`, `enableDLSS`, `DLSSUseOptimalSettings`, `upsampleFilter`, `forcedPercentage`, and `DynamicResolutionHandler.GetCurrentScale`.
 
 ## Stage 3: Read-Only Harmony Probe
 
