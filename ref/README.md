@@ -20,6 +20,11 @@ This directory contains third-party reference material collected for static rese
   inspection. Key files include HDRP `HDRenderPipeline.PostProcess.cs`,
   `DLSSPass.cs`, CoreRP `RenderGraph.cs`, and
   `RenderGraphResourceRegistry.cs`.
+- `NVIDIA-Streamline/ProgrammingGuideDLSS.md` - official Streamline DLSS guide
+  snapshot used for the resource-tagging/current-frame evaluate boundary check.
+- `OptiScaler/README.md` and `OptiScaler/OptiScaler.ini` - OptiScaler reference
+  snapshots used only to understand how existing upscaler-input interception and
+  resource tracking are framed by that project.
 - `dlss-performance-investigation-2026-06-06/` - local copies of official Unity
   HDRP/Dynamic Resolution/RenderGraph docs, NVIDIA Streamline/NGX references, and
   OptiScaler/forum research used to diagnose the "DLSS succeeds but FPS is worse /

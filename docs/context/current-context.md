@@ -398,6 +398,16 @@ As of the read-only RenderGraph pass-map runtime result:
   RenderGraph render function calling `DLSSPass.GetCameraResources` and then
   `DLSSPass.Render/ExecuteDLSS`; V Rising has no proven safe Harmony-equivalent
   evaluate boundary yet, so the current safe point remains compile-time
-  pass/declaration observation.
+  pass/declaration observation. The latest focused pass-data analysis is recorded
+  in `docs/development/rendergraph-pass-data-boundary-analysis-2026-06-06.md`.
+  It parsed the protected r2 declaration log as `529` declaration rows, `43`
+  complete `Uber Post -> Edge Adaptive Spatial Upsampling -> Final Pass` chains,
+  `43/43` `Uber write == EASU read`, and `43/43` `EASU write == Final first read`.
+  Local/upstream source plus interop now point to the next minimal experiment:
+  add a default-off `CompileRenderGraph(int)` pass-data field snapshot for
+  `UberPostPassData`, `EASUData`, and `FinalPassData`. That next probe should
+  remain read-only, avoid `GetTexture`, avoid native pointers, avoid command-buffer
+  work, and only map pass data fields/dimensions to the already proven declaration
+  chain. Do not jump directly to generated EASU/Final render-function patching.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.

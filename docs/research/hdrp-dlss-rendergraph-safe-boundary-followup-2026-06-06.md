@@ -149,6 +149,12 @@ fixture:
 
 This completes the declaration proof. Do not rerun the stage unchanged.
 
+The declaration chain and pass-data follow-up are now analyzed in
+`docs/development/rendergraph-pass-data-boundary-analysis-2026-06-06.md`. That
+note narrows the next implementation candidate to a default-off
+`CompileRenderGraph(int)` pass-data field snapshot for `UberPostPassData`,
+`EASUData`, and `FinalPassData`, not a generated render-function patch.
+
 ## Network Blind-Spot Checks
 
 Primary sources checked:
