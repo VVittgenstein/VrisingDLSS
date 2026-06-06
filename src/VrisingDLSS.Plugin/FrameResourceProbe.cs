@@ -22,6 +22,7 @@ internal static class FrameResourceProbe
     private const int MaxRenderGraphPassListEntryLogs = 320;
     private const int MaxRenderGraphPassDeclarationLogs = 260;
     private const int MaxRenderGraphPassDataSnapshotLogs = 220;
+    private const int MaxRenderGraphExecuteDelegateLogs = 180;
     private const int MaxRenderGraphExecutionScopeLogs = 80;
     private const int MaxRenderGraphScopedEvaluateAttempts = 12;
     private const int MaxExistingRenderFuncLogs = 80;
@@ -61,6 +62,7 @@ internal static class FrameResourceProbe
     private static int RenderGraphPassListEntryLogCount;
     private static int RenderGraphPassDeclarationLogCount;
     private static int RenderGraphPassDataSnapshotLogCount;
+    private static int RenderGraphExecuteDelegateLogCount;
     private static int RenderGraphExecutionScopeCallCount;
     private static int RenderGraphScopedEvaluateAttemptCount;
     private static int ExistingRenderFuncCallCount;
@@ -128,6 +130,7 @@ internal static class FrameResourceProbe
     private static bool RenderGraphPassListProbeEnabled;
     private static bool RenderGraphPassResourceDeclarationProbeEnabled;
     private static bool RenderGraphPassDataSnapshotProbeEnabled;
+    private static bool RenderGraphExecuteDelegateProbeEnabled;
     private static bool RenderGraphGetTextureProbeEnabled;
     private static bool DlssPassResourceProbeEnabled;
     private static bool RenderGraphGetTextureDiagnosticLoggingEnabled;
@@ -185,6 +188,7 @@ internal static class FrameResourceProbe
         bool enableRenderGraphPassListProbe = false,
         bool enableRenderGraphPassResourceDeclarationProbe = false,
         bool enableRenderGraphPassDataSnapshotProbe = false,
+        bool enableRenderGraphExecuteDelegateProbe = false,
         bool enableRenderGraphGetTextureProbe = true,
         bool enableDlssPassResourceProbe = false)
     {
@@ -216,6 +220,7 @@ internal static class FrameResourceProbe
             RenderGraphPassListProbeEnabled = RenderGraphPassListProbeEnabled || enableRenderGraphPassListProbe;
             RenderGraphPassResourceDeclarationProbeEnabled = RenderGraphPassResourceDeclarationProbeEnabled || enableRenderGraphPassResourceDeclarationProbe;
             RenderGraphPassDataSnapshotProbeEnabled = RenderGraphPassDataSnapshotProbeEnabled || enableRenderGraphPassDataSnapshotProbe;
+            RenderGraphExecuteDelegateProbeEnabled = RenderGraphExecuteDelegateProbeEnabled || enableRenderGraphExecuteDelegateProbe;
             RenderGraphGetTextureProbeEnabled = RenderGraphGetTextureProbeEnabled || enableRenderGraphGetTextureProbe;
             DlssPassResourceProbeEnabled = DlssPassResourceProbeEnabled || enableDlssPassResourceProbe;
             RenderGraphGetTextureDiagnosticLoggingEnabled = RenderGraphGetTextureDiagnosticLoggingEnabled || ShouldEnableRenderGraphGetTextureDiagnosticLogging(
@@ -255,6 +260,7 @@ internal static class FrameResourceProbe
         RenderGraphPassListProbeEnabled = enableRenderGraphPassListProbe;
         RenderGraphPassResourceDeclarationProbeEnabled = enableRenderGraphPassResourceDeclarationProbe;
         RenderGraphPassDataSnapshotProbeEnabled = enableRenderGraphPassDataSnapshotProbe;
+        RenderGraphExecuteDelegateProbeEnabled = enableRenderGraphExecuteDelegateProbe;
         RenderGraphGetTextureProbeEnabled = enableRenderGraphGetTextureProbe;
         DlssPassResourceProbeEnabled = enableDlssPassResourceProbe;
         RenderGraphGetTextureDiagnosticLoggingEnabled = ShouldEnableRenderGraphGetTextureDiagnosticLogging(
@@ -360,6 +366,10 @@ internal static class FrameResourceProbe
         if (RenderGraphPassDataSnapshotProbeEnabled)
         {
             log.LogInfo("RenderGraph pass-data snapshot probe enabled. It patches CompileRenderGraph(int) for focused pass data fields only and does not resolve textures or evaluate DLSS.");
+        }
+        if (RenderGraphExecuteDelegateProbeEnabled)
+        {
+            log.LogInfo("RenderGraph execute-delegate probe enabled. It patches closed GetExecuteDelegate<TPassData>() methods for focused pass data only and does not resolve textures, touch command buffers, or evaluate DLSS.");
         }
         if (DlssPassResourceProbeEnabled)
         {
@@ -577,6 +587,17 @@ internal static class FrameResourceProbe
             patched++;
         }
 
+        if (RenderGraphExecuteDelegateProbeEnabled)
+        {
+            var executeDelegatePatched = TryPatchRenderGraphExecuteDelegateMethods(
+                log,
+                harmonyMethodConstructor,
+                patchMethod,
+                patchedMethodKeys);
+            patched += executeDelegatePatched;
+            log.LogInfo($"RenderGraph execute-delegate probe patched {executeDelegatePatched} method(s).");
+        }
+
         if (DlssPassResourceProbeEnabled)
         {
             var dlssPassResourceHelperPatched = TryPatchDlssPassResourceHelperMethods(
@@ -652,6 +673,7 @@ internal static class FrameResourceProbe
             RenderGraphPassListProbeEnabled = false;
             RenderGraphPassResourceDeclarationProbeEnabled = false;
             RenderGraphPassDataSnapshotProbeEnabled = false;
+            RenderGraphExecuteDelegateProbeEnabled = false;
             RenderGraphGetTextureProbeEnabled = false;
             DlssPassResourceProbeEnabled = false;
             RenderGraphGetTextureDiagnosticLoggingEnabled = false;
@@ -690,6 +712,7 @@ internal static class FrameResourceProbe
                 RenderGraphPassListEntryLogCount = 0;
                 RenderGraphPassDeclarationLogCount = 0;
                 RenderGraphPassDataSnapshotLogCount = 0;
+                RenderGraphExecuteDelegateLogCount = 0;
                 RenderGraphExecutionScopeCallCount = 0;
                 RenderGraphScopedEvaluateAttemptCount = 0;
                 ExistingRenderFuncCallCount = 0;
@@ -1033,6 +1056,72 @@ internal static class FrameResourceProbe
         }
 
         return patched;
+    }
+
+    private static int TryPatchRenderGraphExecuteDelegateMethods(
+        ManualLogSource log,
+        ConstructorInfo harmonyMethodConstructor,
+        MethodInfo patchMethod,
+        ISet<string> patchedMethodKeys)
+    {
+#if VRISINGDLSS_LOCAL_INTEROP
+        var methodDefinition = typeof(UnityEngine.Experimental.Rendering.RenderGraphModule.RenderGraphPass)
+            .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+            .FirstOrDefault(method =>
+            {
+                if (!string.Equals(method.Name, "GetExecuteDelegate", StringComparison.Ordinal)
+                    || !method.IsGenericMethodDefinition)
+                {
+                    return false;
+                }
+
+                return method.GetParameters().Length == 0;
+            });
+        var postfix = typeof(FrameResourceProbe).GetMethod(nameof(RenderGraphExecuteDelegatePostfix), BindingFlags.NonPublic | BindingFlags.Static);
+        if (methodDefinition is null || postfix is null)
+        {
+            log.LogWarning("RenderGraph execute-delegate target was not found.");
+            return 0;
+        }
+
+        var patched = 0;
+        foreach (var passDataType in new[]
+        {
+            typeof(UnityEngine.Rendering.HighDefinition.HDRenderPipeline.DLSSData),
+            typeof(UnityEngine.Rendering.HighDefinition.HDRenderPipeline.UberPostPassData),
+            typeof(UnityEngine.Rendering.HighDefinition.HDRenderPipeline.EASUData),
+            typeof(UnityEngine.Rendering.HighDefinition.HDRenderPipeline.FinalPassData)
+        })
+        {
+            MethodInfo method;
+            try
+            {
+                method = methodDefinition.MakeGenericMethod(passDataType);
+            }
+            catch (Exception ex)
+            {
+                log.LogWarning($"RenderGraph execute-delegate failed to close {passDataType.FullName}: {GetExceptionMessage(ex)}");
+                continue;
+            }
+
+            if (TryPatchPostfixMethod(
+                log,
+                method,
+                harmonyMethodConstructor,
+                patchMethod,
+                postfix,
+                patchedMethodKeys,
+                $"RenderGraph execute-delegate {passDataType.Name}"))
+            {
+                patched++;
+            }
+        }
+
+        return patched;
+#else
+        log.LogWarning("RenderGraph execute-delegate probe requires local V Rising interop references and was not compiled into this build.");
+        return 0;
+#endif
     }
 
     private static bool IsDlssPassResourceHelperMethod(MethodInfo method)
@@ -1533,7 +1622,10 @@ internal static class FrameResourceProbe
 
     private static string GetMethodKey(MethodInfo method)
     {
-        return $"{method.Module.ModuleVersionId:N}:{method.MetadataToken}";
+        var genericSuffix = method.IsGenericMethod
+            ? ":" + string.Join(",", method.GetGenericArguments().Select(type => type.FullName ?? type.Name))
+            : string.Empty;
+        return $"{method.Module.ModuleVersionId:N}:{method.MetadataToken}{genericSuffix}";
     }
 
     private static bool TypeNameContains(Type type, string value)
@@ -1862,6 +1954,66 @@ internal static class FrameResourceProbe
         }
     }
 
+    private static void RenderGraphExecuteDelegatePostfix(MethodBase __originalMethod, object? __instance, object? __result)
+    {
+        try
+        {
+            if (!RenderGraphExecuteDelegateProbeEnabled)
+            {
+                return;
+            }
+
+            var log = Log;
+            if (log is null)
+            {
+                return;
+            }
+
+            int executeLogCount;
+            lock (Sync)
+            {
+                RenderGraphExecuteDelegateLogCount++;
+                executeLogCount = RenderGraphExecuteDelegateLogCount;
+            }
+
+            if (executeLogCount > MaxRenderGraphExecuteDelegateLogs && executeLogCount % 500 != 0)
+            {
+                return;
+            }
+
+            if (__instance is null)
+            {
+                log.LogInfo($"RenderGraph execute-delegate pass=not found #{executeLogCount}: method={HookTargetCatalog.FormatMethod(__originalMethod)}; result={SummarizeValue(__result)}");
+                return;
+            }
+
+            var passName = FirstLine(GetRenderGraphPassName(__instance));
+            var passType = __instance.GetType().FullName ?? __instance.GetType().Name;
+            var category = ClassifyRenderGraphPassBoundary(passName, passType);
+            var passData = TryReadPropertyObject(__instance, "data")
+                ?? TryReadFieldObject(__instance, "data")
+                ?? TryReadTypedRenderGraphPassDataSnapshotObject(__instance, passName);
+            if (passData is null)
+            {
+                log.LogInfo($"RenderGraph execute-delegate data=not found #{executeLogCount}: method={HookTargetCatalog.FormatMethod(__originalMethod)}; pass=\"{passName}\"; category={category}; passType={passType}; result={SummarizeValue(__result)}");
+                return;
+            }
+
+            var dataType = passData.GetType().FullName ?? passData.GetType().Name;
+            var members = CollectRenderGraphPassDataSnapshotMembers(passName, dataType, passData);
+            var formattedMembers = members.Count == 0
+                ? "none"
+                : string.Join("; ", members.Take(48).Select(FormatRenderGraphPassDataSnapshotMember));
+            var truncated = members.Count > 48 ? $"; truncated={members.Count - 48}" : string.Empty;
+
+            log.LogInfo($"RenderGraph execute-delegate #{executeLogCount}: method={HookTargetCatalog.FormatMethod(__originalMethod)}; pass=\"{passName}\"; category={category}; passType={passType}; dataType={dataType}; memberCount={members.Count}; members=[{formattedMembers}]{truncated}; result={SummarizeValue(__result)}");
+        }
+        catch (Exception ex)
+        {
+            Log?.LogWarning($"RenderGraph execute-delegate logging failed: {GetExceptionMessage(ex)}");
+        }
+    }
+
     private static void TryLogRenderGraphPassResourceDeclarations(
         int compileCount,
         IEnumerable<(int Ordinal, object Pass, string Name, string TypeName, string Category)> passSummaries)
@@ -1945,7 +2097,7 @@ internal static class FrameResourceProbe
                 ?? TryReadTypedRenderGraphPassDataSnapshotObject(summary.Pass, summary.Name);
             if (passData is null)
             {
-                log.LogInfo($"RenderGraph pass-data snapshot #{snapshotLogCount}: compile={compileCount}; ordinal={summary.Ordinal}; pass=\"{summary.Name}\"; category={summary.Category}; passType={summary.TypeName}; data=not found");
+                log.LogInfo($"RenderGraph pass-data snapshot data=not found #{snapshotLogCount}: compile={compileCount}; ordinal={summary.Ordinal}; pass=\"{summary.Name}\"; category={summary.Category}; passType={summary.TypeName}");
                 continue;
             }
 
@@ -2076,6 +2228,12 @@ internal static class FrameResourceProbe
 
         try
         {
+            if (passName.IndexOf("Deep Learning Super Sampling", StringComparison.OrdinalIgnoreCase) >= 0
+                || passName.IndexOf("DLSS", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return TryReadTypedRenderGraphPassData<UnityEngine.Rendering.HighDefinition.HDRenderPipeline.DLSSData>(il2CppPass);
+            }
+
             if (passName.IndexOf("Uber Post", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 return TryReadTypedRenderGraphPassData<UnityEngine.Rendering.HighDefinition.HDRenderPipeline.UberPostPassData>(il2CppPass);

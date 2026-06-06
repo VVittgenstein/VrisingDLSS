@@ -516,7 +516,7 @@ if (Test-Path -LiteralPath $reviewResolved) {
 }
 
 if (@($issues | Where-Object { $_ -like "Candidate * regressed*" -or $_ -like "Candidate P95 frame time worsened*" }).Count -gt 0) {
-    $nextRecommendation = "Cached-driver real-evaluate crashed in nvwgf2umx.dll even with GetTexture evaluate/output-follow-up at zero, rendergraph-pass-map patched safely but emitted zero lines, rendergraph-pass-list safely mapped Uber Post -> Edge Adaptive Spatial Upsampling -> Final Pass, rendergraph-pass-declarations passed menu plus protected 11111 gameplay with GetTexture disabled, and rendergraph-pass-data passed menu plus protected 11111 gameplay with typed UberPostPassData/EASUData/FinalPassData, memberCount lines, GetTexture=0, no crash, no movement keys, and save restore. Use this pass-data chain to design the next read-only/no-evaluate execution-boundary candidate; do not rerun completed or rejected probes unchanged."
+    $nextRecommendation = "Cached-driver real-evaluate crashed in nvwgf2umx.dll even with GetTexture evaluate/output-follow-up at zero, rendergraph-pass-map patched safely but emitted zero lines, rendergraph-pass-list safely mapped Uber Post -> Edge Adaptive Spatial Upsampling -> Final Pass, rendergraph-pass-declarations passed menu plus protected 11111 gameplay with GetTexture disabled, and rendergraph-pass-data passed menu plus protected 11111 gameplay with typed UberPostPassData/EASUData/FinalPassData, memberCount lines, GetTexture=0, no crash, no movement keys, and save restore. The next implemented read-only/no-evaluate boundary proof is rendergraph-execute-delegate; run it menu-only at 1920x1080 Windowed before any protected 11111 gameplay proof. Do not rerun completed or rejected probes unchanged."
 }
 
 if ($issues.Count -gt 0) {

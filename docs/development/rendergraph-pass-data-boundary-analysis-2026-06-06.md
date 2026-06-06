@@ -270,7 +270,9 @@ Implementation status:
   `dynamicResIsOn=True`, and `dynamicResFilter=EdgeAdaptiveScalingUpres`.
 - See `docs/development/rendergraph-pass-data-gameplay-result-2026-06-06.md`.
 
-The next probe should use this pass-data chain to design a smaller
-read-only/no-evaluate execution-boundary candidate. Do not jump directly to
-generated EASU/Final render-function patching or DLSS evaluate without a smaller
-safety proof.
+Follow-up implemented the smaller read-only/no-evaluate execution-boundary
+candidate as `rendergraph-execute-delegate`, a default-off stage that patches
+only closed `RenderGraphPass.GetExecuteDelegate<TPassData>()` methods for
+focused HDRP pass data. Do not jump directly to generated EASU/Final
+render-function patching or DLSS evaluate without proving this execution-layer
+candidate first.

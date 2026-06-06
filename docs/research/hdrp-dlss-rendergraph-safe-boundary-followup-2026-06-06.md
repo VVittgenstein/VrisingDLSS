@@ -263,6 +263,11 @@ candidate is a default-off menu-first probe for closed
 `GetExecuteDelegate<TPassData>()`, not a generated render-func patch and not
 `RenderGraphPass<TPassData>.Execute(ctx)`.
 
+Implementation follow-up: this candidate is now wired as
+`Diagnostics.EnableRenderGraphExecuteDelegateProbe=false` and helper stage
+`rendergraph-execute-delegate`, with analyzer/package support. It is not
+runtime-proven yet; the first proof must be menu-only at `1920x1080 Windowed`.
+
 This candidate only proves that a focused pass reached the execution layer. It
 does not provide `RenderGraphContext`, command buffers, native textures, or DLSS
 evaluate authority. Full protocol:

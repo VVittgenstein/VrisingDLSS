@@ -1,7 +1,7 @@
 # RenderGraph Execute Delegate Candidate - 2026-06-06
 
-Status: source/metadata candidate only. Not runtime-proven. Do not treat as a
-DLSS evaluate boundary yet.
+Status: implemented as a default-off read-only diagnostic probe. Not
+runtime-proven yet. Do not treat as a DLSS evaluate boundary.
 
 ## Question
 
@@ -121,9 +121,30 @@ Avoid for the first probe:
 - command-buffer work
 - real DLSS evaluate
 
+## Implementation Status
+
+Implemented on 2026-06-06 as the next narrow boundary proof:
+
+- Config key: `Diagnostics.EnableRenderGraphExecuteDelegateProbe=false`.
+- Helper stage: `rendergraph-execute-delegate`.
+- Analyzer stage: `RenderGraph Execute Delegate`.
+- Package default: disabled in `package/thunderstore/VrisingDLSS.cfg`.
+- Build/package validation passed after implementation.
+
+The implementation patches only closed generic
+`RenderGraphPass.GetExecuteDelegate<TPassData>()` methods for `DLSSData`,
+`UberPostPassData`, `EASUData`, and `FinalPassData`. It uses a postfix, records
+the pass name/category/type, reads focused pass-data summaries, caps logs, and
+does not alter or wrap the returned delegate.
+
+No runtime proof has been collected yet. The next validation must be menu-only
+at `1920x1080 Windowed`; gameplay validation can only follow after a clean menu
+proof.
+
 ## Probe Protocol
 
-Only implement if we decide to run another read-only boundary proof.
+This route is implemented, but still needs runtime proof before it can guide the
+next boundary decision.
 
 - Config key: `Diagnostics.EnableRenderGraphExecuteDelegateProbe=false`.
 - Helper stage: `rendergraph-execute-delegate`.
@@ -131,7 +152,7 @@ Only implement if we decide to run another read-only boundary proof.
 - Gameplay scope only after menu proof is clean; use protected `11111`
   backup/restore and no movement keys.
 - Log capped lines such as:
-  `RenderGraph execute-delegate #N: type=EASUData; pass="Edge Adaptive Spatial Upsampling"; memberCount=...`
+  `RenderGraph execute-delegate #N: ... pass="Edge Adaptive Spatial Upsampling"; dataType=EASUData; memberCount=...`
 - Use typed `TryCast<RenderGraphPass<TPassData>>()` and read scalar/handle
   summaries only.
 - Fail if patching throws, typed cast fails repeatedly, the stage logs no focused

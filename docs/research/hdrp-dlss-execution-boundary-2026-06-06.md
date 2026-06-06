@@ -440,6 +440,22 @@ List=Pass`, save restored to `ChangeCount=0`, and the same focused sequence
 appeared repeatedly. This proves a safe pass-list observation point for current
 V Rising gameplay, but still not an evaluate boundary.
 
+Pass-data / execution-delegate follow-up:
+
+- Later `rendergraph-pass-declarations` and `rendergraph-pass-data` stages reused
+  the safe `CompileRenderGraph(int)` observation point to prove focused
+  `Uber Post -> Edge Adaptive Spatial Upsampling -> Final Pass` handle and
+  pass-data chains in menu and protected `11111` gameplay, with `GetTexture`
+  disabled and save restore `ChangeCount=0`.
+- The pass-data gameplay proof found `73` complete chains, all matching
+  `Uber.destination == EASU.source` and `EASU.destination == Final.source`.
+- The next default-off execution-layer proof is now implemented as
+  `rendergraph-execute-delegate`. It patches only closed
+  `RenderGraphPass.GetExecuteDelegate<TPassData>()` methods for focused HDRP pass
+  data, records pass-data summaries, and does not wrap render functions, receive
+  `RenderGraphContext`, resolve resources, touch command buffers, or evaluate
+  DLSS. It still needs a menu-only `1920x1080 Windowed` runtime proof.
+
 Implementation update:
 
 - Added `Diagnostics.EnableDlssCachedTupleDriverProbe=false` and helper stage

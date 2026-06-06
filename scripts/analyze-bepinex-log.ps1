@@ -202,9 +202,15 @@ $results.Add((New-StageResult `
 
 $results.Add((New-StageResult `
     -Stage "RenderGraph Pass Data" `
-    -PassPatterns @("memberCount=") `
-    -FailPatterns @("RenderGraph pass-list logging failed", "RenderGraph pass-list failed to patch", "RenderGraph pass-list target was not found", "data=not found") `
+    -PassPatterns @("RenderGraph pass-data snapshot #") `
+    -FailPatterns @("RenderGraph pass-list logging failed", "RenderGraph pass-list failed to patch", "RenderGraph pass-list target was not found", "RenderGraph pass-data snapshot data=not found") `
     -StartedPatterns @("RenderGraph pass-data snapshot probe enabled", "RenderGraph pass-list patched")))
+
+$results.Add((New-StageResult `
+    -Stage "RenderGraph Execute Delegate" `
+    -PassPatterns @("RenderGraph execute-delegate #") `
+    -FailPatterns @("RenderGraph execute-delegate logging failed", "RenderGraph execute-delegate failed to patch", "RenderGraph execute-delegate target was not found", "RenderGraph execute-delegate pass=not found", "RenderGraph execute-delegate data=not found") `
+    -StartedPatterns @("RenderGraph execute-delegate probe enabled", "RenderGraph execute-delegate probe patched")))
 
 $results.Add((New-StageResult `
     -Stage "Stage 5D DLSS Runtime" `

@@ -360,6 +360,33 @@ found `73` complete chains; `73/73` matched
 `performUpsampling=True`, `dynamicResIsOn=True`, and
 `dynamicResFilter=EdgeAdaptiveScalingUpres`.
 
+## RenderGraph Execute-Delegate Probe
+
+`EnableRenderGraphExecuteDelegateProbe` is disabled by default and is read-only.
+It patches only closed generic `RenderGraphPass.GetExecuteDelegate<TPassData>()`
+methods for focused HDRP pass data (`DLSSData`, `UberPostPassData`, `EASUData`,
+and `FinalPassData`).
+
+It records whether focused passes reach the execution-layer delegate lookup, plus
+pass metadata and pass-data scalar/TextureHandle summaries. It does not call the
+returned delegate, does not wrap render functions, does not receive
+`RenderGraphContext`, does not touch command buffers, does not resolve resources
+or native texture pointers, and does not evaluate DLSS.
+
+Use it after the pass-data gameplay proof when the next question is whether the
+same focused pass chain reaches execution-layer code:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\path\to\VRising" -Stage rendergraph-execute-delegate -DurationSeconds 120 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080
+```
+
+The first runtime validation must be menu-only at `1920x1080 Windowed`. A useful
+run should produce `RenderGraph execute-delegate #` lines with `memberCount=`
+for focused pass data while keeping `RenderGraph GetTexture call #` at `0`.
+Treat patch failures, `data=not found`, zero focused execute-delegate lines, any
+`RenderGraph GetTexture call #`, or any WER/IL2CPP/coreclr crash as a failed
+route. Only attempt protected `11111` gameplay proof after a clean menu result.
+
 ## RenderGraph Pass-Boundary Probe
 
 `EnableRenderGraphPassBoundaryProbe` is disabled by default and is high-risk research-only. It patches only `RenderGraph.PreRenderPassExecute(...)` and logs capped pass metadata: pass name, pass type, a coarse category, and safe `CompiledPassInfo` fields. In the standalone helper stage it does not resolve textures, does not call `GetTexture`, does not load DLSS, and does not evaluate a frame.

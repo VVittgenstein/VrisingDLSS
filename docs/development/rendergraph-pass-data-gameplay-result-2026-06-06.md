@@ -98,6 +98,9 @@ textures or evaluating DLSS.
 
 ## Next
 
-Use this pass-data chain to design the next minimal read-only/no-evaluate
-execution-boundary candidate. Do not jump directly to generated EASU/Final render
-function patching or DLSS evaluate without a smaller safety proof.
+Follow-up implemented the next minimal read-only/no-evaluate execution-boundary
+candidate as `rendergraph-execute-delegate`, a default-off stage that patches
+only closed `RenderGraphPass.GetExecuteDelegate<TPassData>()` methods for
+focused HDRP pass data. Do not jump directly to generated EASU/Final render
+function patching or DLSS evaluate without proving this smaller execution-layer
+candidate first.
