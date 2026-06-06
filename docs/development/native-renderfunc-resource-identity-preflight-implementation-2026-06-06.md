@@ -1,6 +1,6 @@
 # Native RenderFunc Resource Identity Preflight Implementation - 2026-06-06
 
-Status: implemented and statically validated. No game launch in this pass.
+Status: implemented, statically validated, and menu-runtime validated.
 
 ## Question
 
@@ -79,23 +79,17 @@ The packaged default config keeps
 
 No V Rising or Unity crash-handler process was running after validation.
 
+Menu runtime proof passed on 2026-06-07 as
+`native-renderfunc-resource-identity-1080p-menu-20260607-r1`; see
+`docs/development/native-renderfunc-resource-identity-runtime-result-2026-06-07.md`.
+
 ## Next Runtime Test
 
-Menu-only proof first, at true `1920x1080` Windowed:
+Protected `11111` gameplay proof is next. The menu proof command was:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-resource-identity -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3
 ```
 
-Pass signal: analyzer reports `Native RenderFunc Resource Identity=Pass`, log
-contains `Native render-func resource identity advanced:`, `GetTexture` remains
-unused, no crash event is recorded, and no DLSS/NGX evaluate/probe call pattern
-appears.
-
-Fail signal: startup crash, detour failure, pass-list logging failure,
-`Native render-func resource identity data=not found`, any `GetTexture`
-steady-state discovery, or any DLSS/NGX evaluate/probe pattern.
-
-Cleanup after any runtime proof: close V Rising, restore loader-safe config,
-confirm release-safe native DLL state, confirm no V Rising/UnityCrashHandler
-process remains, and preserve logs/analysis before moving to protected gameplay.
+Cleanup after the menu proof restored loader-safe config, release-safe native
+DLL state, ClientSettings, and left no V Rising/UnityCrashHandler process.

@@ -501,6 +501,13 @@ Expected analyzer line: `Native RenderFunc Resource Identity=Pass`. Treat this
 as resource-identity correlation evidence only; it is still not command-buffer
 or evaluate proof.
 
+Menu runtime proof
+`native-renderfunc-resource-identity-1080p-menu-20260607-r1` passed at true
+`1920x1080` Windowed; see
+`docs/development/native-renderfunc-resource-identity-runtime-result-2026-06-07.md`.
+Next proof is protected `11111` gameplay with save backup/restore and no
+movement keys.
+
 ## RenderGraph Execute-Delegate Probe
 
 `EnableRenderGraphExecuteDelegateProbe` is disabled by default and is read-only.

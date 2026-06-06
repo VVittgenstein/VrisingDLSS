@@ -623,8 +623,21 @@ Current Stage 8A status:
   config, Thunderstore package build/validation, and process-safety check
   passed. See
   `docs/development/native-renderfunc-resource-identity-preflight-implementation-2026-06-06.md`.
-  Next proof is a `1920x1080` Windowed menu-only run of
-  `native-renderfunc-resource-identity`.
+  Menu runtime proof
+  `native-renderfunc-resource-identity-1080p-menu-20260607-r1` passed at true
+  `1920x1080` Windowed. Analyzer reported
+  `Native RenderFunc Resource Identity=Pass`; the first advanced line appeared
+  at `compile=4` with `managedPassData=0x2840EC567E0`,
+  `nativeLastPassData=0x2840EC567E0`, `passDataMatches=True`,
+  `hasTextureIdentity=True`, and focused `source` / `destination`
+  TextureHandles. Final sampled status reached `entryCount=3897`,
+  `sampleCount=3897`, and all four raw pointer categories nonzero `3897/3897`.
+  `RenderGraph GetTexture call #=0`; actual native/DLSS evaluate/probe patterns
+  `0`; `CrashEventCount=0`. Cleanup restored loader config, release-safe native,
+  ClientSettings, and no game process remained. See
+  `docs/development/native-renderfunc-resource-identity-runtime-result-2026-06-07.md`.
+  Next proof is protected `11111` gameplay at true `1920x1080` Windowed with
+  save backup/restore and no movement keys.
 - See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.
 
 ## Stage 8B: First Guarded DLSS Evaluate Diagnostic

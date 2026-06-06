@@ -645,3 +645,18 @@ As of the read-only RenderGraph pass-map runtime result:
   build/validation, and process-safety check passed. Next proof is
   `scripts\run-vrising-diagnostic.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-resource-identity -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3`
   at true `1920x1080` Windowed menu-only.
+- Menu runtime proof
+  `native-renderfunc-resource-identity-1080p-menu-20260607-r1` passed at true
+  `1920x1080` Windowed. Analyzer reported
+  `Native RenderFunc Resource Identity=Pass`; first advanced line appeared at
+  `compile=4` with `managedPassData=0x2840EC567E0`,
+  `nativeLastPassData=0x2840EC567E0`, `passDataMatches=True`,
+  `hasTextureIdentity=True`, and focused `source` / `destination`
+  TextureHandles. Final sampled status reached `entryCount=3897`,
+  `sampleCount=3897`, and all four raw pointer categories nonzero `3897/3897`.
+  `RenderGraph GetTexture call #=0`; actual native/DLSS evaluate/probe patterns
+  `0`; `CrashEventCount=0`. Cleanup restored loader config, release-safe native,
+  ClientSettings, and no game process remained. See
+  `docs/development/native-renderfunc-resource-identity-runtime-result-2026-06-07.md`.
+  Next step: protected `11111` gameplay proof at true `1920x1080` Windowed with
+  save backup/restore and no movement keys.
