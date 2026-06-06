@@ -142,9 +142,16 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
   `RenderPostProcess -> DoDLSSPasses -> DoDLSSPass -> Deep Learning Super Sampling`
   RenderGraph pass execution -> `DLSSPass.GetCameraResources` ->
   `DLSSPass.Render/ExecuteDLSS`. V Rising exposes the HDRP symbols, but still does
-  not show a complete built-in Unity NVIDIA DLSS runtime stack. The next safest
-  equivalent boundary is a read-only, narrowly filtered RenderGraph pass-execution
-  proof, not another global texture lookup.
+  not show a complete built-in Unity NVIDIA DLSS runtime stack. After the
+  `PreRenderPassExecute` rejection, there is no proven safe BepInEx/Harmony hook
+  that is exactly equivalent to the official evaluate boundary. Avoid the
+  ref-`CompiledPassInfo` RenderGraph executor wrapper family as the next normal
+  route. `RenderGraph.OnPassAdded(RenderGraphPass)` is only a possible read-only
+  pass-name/recording probe, not an evaluate boundary. The near-term performance
+  route should keep `GetTexture` as a temporary tuple oracle, then drive cached
+  tuple no-evaluate/evaluate attempts from an already stable callback such as the
+  render-scale-control `DynamicResolutionHandler.Update(...)` path while making the
+  global `GetTexture` postfix return early after acceptance.
 - `docs/research/dlss-theoretical-performance-model-2026-06-06.md` records the
   expected DLSS SR performance shape. For 1920x1080 Performance-mode constructive
   tests, the working model is 960x540 input to 1920x1080 output, or 25% pixel count.
@@ -194,9 +201,13 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
   No-evaluate isolation then reproduced the severe drop without NGX evaluate, even
   after logging suppression and tuple/reflection caching. Materialization-only
   discovery did not replace the global GetTexture route. The next technical blocker
-  is to remove the global `GetTexture` postfix from the steady-state path by first
-  proving a narrow, read-only RenderGraph pass-execution boundary, then moving tuple
-  use/evaluate into that targeted render/upscale pass window.
+  is to remove the global `GetTexture` postfix from the steady-state path without
+  repeating rejected RenderGraph executor patches. First implementation candidate:
+  accept one SR tuple through the existing diagnostic oracle, then use a cached
+  tuple driver from the already runtime-safe render-scale-control callbacks and make
+  `GetTexture` return at the top once the tuple is accepted. A separate
+  `RenderGraph.OnPassAdded` probe may help pass-name mapping, but it should not be
+  treated as a texture/evaluate boundary.
 - Gameplay image-correctness still needs a human review only after the severe
   performance regression is fixed; do not write a passing human review for the r2
   artifact.
@@ -239,9 +250,13 @@ Follow the new goal order:
      restored loader config, ClientSettings, release-safe native state, and the
      protected `11111` save with `ChangeCount=0`;
    - next loop must not rerun `rendergraph-pass-boundary` as a normal diagnostic.
-     It should look for a targeted placement route that avoids Harmony patching
-     ref-`CompiledPassInfo` RenderGraph executor wrappers while still moving
-     tuple/evaluate work out of the hot global `GetTexture` postfix;
+     It should avoid Harmony patching ref-`CompiledPassInfo` RenderGraph executor
+     wrappers. Prefer the cached-tuple-driver isolation first: use `GetTexture` only
+     to learn the first accepted SR tuple, then drive no-evaluate/evaluate attempts
+     from stable render-scale-control callbacks and force the `GetTexture` postfix
+     into an extremely early return after acceptance. Use `RenderGraph.OnPassAdded`
+     only as an optional read-only pass-name map, not as an evaluate/resource
+     boundary;
    - use `docs/research/dlss-theoretical-performance-model-2026-06-06.md` to
      interpret performance: 1080p is a constructive correctness/stall test, while
      final DLSS value requires a GPU-bound 4K/high-load matrix;

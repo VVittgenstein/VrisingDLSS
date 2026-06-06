@@ -15,6 +15,11 @@ This directory contains third-party reference material collected for static rese
   `https://github.com/NVIDIA/DLSS/releases/download/v310.6.0/ngx_dlss_demo_windows.zip`
 - `NVIDIA-DLSS-310.6.0/` - selected official NVIDIA DLSS `310.6.0` research files extracted from the demo zip, including a local-only `nvngx_dlss.dll` runtime copy and sample snippets.
 - `NVIDIA-DLSS-main/` - shallow clone of the official NVIDIA/DLSS repository for SDK header/library reference.
+- `UnityGraphics-2022.3/` - local copy of Unity's official Graphics repository
+  2022.3 staging source, used for HDRP/CoreRP RenderGraph and DLSS boundary
+  inspection. Key files include HDRP `HDRenderPipeline.PostProcess.cs`,
+  `DLSSPass.cs`, CoreRP `RenderGraph.cs`, and
+  `RenderGraphResourceRegistry.cs`.
 - `dlss-performance-investigation-2026-06-06/` - local copies of official Unity
   HDRP/Dynamic Resolution/RenderGraph docs, NVIDIA Streamline/NGX references, and
   OptiScaler/forum research used to diagnose the "DLSS succeeds but FPS is worse /

@@ -268,3 +268,121 @@ Conclusion: `PreRenderPassExecute` is now rejected for normal diagnostics in thi
 IL2CPP build. The official boundary remains the correct conceptual target, but a
 safe mod-accessible equivalent must avoid Harmony patching this ref-`CompiledPassInfo`
 RenderGraph executor wrapper.
+
+## Narrow Follow-Up After Pass-Boundary Rejection
+
+Question restated:
+
+- In Unity HDRP/RenderGraph, where does official DLSS obtain resources and submit
+  evaluate?
+- Is there a BepInEx/Harmony-accessible boundary with the same safety properties?
+
+Local source is still the primary evidence. The relevant upstream Unity 2022.3
+source lines are now pinned more precisely:
+
+- `HDRenderPipeline.PostProcess.cs` line 526, 552, and 604 call
+  `DoDLSSPasses(...)` from `RenderPostProcess(...)` at the HDRP upsampler
+  schedule points.
+- `DoDLSSPasses(...)` lines 708-717 gates on `m_DLSSPassEnabled` and the HDRP
+  asset `DLSSInjectionPoint`, runs the color-mask pass, then calls
+  `DoDLSSPass(...)`.
+- `DoDLSSPass(...)` lines 720-755 registers the `Deep Learning Super Sampling`
+  RenderGraph pass. It declares `source`, `output`, `depth`, and
+  `motionVectors`; writes an output named `DLSS destination`; and runs
+  `data.pass.Render(data.parameters, DLSSPass.GetCameraResources(...), ctx.cmd)`
+  inside the render function.
+- `DLSSPass.cs` lines 40-52 convert `TextureHandle` groups to real `Texture`
+  resources; lines 91-105 create `CameraResources`; lines 197-205 enter
+  `Render(...)`; lines 406-415 build the NVIDIA texture table and call
+  `ExecuteDLSS`; lines 687-713 set input/output resolution, jitter, reset, and
+  pre-exposure before submitting.
+- `RenderGraph.cs` lines 1465-1485 execute each compiled pass as
+  `PreRenderPassExecute(...) -> pass.Execute(...) -> PostRenderPassExecute(...)`.
+  Lines 1552-1597 create resources and set render targets before pass execution.
+- `RenderGraphResourceRegistry.cs` lines 103-113 show why prefix-time
+  `GetTexture(TextureHandle)` is unsafe: it throws if the resource was not yet
+  created or was already released.
+
+Fresh V Rising interop evidence from
+`scripts/probe-vrising-render-metadata.ps1 -GamePath C:\Software\VRising -Json`
+and direct `ilspycmd` inspection:
+
+- `HDRenderPipeline.RenderPostProcess`, `GetPostprocessUpsampledOutputHandle`,
+  `DoDLSSPasses`, `DoDLSSPass`, and `FinalPass` all exist in generated interop.
+- The compiler-generated official DLSS render function wrapper exists as
+  `_DoDLSSPass_b__969_0(DLSSData, RenderGraphContext)`.
+- `DLSSPass.ViewResourceHandles` contains `source`, `output`, `depth`,
+  `motionVectors`, and `biasColorMask`; `ViewResources` contains matching
+  `Texture` fields.
+- `DLSSPass.GetViewResources`, `CreateCameraResources`, `GetCameraResources`,
+  and `Render(Parameters, CameraResources, CommandBuffer)` all exist.
+- `RenderGraph` exposes `OnPassAdded(RenderGraphPass)`,
+  `ExecuteCompiledPass(ref CompiledPassInfo)`,
+  `PreRenderPassExecute(ref CompiledPassInfo, RenderGraphPass, RenderGraphContext)`,
+  and `PostRenderPassExecute(ref CompiledPassInfo, RenderGraphContext)`.
+- `RenderGraphResourceRegistry` exposes `GetTexture(ref TextureHandle)`,
+  `BeginExecute(int)`, `EndExecute()`, and
+  `CreateTextureCallback(RenderGraphContext, IRenderGraphResource)`.
+- The local metadata still does not expose the complete Unity NVIDIA runtime
+  stack (`DLSSContext`, `DLSSTextureTable`, `DLSSQuality`, `NVUnityPlugin`, NGX
+  symbols), so the built-in HDRP DLSS path remains a boundary map, not a working
+  turnkey route.
+
+Narrow network checks did not change the route:
+
+- Unity HDRP DLSS documentation ties DLSS to the NVIDIA package, HDRP Dynamic
+  Resolution, HDRP Asset DLSS enablement, camera Allow Dynamic Resolution, and
+  camera Allow DLSS.
+- Unity HDRP Dynamic Resolution documentation says HDRP requires Dynamic
+  Resolution to be enabled in the HDRP Asset and per camera, then driven through
+  `DynamicResolutionHandler.SetDynamicResScaler(...)`.
+- Unity RenderGraph documentation says internal resources are scoped to one
+  RenderGraph execution; pass setup declares `ReadTexture`/`WriteTexture`; and
+  `SetRenderFunc` runs after graph compile/execute, which matches the source.
+- NVIDIA Streamline DLSS guidance centers on per-frame resource tags for
+  render-resolution color input, final-resolution color output, depth, and motion
+  vectors, with volatile/current-frame lifetimes.
+- OptiScaler's public README/INI reinforces the same design shape: it intercepts
+  existing upscaler inputs and redirects them to an output backend. It does not
+  solve this project by discovering arbitrary textures from every RenderGraph
+  resource lookup.
+- BepInEx/HarmonyX documentation confirms runtime patching is available, including
+  ref patch parameters, but this does not override local crash evidence for specific
+  IL2CPP wrappers.
+
+### Boundary Classification
+
+| Boundary | What it provides | Local status | Decision |
+| --- | --- | --- | --- |
+| `DLSSPass.Render(...)` | Exact official evaluate submission | Exists, but targeted patch crashed in `UnityPlayer.dll` before prefix log | Rejected |
+| `_DoDLSSPass_b__969_0(DLSSData, RenderGraphContext)` and broad generated render funcs | Official render-func execution window | Broad generated render-func patching crashed in `coreclr.dll` | Rejected as normal route |
+| `RenderGraph.PreRenderPassExecute(...)` | Near-execution pass metadata/resource creation window | Patched, logged zero pass-boundary lines, then crashed in `coreclr.dll` | Rejected |
+| `RenderGraph.ExecuteCompiledPass(ref CompiledPassInfo)` / `PostRenderPassExecute(ref CompiledPassInfo, ...)` | Adjacent executor wrappers | Same ref-`CompiledPassInfo` family as rejected `PreRenderPassExecute` | Do not use next without stronger reason |
+| `RenderGraphResourceRegistry.GetTexture(ref TextureHandle)` postfix | Engine-owned valid-scope real `RTHandle` discovery | Proved tuples and evaluates, but no-evaluate tests show severe steady-state FPS collapse | Diagnostic oracle only |
+| `RenderGraphResourceRegistry.CreateTextureCallback(...)` | Resource creation callback | Patch-stable, but materialization-only gameplay saw zero useful callbacks/candidates | Rejected as replacement boundary |
+| `DLSSPass.GetViewResources` / `GetCameraResources` | Closest official handle-to-texture conversion helper | Exists and short main-menu patch did not crash, but no calls observed; likely only useful if official DLSS pass executes | Research-only candidate |
+| `RenderGraph.OnPassAdded(RenderGraphPass)` | Pass-recording/name proof without ref executor wrapper | Exists in V Rising interop; not yet tested | Possible narrow read-only pass-name probe, not an evaluate boundary |
+| Existing safe dynamic-resolution/camera callbacks such as `DynamicResolutionHandler.Update(...)` | Stable per-frame-ish local driver point | Already used safely by render-scale control | Best near-term driver for cached accepted tuples, not an official resource boundary |
+
+Current conclusion:
+
+There is no proven safe BepInEx/Harmony hook that is exactly equivalent to the
+official HDRP DLSS evaluate boundary. The official boundary is precise and useful
+as a map, but the closest managed wrappers that would expose it either already
+crashed or only fire if Unity's built-in DLSS pass is active, which V Rising does
+not appear able to run as shipped.
+
+The next implementation loop should therefore avoid more executor-wrapper probes.
+The most conservative path is:
+
+1. Keep global `GetTexture` as a temporary discovery oracle only until one valid
+   SR tuple has been accepted.
+2. Move steady-state no-evaluate/evaluate attempts to an already stable callback
+   such as the render-scale-control `DynamicResolutionHandler.Update(...)` route,
+   using the cached accepted tuple.
+3. Make the `GetTexture` postfix return as early as possible after tuple
+   acceptance, so the next performance test directly answers whether the remaining
+   FPS collapse is the hot global `GetTexture` path.
+4. Separately, if pass-name evidence is needed, test `RenderGraph.OnPassAdded` as
+   a read-only recording-stage probe. Treat it as a map/diagnostic only, because it
+   does not provide live resources or an evaluate-safe command-buffer boundary.
