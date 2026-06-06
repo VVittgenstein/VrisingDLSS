@@ -416,6 +416,36 @@ Result:
   native evaluate results. This confirms the UI automation path was stable enough
   for the performance diagnosis.
 
+## Cached-Driver Real-Evaluate Failure Notes
+
+Run labels:
+
+- `cached-driver-evaluate-1080p-20260606-r1`.
+- `cached-driver-evaluate-deferred-1080p-20260606-r1`.
+
+Automation behavior:
+
+- Baseline runs used the same Computer Use flow as earlier: select the real
+  `VRising` window, verify the main menu, click `继续游戏` once at the known
+  coordinate, wait for the static `11111` scene, then write the ready file.
+- In the first candidate run, Computer Use saw the V Rising title/menu transition,
+  but the process exited before the candidate ready marker could be written.
+- In the corrected second candidate run, the helper launched the candidate and the
+  process exited before Computer Use could click Continue. This means the crash can
+  occur before entering the `11111` gameplay scene.
+- Both runs restored the protected save afterward; after-restore comparisons
+  reported `ChangeCount=0`.
+
+Technical result:
+
+- The corrected run achieved the intended UI/tool boundary: no movement keys and no
+  candidate Continue click happened before the crash.
+- Candidate log still reached cached-driver `sequenceSuccesses=600`, with
+  `GetTexture` evaluate success count `0` and output follow-up count `0`.
+- Windows Application Error reported `0xc0000005` in `nvwgf2umx.dll` for the
+  corrected run, so future tests should treat cached-driver real-evaluate as a
+  rejected boundary rather than a Computer Use/gameplay-entry failure.
+
 ## Next Click Protocol Notes
 
 For future Continue activations:

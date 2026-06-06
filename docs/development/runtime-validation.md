@@ -166,8 +166,19 @@ Current Stage 2C status:
   `64.556%`/`86.590 W`, logs had `82` cached-driver invocations, `84`
   no-evaluate acceptances, `0` native evaluate attempts, and cleanup restored
   release-safe state and the protected `11111` save to `ChangeCount=0`.
-  Next step: move the real SDK-wrapper `dlss-user-rendering` evaluate path to this
-  cached-driver model and retest with the DLSS runtime.
+- Cached-driver real-evaluate follow-up:
+  `dlss-user-rendering-cached-driver`. Commit `6ac5212` fully deferred first
+  evaluate out of `RenderGraphResourceRegistry.GetTexture(...)`; runtime run
+  `cached-driver-evaluate-deferred-1080p-20260606-r1` proved
+  `GetTexture` evaluate success count `0`, output follow-up count `0`, and broad
+  `RenderGraph GetTexture call #` count `0`, while cached-driver evaluate from
+  `DynamicResolutionHandler.Update(...)` reached `sequenceSuccesses=600`. The
+  candidate still crashed before Continue/gameplay capture with Windows Application
+  Error `0xc0000005` in `nvwgf2umx.dll`. Treat
+  `DynamicResolutionHandler.Update(...)` as a useful no-evaluate performance driver,
+  not a safe real DLSS evaluate boundary. Next step: find a narrower official
+  HDRP/RenderGraph upscale-pass-equivalent boundary with current-frame resources and
+  command-buffer ordering.
 
 ## Stage 3: Read-Only Harmony Probe
 

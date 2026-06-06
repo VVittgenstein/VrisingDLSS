@@ -258,3 +258,22 @@ The next implementation step should move the actual SDK-wrapper
 evaluate from the stable `DynamicResolutionHandler.Update(...)` driver. That must
 be tested separately with `nvngx_dlss.dll` and image/performance evidence before it
 can unblock MVP.
+
+Follow-up on that next step:
+
+- `dlss-user-rendering-cached-driver` was implemented and tested.
+- First run `cached-driver-evaluate-1080p-20260606-r1` still allowed one accidental
+  `RenderGraph GetTexture` evaluate before the cached driver took over, then crashed
+  before candidate capture.
+- Commit `6ac5212` fixed that by deferring the first real evaluate out of
+  `GetTexture`.
+- Corrected run `cached-driver-evaluate-deferred-1080p-20260606-r1` logged
+  `GetTexture` evaluate success count `0`, output follow-up count `0`, broad
+  `RenderGraph GetTexture call #` count `0`, and cached-driver evaluate success
+  through `sequenceSuccesses=600`.
+- The corrected candidate still crashed before Continue/capture with Windows
+  Application Error `0xc0000005` in `nvwgf2umx.dll`.
+
+Therefore this document's no-evaluate conclusion remains valid for performance
+diagnosis, but the proposed real-evaluate cached-driver placement is rejected as a
+safe DLSS submission boundary.

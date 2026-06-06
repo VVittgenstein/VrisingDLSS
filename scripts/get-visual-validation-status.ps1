@@ -516,7 +516,7 @@ if (Test-Path -LiteralPath $reviewResolved) {
 }
 
 if (@($issues | Where-Object { $_ -like "Candidate * regressed*" -or $_ -like "Candidate P95 frame time worsened*" }).Count -gt 0) {
-    $nextRecommendation = "Move the real dlss-user-rendering SDK-wrapper evaluate path onto the cached-tuple driver model proven by dlss-user-rendering-cached-driver-no-evaluate, then rerun the paired 1920x1080 Windowed FSR Off DLSS visual/performance comparison. Resume human image review only after the regression is no longer severe."
+    $nextRecommendation = "Cached-driver real-evaluate was tested after the GetTexture performance isolation and crashed in nvwgf2umx.dll even with GetTexture evaluate/output-follow-up at zero. Do not rerun that route unchanged; find a narrower HDRP/RenderGraph upscaler-pass-equivalent evaluate boundary before returning to paired 1920x1080 Windowed FSR Off visual/performance comparison."
 }
 
 if ($issues.Count -gt 0) {

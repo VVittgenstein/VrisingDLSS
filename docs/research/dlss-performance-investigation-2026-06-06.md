@@ -412,9 +412,25 @@ baseline/candidate average FPS was `204.201 -> 198.079`, compared with r4's
 cached-driver invocations, `84` no-evaluate acceptances, no native evaluate
 success/failure/block, and no broad `RenderGraph GetTexture call #` logging. The
 steady-state global `GetTexture` postfix/placement is therefore the primary
-performance poison. The next implementation should put real SDK-wrapper
-`dlss-user-rendering` evaluate on the same cached-driver path before returning to
-image/performance MVP validation.
+performance poison.
+
+Real-evaluate follow-up then rejected the cached-driver route as the actual DLSS
+submission boundary. `cached-driver-evaluate-deferred-1080p-20260606-r1` proved the
+corrected implementation did not evaluate from `GetTexture`: `DLSS user rendering
+evaluate succeeded from RenderGraph GetTexture` was `0`, `DLSS evaluate output
+follow-up` was `0`, and broad `RenderGraph GetTexture call #` was `0`. The candidate
+still reached `sequenceSuccesses=600` from `DynamicResolutionHandler.Update postfix
+cached tuple driver`, with stable native evaluate timing around `0.08 ms`, then
+crashed before Continue/capture with Windows Application Error `0xc0000005` in
+`nvwgf2umx.dll`.
+
+Updated route decision: the old FPS collapse was indeed mostly hot `GetTexture`
+placement, but the next MVP blocker is now the real evaluate boundary/resource
+lifetime problem. Do not rerun cached-driver real-evaluate unchanged. The next
+candidate should move closer to HDRP's official
+`DoDLSSPass -> DLSSPass.Render/ExecuteDLSS` execution window, or first gather a
+read-only pass map such as `RenderGraph.OnPassAdded` if that helps find a narrower
+safe patch point.
 
 ## Theoretical Performance Follow-up
 

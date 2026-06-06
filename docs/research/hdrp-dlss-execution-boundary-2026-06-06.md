@@ -362,9 +362,9 @@ Narrow network checks did not change the route:
 | `RenderGraphResourceRegistry.CreateTextureCallback(...)` | Resource creation callback | Patch-stable, but materialization-only gameplay saw zero useful callbacks/candidates | Rejected as replacement boundary |
 | `DLSSPass.GetViewResources` / `GetCameraResources` | Closest official handle-to-texture conversion helper | Exists and short main-menu patch did not crash, but no calls observed; likely only useful if official DLSS pass executes | Research-only candidate |
 | `RenderGraph.OnPassAdded(RenderGraphPass)` | Pass-recording/name proof without ref executor wrapper | Exists in V Rising interop; not yet tested | Possible narrow read-only pass-name probe, not an evaluate boundary |
-| Existing safe dynamic-resolution/camera callbacks such as `DynamicResolutionHandler.Update(...)` | Stable per-frame-ish local driver point | Already used safely by render-scale control | Best near-term driver for cached accepted tuples, not an official resource boundary |
+| Existing safe dynamic-resolution/camera callbacks such as `DynamicResolutionHandler.Update(...)` | Stable per-frame-ish local driver point | No-evaluate cached tuple driver passed; real cached evaluate crashed in `nvwgf2umx.dll` | Useful diagnosis/performance driver only; rejected as real DLSS evaluate boundary |
 
-Current conclusion:
+Current conclusion after cached real-evaluate follow-up:
 
 There is no proven safe BepInEx/Harmony hook that is exactly equivalent to the
 official HDRP DLSS evaluate boundary. The official boundary is precise and useful
@@ -372,20 +372,24 @@ as a map, but the closest managed wrappers that would expose it either already
 crashed or only fire if Unity's built-in DLSS pass is active, which V Rising does
 not appear able to run as shipped.
 
-The next implementation loop should therefore avoid more executor-wrapper probes.
-The most conservative path is:
+The cached-driver follow-up separated two problems:
 
-1. Keep global `GetTexture` as a temporary discovery oracle only until one valid
-   SR tuple has been accepted.
-2. Move steady-state no-evaluate/evaluate attempts to an already stable callback
-   such as the render-scale-control `DynamicResolutionHandler.Update(...)` route,
-   using the cached accepted tuple.
-3. Make the `GetTexture` postfix return as early as possible after tuple
-   acceptance, so the next performance test directly answers whether the remaining
-   FPS collapse is the hot global `GetTexture` path.
-4. Separately, if pass-name evidence is needed, test `RenderGraph.OnPassAdded` as
-   a read-only recording-stage probe. Treat it as a map/diagnostic only, because it
-   does not provide live resources or an evaluate-safe command-buffer boundary.
+1. `GetTexture` as steady-state placement is a performance poison. The no-evaluate
+   cached driver recovered performance by using `GetTexture` only as the first tuple
+   oracle, then fast-skipping the postfix.
+2. `DynamicResolutionHandler.Update(...)` is not a safe real DLSS evaluate boundary.
+   After commit `6ac5212`, the corrected real-evaluate path logged
+   `0` `RenderGraph GetTexture` evaluate successes, `0` output follow-up logs, and
+   cached-driver evaluate success through `sequenceSuccesses=600`, then crashed in
+   NVIDIA's D3D11 user-mode driver before gameplay capture.
+
+The next implementation loop should therefore avoid both rejected shapes: do not
+repeat ref-`CompiledPassInfo` executor patches as normal diagnostics, and do not
+rerun cached-driver real-evaluate unchanged. If pass-name evidence is needed, test
+`RenderGraph.OnPassAdded` as a read-only recording-stage probe only. The real
+evaluate route needs a narrower official HDRP/RenderGraph upscaler-pass-equivalent
+execution window with current-frame resources and command-buffer ordering comparable
+to `DoDLSSPass -> DLSSPass.Render/ExecuteDLSS`.
 
 Implementation update:
 
@@ -410,6 +414,14 @@ Runtime update:
   broad `RenderGraph GetTexture call #` logs.
 - This confirms the hot global `GetTexture` placement, not NGX evaluate and not
   render-scale-only, caused most of the previous no-evaluate collapse.
-- The practical next boundary remains the stable `DynamicResolutionHandler.Update`
-  cached-driver route for now. The official HDRP pass boundary is still the design
-  map, but not yet a safe Harmony hook point in this IL2CPP build.
+- The real-evaluate follow-up rejected the practical cached-driver boundary for
+  actual DLSS submission. `cached-driver-evaluate-deferred-1080p-20260606-r1`
+  correctly logged `DLSS cached tuple driver armed from RenderGraph GetTexture`,
+  `0` `DLSS user rendering evaluate succeeded from RenderGraph GetTexture`,
+  `0` `DLSS evaluate output follow-up`, and driver-side evaluate success through
+  `sequenceSuccesses=600`, then crashed before Continue/capture with Windows
+  Application Error `0xc0000005` in `nvwgf2umx.dll`.
+- The official HDRP pass boundary remains the design map. The next safe hook search
+  should be narrower and closer to that upscaler pass execution model, not another
+  broad `GetTexture`, ref-executor, or `DynamicResolutionHandler.Update` evaluate
+  loop.
