@@ -40,6 +40,7 @@ Latest local validation: the C# plugin and native bridge build successfully, the
 ## Documentation
 
 - [Install guide](docs/install.md)
+- [Durable context reconstruction](docs/context/README.md)
 - [MVP definition](docs/mvp.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Operating principles](docs/development/operating-principles.md)

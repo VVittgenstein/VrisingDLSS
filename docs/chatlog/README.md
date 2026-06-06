@@ -10,3 +10,8 @@ The current source of truth is:
 - Official public documentation linked from the project docs.
 
 Do not use archived chat logs to justify implementation, compliance, or release decisions.
+
+The long 2026-06-04 run has been rebuilt into durable context notes at
+[../context/chatlog-2026-06-04-reconstruction.md](../context/chatlog-2026-06-04-reconstruction.md).
+Use that reconstruction as a navigation aid, then verify claims against current files,
+runtime artifacts, scripts, and upstream sources.
