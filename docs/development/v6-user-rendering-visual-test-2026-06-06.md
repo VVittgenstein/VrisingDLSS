@@ -160,7 +160,7 @@ CPU/render-thread stall or an unfavorable synchronization/submission point.
 
 Current suspect: `dlss-user-rendering` still calls NGX synchronously from the
 `RenderGraph GetTexture` resource-discovery postfix. That hook is useful for proving
-the tuple exists, but it is not a proper HDRP upscale pass. The next step should add
-timing diagnostics around the C# bridge call and native describe/query/evaluate
-sections, then move evaluation toward a real render/upscale pass if the timing confirms
-the stall.
+the tuple exists, but it is not a proper HDRP upscale pass. Follow-up instrumentation
+adds C# bridge timing plus native describe/query/prepare/evaluate timing fields. The
+next run should use those fields to decide whether evaluation must move toward a real
+render/upscale pass.

@@ -119,6 +119,16 @@ namespace
         std::snprintf(g_dlssFrameSequenceStatus, sizeof(g_dlssFrameSequenceStatus), "%s", message);
     }
 
+    double ElapsedMilliseconds(const LARGE_INTEGER& start, const LARGE_INTEGER& end, const LARGE_INTEGER& frequency)
+    {
+        if (frequency.QuadPart <= 0)
+        {
+            return 0.0;
+        }
+
+        return static_cast<double>(end.QuadPart - start.QuadPart) * 1000.0 / static_cast<double>(frequency.QuadPart);
+    }
+
     struct EvaluateTextureInfo
     {
         const char* label = "";
@@ -599,6 +609,14 @@ namespace
         EvaluateTextureInfo depth{};
         EvaluateTextureInfo motion{};
         char error[384] = {};
+        LARGE_INTEGER timingFrequency{};
+        LARGE_INTEGER timingStart{};
+        LARGE_INTEGER timingDescribeEnd{};
+        LARGE_INTEGER timingQueryEnd{};
+        LARGE_INTEGER timingEvaluateStart{};
+        LARGE_INTEGER timingEvaluateEnd{};
+        QueryPerformanceFrequency(&timingFrequency);
+        QueryPerformanceCounter(&timingStart);
 
         if (!TryDescribeEvaluateTexture("color", colorTexturePtr, &color, error, sizeof(error))
             || !TryDescribeEvaluateTexture("output", outputTexturePtr, &output, error, sizeof(error))
@@ -614,6 +632,7 @@ namespace
             ReleaseEvaluateTextureInfo(&motion);
             return 0;
         }
+        QueryPerformanceCounter(&timingDescribeEnd);
 
         const bool sameDevice = color.device == output.device
             && color.device == depth.device
@@ -643,6 +662,8 @@ namespace
             ReleaseEvaluateTextureInfo(&motion);
             return 0;
         }
+        timingEvaluateStart = timingDescribeEnd;
+        timingEvaluateEnd = timingDescribeEnd;
 
         ID3D11Resource* colorResource = nullptr;
         ID3D11Resource* outputResource = nullptr;
@@ -666,6 +687,9 @@ namespace
             ReleaseEvaluateTextureInfo(&motion);
             return 0;
         }
+        QueryPerformanceCounter(&timingQueryEnd);
+        timingEvaluateStart = timingQueryEnd;
+        timingEvaluateEnd = timingQueryEnd;
 
         const std::wstring runtimePathValue = runtimePath != nullptr ? runtimePath : L"";
         const std::wstring applicationDataPathValue = applicationDataPath != nullptr ? applicationDataPath : L".";
@@ -840,11 +864,13 @@ namespace
                 evalParams.InMVScaleY = motionVectorScaleY == 0.0f ? 1.0f : motionVectorScaleY;
                 evalParams.InPreExposure = 1.0f;
                 evalParams.InExposureScale = 1.0f;
+                QueryPerformanceCounter(&timingEvaluateStart);
                 evaluateResult = NGX_D3D11_EVALUATE_DLSS_EXT(
                     g_dlssFrameSequence.context,
                     g_dlssFrameSequence.feature,
                     g_dlssFrameSequence.parameters,
                     &evalParams);
+                QueryPerformanceCounter(&timingEvaluateEnd);
                 g_dlssFrameSequence.evaluateCount++;
                 g_dlssFrameSequence.lastEvaluateResult = evaluateResult;
                 if (evaluateResult == NVSDK_NGX_Result_Success)
@@ -856,7 +882,7 @@ namespace
                 std::snprintf(
                     message,
                     sizeof(message),
-                    "DLSS frame-sequence evaluate probe completed via %s; appId=%llu; recreated=%s; init=0x%08X; capability=0x%08X; available=%d(result=0x%08X); render=%ux%u; target=%ux%u; perfQuality=%d; flags=0x%08X; jitter=(%.4f,%.4f); mvScale=(%.4f,%.4f); sharpness=%.4f; requestedReset=%d; appliedReset=%d; sequenceCreates=%d; sequenceEvaluates=%d; evaluateSuccesses=%d; create=0x%08X; feature=%s; evaluateLast=0x%08X",
+                    "DLSS frame-sequence evaluate probe completed via %s; appId=%llu; recreated=%s; init=0x%08X; capability=0x%08X; available=%d(result=0x%08X); render=%ux%u; target=%ux%u; perfQuality=%d; flags=0x%08X; jitter=(%.4f,%.4f); mvScale=(%.4f,%.4f); sharpness=%.4f; requestedReset=%d; appliedReset=%d; sequenceCreates=%d; sequenceEvaluates=%d; evaluateSuccesses=%d; create=0x%08X; feature=%s; evaluateLast=0x%08X; nativeTimingMs=(describe=%.3f,query=%.3f,prepare=%.3f,evaluate=%.3f,total=%.3f)",
                     g_dlssFrameSequence.initRoute,
                     g_dlssFrameSequence.applicationId,
                     recreated ? "yes" : "no",
@@ -882,7 +908,12 @@ namespace
                     g_dlssFrameSequence.evaluateSuccesses,
                     static_cast<NgxResult>(g_dlssFrameSequence.createResult),
                     g_dlssFrameSequence.feature != nullptr ? "yes" : "no",
-                    static_cast<NgxResult>(g_dlssFrameSequence.lastEvaluateResult));
+                    static_cast<NgxResult>(g_dlssFrameSequence.lastEvaluateResult),
+                    ElapsedMilliseconds(timingStart, timingDescribeEnd, timingFrequency),
+                    ElapsedMilliseconds(timingDescribeEnd, timingQueryEnd, timingFrequency),
+                    ElapsedMilliseconds(timingQueryEnd, timingEvaluateStart, timingFrequency),
+                    ElapsedMilliseconds(timingEvaluateStart, timingEvaluateEnd, timingFrequency),
+                    ElapsedMilliseconds(timingStart, timingEvaluateEnd, timingFrequency));
                 SetDlssFrameSequenceStatus(message);
             }
         }

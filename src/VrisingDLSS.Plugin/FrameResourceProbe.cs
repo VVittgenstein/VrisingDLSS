@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -72,6 +73,9 @@ internal static class FrameResourceProbe
     private static int DlssUserRenderingFailureLogCount;
     private static int DlssUserRenderingLastAttemptFrameCount = -1;
     private static long DlssUserRenderingLastAttemptTimestamp;
+    private static int DlssUserRenderingBridgeEvaluateTimedCount;
+    private static long DlssUserRenderingBridgeEvaluateTotalTicks;
+    private static long DlssUserRenderingBridgeEvaluateMaxTicks;
     private static int DlssVisibleWritebackProbeAttemptCount;
     private static int DlssVisibleWritebackProbeSuccessCount;
     private static int DlssEvaluateOutputFollowupLogCount;
@@ -549,6 +553,9 @@ internal static class FrameResourceProbe
                 DlssUserRenderingFailureLogCount = 0;
                 DlssUserRenderingLastAttemptFrameCount = -1;
                 DlssUserRenderingLastAttemptTimestamp = 0;
+                DlssUserRenderingBridgeEvaluateTimedCount = 0;
+                DlssUserRenderingBridgeEvaluateTotalTicks = 0;
+                DlssUserRenderingBridgeEvaluateMaxTicks = 0;
                 DlssUserRenderingFrameThrottleFallbackLogged = false;
                 DlssVisibleWritebackProbeAttemptCount = 0;
                 DlssVisibleWritebackProbeSuccessCount = 0;
@@ -2851,6 +2858,7 @@ internal static class FrameResourceProbe
                 $"DLSS user rendering candidate #{attempt} from {source}: unityFrame={unityFrameLabel}; color=0x{colorPointer.ToInt64():X}; output=0x{outputPointer.ToInt64():X}; depth=0x{depthPointer.ToInt64():X}; motion=0x{motionPointer.ToInt64():X}; outputResourceName={outputResourceName ?? "unavailable"}; perfQuality={DlssEvaluateSettings.PerfQualityValue}; flags=0x{DlssEvaluateSettings.FeatureFlags:X}; sharpness={DlssEvaluateSettings.Sharpness}; reset={reset}");
         }
 
+        var evaluateStartTimestamp = Stopwatch.GetTimestamp();
         var success = bridge.EvaluateDlssFrameSequence(
             colorPointer,
             outputPointer,
@@ -2867,6 +2875,8 @@ internal static class FrameResourceProbe
             1.0f,
             DlssEvaluateSettings.Sharpness,
             reset);
+        var evaluateTicks = Stopwatch.GetTimestamp() - evaluateStartTimestamp;
+        var timing = RecordDlssUserRenderingBridgeEvaluateTiming(evaluateTicks);
         var status = bridge.GetDlssFrameSequenceStatus();
         if (success)
         {
@@ -2884,7 +2894,7 @@ internal static class FrameResourceProbe
             if (firstSuccess || currentSuccessCount <= 5 || currentSuccessCount % 300 == 0)
             {
                 var unityFrameLabel = unityFrameKnown ? unityFrame.ToString() : "unknown";
-                log.LogInfo($"DLSS user rendering evaluate succeeded from {source}: sequenceSuccesses={currentSuccessCount}; unityFrame={unityFrameLabel}; outputResourceName={outputResourceName ?? "unavailable"}; {status}");
+                log.LogInfo($"DLSS user rendering evaluate succeeded from {source}: sequenceSuccesses={currentSuccessCount}; unityFrame={unityFrameLabel}; outputResourceName={outputResourceName ?? "unavailable"}; bridgeTiming={timing}; {status}");
             }
         }
         else
@@ -2896,7 +2906,7 @@ internal static class FrameResourceProbe
                     : "failed";
             if (ShouldLogDlssUserRenderingFailure(attempt))
             {
-                log.LogWarning($"DLSS user rendering evaluate {statusKind} from {source}: {status}");
+                log.LogWarning($"DLSS user rendering evaluate {statusKind} from {source}: bridgeTiming={timing}; {status}");
             }
 
             if (string.Equals(statusKind, "blocked", StringComparison.Ordinal) || string.Equals(statusKind, "skipped", StringComparison.Ordinal))
@@ -2909,6 +2919,41 @@ internal static class FrameResourceProbe
                 log.LogWarning("DLSS user rendering candidate disabled for this session after a non-retryable native response. Check DLSS.DlssRuntimePath and native SDK-wrapper availability before re-enabling.");
             }
         }
+    }
+
+    private static string RecordDlssUserRenderingBridgeEvaluateTiming(long lastTicks)
+    {
+        int count;
+        long totalTicks;
+        long maxTicks;
+        lock (Sync)
+        {
+            DlssUserRenderingBridgeEvaluateTimedCount++;
+            DlssUserRenderingBridgeEvaluateTotalTicks += lastTicks;
+            if (lastTicks > DlssUserRenderingBridgeEvaluateMaxTicks)
+            {
+                DlssUserRenderingBridgeEvaluateMaxTicks = lastTicks;
+            }
+
+            count = DlssUserRenderingBridgeEvaluateTimedCount;
+            totalTicks = DlssUserRenderingBridgeEvaluateTotalTicks;
+            maxTicks = DlssUserRenderingBridgeEvaluateMaxTicks;
+        }
+
+        var lastMs = StopwatchTicksToMilliseconds(lastTicks);
+        var averageMs = count > 0 ? StopwatchTicksToMilliseconds(totalTicks) / count : 0.0;
+        var maxMs = StopwatchTicksToMilliseconds(maxTicks);
+        return $"lastMs={FormatMilliseconds(lastMs)},avgMs={FormatMilliseconds(averageMs)},maxMs={FormatMilliseconds(maxMs)},samples={count}";
+    }
+
+    private static double StopwatchTicksToMilliseconds(long ticks)
+    {
+        return ticks * 1000.0 / Stopwatch.Frequency;
+    }
+
+    private static string FormatMilliseconds(double value)
+    {
+        return value.ToString("0.###", CultureInfo.InvariantCulture);
     }
 
     private static bool WasDlssUserRenderingAttemptedThisFrameOrInterval()

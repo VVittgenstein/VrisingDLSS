@@ -122,9 +122,9 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
 - FSR Off render-scale control has one passing constructive proof: v6 forced the active dynamic-resolution handler fraction to `0.5`, produced the expected `960x540 -> 1920x1080` tuple, and ran repeated SDK-wrapper `dlss-user-rendering` evaluates under V Rising FSR Off. Earlier v1-v5 failures remain useful negative evidence and should not be repeated unchanged.
 - Normal-user `dlss-user-rendering` now has gameplay screenshots and repeated evaluate
   success under V Rising FSR Off, but it fails the performance gate severely. The next
-  technical blocker is to identify whether synchronous NGX evaluate from
-  `RenderGraph GetTexture` is stalling the render thread and to move evaluation toward
-  a proper render/upscale pass if confirmed.
+  technical blocker is to use the added C#/native timing fields to identify whether
+  synchronous NGX evaluate from `RenderGraph GetTexture` is stalling the render thread
+  and to move evaluation toward a proper render/upscale pass if confirmed.
 - Gameplay image-correctness still needs a human review only after the severe
   performance regression is fixed; do not write a passing human review for the r2
   artifact.
@@ -149,8 +149,9 @@ Follow the new goal order:
      `1920x1080` Windowed visual/performance result: screenshots and evaluate passed,
      performance blocked;
    - do not repeat `fsr-off-render-scale-1080p-v1-20260606`, `fsr-off-render-scale-1080p-hwdrs-v2-20260606`, `fsr-off-render-scale-1080p-handler-request-v3-20260606`, `fsr-off-render-scale-1080p-handler-request-v4-20260606`, or `fsr-off-render-scale-1080p-software-fallback-v5-20260606` unchanged;
-   - next loop should add bounded C#/native timing around user-rendering evaluate and
-     decide whether the call must move out of the passive `RenderGraph GetTexture`
+   - next loop should run the same protected `1920x1080` Windowed
+     `dlss-user-rendering` comparison with the new timing fields and decide whether
+     the call must move out of the passive `RenderGraph GetTexture`
      resource-discovery postfix;
    - after performance is no longer severely negative, resume visual correctness,
      resize/reset, fallback, and productionizing the guarded v6 render-scale
@@ -167,6 +168,7 @@ As of the v6 user-rendering visual/performance follow-up:
   failed fallback-only result, the `fsr-off-render-scale-1080p-post-update-fraction-v6-20260606`
   tuple/evaluate pass, safe cleanup, save restoration, external DLSS mod practice
   research, the `v6-user-rendering-1080p-auto-visual-20260606-r2` blocked
-  visual/performance result, and the initial DLSS performance-placement investigation.
+  visual/performance result, the initial DLSS performance-placement investigation, and
+  bounded C#/native timing instrumentation for the next user-rendering run.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.

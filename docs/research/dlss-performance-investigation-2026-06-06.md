@@ -112,14 +112,34 @@ instead of DLSS making the workload more GPU-efficient.
    motion-vector scale, and reset handling are currently not production-quality, but
    they do not explain the large GPU-utilization drop by themselves.
 
-## Next Diagnostic Step
+## Timing Instrumentation Added
 
-Add bounded timing instrumentation before another gameplay run:
+Follow-up patch after this investigation adds bounded timing fields to the existing
+`dlss-user-rendering` evidence line:
 
-- In C#, time `bridge.EvaluateDlssFrameSequence(...)` wall-clock duration and log
-  average/max every few hundred frames.
-- In native code, optionally split timing for describe/query/create/evaluate.
-- Preserve the current one-evaluate-per-Unity-frame throttle.
+- C# bridge wall time:
+  `bridgeTiming=lastMs=<n>,avgMs=<n>,maxMs=<n>,samples=<n>`
+- Native frame-sequence timing:
+  `nativeTimingMs=(describe=<n>,query=<n>,prepare=<n>,evaluate=<n>,total=<n>)`
+
+The native split means:
+
+- `describe`: `TryDescribeEvaluateTexture(...)` across color/output/depth/motion.
+- `query`: `TryQueryD3D11Resource(...)` across color/output/depth/motion.
+- `prepare`: mutex wait plus session recreate/setup work before NGX evaluate.
+- `evaluate`: `NGX_D3D11_EVALUATE_DLSS_EXT(...)`.
+- `total`: native function time through evaluate completion, before resource release.
+
+The logging cadence remains low-noise: first successes and every 300th success, plus
+bounded failures.
+
+## Next Diagnostic Test
+
+Run another `1920x1080` Windowed, V Rising FSR Off, `dlss-user-rendering` candidate
+test with the same save protection and cleanup protocol.
+
+Question: where is the candidate spending frame time when FPS drops and GPU
+utilization falls?
 
 Pass signal for this diagnostic is not high FPS. It should answer where the time is
 going:
