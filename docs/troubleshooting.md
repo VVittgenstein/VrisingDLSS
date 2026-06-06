@@ -360,6 +360,35 @@ found `73` complete chains; `73/73` matched
 `performUpsampling=True`, `dynamicResIsOn=True`, and
 `dynamicResFilter=EdgeAdaptiveScalingUpres`.
 
+## RenderGraph RenderFunc Metadata Probe
+
+`EnableRenderGraphPassRenderFuncMetadataProbe` is disabled by default and is
+read-only. It reuses the safe `CompileRenderGraph(int)` observation point and
+logs focused pass `renderFunc` delegate metadata. It does not call the delegate,
+does not patch generated render functions, does not receive `RenderGraphContext`,
+does not resolve resources or native texture pointers, and does not evaluate
+DLSS.
+
+Use it after pass-data proof when the next question is which generated render
+function methods the focused pass chain points to:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\path\to\VRising" -Stage rendergraph-renderfunc-metadata -DurationSeconds 120 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080
+```
+
+Current evidence: menu proof
+`rendergraph-renderfunc-metadata-1080p-menu-20260606-r3` passed at true
+`1920x1080` Windowed with `CrashEventCount=0`, analyzer
+`RenderGraph RenderFunc Metadata=Pass`, `248` metadata lines, `0`
+`renderFunc=not found`, `0` metadata failures, `0` broad GetTexture logs, and
+restored settings. It mapped `Uber Post` to `<UberPass>b__1060_0`, `Edge
+Adaptive Spatial Upsampling` to `<EdgeAdaptiveSpatialUpsampling>b__1066_0`, and
+`Final Pass` to `<FinalPass>b__1069_0`.
+
+Do not patch those generated methods or use this as evaluate-boundary evidence
+yet. The next validation is protected `11111` gameplay proof with `GetTexture=0`,
+no movement keys, and save restore.
+
 ## RenderGraph Execute-Delegate Probe
 
 `EnableRenderGraphExecuteDelegateProbe` is disabled by default and is read-only.

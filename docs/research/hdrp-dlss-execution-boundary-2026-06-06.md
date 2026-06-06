@@ -459,6 +459,15 @@ Pass-data / execution-delegate follow-up:
   zero focused callback lines. Treat it as patch-stability evidence only; the next
   step is local interop/IL2CPP execution-path inspection, not rerunning the stage
   unchanged or advancing to gameplay.
+- Follow-up `rendergraph-renderfunc-metadata` kept the observation point at
+  `CompileRenderGraph(int)` and read focused pass `renderFunc` delegate metadata
+  without calling or patching those delegates. Menu proof
+  `rendergraph-renderfunc-metadata-1080p-menu-20260606-r3` passed with `248`
+  metadata lines, `GetTexture=0`, and no crash. It mapped `Uber Post` to
+  `<UberPass>b__1060_0`, `Edge Adaptive Spatial Upsampling` to
+  `<EdgeAdaptiveSpatialUpsampling>b__1066_0`, and `Final Pass` to
+  `<FinalPass>b__1069_0`. This is metadata evidence only, not an
+  execution/evaluate boundary.
 
 Implementation update:
 

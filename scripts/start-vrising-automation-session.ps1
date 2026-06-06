@@ -25,6 +25,7 @@ param(
         "rendergraph-pass-list",
         "rendergraph-pass-declarations",
         "rendergraph-pass-data",
+        "rendergraph-renderfunc-metadata",
         "rendergraph-execute-delegate",
         "render-scale-control",
         "dlss-user-rendering",

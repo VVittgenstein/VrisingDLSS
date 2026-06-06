@@ -459,5 +459,23 @@ As of the read-only RenderGraph pass-map runtime result:
   wrapper reports `CallerCount(0)`. Next inspect/design a new local
   interop/IL2CPP execution-path candidate; do not patch generated render funcs or
   `RenderGraphPass<T>.Execute` as the next normal route.
+- Implementation and menu-runtime follow-up added
+  `Diagnostics.EnableRenderGraphPassRenderFuncMetadataProbe=false` and helper
+  stage `rendergraph-renderfunc-metadata`. It reuses the safe
+  `CompileRenderGraph(int)` postfix to read focused pass `renderFunc` delegate
+  metadata only: no delegate call, no generated render-func patch, no
+  `RenderGraphContext`, no resource/native texture resolution, no command buffer,
+  and no DLSS evaluate. The accepted menu proof
+  `rendergraph-renderfunc-metadata-1080p-menu-20260606-r3` passed at true
+  `1920x1080` Windowed with `CrashEventCount=0`, analyzer
+  `RenderGraph RenderFunc Metadata=Pass`, `248` metadata lines, `0`
+  `renderFunc=not found`, `0` metadata failures, `0` broad GetTexture logs, and
+  cleanup restored loader config and ClientSettings. It mapped `Uber Post` to
+  `<UberPass>b__1060_0` (`100664386`), `Edge Adaptive Spatial Upsampling` to
+  `<EdgeAdaptiveSpatialUpsampling>b__1066_0` (`100664389`), and `Final Pass` to
+  `<FinalPass>b__1069_0` (`100664390`). This is menu-safe metadata evidence, not
+  an execution/evaluate boundary. Next action is protected `11111` gameplay proof
+  for this stage with `GetTexture=0`, no movement keys, and save restore before
+  relying on these method identities.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.

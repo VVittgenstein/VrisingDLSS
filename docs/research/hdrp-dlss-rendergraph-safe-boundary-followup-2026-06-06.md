@@ -275,3 +275,14 @@ This candidate only proves that a focused pass reached the execution layer. It
 does not provide `RenderGraphContext`, command buffers, native textures, or DLSS
 evaluate authority. Full protocol:
 `docs/development/rendergraph-execute-delegate-candidate-2026-06-06.md`.
+
+Follow-up after the no-signal execute-delegate run added
+`rendergraph-renderfunc-metadata`, which keeps the observation point at the safe
+`CompileRenderGraph(int)` postfix and reads focused pass `renderFunc` delegate
+metadata without calling or patching those delegates. Menu proof
+`rendergraph-renderfunc-metadata-1080p-menu-20260606-r3` passed at true
+`1920x1080` Windowed with no crash, `GetTexture=0`, and `248` metadata lines. It
+mapped `Uber Post` to `<UberPass>b__1060_0`, `Edge Adaptive Spatial Upsampling`
+to `<EdgeAdaptiveSpatialUpsampling>b__1066_0`, and `Final Pass` to
+`<FinalPass>b__1069_0`. This is still metadata evidence only, not an
+execution/evaluate boundary.

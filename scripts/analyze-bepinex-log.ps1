@@ -207,6 +207,12 @@ $results.Add((New-StageResult `
     -StartedPatterns @("RenderGraph pass-data snapshot probe enabled", "RenderGraph pass-list patched")))
 
 $results.Add((New-StageResult `
+    -Stage "RenderGraph RenderFunc Metadata" `
+    -PassPatterns @("RenderGraph pass render-func metadata #") `
+    -FailPatterns @("RenderGraph pass-list logging failed", "RenderGraph pass-list failed to patch", "RenderGraph pass-list target was not found", "RenderGraph pass render-func metadata renderFunc=not found", "RenderGraph pass render-func metadata typed read failed") `
+    -StartedPatterns @("RenderGraph pass render-func metadata probe enabled", "RenderGraph pass-list patched")))
+
+$results.Add((New-StageResult `
     -Stage "RenderGraph Execute Delegate" `
     -PassPatterns @("RenderGraph execute-delegate #") `
     -FailPatterns @("RenderGraph execute-delegate logging failed", "RenderGraph execute-delegate failed to patch", "RenderGraph execute-delegate target was not found", "RenderGraph execute-delegate pass=not found", "RenderGraph execute-delegate data=not found") `

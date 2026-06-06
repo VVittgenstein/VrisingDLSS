@@ -22,6 +22,7 @@ internal static class FrameResourceProbe
     private const int MaxRenderGraphPassListEntryLogs = 320;
     private const int MaxRenderGraphPassDeclarationLogs = 260;
     private const int MaxRenderGraphPassDataSnapshotLogs = 220;
+    private const int MaxRenderGraphPassRenderFuncMetadataLogs = 220;
     private const int MaxRenderGraphExecuteDelegateLogs = 180;
     private const int MaxRenderGraphExecutionScopeLogs = 80;
     private const int MaxRenderGraphScopedEvaluateAttempts = 12;
@@ -62,6 +63,7 @@ internal static class FrameResourceProbe
     private static int RenderGraphPassListEntryLogCount;
     private static int RenderGraphPassDeclarationLogCount;
     private static int RenderGraphPassDataSnapshotLogCount;
+    private static int RenderGraphPassRenderFuncMetadataLogCount;
     private static int RenderGraphExecuteDelegateLogCount;
     private static int RenderGraphExecutionScopeCallCount;
     private static int RenderGraphScopedEvaluateAttemptCount;
@@ -130,6 +132,7 @@ internal static class FrameResourceProbe
     private static bool RenderGraphPassListProbeEnabled;
     private static bool RenderGraphPassResourceDeclarationProbeEnabled;
     private static bool RenderGraphPassDataSnapshotProbeEnabled;
+    private static bool RenderGraphPassRenderFuncMetadataProbeEnabled;
     private static bool RenderGraphExecuteDelegateProbeEnabled;
     private static bool RenderGraphGetTextureProbeEnabled;
     private static bool DlssPassResourceProbeEnabled;
@@ -188,6 +191,7 @@ internal static class FrameResourceProbe
         bool enableRenderGraphPassListProbe = false,
         bool enableRenderGraphPassResourceDeclarationProbe = false,
         bool enableRenderGraphPassDataSnapshotProbe = false,
+        bool enableRenderGraphPassRenderFuncMetadataProbe = false,
         bool enableRenderGraphExecuteDelegateProbe = false,
         bool enableRenderGraphGetTextureProbe = true,
         bool enableDlssPassResourceProbe = false)
@@ -220,6 +224,7 @@ internal static class FrameResourceProbe
             RenderGraphPassListProbeEnabled = RenderGraphPassListProbeEnabled || enableRenderGraphPassListProbe;
             RenderGraphPassResourceDeclarationProbeEnabled = RenderGraphPassResourceDeclarationProbeEnabled || enableRenderGraphPassResourceDeclarationProbe;
             RenderGraphPassDataSnapshotProbeEnabled = RenderGraphPassDataSnapshotProbeEnabled || enableRenderGraphPassDataSnapshotProbe;
+            RenderGraphPassRenderFuncMetadataProbeEnabled = RenderGraphPassRenderFuncMetadataProbeEnabled || enableRenderGraphPassRenderFuncMetadataProbe;
             RenderGraphExecuteDelegateProbeEnabled = RenderGraphExecuteDelegateProbeEnabled || enableRenderGraphExecuteDelegateProbe;
             RenderGraphGetTextureProbeEnabled = RenderGraphGetTextureProbeEnabled || enableRenderGraphGetTextureProbe;
             DlssPassResourceProbeEnabled = DlssPassResourceProbeEnabled || enableDlssPassResourceProbe;
@@ -260,6 +265,7 @@ internal static class FrameResourceProbe
         RenderGraphPassListProbeEnabled = enableRenderGraphPassListProbe;
         RenderGraphPassResourceDeclarationProbeEnabled = enableRenderGraphPassResourceDeclarationProbe;
         RenderGraphPassDataSnapshotProbeEnabled = enableRenderGraphPassDataSnapshotProbe;
+        RenderGraphPassRenderFuncMetadataProbeEnabled = enableRenderGraphPassRenderFuncMetadataProbe;
         RenderGraphExecuteDelegateProbeEnabled = enableRenderGraphExecuteDelegateProbe;
         RenderGraphGetTextureProbeEnabled = enableRenderGraphGetTextureProbe;
         DlssPassResourceProbeEnabled = enableDlssPassResourceProbe;
@@ -366,6 +372,10 @@ internal static class FrameResourceProbe
         if (RenderGraphPassDataSnapshotProbeEnabled)
         {
             log.LogInfo("RenderGraph pass-data snapshot probe enabled. It patches CompileRenderGraph(int) for focused pass data fields only and does not resolve textures or evaluate DLSS.");
+        }
+        if (RenderGraphPassRenderFuncMetadataProbeEnabled)
+        {
+            log.LogInfo("RenderGraph pass render-func metadata probe enabled. It patches CompileRenderGraph(int) to read focused pass renderFunc delegate metadata only and does not call or patch render functions.");
         }
         if (RenderGraphExecuteDelegateProbeEnabled)
         {
@@ -576,7 +586,7 @@ internal static class FrameResourceProbe
             patched++;
         }
 
-        if ((RenderGraphPassListProbeEnabled || RenderGraphPassResourceDeclarationProbeEnabled || RenderGraphPassDataSnapshotProbeEnabled)
+        if ((RenderGraphPassListProbeEnabled || RenderGraphPassResourceDeclarationProbeEnabled || RenderGraphPassDataSnapshotProbeEnabled || RenderGraphPassRenderFuncMetadataProbeEnabled)
             && TryPatchRenderGraphPassListMethod(
                 log,
                 assemblies,
@@ -673,6 +683,7 @@ internal static class FrameResourceProbe
             RenderGraphPassListProbeEnabled = false;
             RenderGraphPassResourceDeclarationProbeEnabled = false;
             RenderGraphPassDataSnapshotProbeEnabled = false;
+            RenderGraphPassRenderFuncMetadataProbeEnabled = false;
             RenderGraphExecuteDelegateProbeEnabled = false;
             RenderGraphGetTextureProbeEnabled = false;
             DlssPassResourceProbeEnabled = false;
@@ -712,6 +723,7 @@ internal static class FrameResourceProbe
                 RenderGraphPassListEntryLogCount = 0;
                 RenderGraphPassDeclarationLogCount = 0;
                 RenderGraphPassDataSnapshotLogCount = 0;
+                RenderGraphPassRenderFuncMetadataLogCount = 0;
                 RenderGraphExecuteDelegateLogCount = 0;
                 RenderGraphExecutionScopeCallCount = 0;
                 RenderGraphScopedEvaluateAttemptCount = 0;
@@ -1858,7 +1870,10 @@ internal static class FrameResourceProbe
     {
         try
         {
-            if (!RenderGraphPassListProbeEnabled && !RenderGraphPassResourceDeclarationProbeEnabled && !RenderGraphPassDataSnapshotProbeEnabled)
+            if (!RenderGraphPassListProbeEnabled
+                && !RenderGraphPassResourceDeclarationProbeEnabled
+                && !RenderGraphPassDataSnapshotProbeEnabled
+                && !RenderGraphPassRenderFuncMetadataProbeEnabled)
             {
                 return;
             }
@@ -1947,6 +1962,7 @@ internal static class FrameResourceProbe
 
             TryLogRenderGraphPassResourceDeclarations(compileCount, passSummaries);
             TryLogRenderGraphPassDataSnapshots(compileCount, passSummaries);
+            TryLogRenderGraphPassRenderFuncMetadata(compileCount, passSummaries);
         }
         catch (Exception ex)
         {
@@ -2112,6 +2128,54 @@ internal static class FrameResourceProbe
         }
     }
 
+    private static void TryLogRenderGraphPassRenderFuncMetadata(
+        int compileCount,
+        IEnumerable<(int Ordinal, object Pass, string Name, string TypeName, string Category)> passSummaries)
+    {
+        if (!RenderGraphPassRenderFuncMetadataProbeEnabled)
+        {
+            return;
+        }
+
+        var log = Log;
+        if (log is null)
+        {
+            return;
+        }
+
+        foreach (var summary in passSummaries)
+        {
+            if (!IsFocusedRenderGraphPassDataSnapshotTarget(summary.Name, summary.TypeName, summary.Category))
+            {
+                continue;
+            }
+
+            int metadataLogCount;
+            lock (Sync)
+            {
+                RenderGraphPassRenderFuncMetadataLogCount++;
+                metadataLogCount = RenderGraphPassRenderFuncMetadataLogCount;
+            }
+
+            if (metadataLogCount > MaxRenderGraphPassRenderFuncMetadataLogs && metadataLogCount % 500 != 0)
+            {
+                continue;
+            }
+
+            var renderFunc = TryReadPropertyObject(summary.Pass, "renderFunc")
+                ?? TryReadFieldObject(summary.Pass, "renderFunc")
+                ?? TryReadTypedRenderGraphPassRenderFuncObject(summary.Pass, summary.Name);
+            if (renderFunc is null)
+            {
+                log.LogInfo($"RenderGraph pass render-func metadata renderFunc=not found #{metadataLogCount}: compile={compileCount}; ordinal={summary.Ordinal}; pass=\"{summary.Name}\"; category={summary.Category}; passType={summary.TypeName}");
+                continue;
+            }
+
+            var renderFuncSummary = SummarizeRenderGraphRenderFunc(renderFunc);
+            log.LogInfo($"RenderGraph pass render-func metadata #{metadataLogCount}: compile={compileCount}; ordinal={summary.Ordinal}; pass=\"{summary.Name}\"; category={summary.Category}; passType={summary.TypeName}; renderFunc={renderFuncSummary}");
+        }
+    }
+
     private static void TryLogRenderGraphPassBoundary(MethodBase originalMethod, object?[]? args)
     {
         try
@@ -2265,7 +2329,54 @@ internal static class FrameResourceProbe
         var typedPass = pass.TryCast<UnityEngine.Experimental.Rendering.RenderGraphModule.RenderGraphPass<TPassData>>();
         return typedPass?.data;
     }
+
+    private static object? TryReadTypedRenderGraphPassRenderFunc<TPassData>(
+        Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase pass)
+        where TPassData : class
+    {
+        var typedPass = pass.TryCast<UnityEngine.Experimental.Rendering.RenderGraphModule.RenderGraphPass<TPassData>>();
+        return typedPass?.renderFunc;
+    }
 #endif
+
+    private static object? TryReadTypedRenderGraphPassRenderFuncObject(object pass, string passName)
+    {
+#if VRISINGDLSS_LOCAL_INTEROP
+        if (pass is not Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase il2CppPass)
+        {
+            return null;
+        }
+
+        try
+        {
+            if (passName.IndexOf("Deep Learning Super Sampling", StringComparison.OrdinalIgnoreCase) >= 0
+                || passName.IndexOf("DLSS", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return TryReadTypedRenderGraphPassRenderFunc<UnityEngine.Rendering.HighDefinition.HDRenderPipeline.DLSSData>(il2CppPass);
+            }
+
+            if (passName.IndexOf("Uber Post", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return TryReadTypedRenderGraphPassRenderFunc<UnityEngine.Rendering.HighDefinition.HDRenderPipeline.UberPostPassData>(il2CppPass);
+            }
+
+            if (passName.IndexOf("Edge Adaptive Spatial Upsampling", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return TryReadTypedRenderGraphPassRenderFunc<UnityEngine.Rendering.HighDefinition.HDRenderPipeline.EASUData>(il2CppPass);
+            }
+
+            if (passName.IndexOf("Final Pass", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return TryReadTypedRenderGraphPassRenderFunc<UnityEngine.Rendering.HighDefinition.HDRenderPipeline.FinalPassData>(il2CppPass);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log?.LogWarning($"RenderGraph pass render-func metadata typed read failed for pass \"{FirstLine(passName)}\": {GetExceptionMessage(ex)}");
+        }
+#endif
+        return null;
+    }
 
     private static IReadOnlyList<RenderGraphPassDataSnapshotMember> CollectRenderGraphPassDataSnapshotMembers(
         string passName,
@@ -6409,6 +6520,105 @@ internal static class FrameResourceProbe
         }
 
         return string.Join("; ", args.Select((arg, index) => $"arg{index}={SummarizeValue(arg)}"));
+    }
+
+    private static string SummarizeRenderGraphRenderFunc(object renderFunc)
+    {
+        var parts = new List<string>
+        {
+            renderFunc.GetType().FullName ?? renderFunc.GetType().Name
+        };
+
+        foreach (var memberName in new[]
+        {
+            "method_ptr",
+            "invoke_impl",
+            "method",
+            "delegate_trampoline",
+            "extra_arg",
+            "method_code",
+            "interp_method",
+            "interp_invoke_impl"
+        })
+        {
+            AddRenderFuncPointerSummary(parts, memberName, renderFunc);
+        }
+
+        foreach (var memberName in new[]
+        {
+            "Method",
+            "Target",
+            "method_info",
+            "original_method_info",
+            "m_target",
+            "data",
+            "delegates"
+        })
+        {
+            AddRenderFuncObjectSummary(parts, memberName, renderFunc);
+        }
+
+        return string.Join(" ", parts);
+    }
+
+    private static void AddRenderFuncPointerSummary(ICollection<string> parts, string memberName, object renderFunc)
+    {
+        var value = TryReadPropertyObject(renderFunc, memberName)
+            ?? TryReadFieldObject(renderFunc, memberName);
+        if (value is null)
+        {
+            return;
+        }
+
+        if (value is IntPtr pointer)
+        {
+            parts.Add($"{memberName}=0x{pointer.ToInt64():X}");
+            return;
+        }
+
+        if (value is UIntPtr unsignedPointer)
+        {
+            parts.Add($"{memberName}=0x{unsignedPointer.ToUInt64():X}");
+            return;
+        }
+
+        parts.Add($"{memberName}={FirstLine(SummarizeValue(value))}");
+    }
+
+    private static void AddRenderFuncObjectSummary(ICollection<string> parts, string memberName, object renderFunc)
+    {
+        var value = TryReadPropertyObject(renderFunc, memberName)
+            ?? TryReadFieldObject(renderFunc, memberName);
+        if (value is null)
+        {
+            return;
+        }
+
+        var summary = memberName.IndexOf("method", StringComparison.OrdinalIgnoreCase) >= 0
+            ? SummarizeRenderFuncMethodInfo(value)
+            : FirstLine(SummarizeValue(value));
+        parts.Add($"{memberName}={summary}");
+    }
+
+    private static string SummarizeRenderFuncMethodInfo(object methodInfo)
+    {
+        var parts = new List<string>
+        {
+            FirstLine(SummarizeValue(methodInfo))
+        };
+
+        foreach (var propertyName in new[] { "Name", "DeclaringType", "ReflectedType", "MetadataToken" })
+        {
+            var value = TryReadPropertyObject(methodInfo, propertyName);
+            if (value is null)
+            {
+                continue;
+            }
+
+            parts.Add($"{propertyName}={FirstLine(SummarizeValue(value))}");
+        }
+
+        return string.Join(",", parts);
     }
 
     private static string GetManagedCallerSummary()
