@@ -232,11 +232,16 @@ Follow the new goal order:
      `materialization-only-no-evaluate-1080p-20260606-r1`; it cleanly disabled the
      global GetTexture probe but did not observe materialization SR candidates or
      accept a tuple;
-   - next loop should implement a read-only `rendergraph-pass-boundary` proof:
-     patch only a narrowly filtered RenderGraph pass-execution boundary such as
-     `PreRenderPassExecute` or one adjacent non-generic executor, log pass names
-     and candidate upscale/final boundaries, and do not resolve textures or call
-     native DLSS until that boundary is proven stable in gameplay;
+   - `rendergraph-pass-boundary-1080p-20260606-r1` rejected the
+     `RenderGraph.PreRenderPassExecute` Harmony boundary: it patched successfully,
+     emitted `0` `RenderGraph pass boundary #` lines, then V Rising crashed during
+     startup in `coreclr.dll` `0xc0000005` before Continue/gameplay. Cleanup
+     restored loader config, ClientSettings, release-safe native state, and the
+     protected `11111` save with `ChangeCount=0`;
+   - next loop must not rerun `rendergraph-pass-boundary` as a normal diagnostic.
+     It should look for a targeted placement route that avoids Harmony patching
+     ref-`CompiledPassInfo` RenderGraph executor wrappers while still moving
+     tuple/evaluate work out of the hot global `GetTexture` postfix;
    - use `docs/research/dlss-theoretical-performance-model-2026-06-06.md` to
      interpret performance: 1080p is a constructive correctness/stall test, while
      final DLSS value requires a GPU-bound 4K/high-load matrix;
@@ -250,7 +255,7 @@ Follow the new goal order:
 As of the HDRP DLSS execution-boundary follow-up:
 
 - Branch: `main`.
-- Latest pushed checkpoint before this update: `c2e0993 Record r4 no-evaluate performance evidence`.
+- Latest pushed checkpoint before this update: `e854a05 Locate HDRP DLSS pass boundary`.
 - The current working tree records the `fsr-off-render-scale-1080p-software-fallback-v5-20260606`
   failed fallback-only result, the `fsr-off-render-scale-1080p-post-update-fraction-v6-20260606`
   tuple/evaluate pass, safe cleanup, save restoration, external DLSS mod practice
@@ -269,6 +274,9 @@ As of the HDRP DLSS execution-boundary follow-up:
   performance model used to separate low-resolution constructive validation from the
   final GPU-bound performance matrix. This update additionally records the negative
   materialization-only no-evaluate route, the local/upstream HDRP DLSS execution
-  boundary search, and the downloaded Unity Core RenderGraph reference files.
+  boundary search, and the downloaded Unity Core RenderGraph reference files. This
+  update also adds and runtime-rejects a default-off `rendergraph-pass-boundary`
+  diagnostic stage: `PreRenderPassExecute` patching is now high-risk
+  crash-recovery-only evidence, not the next normal route.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.

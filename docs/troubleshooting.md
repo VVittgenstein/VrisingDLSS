@@ -226,6 +226,18 @@ Check:
 
 If this stage passes but the image looks wrong, preserve screenshots and the archived BepInEx log. Stage 10A proves the guarded visible-path candidate ran; it does not by itself prove image correctness, jitter correctness, resize/reset behavior, or final normal-user fallback behavior.
 
+## RenderGraph Pass-Boundary Probe
+
+`EnableRenderGraphPassBoundaryProbe` is disabled by default and is high-risk research-only. It patches only `RenderGraph.PreRenderPassExecute(...)` and logs capped pass metadata: pass name, pass type, a coarse category, and safe `CompiledPassInfo` fields. In the standalone helper stage it does not resolve textures, does not call `GetTexture`, does not load DLSS, and does not evaluate a frame.
+
+The first 2026-06-06 runtime proof rejected this boundary for normal diagnostics: the method patched successfully, no `RenderGraph pass boundary #` lines were emitted, and V Rising crashed during startup with Windows Application Error `coreclr.dll` `0xc0000005` before gameplay/Continue. Do not use this stage except for deliberate crash-recovery research:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\path\to\VRising" -Stage rendergraph-pass-boundary -DurationSeconds 240 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080
+```
+
+For any deliberate rerun, back up and restore the protected `11111` save. A useful run would need `RenderGraph pass boundary #` lines for upscaler/final/postprocess candidates without a matching Windows crash event, but the current evidence says this route is unsafe in V Rising's IL2CPP build.
+
 ## DLSSPass Resource Helper Probe
 
 `EnableDlssPassResourceProbe` is disabled by default. It patches only `DLSSPass.GetViewResources` and `DLSSPass.GetCameraResources`, then logs any returned source/output/depth/motion-vector `Texture` native pointers. It does not patch `DLSSPass.Render`, does not load DLSS, and does not evaluate a frame.

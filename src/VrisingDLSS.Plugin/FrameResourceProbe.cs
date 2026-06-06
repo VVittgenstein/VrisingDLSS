@@ -16,6 +16,7 @@ internal static class FrameResourceProbe
     private const int MaxInitialLogsPerMethod = 5;
     private const int MaxRenderGraphBuilderDeclarationLogs = 40;
     private const int MaxRenderGraphBuilderStackLogs = 6;
+    private const int MaxRenderGraphPassBoundaryLogs = 160;
     private const int MaxRenderGraphExecutionScopeLogs = 80;
     private const int MaxRenderGraphScopedEvaluateAttempts = 12;
     private const int MaxExistingRenderFuncLogs = 80;
@@ -49,6 +50,7 @@ internal static class FrameResourceProbe
     private static readonly object Sync = new();
     private static readonly Dictionary<string, int> CallCounts = new(StringComparer.Ordinal);
     private static int RenderGraphBuilderDeclarationCallCount;
+    private static int RenderGraphPassBoundaryCallCount;
     private static int RenderGraphExecutionScopeCallCount;
     private static int RenderGraphScopedEvaluateAttemptCount;
     private static int ExistingRenderFuncCallCount;
@@ -110,6 +112,7 @@ internal static class FrameResourceProbe
     private static bool RenderGraphDiagnosticPassEnabled;
     private static bool ExistingRenderFuncProbeEnabled;
     private static bool ResourceMaterializationProbeEnabled;
+    private static bool RenderGraphPassBoundaryProbeEnabled;
     private static bool RenderGraphGetTextureProbeEnabled;
     private static bool DlssPassResourceProbeEnabled;
     private static bool RenderGraphGetTextureDiagnosticLoggingEnabled;
@@ -160,6 +163,7 @@ internal static class FrameResourceProbe
         bool enableRenderGraphDiagnosticPass = false,
         bool enableExistingRenderFuncProbe = false,
         bool enableResourceMaterializationProbe = false,
+        bool enableRenderGraphPassBoundaryProbe = false,
         bool enableRenderGraphGetTextureProbe = true,
         bool enableDlssPassResourceProbe = false)
     {
@@ -185,6 +189,7 @@ internal static class FrameResourceProbe
             RenderGraphDiagnosticPassEnabled = RenderGraphDiagnosticPassEnabled || enableRenderGraphDiagnosticPass;
             ExistingRenderFuncProbeEnabled = ExistingRenderFuncProbeEnabled || enableExistingRenderFuncProbe;
             ResourceMaterializationProbeEnabled = ResourceMaterializationProbeEnabled || enableResourceMaterializationProbe;
+            RenderGraphPassBoundaryProbeEnabled = RenderGraphPassBoundaryProbeEnabled || enableRenderGraphPassBoundaryProbe;
             RenderGraphGetTextureProbeEnabled = RenderGraphGetTextureProbeEnabled || enableRenderGraphGetTextureProbe;
             DlssPassResourceProbeEnabled = DlssPassResourceProbeEnabled || enableDlssPassResourceProbe;
             RenderGraphGetTextureDiagnosticLoggingEnabled = RenderGraphGetTextureDiagnosticLoggingEnabled || ShouldEnableRenderGraphGetTextureDiagnosticLogging(
@@ -218,6 +223,7 @@ internal static class FrameResourceProbe
         RenderGraphDiagnosticPassEnabled = enableRenderGraphDiagnosticPass;
         ExistingRenderFuncProbeEnabled = enableExistingRenderFuncProbe;
         ResourceMaterializationProbeEnabled = enableResourceMaterializationProbe;
+        RenderGraphPassBoundaryProbeEnabled = enableRenderGraphPassBoundaryProbe;
         RenderGraphGetTextureProbeEnabled = enableRenderGraphGetTextureProbe;
         DlssPassResourceProbeEnabled = enableDlssPassResourceProbe;
         RenderGraphGetTextureDiagnosticLoggingEnabled = ShouldEnableRenderGraphGetTextureDiagnosticLogging(
@@ -299,6 +305,10 @@ internal static class FrameResourceProbe
         if (ResourceMaterializationProbeEnabled)
         {
             log.LogInfo("RenderGraph resource materialization probe enabled.");
+        }
+        if (RenderGraphPassBoundaryProbeEnabled)
+        {
+            log.LogWarning("High-risk RenderGraph pass-boundary probe enabled. It patches pass execution for metadata only and does not resolve textures or evaluate DLSS, but this route reproduced a coreclr startup crash in V Rising.");
         }
         if (DlssPassResourceProbeEnabled)
         {
@@ -483,6 +493,17 @@ internal static class FrameResourceProbe
             }
         }
 
+        if (RenderGraphPassBoundaryProbeEnabled
+            && TryPatchRenderGraphExecutionScopeMethod(
+                log,
+                assemblies,
+                harmonyMethodConstructor,
+                patchMethod,
+                patchedMethodKeys))
+        {
+            patched++;
+        }
+
         if (DlssPassResourceProbeEnabled)
         {
             var dlssPassResourceHelperPatched = TryPatchDlssPassResourceHelperMethods(
@@ -553,6 +574,7 @@ internal static class FrameResourceProbe
             RenderGraphDiagnosticPassEnabled = false;
             ExistingRenderFuncProbeEnabled = false;
             ResourceMaterializationProbeEnabled = false;
+            RenderGraphPassBoundaryProbeEnabled = false;
             RenderGraphGetTextureProbeEnabled = false;
             DlssPassResourceProbeEnabled = false;
             RenderGraphGetTextureDiagnosticLoggingEnabled = false;
@@ -584,6 +606,7 @@ internal static class FrameResourceProbe
                 CallCounts.Clear();
                 RenderGraphResourceMaterializationCandidates.Clear();
                 RenderGraphBuilderDeclarationCallCount = 0;
+                RenderGraphPassBoundaryCallCount = 0;
                 RenderGraphExecutionScopeCallCount = 0;
                 RenderGraphScopedEvaluateAttemptCount = 0;
                 ExistingRenderFuncCallCount = 0;
@@ -1203,22 +1226,35 @@ internal static class FrameResourceProbe
             return null;
         }
 
-        return renderGraphType
+        var methods = renderGraphType
             .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
-            .FirstOrDefault(method =>
-            {
-                if (!string.Equals(method.Name, "PreRenderPassExecute", StringComparison.Ordinal))
-                {
-                    return false;
-                }
+            .Where(IsRenderGraphExecutionScopeMethod)
+            .ToArray();
 
-                var parameters = method.GetParameters();
-                return parameters.Length == 3
-                    && parameters[0].ParameterType.IsByRef
-                    && TypeNameContains(parameters[0].ParameterType.GetElementType()!, "CompiledPassInfo")
-                    && TypeNameContains(parameters[1].ParameterType, "RenderGraphPass")
-                    && TypeNameContains(parameters[2].ParameterType, "RenderGraphContext");
-            });
+        return methods.FirstOrDefault(method => method.GetParameters().Length == 3)
+            ?? methods.FirstOrDefault();
+    }
+
+    private static bool IsRenderGraphExecutionScopeMethod(MethodInfo method)
+    {
+        if (!string.Equals(method.Name, "PreRenderPassExecute", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var parameters = method.GetParameters();
+        if (parameters.Length == 3)
+        {
+            return parameters[0].ParameterType.IsByRef
+                && TypeNameContains(parameters[0].ParameterType.GetElementType()!, "CompiledPassInfo")
+                && TypeNameContains(parameters[1].ParameterType, "RenderGraphPass")
+                && TypeNameContains(parameters[2].ParameterType, "RenderGraphContext");
+        }
+
+        return parameters.Length == 2
+            && parameters[0].ParameterType.IsByRef
+            && TypeNameContains(parameters[0].ParameterType.GetElementType()!, "CompiledPassInfo")
+            && TypeNameContains(parameters[1].ParameterType, "RenderGraphContext");
     }
 
     private static MethodInfo? FindRenderGraphRegistryBeginExecuteMethod(IEnumerable<Assembly> assemblies)
@@ -1432,6 +1468,15 @@ internal static class FrameResourceProbe
     {
         try
         {
+            if (RenderGraphPassBoundaryProbeEnabled)
+            {
+                TryLogRenderGraphPassBoundary(__originalMethod, __args);
+                if (!DlssEvaluateInputProbeEnabled)
+                {
+                    return;
+                }
+            }
+
             if (!DlssEvaluateInputProbeEnabled)
             {
                 return;
@@ -1444,7 +1489,7 @@ internal static class FrameResourceProbe
                 return;
             }
 
-            var pass = FindTypedArgument(__args, "RenderGraphPass");
+            var pass = FindRenderGraphPassArgument(__args);
             if (pass is null)
             {
                 return;
@@ -1487,6 +1532,124 @@ internal static class FrameResourceProbe
         {
             Log?.LogWarning($"RenderGraph execution scope postfix failed: {GetExceptionMessage(ex)}");
         }
+    }
+
+    private static void TryLogRenderGraphPassBoundary(MethodBase originalMethod, object?[]? args)
+    {
+        try
+        {
+            var log = Log;
+            if (log is null)
+            {
+                return;
+            }
+
+            int count;
+            lock (Sync)
+            {
+                RenderGraphPassBoundaryCallCount++;
+                count = RenderGraphPassBoundaryCallCount;
+            }
+
+            if (count > MaxRenderGraphPassBoundaryLogs && count % 300 != 0)
+            {
+                return;
+            }
+
+            var passInfo = FindTypedArgument(args, "CompiledPassInfo")
+                ?? (args is { Length: > 0 } ? args[0] : null);
+            var pass = FindRenderGraphPassArgument(args);
+            if (pass is null)
+            {
+                log.LogInfo($"RenderGraph pass boundary #{count}: method={HookTargetCatalog.FormatMethod(originalMethod)}; pass=not found; args=[{SummarizeArguments(args)}]");
+                return;
+            }
+
+            var passName = FirstLine(GetRenderGraphPassName(pass));
+            var passType = pass.GetType().FullName ?? pass.GetType().Name;
+            var category = ClassifyRenderGraphPassBoundary(passName, passType);
+            var passInfoSummary = DescribeRenderGraphCompiledPassInfo(passInfo, pass);
+
+            log.LogInfo($"RenderGraph pass boundary #{count}: method={HookTargetCatalog.FormatMethod(originalMethod)}; pass=\"{passName}\"; category={category}; passType={passType}{passInfoSummary}");
+        }
+        catch (Exception ex)
+        {
+            Log?.LogWarning($"RenderGraph pass-boundary logging failed: {GetExceptionMessage(ex)}");
+        }
+    }
+
+    private static string DescribeRenderGraphCompiledPassInfo(object? passInfo, object pass)
+    {
+        var parts = new List<string>();
+        AddSimpleMemberSummary(parts, "passIndex", pass, "index");
+        if (passInfo is not null)
+        {
+            AddSimpleMemberSummary(parts, "culled", passInfo, "culled");
+            AddSimpleMemberSummary(parts, "culledByRendererList", passInfo, "culledByRendererList");
+            AddSimpleMemberSummary(parts, "hasSideEffect", passInfo, "hasSideEffect");
+            AddSimpleMemberSummary(parts, "enableAsyncCompute", passInfo, "enableAsyncCompute");
+            AddSimpleMemberSummary(parts, "refCount", passInfo, "refCount");
+            AddSimpleMemberSummary(parts, "syncToPassIndex", passInfo, "syncToPassIndex");
+            AddSimpleMemberSummary(parts, "syncFromPassIndex", passInfo, "syncFromPassIndex");
+            AddSimpleMemberSummary(parts, "needGraphicsFence", passInfo, "needGraphicsFence");
+        }
+
+        return parts.Count == 0 ? string.Empty : $"; info={string.Join(",", parts)}";
+    }
+
+    private static void AddSimpleMemberSummary(ICollection<string> parts, string label, object instance, string memberName)
+    {
+        var value = TryReadPropertyString(instance, memberName)
+            ?? TryReadFieldString(instance, memberName);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            parts.Add($"{label}={FirstLine(value)}");
+        }
+    }
+
+    private static string ClassifyRenderGraphPassBoundary(string passName, string passType)
+    {
+        var value = $"{passName} {passType}";
+        if (value.IndexOf("Deep Learning Super Sampling", StringComparison.OrdinalIgnoreCase) >= 0
+            || value.IndexOf("DLSS", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return "dlss";
+        }
+
+        if (value.IndexOf("Upsampling", StringComparison.OrdinalIgnoreCase) >= 0
+            || value.IndexOf("Upsampled", StringComparison.OrdinalIgnoreCase) >= 0
+            || value.IndexOf("Edge Adaptive Spatial Upsampling", StringComparison.OrdinalIgnoreCase) >= 0
+            || value.IndexOf("FSR", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return "upscale";
+        }
+
+        if (value.IndexOf("FinalPass", StringComparison.OrdinalIgnoreCase) >= 0
+            || value.IndexOf("Final Pass", StringComparison.OrdinalIgnoreCase) >= 0
+            || value.IndexOf("BlitFinalCameraTexture", StringComparison.OrdinalIgnoreCase) >= 0
+            || value.IndexOf("Backbuffer", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return "final";
+        }
+
+        if (value.IndexOf("PostProcess", StringComparison.OrdinalIgnoreCase) >= 0
+            || value.IndexOf("Post Process", StringComparison.OrdinalIgnoreCase) >= 0
+            || value.IndexOf("Uber", StringComparison.OrdinalIgnoreCase) >= 0
+            || value.IndexOf("FXAA", StringComparison.OrdinalIgnoreCase) >= 0
+            || value.IndexOf("SMAA", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return "postprocess";
+        }
+
+        if (value.IndexOf("Temporal", StringComparison.OrdinalIgnoreCase) >= 0
+            || value.IndexOf("TAA", StringComparison.OrdinalIgnoreCase) >= 0
+            || value.IndexOf("Motion Vector", StringComparison.OrdinalIgnoreCase) >= 0
+            || value.IndexOf("MotionVectors", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return "temporal";
+        }
+
+        return "other";
     }
 
     private static void ExistingRenderFuncPostfix(MethodBase __originalMethod, object?[]? __args)
@@ -4323,6 +4486,25 @@ internal static class FrameResourceProbe
         }
 
         return null;
+    }
+
+    private static object? FindRenderGraphPassArgument(object?[]? args)
+    {
+        var pass = FindTypedArgument(args, "RenderGraphPass");
+        if (pass is not null)
+        {
+            return pass;
+        }
+
+        var passInfo = FindTypedArgument(args, "CompiledPassInfo")
+            ?? (args is { Length: > 0 } ? args[0] : null);
+        if (passInfo is null)
+        {
+            return null;
+        }
+
+        return TryReadPropertyObject(passInfo, "pass")
+            ?? TryReadFieldObject(passInfo, "pass");
     }
 
     private static string GetRenderGraphPassName(object pass)

@@ -231,3 +231,40 @@ Build a read-only `rendergraph-pass-boundary` diagnostic stage:
 
 Only after that proof should the mod attempt resource resolution/evaluate inside a
 targeted pass boundary.
+
+## Implementation Follow-Up
+
+Implemented on 2026-06-06:
+
+- Added `Diagnostics.EnableRenderGraphPassBoundaryProbe=false` by default.
+- Added helper stage `rendergraph-pass-boundary`.
+- The stage patches only `RenderGraph.PreRenderPassExecute(...)`.
+- The patch accepts both the V Rising interop shape
+  `PreRenderPassExecute(ref CompiledPassInfo, RenderGraphPass, RenderGraphContext)`
+  and Unity Core 2022.3's source shape
+  `PreRenderPassExecute(in CompiledPassInfo, RenderGraphContext)`.
+- The postfix logs capped pass metadata only: method, pass name, pass type,
+  category (`dlss`, `upscale`, `final`, `postprocess`, `temporal`, or `other`),
+  and safe `CompiledPassInfo` fields such as culled/async/ref-count/sync state.
+- In pass-boundary-only mode the postfix returns before reading
+  `RenderGraph.m_Resources`, before collecting texture candidates, and before any
+  native bridge or DLSS evaluate path.
+
+Build and package validation passed, but the first runtime proof rejected this
+Harmony boundary:
+
+- Run: `rendergraph-pass-boundary-1080p-20260606-r1`.
+- Conditions: true `1920x1080` Windowed startup, protected `11111` save backed up
+  and restored.
+- Result: `RenderGraph.PreRenderPassExecute(CompiledPassInfo&, RenderGraphPass,
+  RenderGraphContext)` patched successfully, native bridge API `12` loaded, and
+  no `RenderGraph pass boundary #` line was emitted.
+- Failure: V Rising crashed before gameplay/Continue with Windows Application
+  Error `coreclr.dll`, exception `0xc0000005`, at `2026-06-06 17:19:02`.
+- Cleanup: loader config, ClientSettings, release-safe native state, and the
+  `11111` save were restored; save compare after restore reported `ChangeCount=0`.
+
+Conclusion: `PreRenderPassExecute` is now rejected for normal diagnostics in this
+IL2CPP build. The official boundary remains the correct conceptual target, but a
+safe mod-accessible equivalent must avoid Harmony patching this ref-`CompiledPassInfo`
+RenderGraph executor wrapper.

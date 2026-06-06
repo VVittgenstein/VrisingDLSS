@@ -20,6 +20,7 @@ param(
         "dlss-super-resolution-persistent-evaluate",
         "dlss-super-resolution-frame-sequence",
         "dlss-visible-writeback",
+        "rendergraph-pass-boundary",
         "render-scale-control",
         "dlss-user-rendering",
         "dlss-user-rendering-no-evaluate",

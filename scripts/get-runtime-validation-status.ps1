@@ -90,6 +90,7 @@ function Get-ConfiguredStage {
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssSuperResolutionInputProbe") { return "dlss-super-resolution-inputs" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssEvaluateInputProbe") { return "dlss-evaluate-inputs" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssPassResourceProbe") { return "dlsspass-resource" }
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassBoundaryProbe") { return "rendergraph-pass-boundary" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssFeatureCreateProbe") { return "dlss-feature-create" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssOptimalSettingsProbe") { return "dlss-optimal-settings" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssInitQueryProbe") { return "dlss-init-query" }
