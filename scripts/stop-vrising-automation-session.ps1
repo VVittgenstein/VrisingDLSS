@@ -34,6 +34,11 @@ if ([string]::IsNullOrWhiteSpace($bepInExLogArtifact)) {
     $bepInExLogArtifact = Join-Path $artifactRoot "LogOutput-$artifactLabel.log"
 }
 
+$analysisArtifact = [string]$session.AnalysisArtifact
+if ([string]::IsNullOrWhiteSpace($analysisArtifact)) {
+    $analysisArtifact = Join-Path $artifactRoot "Analysis-$artifactLabel.txt"
+}
+
 $playerLogArtifact = [string]$session.PlayerLogArtifact
 if ([string]::IsNullOrWhiteSpace($playerLogArtifact)) {
     $playerLogArtifact = Join-Path $artifactRoot "Player-$artifactLabel.log"
@@ -130,7 +135,9 @@ $plan = [pscustomobject]@{
     CleanupPath = "This script is the cleanup path; rerun it with the same session artifact if the first attempt fails."
     SessionPath = $resolvedSessionPath
     GamePath = $resolvedGamePath
+    Stage = [string]$session.Stage
     ProcessId = $session.ProcessId
+    UseSdkWrapperNative = [bool]$session.UseSdkWrapperNative
     SetClientResolution = [bool]$session.SetClientResolution
     SetClientWindowMode = [bool]$session.SetClientWindowMode
     ClientWindowMode = $session.ClientWindowMode
@@ -150,7 +157,9 @@ $closedProcesses = @()
 $clientSettingsChanged = [bool]($session.SetClientResolution -or $session.SetClientWindowMode)
 $restoredClientSettings = -not $clientSettingsChanged
 $restoredLoaderConfig = $false
+$restoredReleaseSafeNative = -not [bool]$session.UseSdkWrapperNative
 $bepInExLogArchived = $false
+$analysisArchived = $false
 $playerLogArchived = $false
 $crashEvents = @()
 
@@ -173,6 +182,10 @@ try {
         if (Test-Path -LiteralPath $bepInExLogPath) {
             Copy-Item -LiteralPath $bepInExLogPath -Destination $bepInExLogArtifact -Force
             $bepInExLogArchived = $true
+            & (Join-Path $resolvedRoot "scripts\analyze-bepinex-log.ps1") -LogPath $bepInExLogArtifact |
+                Out-String -Width 220 |
+                Set-Content -LiteralPath $analysisArtifact -Encoding UTF8
+            $analysisArchived = Test-Path -LiteralPath $analysisArtifact
         }
     } catch {
         $failureReasons.Add("BepInEx log archive failed: $($_.Exception.Message)")
@@ -207,6 +220,11 @@ try {
     }
 
     try {
+        if ([bool]$session.UseSdkWrapperNative) {
+            & (Join-Path $resolvedRoot "scripts\install-local-package.ps1") -GamePath $resolvedGamePath | Out-Host
+            $restoredReleaseSafeNative = $true
+        }
+
         if ($clientSettingsChanged) {
             $clientSettingsPath = [string]$session.ClientSettingsPath
             $clientSettingsBackupArtifact = [string]$session.ClientSettingsBackupArtifact
@@ -245,12 +263,18 @@ if ($failureReasons.Count -gt 0 -or -not $restoredLoaderConfig -or -not $restore
     $status = "Failed"
 }
 
+if ([bool]$session.UseSdkWrapperNative -and -not $restoredReleaseSafeNative) {
+    $failureReasons.Add("Release-safe native restore failed.")
+    $status = "Failed"
+}
+
 $result = [pscustomobject]@{
     Mode = "StopSession"
     Status = $status
     FailureReason = ($failureReasons.ToArray() -join " ")
     SessionPath = $resolvedSessionPath
     GamePath = $resolvedGamePath
+    Stage = [string]$session.Stage
     ArtifactLabel = $artifactLabel
     StartedAt = $runStart.ToString("o")
     EndedAt = $runEnd.ToString("o")
@@ -259,15 +283,19 @@ $result = [pscustomobject]@{
     ClosedProcesses = @($closedProcesses)
     BepInExLogArtifact = $(if (Test-Path -LiteralPath $bepInExLogArtifact) { $bepInExLogArtifact } else { "" })
     BepInExLogArchived = $bepInExLogArchived
+    AnalysisArtifact = $(if (Test-Path -LiteralPath $analysisArtifact) { $analysisArtifact } else { "" })
+    AnalysisArchived = $analysisArchived
     PlayerLogArtifact = $(if (Test-Path -LiteralPath $playerLogArtifact) { $playerLogArtifact } else { "" })
     PlayerLogArchived = $playerLogArchived
     WerArtifact = $(if (Test-Path -LiteralPath $werArtifact) { $werArtifact } else { "" })
     CrashEventCount = $crashEvents.Count
+    UseSdkWrapperNative = [bool]$session.UseSdkWrapperNative
     SetClientResolution = [bool]$session.SetClientResolution
     SetClientWindowMode = [bool]$session.SetClientWindowMode
     ClientWindowMode = $session.ClientWindowMode
     RestoredClientSettings = $restoredClientSettings
     RestoredLoaderConfig = $restoredLoaderConfig
+    RestoredReleaseSafeNative = $restoredReleaseSafeNative
     CleanupRequired = $false
     RemainingVRisingProcessCount = $remainingProcessCount
     LaunchesGame = $false

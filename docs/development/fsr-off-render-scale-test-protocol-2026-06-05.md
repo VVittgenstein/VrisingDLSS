@@ -1,7 +1,8 @@
 # FSR-Off Render-Scale Test Protocol - 2026-06-05
 
-Status: not yet run after this protocol was written. Updated on 2026-06-06 to use
-`1920x1080` Windowed as the default constructive test shape.
+Status: first `1920x1080` Windowed run completed on 2026-06-06 with partial control
+and failed MVP proof. Do not repeat the same runtime test unchanged until the camera
+dynamic-resolution blocker is addressed.
 
 This protocol exists to prevent blind testing. Do not launch V Rising for this step until the test question, expected evidence, pass/fail signals, and cleanup path are still accurate.
 
@@ -57,6 +58,23 @@ This API check still launches the game to acquire a Unity D3D11 device, but it d
 The 2026-06-06 actual run `dlss-optimal-settings-20260606-115921` passed in this
 `1920x1080` Windowed launch shape.
 
+## First Runtime Result
+
+Run `fsr-off-render-scale-1080p-v1-20260606` entered gameplay automatically through
+Computer Use and cleaned up safely, but did not produce the expected
+`960x540 -> 1920x1080` accepted tuple.
+
+Result summary:
+
+- FSR Off and `1920x1080` Windowed shape: pass.
+- Render-scale control mutation: partial pass. Logs showed `forceResolution=True` and
+  `forcedPercentage=50`.
+- DLSS user-rendering Super Resolution tuple: fail. Logs kept reporting
+  `color=1920x1080 output=1920x1080`.
+- Save restore: pass with `Status=Restored` and `ChangeCount=0`.
+
+Details: `docs/development/fsr-off-render-scale-runtime-result-2026-06-06.md`.
+
 ## Evidence To Capture
 
 - `BepInEx\LogOutput.log` lines showing render-scale control is enabled, `forceResolution=true`, and the forced percentage is `50`.
@@ -98,3 +116,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\write-diagnostic-c
 ```
 
 Do not start a follow-up run until the previous result has been summarized in a durable local record.
+
+Current follow-up rule: investigate and fix why the gameplay camera remains
+`allowDynamicResolution=False` before launching the same `dlss-user-rendering` runtime
+test again.

@@ -2,8 +2,38 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$GamePath,
 
+    [ValidateSet(
+        "loader",
+        "native",
+        "harmony-call",
+        "render-thread",
+        "d3d11",
+        "frame-resource",
+        "upscaler-state",
+        "dlss-runtime",
+        "dlss-init-query",
+        "dlss-optimal-settings",
+        "dlss-feature-create",
+        "dlss-evaluate-inputs",
+        "dlss-super-resolution-inputs",
+        "dlss-super-resolution-evaluate",
+        "dlss-super-resolution-persistent-evaluate",
+        "dlss-super-resolution-frame-sequence",
+        "dlss-visible-writeback",
+        "render-scale-control",
+        "dlss-user-rendering",
+        "dlss-evaluate",
+        "dlss-persistent-evaluate",
+        "dlsspass-resource"
+    )]
+    [string]$Stage = "loader",
+
     [string]$Root,
     [string]$ArtifactLabel,
+    [string]$DlssRuntimePath = "",
+    [string]$DlssApplicationId = "0",
+    [switch]$UseSdkWrapperNative,
+    [string]$SdkWrapperNativePath,
     [int]$Width = 1920,
     [int]$Height = 1080,
     [int]$WaitForWindowSeconds = 90,
@@ -44,6 +74,8 @@ if ([string]::IsNullOrWhiteSpace($Root)) {
 $resolvedRoot = (Resolve-Path -LiteralPath $Root).Path
 $resolvedGamePath = (Resolve-Path -LiteralPath $GamePath).Path
 $exePath = Join-Path $resolvedGamePath "VRising.exe"
+$pluginPath = Join-Path $resolvedGamePath "BepInEx\plugins\VrisingDLSS"
+$nativeTargetPath = Join-Path $pluginPath "VrisingDLSS.Native.dll"
 $artifactRoot = Join-Path $resolvedRoot "artifacts\gameplay-automation"
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 
@@ -55,6 +87,22 @@ if ([string]::IsNullOrWhiteSpace($ArtifactLabel)) {
 
 if (-not (Test-Path -LiteralPath $exePath)) {
     throw "VRising.exe was not found: $exePath"
+}
+
+if ([string]::IsNullOrWhiteSpace($SdkWrapperNativePath)) {
+    $SdkWrapperNativePath = Join-Path $resolvedRoot "artifacts\native-build-msvc-wrapper\Release\VrisingDLSS.Native.dll"
+}
+
+$sdkWrapperNativeResolved = $null
+if ($UseSdkWrapperNative) {
+    if (-not (Test-Path -LiteralPath $SdkWrapperNativePath)) {
+        throw "SDK-wrapper native DLL was not found: $SdkWrapperNativePath"
+    }
+
+    $sdkWrapperNativeResolved = (Resolve-Path -LiteralPath $SdkWrapperNativePath).Path
+    if ([string]::IsNullOrWhiteSpace($DlssRuntimePath) -or -not (Test-Path -LiteralPath $DlssRuntimePath)) {
+        throw "SDK-wrapper automation session requires -DlssRuntimePath pointing to a local nvngx_dlss.dll."
+    }
 }
 
 function Get-VRisingProcess {
@@ -93,6 +141,7 @@ function Close-VRisingProcess {
 $sessionArtifact = Join-Path $artifactRoot "Session-$ArtifactLabel.json"
 $playerLogArtifact = Join-Path $artifactRoot "Player-$ArtifactLabel.log"
 $bepInExLogArtifact = Join-Path $artifactRoot "LogOutput-$ArtifactLabel.log"
+$analysisArtifact = Join-Path $artifactRoot "Analysis-$ArtifactLabel.txt"
 $visibilityArtifact = Join-Path $artifactRoot "Visibility-$ArtifactLabel.json"
 $screenshotArtifact = Join-Path $artifactRoot "SessionScreenshot-$ArtifactLabel.png"
 $clientSettingsPath = Join-Path $env:USERPROFILE "AppData\LocalLow\Stunlock Studios\VRising\Settings\v4\ClientSettings.json"
@@ -110,19 +159,25 @@ $launchArgs = @(
 
 $plan = [pscustomobject]@{
     Mode = $(if ($DryRun) { "DryRun" } else { "StartSession" })
-    Question = "Can Codex start V Rising in a controlled no-DLSS state and leave the UnityWndClass window open for a bounded UI automation proof?"
-    Hypothesis = "The proven launch/window/screenshot path can prepare a Computer Use or Win32 UI-navigation session if cleanup is represented by a separate session artifact."
+    Question = "Can Codex start V Rising in a controlled diagnostic state and leave the UnityWndClass window open for a bounded UI automation proof?"
+    Hypothesis = "The proven launch/window/screenshot path can prepare a Computer Use UI-navigation session if the session artifact records diagnostic stage, native-DLL state, and cleanup requirements."
     ExpectedEvidence = @(
         "Session JSON with process id and cleanup requirements",
         "VisibleGameWindow from inspect-vrising-visibility.ps1",
         "A nonblank session screenshot",
         "Player log redirected to the artifact path",
-        "ClientSettings backup path when -SetClientResolution is used"
+        "ClientSettings backup path when -SetClientResolution or -SetClientWindowMode is used",
+        "Stage/native-DLL restore requirements when a diagnostic stage is used"
     )
     PassSignal = "Status=Ready and CleanupRequired=true in the session JSON."
     FailSignal = "No visible window, invalid screenshot, early exit, or setup failure; failed starts clean up immediately."
     CleanupPath = "Run scripts\stop-vrising-automation-session.ps1 with the session artifact path."
     GamePath = $resolvedGamePath
+    Stage = $Stage
+    UseSdkWrapperNative = [bool]$UseSdkWrapperNative
+    SdkWrapperNativePath = $(if ($sdkWrapperNativeResolved) { $sdkWrapperNativeResolved } else { "" })
+    DlssRuntimePath = $DlssRuntimePath
+    DlssApplicationId = $DlssApplicationId
     LaunchArgs = $launchArgs
     SetClientResolution = [bool]$SetClientResolution
     SetClientWindowMode = [bool]$SetClientWindowMode
@@ -135,7 +190,10 @@ $plan = [pscustomobject]@{
     ScreenshotArtifact = $screenshotArtifact
     PlayerLogArtifact = $playerLogArtifact
     BepInExLogArtifact = $bepInExLogArtifact
+    AnalysisArtifact = $analysisArtifact
     VisibilityArtifact = $visibilityArtifact
+    RestoresLoaderConfig = $true
+    RestoresReleaseSafeNative = [bool]$UseSdkWrapperNative
     LeavesGameRunning = -not [bool]$DryRun
     LaunchesGame = -not [bool]$DryRun
 }
@@ -161,6 +219,7 @@ $screenshotAccepted = $false
 $clientSettingsChanged = [bool]($SetClientResolution -or $SetClientWindowMode)
 $restoredClientSettings = -not $clientSettingsChanged
 $restoredLoaderConfig = $false
+$restoredReleaseSafeNative = -not [bool]$UseSdkWrapperNative
 $status = "Failed"
 $failureReason = ""
 $cleanupRequired = $false
@@ -170,7 +229,19 @@ try {
         & (Join-Path $resolvedRoot "scripts\install-local-package.ps1") -GamePath $resolvedGamePath | Out-Host
     }
 
-    & (Join-Path $resolvedRoot "scripts\write-diagnostic-config.ps1") -GamePath $resolvedGamePath -Stage loader | Out-Host
+    if ($UseSdkWrapperNative) {
+        New-Item -ItemType Directory -Force -Path $pluginPath | Out-Null
+        Copy-Item -LiteralPath $sdkWrapperNativeResolved -Destination $nativeTargetPath -Force
+        Write-Host "Copied SDK-wrapper native DLL for automation session: $sdkWrapperNativeResolved"
+        $restoredReleaseSafeNative = $false
+    }
+
+    & (Join-Path $resolvedRoot "scripts\write-diagnostic-config.ps1") `
+        -GamePath $resolvedGamePath `
+        -Stage $Stage `
+        -DlssRuntimePath $DlssRuntimePath `
+        -DlssApplicationId $DlssApplicationId |
+        Out-Host
 
     if ($clientSettingsChanged) {
         if (-not (Test-Path -LiteralPath $clientSettingsPath)) {
@@ -289,6 +360,11 @@ try {
         }
 
         try {
+            if ($UseSdkWrapperNative) {
+                & (Join-Path $resolvedRoot "scripts\install-local-package.ps1") -GamePath $resolvedGamePath | Out-Host
+                $restoredReleaseSafeNative = $true
+            }
+
             if ($clientSettingsChanged -and (Test-Path -LiteralPath $clientSettingsBackupArtifact)) {
                 Copy-Item -LiteralPath $clientSettingsBackupArtifact -Destination $clientSettingsPath -Force
                 $restoredClientSettings = $true
@@ -308,10 +384,15 @@ try {
         Status = $status
         FailureReason = $failureReason
         GamePath = $resolvedGamePath
+        Stage = $Stage
         ArtifactLabel = $ArtifactLabel
         StartedAt = $runStart.ToString("o")
         EndedAt = $runEnd.ToString("o")
         ProcessId = $(if ($process) { $process.Id } else { $null })
+        UseSdkWrapperNative = [bool]$UseSdkWrapperNative
+        SdkWrapperNativePath = $(if ($sdkWrapperNativeResolved) { $sdkWrapperNativeResolved } else { "" })
+        DlssRuntimePath = $DlssRuntimePath
+        DlssApplicationId = $DlssApplicationId
         LaunchArgs = $launchArgs
         VisibilityStatus = $(if ($visibility) { $visibility.Status } else { "" })
         SelectedWindowHandle = $(if ($visibility -and $visibility.SelectedWindow) { [string]$visibility.SelectedWindow.Handle } else { "" })
@@ -326,6 +407,7 @@ try {
         ScreenshotArtifact = $(if (Test-Path -LiteralPath $screenshotArtifact) { $screenshotArtifact } else { "" })
         PlayerLogArtifact = $playerLogArtifact
         BepInExLogArtifact = $bepInExLogArtifact
+        AnalysisArtifact = $analysisArtifact
         VisibilityArtifact = $(if (Test-Path -LiteralPath $visibilityArtifact) { $visibilityArtifact } else { "" })
         SetClientResolution = [bool]$SetClientResolution
         SetClientWindowMode = [bool]$SetClientWindowMode
@@ -334,6 +416,7 @@ try {
         ClientSettingsBackupArtifact = $(if (Test-Path -LiteralPath $clientSettingsBackupArtifact) { $clientSettingsBackupArtifact } else { "" })
         RestoredClientSettings = $restoredClientSettings
         RestoredLoaderConfig = $restoredLoaderConfig
+        RestoredReleaseSafeNative = $restoredReleaseSafeNative
         CleanupRequired = $cleanupRequired
         CleanupCommand = "powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\stop-vrising-automation-session.ps1 -SessionPath `"$sessionArtifact`""
         RemainingVRisingProcessCount = @(Get-VRisingProcess).Count

@@ -69,6 +69,7 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
 - Stage 9A proved one feature can persist across repeated RenderGraph callbacks.
 - Stage 10A proved guarded visible-path diagnostic write-back to the selected SR output target.
 - `dlss-user-rendering` exists as an experimental one-evaluate-per-Unity-frame candidate, but it still needs the correct FSR Off render-scale proof and visual/performance validation.
+- First FSR Off render-scale gameplay proof `fsr-off-render-scale-1080p-v1-20260606` reached gameplay automatically at `1920x1080` Windowed with SDK-wrapper native setup and safe cleanup, but failed the MVP tuple proof. Render-scale control changed HDRP settings to `forceResolution=True` and `forcedPercentage=50`, yet the main candidate stayed `color=1920x1080 output=1920x1080`; the gameplay camera still reported `allowDynamicResolution=False` and `IsDLSSEnabled=False`.
 - Phase 1 no-DLSS automation proof has partial-control history: `scripts/run-vrising-automation-proof.ps1` can launch V Rising, detect the real `UnityWndClass` window instead of the BepInEx console, capture a nonblank screenshot, archive logs, restore settings/config, and leave no V Rising process. Earlier run `automation-proof-1920-window-v5-20260606` reported `Status=Partial` because it used `FullScreenWindow`; this was later solved for the session harness by temporarily adding `GraphicSettings.WindowMode=3`.
 - Phase 1 direct-entry search found no supported client command-line auto-continue/direct-connect route in current official Stunlock launch options or local evidence. Local `ServerHistory.json` and interop strings strongly support the in-game `Continue`/direct-connect UI route instead.
 - The target local/private game for Continue automation is likely `Name=11111`: this is present in `ServerHistory.json`, and the user recalled the local game was named with many `1` characters and should be continuable directly.
@@ -77,6 +78,7 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
 - Product boundary: Computer Use is only a local Codex-side automation/testing tool for entering and observing gameplay during validation. It has no relationship to the DLSS mod implementation, is not a mod feature or runtime dependency, and must not be included in release packages.
 - Phase 1 automatic gameplay entry is now proven for the known local/private `11111` fixture. `automation-windowmode3-1080p-v1-20260606` proved the preferred `1920x1080` Windowed launch shape by temporarily writing `GraphicSettings.WindowMode=3`; `automation-continue-click-windowed-v1-20260606` then clicked Continue once through Computer Use and reached stable gameplay with character/HUD. Player/server logs confirmed local server startup, save load, and character `Helen` connection. Cleanup passed with no crash or remaining process.
 - Gameplay entry rotates autosaves. The `11111` save was backed up before the proof, the changed post-proof state was archived, and the save was restored from backup with `SaveCompareAfterRestore-automation-continue-click-windowed-v1-20260606.json` reporting `Status=Restored` and `ChangeCount=0`. Future automated gameplay/runtime tests against this fixture must back up and restore or explicitly retain save changes.
+- `fsr-off-render-scale-1080p-v1-20260606` also backed up the `11111` save before entering gameplay. After an accidental human `W` input during the run, the changed save state was archived and the save was restored from the pre-run backup with `SaveCompareAfterRestore-fsr-off-render-scale-1080p-v1-20260606.json` reporting `Status=Restored` and `ChangeCount=0`.
 
 ## Rejected Or Dangerous Routes
 
@@ -102,7 +104,7 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
 - Client command-line direct entry is unproven and currently weak; do not spend the next runtime loop on blind command-line guesses.
 - If full automation fails, the semi-automatic human-Codex-game protocol still needs a durable, explicit artifact.
 - `dlss-optimal-settings` actual game-runtime validation is complete for the local SDK-wrapper research route; use it only as an optional pre-game API sanity check.
-- FSR Off render-scale control needs runtime proof.
+- FSR Off render-scale control has a first runtime result, but the proof failed: HDRP settings are mutated to 50 percent while the actual gameplay camera/main render targets remain full-size. Next work should focus on making the real camera/main targets honor dynamic resolution under FSR Off.
 - Normal-user `dlss-user-rendering` needs gameplay image-correctness and performance proof with V Rising FSR Off.
 - Output selection, jitter, exposure/pre-exposure, mip bias, resize/reset, fallback, and cleanup remain incomplete for playable MVP.
 - Runtime distribution strategy remains unresolved for a drag-in user package that should not require users to manually fetch an arbitrary DLL.
@@ -120,17 +122,19 @@ Follow the new goal order:
 4. Before every automated gameplay/runtime test against `11111`, back up the save and compare/restore afterward unless retaining the changed save is explicitly intended.
 5. Resume the technical path from `docs/development/pause-state-2026-06-05.md`:
    - `dlss-optimal-settings` actual runtime validation is now passed;
-   - continue with `fsr-off-render-scale-test-protocol-2026-06-05.md` using the default `1920x1080` Windowed test shape;
-   - for the 1080P constructive proof, expect a Performance-mode tuple near `960x540 -> 1920x1080`; reserve 4K/native-output performance comparison for the later controlled final validation matrix.
+   - read `fsr-off-render-scale-runtime-result-2026-06-06.md`;
+   - investigate why `allowDynamicResolution=true` did not stick on the actual gameplay camera/main render targets;
+   - do not repeat `fsr-off-render-scale-1080p-v1-20260606` unchanged; after a targeted fix, rerun the protocol expecting a Performance-mode tuple near `960x540 -> 1920x1080`;
+   - reserve 4K/native-output performance comparison for the later controlled final validation matrix.
 
 ## Current Repository Checkpoint
 
-As of the Stage 6B optimal-settings runtime update:
+As of the first FSR Off render-scale runtime update:
 
 - Branch: `main`.
-- Latest pushed checkpoint before this update: `21c4055 Prove automated windowed gameplay entry`.
-- This checkpoint adds `run-vrising-diagnostic.ps1` support for temporary `1920x1080`
-  Windowed client settings and Player log resolution parsing, plus Stage 6B
-  `dlss-optimal-settings` runtime evidence.
+- Latest pushed checkpoint before this update: `8b15a35 Validate DLSS optimal settings runtime path`.
+- This checkpoint adds diagnostic-stage support to the automation session harness,
+  first FSR Off render-scale gameplay evidence, and save restore evidence for the
+  `11111` fixture.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.

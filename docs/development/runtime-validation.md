@@ -112,6 +112,13 @@ Evidence:
 - `BepInEx/LogOutput.log` lines beginning with `Render-scale control prefix #` or `Render-scale control postfix #`.
 - Stage 8E or `DLSS user rendering` evidence showing the accepted tuple after this probe is enabled.
 
+Current Stage 2C status:
+
+- `fsr-off-render-scale-1080p-v1-20260606` proved the hook can mutate HDRP dynamic-resolution settings under V Rising FSR Off in a `1920x1080` Windowed gameplay run: logs included `forceResolution=True` and `forcedPercentage=50`.
+- The same run did not pass the MVP render-scale proof. The main DLSS candidate stayed same-sized: `color=1920x1080 output=1920x1080`, and the super-resolution input probe repeatedly reported `output was not larger than render input`.
+- The blocker signature is that the gameplay camera still reported `allowDynamicResolution=False` and `IsDLSSEnabled=False`, while only non-primary intermediate resources such as `BloomMipDown_960x540` and `AO Packed data_960x540` showed 50 percent dimensions.
+- Result summary: `docs/development/fsr-off-render-scale-runtime-result-2026-06-06.md`.
+
 ## Stage 3: Read-Only Harmony Probe
 
 Implemented as an optional diagnostic switch:

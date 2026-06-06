@@ -214,7 +214,11 @@ function Get-NextRecommendation {
         [bool]$ConfigExists,
 
         [Parameter(Mandatory = $true)]
-        [object[]]$LogResults
+        [object[]]$LogResults,
+
+        [object[]]$CurrentLogResults = @(),
+
+        [string]$CurrentLogText = ""
     )
 
     if (-not $Inspect.GameInstalled) {
@@ -252,6 +256,13 @@ function Get-NextRecommendation {
     $superResolutionFrameSequence = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 9A"
     $visibleWriteback = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 10A"
     $userRendering = Get-FirstStageStatus -Results $LogResults -StagePrefix "DLSS User Rendering Candidate"
+    $currentUserRendering = Get-FirstStageStatus -Results $CurrentLogResults -StagePrefix "DLSS User Rendering Candidate"
+    if ($currentUserRendering -eq "Partial" -and
+        $CurrentLogText.IndexOf("DLSS super-resolution input probe not accepted", [StringComparison]::OrdinalIgnoreCase) -ge 0 -and
+        $CurrentLogText.IndexOf("color=1920x1080 output=1920x1080", [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+        return "The latest dlss-user-rendering gameplay log did not accept an FSR Off Super Resolution tuple: the main candidate stayed color=1920x1080 output=1920x1080. Investigate why the gameplay camera/main targets remain full-size, especially allowDynamicResolution=False, before rerunning the same runtime proof."
+    }
+
     if ($userRendering -eq "Pass") {
         return "DLSS user-rendering candidate passed. Next engineering step is a paired dlss-user-rendering gameplay visual/performance comparison, human image-quality review, resize/reset handling, and fallback validation."
     }
@@ -446,6 +457,11 @@ $inspect.LogExists = $effectiveLogExists
 $currentLogResults = @(& $analyzeScript -GamePath $inspect.GamePath -LogPath $effectiveLogPath | ForEach-Object {
         Add-StageEvidenceSource -Result $_ -Source $effectiveLogPath
     })
+$currentLogText = if ($effectiveLogExists) {
+    Get-Content -LiteralPath $effectiveLogPath -Raw
+} else {
+    ""
+}
 $archivedAnalysisCount = 0
 $archivedLogResults = @()
 if ($IncludeArchivedLogs -and (Test-Path -LiteralPath $resolvedArchivedLogRoot)) {
@@ -475,7 +491,9 @@ $recommendation = Get-NextRecommendation `
     -Inspect $inspect `
     -PluginInstalled $pluginInstalled `
     -ConfigExists $configExists `
-    -LogResults $logResults
+    -LogResults $logResults `
+    -CurrentLogResults $currentLogResults `
+    -CurrentLogText $currentLogText
 
 [pscustomobject]@{
     GamePath = $inspect.GamePath

@@ -44,6 +44,12 @@ included in the GitHub/Thunderstore release package.
    script-side screenshot at `1920x1080`.
 9. Before entering the `11111` save, back up its save directory. Gameplay entry can
    rotate autosaves even if no further input is sent.
+10. For DLSS runtime gameplay sessions, use the session harness' diagnostic stage
+    parameters rather than hand-editing config/native DLL state:
+    - `-Stage dlss-user-rendering`
+    - `-UseSdkWrapperNative`
+    - `-DlssRuntimePath <local nvngx_dlss.dll>`
+    The stop-session script restores the release-safe native DLL and loader config.
 
 ## Safety Boundary
 
@@ -103,6 +109,26 @@ Result:
 
 This proves automatic gameplay entry for the local/private `11111` fixture. Computer
 Use remains a local validation tool only; it is not part of the DLSS mod.
+
+## DLSS Runtime Gameplay Proof
+
+Run label: `fsr-off-render-scale-1080p-v1-20260606`.
+
+Result:
+
+- The session harness started V Rising with `Stage=dlss-user-rendering`,
+  SDK-wrapper native DLL, `GraphicSettings.WindowMode=3`, and `1920x1080`.
+- Computer Use selected the real `VRising` game window, clicked the visible Chinese
+  Continue label once at `(205, 354)` in the current `1283x751` screenshot, and
+  reached gameplay.
+- Stop-session cleanup passed with `CrashEventCount=0`,
+  `RestoredClientSettings=true`, `RestoredLoaderConfig=true`,
+  `RestoredReleaseSafeNative=true`, and `RemainingVRisingProcessCount=0`.
+- The technical DLSS result was partial/failed for the MVP proof: render-scale settings
+  changed to 50 percent, but the main candidate stayed `1920x1080 -> 1920x1080`.
+- The user accidentally pressed `W` during the run. The save was restored from the
+  pre-run backup; `SaveCompareAfterRestore-fsr-off-render-scale-1080p-v1-20260606.json`
+  reports `Status=Restored` and `ChangeCount=0`.
 
 ## Pitfalls Found
 
