@@ -433,6 +433,18 @@ As of the read-only RenderGraph pass-map runtime result:
   `docs/development/rendergraph-pass-data-gameplay-result-2026-06-06.md`. Do not
   jump directly to generated EASU/Final render-function patching. The next step is
   to use this chain to design the next read-only/no-evaluate execution-boundary
-  candidate.
+  candidate. A narrow local/upstream-source follow-up is now recorded in
+  `docs/development/rendergraph-execute-delegate-candidate-2026-06-06.md`, with
+  downloaded refs under `ref/hdrp-rendergraph-boundary-2026-06-06`. It confirms
+  the next candidate is closed generic
+  `RenderGraphPass.GetExecuteDelegate<TPassData>()` for `DLSSData`, `EASUData`,
+  `FinalPassData`, and optionally `UberPostPassData`. Local reflection proved the
+  closed methods can be constructed with `ContainsGenericParameters=False`, and
+  ilspy confirmed `RenderGraphPass<TPassData>.Execute(ctx)` invokes that delegate.
+  This candidate can prove the pass reached execution-layer code, but it has no
+  `RenderGraphContext`, no command buffer, no texture resolution, and no DLSS
+  evaluate authority. If implemented, it must be a default-off, menu-first,
+  read-only probe; do not patch generated render funcs or `RenderGraphPass<T>.Execute`
+  as the next normal route.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.

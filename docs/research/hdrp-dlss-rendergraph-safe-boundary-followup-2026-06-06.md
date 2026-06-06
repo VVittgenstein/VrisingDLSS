@@ -228,3 +228,42 @@ Do not rerun unchanged:
 - cached-driver real evaluate from `DynamicResolutionHandler.Update(...)`
 - pass-list/pass-declarations unchanged
 - steady-state production work in global `GetTexture`
+
+## 2026-06-06 Execute-Delegate Follow-up
+
+After the protected `rendergraph-pass-data-gameplay-1080p-20260606-r1` proof,
+the next candidate moved one step later than `CompileRenderGraph(int)` without
+touching generated render functions or command buffers.
+
+New downloaded refs:
+
+- `ref/hdrp-rendergraph-boundary-2026-06-06/HDRenderPipeline.PostProcess.cs`
+- `ref/hdrp-rendergraph-boundary-2026-06-06/DLSSPass.cs`
+- `ref/hdrp-rendergraph-boundary-2026-06-06/RenderGraph.cs`
+- `ref/hdrp-rendergraph-boundary-2026-06-06/RenderGraphPass.cs`
+- `ref/hdrp-rendergraph-boundary-2026-06-06/RenderGraphResourceRegistry.cs`
+- `ref/hdrp-rendergraph-boundary-2026-06-06/NVIDIA-Streamline-ProgrammingGuideDLSS.md`
+- `ref/hdrp-rendergraph-boundary-2026-06-06/OptiScaler-README.md`
+
+Local reflection helper:
+
+```powershell
+C:\Software\dotnet\dotnet.exe run --project artifacts\reflection-check\RenderGraphBoundaryReflection.csproj -- C:\Software\VRising\BepInEx
+```
+
+Result: closed generic
+`RenderGraphPass.GetExecuteDelegate<TPassData>()` methods can be constructed
+with `ContainsGenericParameters=False` for `HDRenderPipeline+DLSSData`,
+`UberPostPassData`, `EASUData`, and `FinalPassData`. Local `ilspycmd` also
+confirmed `RenderGraphPass<TPassData>.Execute(RenderGraphContext)` exists and
+invokes the stored delegate with `data` and `ctx`.
+
+Decision update: the best next read-only/no-evaluate execution-boundary
+candidate is a default-off menu-first probe for closed
+`GetExecuteDelegate<TPassData>()`, not a generated render-func patch and not
+`RenderGraphPass<TPassData>.Execute(ctx)`.
+
+This candidate only proves that a focused pass reached the execution layer. It
+does not provide `RenderGraphContext`, command buffers, native textures, or DLSS
+evaluate authority. Full protocol:
+`docs/development/rendergraph-execute-delegate-candidate-2026-06-06.md`.
