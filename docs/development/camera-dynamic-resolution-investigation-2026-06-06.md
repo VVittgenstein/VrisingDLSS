@@ -1,7 +1,8 @@
 # Camera Dynamic Resolution Investigation - 2026-06-06
 
-This note records the static follow-up after
-`fsr-off-render-scale-1080p-hwdrs-v2-20260606`.
+This note records the static/runtime follow-up after
+`fsr-off-render-scale-1080p-hwdrs-v2-20260606` through
+`fsr-off-render-scale-1080p-handler-request-v4-20260606`.
 
 ## Question
 
@@ -66,8 +67,8 @@ The blocker is probably not just the failed
 permission comes from `HDAdditionalCameraData.allowDynamicResolution`, and that
 object is visible as `true` inside the setup hook.
 
-The sharper hypothesis is that the effective current-camera request inside
-`DynamicResolutionHandler` is not reliably true at the point where
+The sharper hypothesis after v2/v3 was that the effective current-camera request
+inside `DynamicResolutionHandler` might not be reliably true at the point where
 `GetScaledSize(...)` computes `HDCamera.actualWidth/actualHeight`.
 
 The current hook changed the `SetupDLSS...` argument array, but that does not
@@ -75,7 +76,7 @@ guarantee the outer render-loop local `cameraRequestedDynamicRes` is changed for
 later calls. If the handler's `m_CurrentCameraRequest` remains false, HDRP will
 keep full-size targets even when `forcedPercentage=50`.
 
-## Code Change After This Investigation
+## Code Change After Initial Investigation
 
 `RenderScaleControlProbe` now mutates the active
 `DynamicResolutionHandler` instance inside the already-observed
@@ -85,12 +86,12 @@ keep full-size targets even when `forcedPercentage=50`.
 m_CurrentCameraRequest=True
 ```
 
-This is deliberately narrower than switching the entire route to software
-fallback. The next runtime test should first determine whether a true handler
-request is enough to make `GetScaledSize(...)` produce the expected
-`960x540 -> 1920x1080` constructive tuple.
+This was deliberately narrower than switching the entire route to software
+fallback. The v4 runtime test then determined that a true handler request is not
+enough to make `GetScaledSize(...)` produce the expected `960x540 -> 1920x1080`
+constructive tuple.
 
-## Next Runtime Test
+## Superseded Runtime Test
 
 Do not repeat `fsr-off-render-scale-1080p-hwdrs-v2-20260606` unchanged.
 
@@ -116,9 +117,10 @@ Fail evidence:
 - The private field write does not stick or cannot be found. That would require
   an earlier lifecycle hook or a different IL2CPP/native field route.
 
-Cleanup requirements remain unchanged: `1920x1080` Windowed, back up and restore
-the local/private `11111` save, restore loader config and release-safe native DLL,
-and leave no `VRising` process running.
+This test was executed as v4 and is now superseded by the software-fallback route.
+Cleanup requirements remain unchanged: `1920x1080` Windowed, back up and restore the
+local/private `11111` save, restore loader config and release-safe native DLL, and
+leave no `VRising` process running.
 
 ## Handler-Request V3 Result
 
@@ -144,7 +146,69 @@ Follow-up code change:
   with handler type, direct invocation result, `m_CurrentCameraRequest` before/after
   readback, and whether the private field is writable.
 
-The next run should use that direct handler-request diagnostic. If it proves the
-handler request is true while `CameraColor` remains full-size, move to an explicit
-software-fallback / ScalableBufferManager diagnostic rather than another
-hardware-DRS-only rerun.
+This motivated v4. V4 proved the handler request is true while `CameraColor` remains
+full-size, so the active next route is the explicit software-fallback /
+ScalableBufferManager diagnostic below.
+
+## Handler-Request V4 Result
+
+Run `fsr-off-render-scale-1080p-handler-request-v4-20260606` completed safely and
+ruled out the handler request as the remaining blocker:
+
+- Computer Use entered the `11111` gameplay fixture at `1920x1080` Windowed.
+- Cleanup passed and restored the `11111` save to `ChangeCount=0`.
+- `Render-scale control handler request diagnostic` appeared 12 times.
+- The active handler showed `before=True; invokedSetCurrentCameraRequest=True;
+  fieldWritable=True; after=True`.
+- Stage 8E did not accept a Super Resolution tuple.
+- `CameraColor_960` count was `0`; `CameraColor_1920` count was `463`.
+- The gameplay camera stayed `actualWidth=1920,actualHeight=1080`.
+- Auxiliary `960x540` resources still appeared, but not as the color/depth/motion
+  tuple needed by DLSS.
+
+## Software Fallback Source Evidence
+
+Relevant Core RP behavior:
+
+- `DynamicResolutionHandler.ForceSoftwareFallback()` sets
+  `m_ForceSoftwareFallback=true`.
+- `SoftwareDynamicResIsEnabled()` returns true when the current camera request is
+  true, DRS is enabled, the fraction is not 100 percent, and either
+  `m_ForceSoftwareFallback` is true or the type is Software.
+- `HardwareDynamicResIsEnabled()` returns false when `m_ForceSoftwareFallback` is
+  true.
+- `GetResolvedScale()` uses `m_CurrentFraction` instead of
+  `ScalableBufferManager.widthScaleFactor/heightScaleFactor` when software fallback
+  is forced.
+- `ApplyScalesOnSize(...)` rounds software/fallback scaled dimensions to even sizes
+  and clamps them to the original size.
+
+HDRP itself calls `ForceSoftwareFallback()` when Hardware DRS is requested for a
+camera that cannot use `camera.allowDynamicResolution`. Because v4 proved the handler
+request is true while the main targets remain full-size, the next smallest diagnostic
+is to call the same fallback method directly on the active handler and read back the
+result.
+
+## Next Runtime Test
+
+Do not repeat v3 or v4 unchanged.
+
+Next launch question:
+
+- With `DynamicResolutionHandler.ForceSoftwareFallback()` invoked on the active
+  handler, does FSR Off `1920x1080` Windowed gameplay produce a usable
+  `960x540 -> 1920x1080` tuple?
+
+Expected evidence:
+
+- `Render-scale control software fallback diagnostic` logs appear.
+- `SoftwareDynamicResIsEnabled=True` and `GetResolvedScale` is near 0.5.
+- Pass requires Stage 8E or user-rendering to accept an output-larger-than-input
+  tuple.
+
+Useful fail evidence:
+
+- `SoftwareDynamicResIsEnabled=True` and `GetResolvedScale` is near 0.5, but
+  `HDCamera.actualWidth/actualHeight` and `CameraColor` remain full-size. That would
+  point to a later camera-size or RTHandle allocation point rather than another
+  request/settings toggle.

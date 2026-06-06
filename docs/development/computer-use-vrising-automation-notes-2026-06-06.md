@@ -205,6 +205,27 @@ Result:
 - Product boundary remains unchanged: Computer Use is a local Codex validation tool
   only, not a DLSS mod dependency or release artifact.
 
+## Direct Handler-Request Render-Scale Follow-up
+
+Run label: `fsr-off-render-scale-1080p-handler-request-v4-20260606`.
+
+Result:
+
+- The same Computer Use route again selected the real `VRising` window, clicked
+  Continue once at the known `11111` menu entry, observed loading after 20 seconds,
+  and observed stable gameplay after 60 seconds.
+- Start-session used `Stage=dlss-user-rendering`, SDK-wrapper native DLL,
+  `GraphicSettings.WindowMode=3`, and `1920x1080` Windowed setup.
+- No movement or gameplay keys were sent by automation.
+- Stop-session cleanup passed with `CrashEventCount=0`,
+  `RestoredClientSettings=true`, `RestoredLoaderConfig=true`,
+  `RestoredReleaseSafeNative=true`, and `RemainingVRisingProcessCount=0`.
+- The `11111` save changed during gameplay entry (`ChangeCount=6` before restore),
+  was archived, and was restored from the pre-run backup with `ChangeCount=0`.
+- Technical result: direct handler request was proven true/successful, but the main
+  DLSS tuple still stayed full-size. The next technical run is software fallback, not
+  another identical handler-request run.
+
 ## Next Click Protocol Notes
 
 For future Continue activations:

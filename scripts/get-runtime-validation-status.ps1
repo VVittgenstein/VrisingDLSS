@@ -264,14 +264,28 @@ function Get-NextRecommendation {
             $CurrentLogText.IndexOf("RTHandles.SetHardwareDynamicResolutionState=true", [StringComparison]::OrdinalIgnoreCase) -ge 0) {
             if ($CurrentLogText.IndexOf("_960x540", [StringComparison]::OrdinalIgnoreCase) -ge 0 -and
                 $CurrentLogText.IndexOf("Render-scale control handler request diagnostic", [StringComparison]::OrdinalIgnoreCase) -lt 0) {
-                return "The latest handler-request gameplay run reached 1920x1080 Windowed gameplay and produced some auxiliary 960x540 dynamic resources, but the DLSS color/depth/motion/output candidate stayed color=1920x1080 output=1920x1080 and no handler request readback was logged. Rebuild/stage the current plugin with the direct DynamicResolutionHandler.SetCurrentCameraRequest(true) diagnostic, then rerun the same FSR Off proof once."
+                return "The latest gameplay run reached 1920x1080 Windowed gameplay and produced some auxiliary 960x540 dynamic resources, but the DLSS color/depth/motion/output candidate stayed color=1920x1080 output=1920x1080 and no handler/software-fallback readback was logged. Use the current plugin build with the explicit ForceSoftwareFallback/ScalableBufferManager diagnostic; if it is not staged yet, rebuild/stage it, then rerun the same FSR Off proof once."
             }
 
             if ($CurrentLogText.IndexOf("Render-scale control handler request diagnostic", [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                if ($CurrentLogText.IndexOf("Render-scale control software fallback diagnostic", [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                    if ($CurrentLogText.IndexOf("SoftwareDynamicResIsEnabled=True", [StringComparison]::OrdinalIgnoreCase) -ge 0 -and
+                        $CurrentLogText.IndexOf("GetResolvedScale=", [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                        return "The latest dlss-user-rendering gameplay log includes the explicit software-fallback diagnostic and proves SoftwareDynamicResIsEnabled=True, but the Super Resolution tuple still was not accepted. Inspect GetResolvedScale and the HDCamera actualWidth/actualHeight lines next; if the scale is 0.5 while CameraColor remains 1920x1080, the next patch should move closer to HDCamera.GetScaledSize/actual-size assignment instead of repeating handler or fallback toggles."
+                    }
+
+                    return "The latest dlss-user-rendering gameplay log includes the explicit software-fallback diagnostic but still did not accept an FSR Off Super Resolution tuple. Inspect invokedForceSoftwareFallback, fallbackAfter, SoftwareDynamicResIsEnabled, GetResolvedScale, and ScalableBufferManager fields before choosing the next hook."
+                }
+
+                if ($CurrentLogText.IndexOf("invokedSetCurrentCameraRequest=True", [StringComparison]::OrdinalIgnoreCase) -ge 0 -and
+                    $CurrentLogText.IndexOf("after=True", [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                    return "The latest dlss-user-rendering gameplay log proves DynamicResolutionHandler.SetCurrentCameraRequest(true) succeeds and the handler request is true, but CameraColor/output stayed 1920x1080. Use the current plugin build with the explicit ForceSoftwareFallback/ScalableBufferManager diagnostic; if it is not staged yet, rebuild/stage it, then rerun the same 1920x1080 Windowed FSR Off proof once."
+                }
+
                 return "The latest dlss-user-rendering gameplay log includes handler-request diagnostics but still did not accept an FSR Off Super Resolution tuple. Inspect the handler before/after/invocation fields; if SetCurrentCameraRequest(true) or m_CurrentCameraRequest=True is proven while CameraColor remains 1920x1080, move to an explicit software-fallback/ScalableBufferManager diagnostic instead of another hardware-DRS rerun."
             }
 
-            return "The latest targeted dlss-user-rendering gameplay log still did not accept an FSR Off Super Resolution tuple after RTHandles.SetHardwareDynamicResolutionState=true. Static follow-up points to DynamicResolutionHandler.m_CurrentCameraRequest as the next gate: rebuild/stage the current plugin and rerun the 1920x1080 Windowed FSR Off proof only with the new handler-request diagnostic, expecting either a 960x540 -> 1920x1080 tuple or evidence for an explicit software-fallback route."
+            return "The latest targeted dlss-user-rendering gameplay log still did not accept an FSR Off Super Resolution tuple after RTHandles.SetHardwareDynamicResolutionState=true. Static/runtime follow-up has already ruled out the direct handler-request gate, so use the current plugin build and rerun the 1920x1080 Windowed FSR Off proof only with the explicit ForceSoftwareFallback/ScalableBufferManager diagnostic."
         }
 
         return "The latest dlss-user-rendering gameplay log did not accept an FSR Off Super Resolution tuple: the main candidate stayed color=1920x1080 output=1920x1080. Before rerunning the same runtime proof, use the targeted render-scale diagnostic to check for `Render-scale control member write did not stick`, `RTHandles.SetHardwareDynamicResolutionState=true`, and whether the gameplay camera/main targets remain full-size."

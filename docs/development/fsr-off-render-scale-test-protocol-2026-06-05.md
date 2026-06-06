@@ -125,19 +125,22 @@ candidate remains full-size. The next launch must follow a new targeted camera
 dynamic-resolution route rather than only repeating the RTHandles/member-readback
 diagnostic.
 
-Current next diagnostic after static HDRP/Core source review:
+Current next diagnostic after static HDRP/Core source review and v4 runtime evidence:
 
-- `HDCamera.allowDynamicResolution` is backed by `HDAdditionalCameraData`, while
-  `DynamicResolutionHandler.GetScaledSize(...)` still returns the original size if
-  the handler's `m_CurrentCameraRequest` is false.
-- `RenderScaleControlProbe` now forces `m_CurrentCameraRequest=true` inside the
-  already-observed `DynamicResolutionHandler.Update(...)` prefix.
+- `HDCamera.allowDynamicResolution` is backed by `HDAdditionalCameraData`, and v4
+  proved the active `DynamicResolutionHandler` request is already true/successfully
+  invoked in the observed `Update(...)` route.
+- `RenderScaleControlProbe` now invokes
+  `DynamicResolutionHandler.ForceSoftwareFallback()` from that same observed handler
+  route and logs `SoftwareDynamicResIsEnabled`, `HardwareDynamicResIsEnabled`,
+  `DynamicResolutionEnabled`, `GetCurrentScale`, `GetResolvedScale`, and
+  `ScalableBufferManager` state.
 - The next `1920x1080` Windowed run should pass only if the main gameplay camera
   reaches approximately `actualWidth=960,actualHeight=540` or Stage 8E/user
   rendering accepts an output-larger-than-input tuple.
-- If `m_CurrentCameraRequest=True` is logged but the camera remains full-size, the
-  next route should be an explicit software-fallback diagnostic rather than another
-  hardware DRS rerun.
+- If software fallback reports a near-0.5 resolved scale but the camera remains
+  full-size, the next route should move closer to `HDCamera.GetScaledSize(...)` or
+  actual RTHandle/camera-size assignment rather than another settings/request rerun.
 
 Handler-request runtime result:
 
@@ -151,7 +154,18 @@ Handler-request runtime result:
   the newer direct `DynamicResolutionHandler.SetCurrentCameraRequest(true)`
   invocation/readback diagnostic from the `Update(...)` prefix.
 
-Do not repeat `fsr-off-render-scale-1080p-handler-request-v3-20260606` unchanged.
-The next launch should either produce a usable `960x540 -> 1920x1080` tuple, or prove
-through handler diagnostics that the request is already true/successfully invoked and
-the next route is explicit software fallback / ScalableBufferManager investigation.
+Direct handler-request runtime result:
+
+- `fsr-off-render-scale-1080p-handler-request-v4-20260606` reached stable `11111`
+  gameplay automatically and cleaned up safely, but still failed the MVP tuple proof.
+- Handler diagnostics proved the active handler request is true/successfully invoked:
+  `before=True; invokedSetCurrentCameraRequest=True; fieldWritable=True; after=True`.
+- `CameraColor_960` count was `0`, `CameraColor_1920` count was `463`, and Stage 8E
+  did not accept a Super Resolution tuple.
+- The `11111` save was restored from the pre-run backup with `ChangeCount=0`.
+
+Do not repeat `fsr-off-render-scale-1080p-handler-request-v3-20260606` or
+`fsr-off-render-scale-1080p-handler-request-v4-20260606` unchanged. The next launch is
+`fsr-off-render-scale-1080p-software-fallback-v5-20260606`; it should either produce a
+usable `960x540 -> 1920x1080` tuple or prove through fallback diagnostics where the
+scale stops applying.

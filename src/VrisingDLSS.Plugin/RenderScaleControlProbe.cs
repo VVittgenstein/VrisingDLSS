@@ -15,6 +15,7 @@ internal static class RenderScaleControlProbe
     private const int MaxHardwareDynamicResolutionRequestLogs = 16;
     private const int MaxHardwareDynamicResolutionRequestFailureLogs = 3;
     private const int MaxHandlerRequestDiagnosticLogs = 12;
+    private const int MaxSoftwareFallbackDiagnosticLogs = 12;
     private const string GlobalDynamicResolutionSettingsTypeName = "UnityEngine.Rendering.GlobalDynamicResolutionSettings";
     private const string TaaUpscaleFilterName = "TAAU";
     private const float DlaaRenderScalePercent = 100f;
@@ -43,6 +44,7 @@ internal static class RenderScaleControlProbe
     private static int HardwareDynamicResolutionRequestLogCount;
     private static int HardwareDynamicResolutionRequestFailureLogCount;
     private static int HandlerRequestDiagnosticLogCount;
+    private static int SoftwareFallbackDiagnosticLogCount;
     private static RenderScaleSettings Settings;
 
     internal static void Install(ManualLogSource log, string qualityMode, int renderScaleOverride)
@@ -177,6 +179,7 @@ internal static class RenderScaleControlProbe
             HardwareDynamicResolutionRequestLogCount = 0;
             HardwareDynamicResolutionRequestFailureLogCount = 0;
             HandlerRequestDiagnosticLogCount = 0;
+            SoftwareFallbackDiagnosticLogCount = 0;
         }
     }
 
@@ -330,7 +333,45 @@ internal static class RenderScaleControlProbe
         LogHandlerRequestDiagnostic(
             $"type={handlerType.FullName}; before={FormatValue(before)}; invokedSetCurrentCameraRequest={invoked}; fieldWritable={writable}; after={FormatValue(after)}{(string.IsNullOrWhiteSpace(invokeError) ? string.Empty : $"; invokeError={invokeError}")}");
 
-        return changed || invoked;
+        var softwareFallbackChanged = TryForceSoftwareFallback(handler, changes);
+        return changed || invoked || softwareFallbackChanged;
+    }
+
+    private static bool TryForceSoftwareFallback(object handler, ICollection<string> changes)
+    {
+        var handlerType = handler.GetType();
+        var requestBefore = TryReadMember(handler, "m_CurrentCameraRequest");
+        var fallbackBefore = TryReadMember(handler, "m_ForceSoftwareFallback");
+        var typeBefore = TryReadMember(handler, "type");
+        var scalableBefore = SummarizeScalableBufferManager();
+
+        var invokedFallback = TryInvokeParameterless(handler, "ForceSoftwareFallback", out _, out var fallbackInvokeError);
+        var fallbackAfterInvoke = TryReadMember(handler, "m_ForceSoftwareFallback");
+        var fieldChanged = false;
+        if (!ValueIsTrue(fallbackAfterInvoke))
+        {
+            fieldChanged = TrySetBoolMember(handler, "m_ForceSoftwareFallback", true, changes);
+        }
+
+        var requestAfter = TryReadMember(handler, "m_CurrentCameraRequest");
+        var fallbackAfter = TryReadMember(handler, "m_ForceSoftwareFallback");
+        var softwareEnabled = TryInvokeParameterless(handler, "SoftwareDynamicResIsEnabled", out var softwareEnabledValue, out var softwareEnabledError);
+        var hardwareEnabled = TryInvokeParameterless(handler, "HardwareDynamicResIsEnabled", out var hardwareEnabledValue, out var hardwareEnabledError);
+        var dynamicEnabled = TryInvokeParameterless(handler, "DynamicResolutionEnabled", out var dynamicEnabledValue, out var dynamicEnabledError);
+        var currentScale = TryInvokeParameterless(handler, "GetCurrentScale", out var currentScaleValue, out var currentScaleError);
+        var resolvedScale = TryInvokeParameterless(handler, "GetResolvedScale", out var resolvedScaleValue, out var resolvedScaleError);
+        var scalableAfter = SummarizeScalableBufferManager();
+
+        if (invokedFallback && !ValueIsTrue(fallbackBefore) && ValueIsTrue(fallbackAfterInvoke))
+        {
+            changes.Add("ForceSoftwareFallback=false->true");
+        }
+
+        var fallbackWritable = FindWritableMember(handlerType, "m_ForceSoftwareFallback") is not null;
+        LogSoftwareFallbackDiagnostic(
+            $"type={handlerType.FullName}; requestBefore={FormatValue(requestBefore)}; requestAfter={FormatValue(requestAfter)}; typeBefore={FormatValue(typeBefore)}; fallbackBefore={FormatValue(fallbackBefore)}; invokedForceSoftwareFallback={invokedFallback}; fallbackFieldWritable={fallbackWritable}; fallbackAfter={FormatValue(fallbackAfter)}; SoftwareDynamicResIsEnabled={FormatInvocation(softwareEnabled, softwareEnabledValue, softwareEnabledError)}; HardwareDynamicResIsEnabled={FormatInvocation(hardwareEnabled, hardwareEnabledValue, hardwareEnabledError)}; DynamicResolutionEnabled={FormatInvocation(dynamicEnabled, dynamicEnabledValue, dynamicEnabledError)}; GetCurrentScale={FormatInvocation(currentScale, currentScaleValue, currentScaleError)}; GetResolvedScale={FormatInvocation(resolvedScale, resolvedScaleValue, resolvedScaleError)}; ScalableBufferManagerBefore={scalableBefore}; ScalableBufferManagerAfter={scalableAfter}{(string.IsNullOrWhiteSpace(fallbackInvokeError) ? string.Empty : $"; fallbackInvokeError={fallbackInvokeError}")}");
+
+        return invokedFallback || fieldChanged;
     }
 
     private static bool TryInvokeSetCurrentCameraRequest(object handler, out string error)
@@ -351,6 +392,34 @@ internal static class RenderScaleControlProbe
             }
 
             method.Invoke(handler, new object[] { true });
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = GetExceptionMessage(ex);
+            return false;
+        }
+    }
+
+    private static bool TryInvokeParameterless(object instance, string methodName, out object? value, out string error)
+    {
+        value = null;
+        error = string.Empty;
+        try
+        {
+            var method = FindMethodBySignature(
+                instance.GetType(),
+                methodName,
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
+                Array.Empty<Type>());
+
+            if (method is null)
+            {
+                error = "method not found";
+                return false;
+            }
+
+            value = method.Invoke(instance, Array.Empty<object>());
             return true;
         }
         catch (Exception ex)
@@ -545,6 +614,23 @@ internal static class RenderScaleControlProbe
         }
 
         Log?.LogInfo($"Render-scale control handler request diagnostic #{count}: {message}");
+    }
+
+    private static void LogSoftwareFallbackDiagnostic(string message)
+    {
+        int count;
+        lock (Sync)
+        {
+            if (SoftwareFallbackDiagnosticLogCount >= MaxSoftwareFallbackDiagnosticLogs)
+            {
+                return;
+            }
+
+            SoftwareFallbackDiagnosticLogCount++;
+            count = SoftwareFallbackDiagnosticLogCount;
+        }
+
+        Log?.LogInfo($"Render-scale control software fallback diagnostic #{count}: {message}");
     }
 
     private static bool TrySetBoolMember(object instance, string memberName, bool value, ICollection<string> changes)
@@ -743,6 +829,39 @@ internal static class RenderScaleControlProbe
         }
     }
 
+    private static object? TryReadStaticMember(Type type, string memberName)
+    {
+        try
+        {
+            const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static;
+            var property = type.GetProperty(memberName, flags);
+            if (property is not null && property.GetIndexParameters().Length == 0 && property.GetMethod is not null)
+            {
+                return property.GetValue(null);
+            }
+
+            var field = type.GetField(memberName, flags);
+            return field?.GetValue(null);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string SummarizeScalableBufferManager()
+    {
+        var type = HookTargetCatalog.FindType(AppDomain.CurrentDomain.GetAssemblies(), "UnityEngine.ScalableBufferManager");
+        if (type is null)
+        {
+            return "missing";
+        }
+
+        var width = TryReadStaticMember(type, "widthScaleFactor");
+        var height = TryReadStaticMember(type, "heightScaleFactor");
+        return $"widthScaleFactor={FormatValue(width)},heightScaleFactor={FormatValue(height)}";
+    }
+
     private static float ResolveTargetPercentage(object? camera)
     {
         if (Settings.RenderScaleOverride > 0)
@@ -857,6 +976,21 @@ internal static class RenderScaleControlProbe
         }
 
         return current.Equals(expected);
+    }
+
+    private static bool ValueIsTrue(object? value)
+    {
+        return value is bool boolValue && boolValue;
+    }
+
+    private static string FormatInvocation(bool invoked, object? value, string error)
+    {
+        if (invoked)
+        {
+            return FormatValue(value);
+        }
+
+        return string.IsNullOrWhiteSpace(error) ? "unavailable" : $"unavailable({error})";
     }
 
     private static string FormatValue(object? value)
