@@ -42,7 +42,7 @@ public sealed class Plugin : BasePlugin
         }
         if (_config.EnableDlssCachedTupleDriverProbe.Value)
         {
-            _log.LogWarning("DLSS cached tuple driver diagnostic is true. This no-evaluate probe will stop using GetTexture after the first accepted tuple and drive the cached tuple from DynamicResolutionHandler.Update.");
+            _log.LogWarning("DLSS cached tuple driver diagnostic is true. This probe stops steady-state GetTexture resource discovery after the first accepted tuple and drives that cached tuple from DynamicResolutionHandler.Update.");
         }
 
         if (_config.EnableHookProbe.Value)

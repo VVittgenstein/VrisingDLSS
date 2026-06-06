@@ -20,6 +20,7 @@ param(
         "rendergraph-pass-boundary",
         "render-scale-control",
         "dlss-user-rendering",
+        "dlss-user-rendering-cached-driver",
         "dlss-user-rendering-no-evaluate",
         "dlss-user-rendering-materialization-no-evaluate",
         "dlss-user-rendering-cached-driver-no-evaluate",
@@ -241,6 +242,16 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableResourceMaterializationProbe = "true"
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"
             $Config.Diagnostics.EnableRenderScaleControlProbe = "true"
+            $Config.DLSS.EnableDLSS = "true"
+        }
+        "dlss-user-rendering-cached-driver" {
+            $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
+            $Config.Diagnostics.EnableD3D11TextureProbe = "true"
+            $Config.Diagnostics.EnableDlssRuntimeProbe = "true"
+            $Config.Diagnostics.EnableResourceMaterializationProbe = "true"
+            $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+            $Config.Diagnostics.EnableRenderScaleControlProbe = "true"
+            $Config.Diagnostics.EnableDlssCachedTupleDriverProbe = "true"
             $Config.DLSS.EnableDLSS = "true"
         }
         "dlss-user-rendering-no-evaluate" {

@@ -21,7 +21,7 @@ param(
     [string]$PresentMonPath = "C:\Software\PresentMon\PresentMon-2.4.1-x64.exe",
     [string]$NvidiaSmiPath = "nvidia-smi.exe",
     [switch]$SkipSystemMetrics,
-    [ValidateSet("dlss-visible-writeback", "dlss-user-rendering", "dlss-user-rendering-no-evaluate", "dlss-user-rendering-materialization-no-evaluate", "dlss-user-rendering-cached-driver-no-evaluate", "render-scale-control")]
+    [ValidateSet("dlss-visible-writeback", "dlss-user-rendering", "dlss-user-rendering-cached-driver", "dlss-user-rendering-no-evaluate", "dlss-user-rendering-materialization-no-evaluate", "dlss-user-rendering-cached-driver-no-evaluate", "render-scale-control")]
     [string]$CandidateStage = "dlss-visible-writeback",
     $WaitForStage10A = $true,
     [int]$Stage10ATimeoutSeconds = 600,
@@ -607,7 +607,7 @@ function Invoke-VisualRun {
     $userRenderingReadyTimedOut = $false
     $userRenderingDetectedAt = $null
     $waitedForStage10A = $waitForStage10AEnabled -and $UseSdkWrapperNative -and $Stage -eq "dlss-visible-writeback"
-    $waitedForUserRendering = $waitForUserRenderingEnabled -and (($UseSdkWrapperNative -and $Stage -eq "dlss-user-rendering") -or $Stage -eq "dlss-user-rendering-no-evaluate" -or $Stage -eq "dlss-user-rendering-materialization-no-evaluate" -or $Stage -eq "dlss-user-rendering-cached-driver-no-evaluate")
+    $waitedForUserRendering = $waitForUserRenderingEnabled -and (($UseSdkWrapperNative -and ($Stage -eq "dlss-user-rendering" -or $Stage -eq "dlss-user-rendering-cached-driver")) -or $Stage -eq "dlss-user-rendering-no-evaluate" -or $Stage -eq "dlss-user-rendering-materialization-no-evaluate" -or $Stage -eq "dlss-user-rendering-cached-driver-no-evaluate")
 
     try {
         if ($AttachExistingProcess) {
@@ -822,6 +822,7 @@ $candidateRequiresSdkWrapper = @("render-scale-control", "dlss-user-rendering-no
 $candidateLabelSuffix = switch ($CandidateStage) {
     "dlss-visible-writeback" { "stage10a-visible-writeback" }
     "dlss-user-rendering" { "user-rendering" }
+    "dlss-user-rendering-cached-driver" { "user-rendering-cached-driver" }
     "dlss-user-rendering-no-evaluate" { "user-rendering-no-evaluate" }
     "dlss-user-rendering-materialization-no-evaluate" { "user-rendering-materialization-no-evaluate" }
     "dlss-user-rendering-cached-driver-no-evaluate" { "user-rendering-cached-driver-no-evaluate" }
@@ -830,6 +831,7 @@ $candidateLabelSuffix = switch ($CandidateStage) {
 $comparisonLabelSuffix = switch ($CandidateStage) {
     "dlss-visible-writeback" { "stage10a" }
     "dlss-user-rendering" { "user-rendering" }
+    "dlss-user-rendering-cached-driver" { "user-rendering-cached-driver" }
     "dlss-user-rendering-no-evaluate" { "user-rendering-no-evaluate" }
     "dlss-user-rendering-materialization-no-evaluate" { "user-rendering-materialization-no-evaluate" }
     "dlss-user-rendering-cached-driver-no-evaluate" { "user-rendering-cached-driver-no-evaluate" }
@@ -869,8 +871,8 @@ $plan = [pscustomobject]@{
     CandidateStage = $CandidateStage
     WaitForStage10A = ($CandidateStage -eq "dlss-visible-writeback" -and $waitForStage10AEnabled)
     Stage10ATimeoutSeconds = $(if ($Mode -ne "BaselineOnly" -and $CandidateStage -eq "dlss-visible-writeback" -and $waitForStage10AEnabled) { $Stage10ATimeoutSeconds } else { 0 })
-    WaitForUserRendering = (($CandidateStage -eq "dlss-user-rendering" -or $CandidateStage -eq "dlss-user-rendering-no-evaluate" -or $CandidateStage -eq "dlss-user-rendering-materialization-no-evaluate" -or $CandidateStage -eq "dlss-user-rendering-cached-driver-no-evaluate") -and $waitForUserRenderingEnabled)
-    UserRenderingTimeoutSeconds = $(if ($Mode -ne "BaselineOnly" -and ($CandidateStage -eq "dlss-user-rendering" -or $CandidateStage -eq "dlss-user-rendering-no-evaluate" -or $CandidateStage -eq "dlss-user-rendering-materialization-no-evaluate" -or $CandidateStage -eq "dlss-user-rendering-cached-driver-no-evaluate") -and $waitForUserRenderingEnabled) { $UserRenderingTimeoutSeconds } else { 0 })
+    WaitForUserRendering = (($CandidateStage -eq "dlss-user-rendering" -or $CandidateStage -eq "dlss-user-rendering-cached-driver" -or $CandidateStage -eq "dlss-user-rendering-no-evaluate" -or $CandidateStage -eq "dlss-user-rendering-materialization-no-evaluate" -or $CandidateStage -eq "dlss-user-rendering-cached-driver-no-evaluate") -and $waitForUserRenderingEnabled)
+    UserRenderingTimeoutSeconds = $(if ($Mode -ne "BaselineOnly" -and ($CandidateStage -eq "dlss-user-rendering" -or $CandidateStage -eq "dlss-user-rendering-cached-driver" -or $CandidateStage -eq "dlss-user-rendering-no-evaluate" -or $CandidateStage -eq "dlss-user-rendering-materialization-no-evaluate" -or $CandidateStage -eq "dlss-user-rendering-cached-driver-no-evaluate") -and $waitForUserRenderingEnabled) { $UserRenderingTimeoutSeconds } else { 0 })
     KeepCandidateWritebackRunning = $(if ($Mode -ne "BaselineOnly" -and $CandidateStage -eq "dlss-visible-writeback") { $keepCandidateWritebackRunningEnabled } else { $false })
     ArtifactLabel = $ArtifactLabel
     BaselineCapture = $(if ($Mode -ne "CandidateOnly") { $baselinePath } else { "" })

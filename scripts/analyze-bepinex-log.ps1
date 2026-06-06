@@ -276,7 +276,7 @@ $results.Add((New-StageResult `
     -PassPatterns @("DLSS user rendering evaluate succeeded from", "DLSS user rendering no-evaluate accepted from") `
     -FailPatterns @("DLSS user rendering evaluate failed from", "DLSS user rendering evaluate skipped from", "DLSS user rendering shutdown failed:") `
     -BlockedPatterns @("DLSS user rendering evaluate blocked from") `
-    -StartedPatterns @("DLSS user rendering candidate enabled.", "DLSS user rendering no-evaluate diagnostic enabled.", "DLSS cached tuple driver no-evaluate diagnostic enabled.", "DLSS user rendering candidate #", "DLSS cached tuple driver invoked from")))
+    -StartedPatterns @("DLSS user rendering candidate enabled.", "DLSS user rendering no-evaluate diagnostic enabled.", "DLSS cached tuple driver diagnostic enabled.", "DLSS cached tuple driver no-evaluate diagnostic enabled.", "DLSS cached tuple driver armed from", "DLSS user rendering candidate #", "DLSS cached tuple driver invoked from")))
 
 $results
 

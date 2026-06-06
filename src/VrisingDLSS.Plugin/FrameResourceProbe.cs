@@ -301,7 +301,7 @@ internal static class FrameResourceProbe
         }
         if (DlssCachedTupleDriverProbeEnabled)
         {
-            log.LogWarning("DLSS cached tuple driver no-evaluate diagnostic enabled. It discovers one RenderGraph tuple, then drives the cached tuple from DynamicResolutionHandler.Update while skipping NGX evaluate/writeback.");
+            log.LogWarning("DLSS cached tuple driver diagnostic enabled. It discovers one RenderGraph tuple, then drives the cached tuple from DynamicResolutionHandler.Update while fast-skipping steady-state GetTexture work.");
         }
         if (RenderGraphDiagnosticPassEnabled)
         {
@@ -2020,7 +2020,7 @@ internal static class FrameResourceProbe
 
     private static bool ShouldFastSkipRenderGraphGetTextureForCachedTupleDriver()
     {
-        if (!DlssCachedTupleDriverProbeEnabled || !DlssUserRenderingNoEvaluateEnabled || !DlssUserRenderingHasAcceptedTuple)
+        if (!DlssCachedTupleDriverProbeEnabled || !DlssUserRenderingHasAcceptedTuple)
         {
             return false;
         }
@@ -3167,6 +3167,12 @@ internal static class FrameResourceProbe
                 depth.Value.Pointer,
                 motion.Value.Pointer,
                 output.ResourceName);
+            if (DlssCachedTupleDriverProbeEnabled && !DlssUserRenderingNoEvaluateEnabled)
+            {
+                log.LogInfo($"DLSS cached tuple driver armed from {source}: outputResourceName={output.ResourceName ?? "unavailable"}; evaluate deferred to DynamicResolutionHandler.Update driver.");
+                return;
+            }
+
             TryRunDlssUserRendering(
                 log,
                 bridge,
@@ -3185,7 +3191,6 @@ internal static class FrameResourceProbe
         try
         {
             if (!DlssCachedTupleDriverProbeEnabled
-                || !DlssUserRenderingNoEvaluateEnabled
                 || !DlssUserRenderingEnabled
                 || DlssUserRenderingBlocked
                 || WasDlssUserRenderingAttemptedThisFrameOrInterval())
@@ -3228,7 +3233,8 @@ internal static class FrameResourceProbe
                 tuple.DepthPointer,
                 tuple.MotionPointer,
                 tuple.OutputResourceName,
-                "cached tuple driver; input probe not repeated for this frame");
+                "cached tuple driver; input probe not repeated for this frame",
+                trackOutputFollowup: false);
         }
         catch (Exception ex)
         {
@@ -3342,7 +3348,8 @@ internal static class FrameResourceProbe
         IntPtr depthPointer,
         IntPtr motionPointer,
         string? outputResourceName,
-        string? noEvaluateStatusOverride = null)
+        string? noEvaluateStatusOverride = null,
+        bool trackOutputFollowup = true)
     {
         if (!DlssUserRenderingEnabled || DlssUserRenderingBlocked)
         {
@@ -3423,7 +3430,10 @@ internal static class FrameResourceProbe
                 DlssUserRenderingSucceeded = true;
             }
 
-            TrackDlssEvaluateOutputFollowup(outputPointer, outputResourceName);
+            if (trackOutputFollowup)
+            {
+                TrackDlssEvaluateOutputFollowup(outputPointer, outputResourceName);
+            }
             if (firstSuccess || currentSuccessCount <= 5 || currentSuccessCount % 300 == 0)
             {
                 var unityFrameLabel = unityFrameKnown ? unityFrame.ToString() : "unknown";
