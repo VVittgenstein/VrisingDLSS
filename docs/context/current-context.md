@@ -573,3 +573,15 @@ As of the read-only RenderGraph pass-map runtime result:
   separately default-off native-entry argument/resource preflight, menu-first,
   still no command-buffer access or DLSS evaluate. See
   `docs/development/native-renderfunc-entry-gameplay-result-2026-06-06.md`.
+- Narrow post-entry source/search audit is recorded in
+  `docs/research/hdrp-dlss-official-boundary-native-entry-audit-2026-06-06.md`.
+  It keeps local/upstream source primary and network search narrow. The official
+  HDRP boundary remains `RenderPostProcess -> DoDLSSPasses -> DoDLSSPass ->
+  Deep Learning Super Sampling render func -> DLSSPass.GetCameraResources ->
+  DLSSPass.Render(ctx.cmd)`. `CreateTextureCallback`, global `GetTexture`,
+  `DynamicResolutionHandler.Update`, managed RenderGraph wrappers, and
+  `DLSSPass.Render` Harmony patching remain rejected/non-production boundaries.
+  After the native-entry menu/gameplay proofs, the best current direction is a
+  separate default-off native-entry argument preflight: sample raw arguments
+  only, no dereference in callback, no command buffer, no resources, no DLSS,
+  menu-first, protected gameplay only after menu proof.
