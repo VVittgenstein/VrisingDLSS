@@ -119,3 +119,35 @@ effect on the actual gameplay camera/main render targets. Candidate areas:
   `SetupDLSSForCameraDataAndDynamicResHandler`;
 - whether a safer HDRP route exists for enabling hardware dynamic resolution without
   forcing Unity's internal DLSS pass.
+
+## Follow-up Diagnostic Fix
+
+After this result, `RenderScaleControlProbe.TrySetMember` was tightened so a reflected
+write is only reported as a change when the post-write value equals the intended value.
+Previously a failed camera write could be logged as `allowDynamicResolution=False->False`,
+which looked like a mutation but was actually evidence that the setter did not stick.
+
+The next run should therefore show a capped warning like
+`Render-scale control member write did not stick` if `UnityEngine.Camera.allowDynamicResolution`
+still refuses the reflected write.
+
+Static metadata follow-up using `C:\Software\Python314` plus `dnfile` found:
+
+- `UnityEngine.Camera.set_allowDynamicResolution` exists as a public managed IL2CPP
+  interop wrapper, but the previous log still showed the immediate post-write value
+  as `False`;
+- `UnityEngine.Rendering.GlobalDynamicResolutionSettings` exposes the mutated values as
+  writable public fields, matching the successful `forceResolution=True` /
+  `forcedPercentage=50` evidence;
+- `UnityEngine.Rendering.RTHandles.SetHardwareDynamicResolutionState(bool)` and
+  `RTHandleSystem.SetHardwareDynamicResolutionState(bool)` exist as public methods.
+
+`RenderScaleControlProbe` now also requests
+`RTHandles.SetHardwareDynamicResolutionState(true)` from the same guarded diagnostic
+path, with capped success/failure logging. The next run should look for
+`RTHandles.SetHardwareDynamicResolutionState=true` in render-scale control logs before
+deciding whether the main camera/main targets still ignore FSR Off dynamic resolution.
+
+Local verification: `C:\Software\dotnet\dotnet.exe build
+src\VrisingDLSS.Plugin\VrisingDLSS.Plugin.csproj -c Release --no-restore` passed with
+0 warnings and 0 errors.

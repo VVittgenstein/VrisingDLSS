@@ -117,6 +117,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\write-diagnostic-c
 
 Do not start a follow-up run until the previous result has been summarized in a durable local record.
 
-Current follow-up rule: investigate and fix why the gameplay camera remains
-`allowDynamicResolution=False` before launching the same `dlss-user-rendering` runtime
-test again.
+Current follow-up rule: do not launch the same `dlss-user-rendering` runtime test
+unchanged. The next run must use a targeted diagnostic build that can distinguish an
+immediate reflected-write failure (`Render-scale control member write did not stick`)
+from missing hardware dynamic-resolution activation
+(`RTHandles.SetHardwareDynamicResolutionState=true` without a smaller main render
+input).

@@ -11,6 +11,9 @@ internal static class RenderScaleControlProbe
 {
     private const string HarmonyId = PluginInfo.Guid + ".render-scale-control-probe";
     private const int MaxInitialLogs = 20;
+    private const int MaxMemberWriteFailureLogs = 20;
+    private const int MaxHardwareDynamicResolutionRequestLogs = 16;
+    private const int MaxHardwareDynamicResolutionRequestFailureLogs = 3;
     private const string GlobalDynamicResolutionSettingsTypeName = "UnityEngine.Rendering.GlobalDynamicResolutionSettings";
     private const string TaaUpscaleFilterName = "TAAU";
     private const float DlaaRenderScalePercent = 100f;
@@ -30,10 +33,14 @@ internal static class RenderScaleControlProbe
     private static ManualLogSource? Log;
     private static object? HarmonyInstance;
     private static Type? HarmonyType;
+    private static MethodInfo? SetHardwareDynamicResolutionStateMethod;
     private static bool Installed;
     private static int CallCount;
     private static int ScaleLogCount;
     private static int CameraUpscaleFilterSetCount;
+    private static int MemberWriteFailureLogCount;
+    private static int HardwareDynamicResolutionRequestLogCount;
+    private static int HardwareDynamicResolutionRequestFailureLogCount;
     private static RenderScaleSettings Settings;
 
     internal static void Install(ManualLogSource log, string qualityMode, int renderScaleOverride)
@@ -160,9 +167,13 @@ internal static class RenderScaleControlProbe
             Installed = false;
             HarmonyInstance = null;
             HarmonyType = null;
+            SetHardwareDynamicResolutionStateMethod = null;
             CallCount = 0;
             ScaleLogCount = 0;
             CameraUpscaleFilterSetCount = 0;
+            MemberWriteFailureLogCount = 0;
+            HardwareDynamicResolutionRequestLogCount = 0;
+            HardwareDynamicResolutionRequestFailureLogCount = 0;
         }
     }
 
@@ -190,6 +201,8 @@ internal static class RenderScaleControlProbe
             var camera = FindCamera(instance, args);
             var targetPercentage = ResolveTargetPercentage(camera);
             var changes = new List<string>();
+
+            TryRequestHardwareDynamicResolutionState(changes);
 
             if (methodName == "SetupDLSSForCameraDataAndDynamicResHandler")
             {
@@ -376,6 +389,88 @@ internal static class RenderScaleControlProbe
         }
     }
 
+    private static void TryRequestHardwareDynamicResolutionState(ICollection<string> changes)
+    {
+        try
+        {
+            var method = GetSetHardwareDynamicResolutionStateMethod();
+            if (method is null)
+            {
+                LogHardwareDynamicResolutionRequestFailure("method not found");
+                return;
+            }
+
+            method.Invoke(null, new object[] { true });
+            if (ShouldLogHardwareDynamicResolutionRequest())
+            {
+                changes.Add("RTHandles.SetHardwareDynamicResolutionState=true");
+            }
+        }
+        catch (Exception ex)
+        {
+            LogHardwareDynamicResolutionRequestFailure(GetExceptionMessage(ex));
+        }
+    }
+
+    private static MethodInfo? GetSetHardwareDynamicResolutionStateMethod()
+    {
+        if (SetHardwareDynamicResolutionStateMethod is not null)
+        {
+            return SetHardwareDynamicResolutionStateMethod;
+        }
+
+        var rtHandlesType = HookTargetCatalog.FindType(AppDomain.CurrentDomain.GetAssemblies(), "UnityEngine.Rendering.RTHandles");
+        var method = rtHandlesType?.GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .FirstOrDefault(candidate =>
+            {
+                if (candidate.Name != "SetHardwareDynamicResolutionState")
+                {
+                    return false;
+                }
+
+                var parameters = candidate.GetParameters();
+                return parameters.Length == 1 && parameters[0].ParameterType == typeof(bool);
+            });
+
+        if (method is not null)
+        {
+            SetHardwareDynamicResolutionStateMethod = method;
+        }
+
+        return method;
+    }
+
+    private static bool ShouldLogHardwareDynamicResolutionRequest()
+    {
+        lock (Sync)
+        {
+            if (HardwareDynamicResolutionRequestLogCount >= MaxHardwareDynamicResolutionRequestLogs)
+            {
+                return false;
+            }
+
+            HardwareDynamicResolutionRequestLogCount++;
+            return true;
+        }
+    }
+
+    private static void LogHardwareDynamicResolutionRequestFailure(string error)
+    {
+        int count;
+        lock (Sync)
+        {
+            if (HardwareDynamicResolutionRequestFailureLogCount >= MaxHardwareDynamicResolutionRequestFailureLogs)
+            {
+                return;
+            }
+
+            HardwareDynamicResolutionRequestFailureLogCount++;
+            count = HardwareDynamicResolutionRequestFailureLogCount;
+        }
+
+        Log?.LogWarning($"Render-scale control could not request hardware dynamic resolution state #{count}: {error}");
+    }
+
     private static bool TrySetBoolMember(object instance, string memberName, bool value, ICollection<string> changes)
     {
         return TrySetMember(instance, memberName, value, changes);
@@ -434,13 +529,50 @@ internal static class RenderScaleControlProbe
 
             WriteMember(instance, member, value);
             var after = ReadMember(instance, member);
+            if (!ValuesEqual(after, value))
+            {
+                LogMemberWriteFailure(instance.GetType(), memberName, current, value, after);
+                return false;
+            }
+
             changes.Add($"{memberName}={FormatValue(current)}->{FormatValue(after)}");
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            LogMemberWriteFailure(instance.GetType(), memberName, TrySafeRead(instance, memberName), value, null, GetExceptionMessage(ex));
             return false;
         }
+    }
+
+    private static object? TrySafeRead(object instance, string memberName)
+    {
+        try
+        {
+            return TryReadMember(instance, memberName);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void LogMemberWriteFailure(Type type, string memberName, object? before, object expected, object? after, string? error = null)
+    {
+        int count;
+        lock (Sync)
+        {
+            if (MemberWriteFailureLogCount >= MaxMemberWriteFailureLogs)
+            {
+                return;
+            }
+
+            MemberWriteFailureLogCount++;
+            count = MemberWriteFailureLogCount;
+        }
+
+        var detail = string.IsNullOrWhiteSpace(error) ? "" : $"; error={error}";
+        Log?.LogWarning($"Render-scale control member write did not stick #{count}: {type.FullName}.{memberName}; before={FormatValue(before)}; expected={FormatValue(expected)}; after={FormatValue(after)}{detail}");
     }
 
     private static MemberInfo? FindWritableMember(Type type, string memberName)

@@ -70,6 +70,7 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
 - Stage 10A proved guarded visible-path diagnostic write-back to the selected SR output target.
 - `dlss-user-rendering` exists as an experimental one-evaluate-per-Unity-frame candidate, but it still needs the correct FSR Off render-scale proof and visual/performance validation.
 - First FSR Off render-scale gameplay proof `fsr-off-render-scale-1080p-v1-20260606` reached gameplay automatically at `1920x1080` Windowed with SDK-wrapper native setup and safe cleanup, but failed the MVP tuple proof. Render-scale control changed HDRP settings to `forceResolution=True` and `forcedPercentage=50`, yet the main candidate stayed `color=1920x1080 output=1920x1080`; the gameplay camera still reported `allowDynamicResolution=False` and `IsDLSSEnabled=False`.
+- Follow-up static metadata inspection found public interop entry points for `UnityEngine.Camera.set_allowDynamicResolution` and `UnityEngine.Rendering.RTHandles.SetHardwareDynamicResolutionState(bool)`. `RenderScaleControlProbe` now treats reflected writes as successful only when the post-write readback matches, logs capped `Render-scale control member write did not stick` warnings, and requests `RTHandles.SetHardwareDynamicResolutionState(true)` from the guarded render-scale diagnostic path.
 - Phase 1 no-DLSS automation proof has partial-control history: `scripts/run-vrising-automation-proof.ps1` can launch V Rising, detect the real `UnityWndClass` window instead of the BepInEx console, capture a nonblank screenshot, archive logs, restore settings/config, and leave no V Rising process. Earlier run `automation-proof-1920-window-v5-20260606` reported `Status=Partial` because it used `FullScreenWindow`; this was later solved for the session harness by temporarily adding `GraphicSettings.WindowMode=3`.
 - Phase 1 direct-entry search found no supported client command-line auto-continue/direct-connect route in current official Stunlock launch options or local evidence. Local `ServerHistory.json` and interop strings strongly support the in-game `Continue`/direct-connect UI route instead.
 - The target local/private game for Continue automation is likely `Name=11111`: this is present in `ServerHistory.json`, and the user recalled the local game was named with many `1` characters and should be continuable directly.
@@ -104,7 +105,7 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
 - Client command-line direct entry is unproven and currently weak; do not spend the next runtime loop on blind command-line guesses.
 - If full automation fails, the semi-automatic human-Codex-game protocol still needs a durable, explicit artifact.
 - `dlss-optimal-settings` actual game-runtime validation is complete for the local SDK-wrapper research route; use it only as an optional pre-game API sanity check.
-- FSR Off render-scale control has a first runtime result, but the proof failed: HDRP settings are mutated to 50 percent while the actual gameplay camera/main render targets remain full-size. Next work should focus on making the real camera/main targets honor dynamic resolution under FSR Off.
+- FSR Off render-scale control has a first runtime result, but the proof failed: HDRP settings are mutated to 50 percent while the actual gameplay camera/main render targets remain full-size. Next work should focus on making the real camera/main targets honor dynamic resolution under FSR Off, starting with the new readback failure logs and `RTHandles.SetHardwareDynamicResolutionState(true)` request.
 - Normal-user `dlss-user-rendering` needs gameplay image-correctness and performance proof with V Rising FSR Off.
 - Output selection, jitter, exposure/pre-exposure, mip bias, resize/reset, fallback, and cleanup remain incomplete for playable MVP.
 - Runtime distribution strategy remains unresolved for a drag-in user package that should not require users to manually fetch an arbitrary DLL.
@@ -124,17 +125,16 @@ Follow the new goal order:
    - `dlss-optimal-settings` actual runtime validation is now passed;
    - read `fsr-off-render-scale-runtime-result-2026-06-06.md`;
    - investigate why `allowDynamicResolution=true` did not stick on the actual gameplay camera/main render targets;
-   - do not repeat `fsr-off-render-scale-1080p-v1-20260606` unchanged; after a targeted fix, rerun the protocol expecting a Performance-mode tuple near `960x540 -> 1920x1080`;
+   - do not repeat `fsr-off-render-scale-1080p-v1-20260606` unchanged; after the current targeted diagnostic build, rerun the protocol and check for `Render-scale control member write did not stick`, `RTHandles.SetHardwareDynamicResolutionState=true`, and a Performance-mode tuple near `960x540 -> 1920x1080`;
    - reserve 4K/native-output performance comparison for the later controlled final validation matrix.
 
 ## Current Repository Checkpoint
 
-As of the first FSR Off render-scale runtime update:
+As of the render-scale diagnostic follow-up:
 
 - Branch: `main`.
-- Latest pushed checkpoint before this update: `8b15a35 Validate DLSS optimal settings runtime path`.
-- This checkpoint adds diagnostic-stage support to the automation session harness,
-  first FSR Off render-scale gameplay evidence, and save restore evidence for the
-  `11111` fixture.
+- Latest pushed checkpoint before this update: `fcda774 Record FSR Off render-scale blocker`.
+- This checkpoint tightens render-scale control diagnostics around failed reflected
+  member writes and adds an explicit hardware dynamic-resolution state request.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.

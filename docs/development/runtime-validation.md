@@ -95,7 +95,7 @@ Implemented as a guarded local/private diagnostic switch:
 - Config key: `Diagnostics.EnableRenderScaleControlProbe=false` by default.
 - Helper stage: `scripts\run-vrising-diagnostic.ps1 -Stage render-scale-control`.
 - The `dlss-user-rendering` helper also enables this probe so V Rising can stay at `FsrQualityMode=Off` while the mod requests the lower render resolution.
-- Patches HDRP dynamic-resolution setup/update calls and requests `allowDynamicResolution=true`.
+- Patches HDRP dynamic-resolution setup/update calls, requests `allowDynamicResolution=true`, and requests `RTHandles.SetHardwareDynamicResolutionState(true)`.
 - Mutates `GlobalDynamicResolutionSettings` to `enabled=true`, `forceResolution=true`, `forcedPercentage=<DLSS quality percentage>`, and `upsampleFilter=TAAU`.
 - Does not force Unity's internal DLSS pass, load NGX, create a DLSS feature, evaluate a frame, or use V Rising's FSR setting as the render-scale control.
 
@@ -117,6 +117,7 @@ Current Stage 2C status:
 - `fsr-off-render-scale-1080p-v1-20260606` proved the hook can mutate HDRP dynamic-resolution settings under V Rising FSR Off in a `1920x1080` Windowed gameplay run: logs included `forceResolution=True` and `forcedPercentage=50`.
 - The same run did not pass the MVP render-scale proof. The main DLSS candidate stayed same-sized: `color=1920x1080 output=1920x1080`, and the super-resolution input probe repeatedly reported `output was not larger than render input`.
 - The blocker signature is that the gameplay camera still reported `allowDynamicResolution=False` and `IsDLSSEnabled=False`, while only non-primary intermediate resources such as `BloomMipDown_960x540` and `AO Packed data_960x540` showed 50 percent dimensions.
+- Follow-up diagnostic code now verifies reflected member writes by reading back the value, logs capped `Render-scale control member write did not stick` warnings, and requests `RTHandles.SetHardwareDynamicResolutionState(true)`. The next run should confirm whether those logs appear and whether the main candidate changes from same-sized to a smaller render input.
 - Result summary: `docs/development/fsr-off-render-scale-runtime-result-2026-06-06.md`.
 
 ## Stage 3: Read-Only Harmony Probe
