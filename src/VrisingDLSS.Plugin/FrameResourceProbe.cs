@@ -2206,8 +2206,7 @@ internal static class FrameResourceProbe
             return;
         }
 
-        var compiledPassInfos = TryReadPropertyObject(renderGraph, "m_CompiledPassInfos")
-            ?? TryReadFieldObject(renderGraph, "m_CompiledPassInfos");
+        var compiledPassInfos = TryReadRenderGraphCompiledPassInfos(renderGraph, out var compiledPassInfoSource);
         if (compiledPassInfos is null)
         {
             log.LogInfo($"RenderGraph compiled-pass-info compile #{compileCount}: compiledPassInfos=not found");
@@ -2234,7 +2233,7 @@ internal static class FrameResourceProbe
 
         if (compileCount <= MaxRenderGraphPassListCompileLogs || compileCount % 300 == 0)
         {
-            log.LogInfo($"RenderGraph compiled-pass-info compile #{compileCount}: compiledCount={declaredCount}; enumerated={compiledInfos.Length}; focusCount={focusCount}");
+            log.LogInfo($"RenderGraph compiled-pass-info compile #{compileCount}: source={compiledPassInfoSource}; compiledCount={declaredCount}; enumerated={compiledInfos.Length}; focusCount={focusCount}");
         }
 
         foreach (var compiledInfo in compiledInfos)
@@ -2267,6 +2266,45 @@ internal static class FrameResourceProbe
             var resourceReleaseSummary = SummarizeRenderGraphResourceLifetimeLists(TryReadPropertyObject(compiledInfo, "resourceReleaseList") ?? TryReadFieldObject(compiledInfo, "resourceReleaseList"));
             log.LogInfo($"RenderGraph compiled-pass-info #{infoLogCount}: compile={compileCount}; ordinal={compiledIndex}; pass=\"{passName}\"; category={category}; passType={passType}{state}; resourceCreateList={resourceCreateSummary}; resourceReleaseList={resourceReleaseSummary}");
         }
+    }
+
+    private static object? TryReadRenderGraphCompiledPassInfos(object renderGraph, out string source)
+    {
+        source = "not found";
+
+        var direct = TryReadMemberObject(renderGraph, "m_CompiledPassInfos")
+            ?? TryReadMemberObject(renderGraph, "compiledPassInfos");
+        if (direct is not null)
+        {
+            source = "renderGraph";
+            return direct;
+        }
+
+        var currentCompiledGraph = TryReadMemberObject(renderGraph, "m_CurrentCompiledGraph");
+        var current = TryReadCompiledGraphPassInfos(currentCompiledGraph);
+        if (current is not null)
+        {
+            source = "m_CurrentCompiledGraph.compiledPassInfos";
+            return current;
+        }
+
+        var defaultCompiledGraph = TryReadMemberObject(renderGraph, "m_DefaultCompiledGraph");
+        var fallback = TryReadCompiledGraphPassInfos(defaultCompiledGraph);
+        if (fallback is not null)
+        {
+            source = "m_DefaultCompiledGraph.compiledPassInfos";
+            return fallback;
+        }
+
+        return null;
+    }
+
+    private static object? TryReadCompiledGraphPassInfos(object? compiledGraph)
+    {
+        return compiledGraph is null
+            ? null
+            : TryReadMemberObject(compiledGraph, "compiledPassInfos")
+                ?? TryReadMemberObject(compiledGraph, "m_CompiledPassInfos");
     }
 
     private static void TryLogRenderGraphPassBoundary(MethodBase originalMethod, object?[]? args)
@@ -6913,6 +6951,12 @@ internal static class FrameResourceProbe
         {
             return null;
         }
+    }
+
+    private static object? TryReadMemberObject(object instance, string memberName)
+    {
+        return TryReadPropertyObject(instance, memberName)
+            ?? TryReadFieldObject(instance, memberName);
     }
 
     private static PropertyInfo? FindCachedInstanceProperty(Type type, string propertyName)

@@ -516,13 +516,18 @@ Current Stage 8A status:
   `Diagnostics.EnableRenderGraphCompiledPassInfoProbe=false` and helper stage
   `rendergraph-compiled-pass-info`. It reuses only the safe
   `CompileRenderGraph(int)` postfix and reads focused `CompiledPassInfo`
-  culling/sync/refCount/resource lifetime counts from `m_CompiledPassInfos`.
+  culling/sync/refCount/resource lifetime counts from
+  `m_CurrentCompiledGraph.compiledPassInfos`.
   It does not resolve textures, call `GetTexture`, inspect native pointers,
   touch command buffers, call render funcs, or evaluate DLSS. Build and dry-run
-  config validation passed. Runtime status is pending; first proof must be a
-  true `1920x1080` Windowed menu run with analyzer
-  `RenderGraph Compiled Pass Info=Pass`, focused compiled-pass-info lines,
-  `RenderGraph GetTexture call #=0`, and `CrashEventCount=0`.
+  config validation passed. Menu runtime
+  `rendergraph-compiled-pass-info-1080p-menu-20260606-r2` also passed at true
+  `1920x1080` Windowed with analyzer `RenderGraph Compiled Pass Info=Pass`,
+  `299` focused compiled-pass-info lines, `compiledPassInfos=not found=0`,
+  `RenderGraph GetTexture call #=0`, `CrashEventCount=0`, and restored
+  loader/native/settings. The focused menu chain showed `Uber Post`,
+  `Edge Adaptive Spatial Upsampling`, and `Final Pass` all `culled=False`.
+  Treat this as read-only map evidence only, not an evaluate boundary.
 - See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.
 
 ## Stage 8B: First Guarded DLSS Evaluate Diagnostic

@@ -99,11 +99,18 @@ Keep this classification:
 Do not rerun unchanged rejected probes and do not launch a gameplay test from this
 search result alone.
 
-The safest immediate path is:
+The compiled-pass-info follow-up is now complete:
 
-1. Use `rendergraph-compiled-pass-info` only as a menu-first, read-only
-   `CompileRenderGraph(int)` map/lifetime proof if that runtime signal is still
-   needed.
+- `rendergraph-compiled-pass-info-1080p-menu-20260606-r2` passed at true
+  `1920x1080` Windowed with focused `Uber Post`, `Edge Adaptive Spatial
+  Upsampling`, and `Final Pass` compiled-state lines, `GetTexture=0`, and no
+  crash.
+- It is map evidence only and not an evaluate boundary.
+
+The safest next path is:
+
+1. Do not rerun `rendergraph-compiled-pass-info` unchanged unless a Unity/V
+   Rising update or code regression changes the map.
 2. If approaching the true execution boundary, first design a separate
    `native-renderfunc-entry` no-op method-pointer probe. It must count entry only,
    resolve no textures, touch no command buffer, run no DLSS, start menu-only, and

@@ -416,11 +416,14 @@ compile/culling and where its resource lifetime lists sit:
 powershell -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\path\to\VRising" -Stage rendergraph-compiled-pass-info -DurationSeconds 120 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080
 ```
 
-Current status: implemented and build-validated, not yet runtime-tested. First
-runtime test must be menu-only at true `1920x1080` Windowed. Do not run
-protected `11111` gameplay until menu proof has focused
-`RenderGraph compiled-pass-info #` lines, `RenderGraph GetTexture call #=0`, and
-no crash.
+Current status: menu runtime-validated. Run
+`rendergraph-compiled-pass-info-1080p-menu-20260606-r2` passed at true
+`1920x1080` Windowed with analyzer `RenderGraph Compiled Pass Info=Pass`,
+`299` focused compiled-pass-info lines, `compiledPassInfos=not found=0`,
+`RenderGraph GetTexture call #=0`, and `CrashEventCount=0`. The probe reads
+`m_CurrentCompiledGraph.compiledPassInfos` in this V Rising build. Do not rerun
+this stage unchanged unless a Unity/V Rising update or code regression changes
+the RenderGraph map.
 
 ## RenderGraph Execute-Delegate Probe
 

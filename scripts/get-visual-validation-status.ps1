@@ -516,7 +516,7 @@ if (Test-Path -LiteralPath $reviewResolved) {
 }
 
 if (@($issues | Where-Object { $_ -like "Candidate * regressed*" -or $_ -like "Candidate P95 frame time worsened*" }).Count -gt 0) {
-    $nextRecommendation = "Cached-driver real-evaluate crashed in nvwgf2umx.dll even with GetTexture evaluate/output-follow-up at zero. The safe CompileRenderGraph map path has pass-list, declarations, pass-data, and renderfunc-metadata menu/gameplay proof; execute-delegate was stable but silent. A default-off rendergraph-compiled-pass-info stage is now implemented but still needs a menu-only 1920x1080 Windowed runtime proof before any protected gameplay proof. Do not patch generated render funcs or rerun completed/rejected probes unchanged."
+    $nextRecommendation = "Cached-driver real-evaluate crashed in nvwgf2umx.dll even with GetTexture evaluate/output-follow-up at zero. The safe CompileRenderGraph map path has pass-list, declarations, pass-data, renderfunc-metadata, and compiled-pass-info proof; execute-delegate was stable but silent. The next narrow step is to design a separate native-renderfunc-entry no-op method-pointer probe, or find an equally safe pass-owned boundary near EASU/final/DLSS resource resolution. Do not patch generated render funcs or rerun completed/rejected probes unchanged."
 }
 
 if ($issues.Count -gt 0) {

@@ -510,20 +510,26 @@ As of the read-only RenderGraph pass-map runtime result:
   refresh did not find a new safe Harmony boundary. The official source answer
   remains `RenderPostProcess -> DoDLSSPasses -> DoDLSSPass -> Deep Learning Super
   Sampling render func -> DLSSPass.GetCameraResources -> DLSSPass.Render/ExecuteDLSS`;
-  the next practical branch is either the already planned read-only
-  `rendergraph-compiled-pass-info` menu proof, or a separately designed
-  `native-renderfunc-entry` no-op method-pointer probe.
+  the read-only `rendergraph-compiled-pass-info` menu proof is now complete, so
+  the next practical branch is a separately designed `native-renderfunc-entry`
+  no-op method-pointer probe or an equally safe pass-owned boundary.
 - Implementation follow-up added the default-off
   `Diagnostics.EnableRenderGraphCompiledPassInfoProbe=false` and helper stage
   `rendergraph-compiled-pass-info`. It reuses the proven
-  `CompileRenderGraph(int)` postfix, reads `m_CompiledPassInfos`, handles Unity
-  `DynamicArray<T>` by `size` plus `m_Array`, and logs only focused
-  `CompiledPassInfo` culling/sync/refCount/resource-create/release counts. It
-  does not resolve textures, call `GetTexture`, inspect native pointers, touch
-  command buffers, call render funcs, or evaluate DLSS. Build and dry-run config
-  validation passed, but no runtime proof exists yet. First runtime proof must be
-  menu-only at true `1920x1080` Windowed; protected `11111` gameplay is allowed
-  only after menu signal with `GetTexture=0` and no crash. See
-  `docs/development/rendergraph-compiled-pass-info-plan-2026-06-06.md`.
+  `CompileRenderGraph(int)` postfix, reads
+  `m_CurrentCompiledGraph.compiledPassInfos`, handles Unity `DynamicArray<T>` by
+  `size` plus `m_Array`, and logs only focused `CompiledPassInfo`
+  culling/sync/refCount/resource-create/release counts. It does not resolve
+  textures, call `GetTexture`, inspect native pointers, touch command buffers,
+  call render funcs, or evaluate DLSS. First menu runtime
+  `rendergraph-compiled-pass-info-1080p-menu-20260606-r2` passed at true
+  `1920x1080` Windowed with `CrashEventCount=0`, analyzer
+  `RenderGraph Compiled Pass Info=Pass`, `299` focused compiled-pass-info
+  lines, `compiledPassInfos=not found=0`, `GetTexture=0`, and restored
+  loader/native/settings. It captured `Uber Post`, `Edge Adaptive Spatial
+  Upsampling`, and `Final Pass` as `culled=False` map evidence. This is still
+  not an evaluate boundary; do not rerun unchanged except after regression or a
+  Unity/V Rising update. See
+  `docs/development/rendergraph-compiled-pass-info-runtime-result-2026-06-06.md`.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.

@@ -1,6 +1,6 @@
 # RenderGraph Compiled Pass Info Plan - 2026-06-06
 
-Status: implemented, build-validated, not yet runtime-tested.
+Status: implemented, build-validated, and menu runtime-validated.
 
 ## Question
 
@@ -11,8 +11,8 @@ This is a map-refinement step only. It is not a DLSS evaluate boundary.
 
 ## Hypothesis
 
-The safe compile-time postfix can read `RenderGraph.m_CompiledPassInfos` after
-Unity has compiled/cull/scheduled the graph and before `ClearRenderPasses()`.
+The safe compile-time postfix can read compiled pass info after Unity has
+compiled/cull/scheduled the graph and before `ClearRenderPasses()`.
 For the focused gameplay chain, this should reveal whether `Uber Post`,
 `Edge Adaptive Spatial Upsampling`, and `Final Pass` are culled, their refCount
 and async/sync state, and the shape of resource create/release lists.
@@ -38,7 +38,9 @@ Added helper stage:
 The stage:
 
 - patches only `RenderGraph.CompileRenderGraph(int)`;
-- reads `m_RenderPasses` and `m_CompiledPassInfos`;
+- reads `m_RenderPasses` and
+  `m_CurrentCompiledGraph.compiledPassInfos`, with direct/default graph
+  fallbacks;
 - handles Unity `DynamicArray<T>` by reading `size` and enumerating `m_Array`;
 - logs only focused compiled pass info:
   - pass name/category;
@@ -51,6 +53,29 @@ The stage:
 It does not resolve textures, does not call `GetTexture`, does not inspect
 native pointers, does not touch command buffers, does not call render functions,
 and does not evaluate DLSS.
+
+## First Runtime Result
+
+Menu proof `rendergraph-compiled-pass-info-1080p-menu-20260606-r2` passed after
+fixing the interop source chain from direct `m_CompiledPassInfos` to
+`m_CurrentCompiledGraph.compiledPassInfos`.
+
+Result summary:
+
+- true `1920x1080` Windowed;
+- `CrashEventCount=0`;
+- analyzer `RenderGraph Compiled Pass Info=Pass`;
+- `299` focused `RenderGraph compiled-pass-info #` lines;
+- first compile summary:
+  `source=m_CurrentCompiledGraph.compiledPassInfos; compiledCount=80; enumerated=80; focusCount=6`;
+- focused `Uber Post`, `Edge Adaptive Spatial Upsampling`, and `Final Pass`
+  entries were all `culled=False`;
+- `RenderGraph GetTexture call #=0`;
+- `compiledPassInfos=not found=0`;
+- loader config, release-safe native DLL, and `ClientSettings.json` restored.
+
+Artifacts are recorded in
+`docs/development/rendergraph-compiled-pass-info-runtime-result-2026-06-06.md`.
 
 ## First Runtime Protocol
 
