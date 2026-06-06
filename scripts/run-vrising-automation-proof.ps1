@@ -12,6 +12,10 @@ param(
     [int]$ObservationSeconds = 10,
     [ValidateSet("Auto", "PrintWindow", "ScreenCopy")]
     [string]$ScreenshotMethod = "Auto",
+    [switch]$SendHarmlessInput,
+    [ValidateSet("Escape", "Enter", "Space")]
+    [string]$HarmlessInputKey = "Escape",
+    [int]$PostInputWaitSeconds = 3,
     [switch]$SetClientResolution,
     [switch]$SkipInstall,
     [switch]$DryRun
@@ -37,6 +41,10 @@ if ($WaitForNonBlankScreenshotSeconds -lt 0) {
 
 if ($ScreenshotRetrySeconds -lt 1) {
     throw "ScreenshotRetrySeconds must be at least 1."
+}
+
+if ($PostInputWaitSeconds -lt 0) {
+    throw "PostInputWaitSeconds cannot be negative."
 }
 
 if ([string]::IsNullOrWhiteSpace($Root)) {
@@ -119,10 +127,165 @@ function Get-PlayerLogResolutionInfo {
     [pscustomobject]$info
 }
 
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+
+public static class VrisingDlssInputProofNative
+{
+    [DllImport("user32.dll")]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct INPUT
+    {
+        public uint type;
+        public InputUnion u;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    public struct InputUnion
+    {
+        [FieldOffset(0)]
+        public MOUSEINPUT mi;
+
+        [FieldOffset(0)]
+        public KEYBDINPUT ki;
+
+        [FieldOffset(0)]
+        public HARDWAREINPUT hi;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MOUSEINPUT
+    {
+        public int dx;
+        public int dy;
+        public uint mouseData;
+        public uint dwFlags;
+        public uint time;
+        public IntPtr dwExtraInfo;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct KEYBDINPUT
+    {
+        public ushort wVk;
+        public ushort wScan;
+        public uint dwFlags;
+        public uint time;
+        public IntPtr dwExtraInfo;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct HARDWAREINPUT
+    {
+        public uint uMsg;
+        public ushort wParamL;
+        public ushort wParamH;
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+    public static int GetLastWin32Error()
+    {
+        return Marshal.GetLastWin32Error();
+    }
+
+    public static int GetInputStructSize()
+    {
+        return Marshal.SizeOf(typeof(INPUT));
+    }
+
+    public static uint SendVirtualKey(ushort virtualKey)
+    {
+        const uint INPUT_KEYBOARD = 1;
+        const uint KEYEVENTF_KEYUP = 0x0002;
+
+        INPUT[] inputs = new INPUT[2];
+        inputs[0].type = INPUT_KEYBOARD;
+        inputs[0].u.ki.wVk = virtualKey;
+        inputs[1].type = INPUT_KEYBOARD;
+        inputs[1].u.ki.wVk = virtualKey;
+        inputs[1].u.ki.dwFlags = KEYEVENTF_KEYUP;
+
+        return SendInput((uint)inputs.Length, inputs, GetInputStructSize());
+    }
+}
+"@
+
+function Convert-HexHandleToIntPtr {
+    param([string]$Handle)
+
+    if ([string]::IsNullOrWhiteSpace($Handle)) {
+        return [IntPtr]::Zero
+    }
+
+    $normalized = $Handle.Trim()
+    if ($normalized.StartsWith("0x", [StringComparison]::OrdinalIgnoreCase)) {
+        $normalized = $normalized.Substring(2)
+    }
+
+    if ([string]::IsNullOrWhiteSpace($normalized)) {
+        return [IntPtr]::Zero
+    }
+
+    [IntPtr]::new([Convert]::ToInt64($normalized, 16))
+}
+
+function Get-HarmlessInputVirtualKey {
+    param([string]$Key)
+
+    switch ($Key) {
+        "Escape" { return 0x1B }
+        "Enter" { return 0x0D }
+        "Space" { return 0x20 }
+        default { throw "Unsupported harmless input key: $Key" }
+    }
+}
+
+function Send-HarmlessInputToWindow {
+    param(
+        [string]$Handle,
+        [string]$Key
+    )
+
+    $windowHandle = Convert-HexHandleToIntPtr -Handle $Handle
+    if ($windowHandle -eq [IntPtr]::Zero) {
+        throw "SelectedWindow handle was not available for harmless input proof."
+    }
+
+    $swRestore = 9
+    [void][VrisingDlssInputProofNative]::ShowWindow($windowHandle, $swRestore)
+    $foregrounded = [VrisingDlssInputProofNative]::SetForegroundWindow($windowHandle)
+    Start-Sleep -Milliseconds 300
+
+    $virtualKey = [UInt16](Get-HarmlessInputVirtualKey -Key $Key)
+    $sentCount = [VrisingDlssInputProofNative]::SendVirtualKey($virtualKey)
+    $lastError = $(if ($sentCount -eq 2) { 0 } else { [VrisingDlssInputProofNative]::GetLastWin32Error() })
+
+    [pscustomobject]@{
+        WindowHandle = ("0x{0:X}" -f $windowHandle.ToInt64())
+        Key = $Key
+        VirtualKey = ("0x{0:X2}" -f $virtualKey)
+        Foregrounded = $foregrounded
+        InputStructSize = [VrisingDlssInputProofNative]::GetInputStructSize()
+        SendInputCount = [int]$sentCount
+        SendInputLastWin32Error = [int]$lastError
+        SendInputSucceeded = $sentCount -eq 2
+        LaunchesGame = $false
+    }
+}
+
 $playerLogArtifact = Join-Path $artifactRoot "Player-$ArtifactLabel.log"
 $bepInExLogArtifact = Join-Path $artifactRoot "LogOutput-$ArtifactLabel.log"
 $visibilityArtifact = Join-Path $artifactRoot "Visibility-$ArtifactLabel.json"
 $screenshotArtifact = Join-Path $artifactRoot "Screenshot-$ArtifactLabel.png"
+$afterInputScreenshotArtifact = Join-Path $artifactRoot "AfterInput-$ArtifactLabel.png"
 $resultArtifact = Join-Path $artifactRoot "Result-$ArtifactLabel.json"
 $werArtifact = Join-Path $artifactRoot "WER-$ArtifactLabel.txt"
 $clientSettingsPath = Join-Path $env:USERPROFILE "AppData\LocalLow\Stunlock Studios\VRising\Settings\v4\ClientSettings.json"
@@ -145,12 +308,13 @@ $plan = [pscustomobject]@{
     ExpectedEvidence = @(
         "VisibleGameWindow status from inspect-vrising-visibility.ps1",
         "A nonblank screenshot artifact with captured client size recorded",
+        $(if ($SendHarmlessInput) { "One harmless key sent to the selected UnityWndClass window plus an after-input screenshot" } else { "" }),
         "Player.log SetResolution line parsed into game-reported resolution and fullScreenMode",
         "Player and BepInEx logs archived under artifacts/gameplay-automation",
         "No VRising process remains after cleanup",
         "Loader config restored"
-    )
-    PassSignal = "VisibleGameWindow plus nonblank screenshot plus requested capture size plus cleanup with CrashEventCount=0."
+    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    PassSignal = $(if ($SendHarmlessInput) { "VisibleGameWindow plus nonblank before screenshot plus SendInput success plus nonblank after screenshot plus cleanup with CrashEventCount=0." } else { "VisibleGameWindow plus nonblank screenshot plus requested capture size plus cleanup with CrashEventCount=0." })
     PartialSignal = "Automation control succeeds and the game reports the requested resolution, but fullscreen-window behavior makes the captured client size differ from the requested windowed test shape."
     FailSignal = "No visible game window, invalid screenshot, crash event, early process exit, missing requested game resolution, or cleanup failure."
     CleanupPath = "CloseMainWindow, then force-stop if needed; restore loader config; archive logs/WER/result."
@@ -162,6 +326,9 @@ $plan = [pscustomobject]@{
     WaitForNonBlankScreenshotSeconds = $WaitForNonBlankScreenshotSeconds
     ScreenshotRetrySeconds = $ScreenshotRetrySeconds
     ObservationSeconds = $ObservationSeconds
+    SendHarmlessInput = [bool]$SendHarmlessInput
+    HarmlessInputKey = $(if ($SendHarmlessInput) { $HarmlessInputKey } else { "" })
+    PostInputWaitSeconds = $(if ($SendHarmlessInput) { $PostInputWaitSeconds } else { 0 })
     SkipInstall = [bool]$SkipInstall
     SetClientResolution = [bool]$SetClientResolution
     ClientSettingsPath = $clientSettingsPath
@@ -173,6 +340,7 @@ $plan = [pscustomobject]@{
     BepInExLogArtifact = $bepInExLogArtifact
     VisibilityArtifact = $visibilityArtifact
     ScreenshotArtifact = $screenshotArtifact
+    AfterInputScreenshotArtifact = $(if ($SendHarmlessInput) { $afterInputScreenshotArtifact } else { "" })
     ResultArtifact = $resultArtifact
     RestoresLoaderConfig = $true
     LaunchesGame = -not [bool]$DryRun
@@ -199,6 +367,13 @@ $screenshotNonBlank = $false
 $windowSizeMatchesRequested = $false
 $captureClientSizeMatchesRequested = $false
 $captureResult = $null
+$afterInputCaptureResult = $null
+$inputAttempted = $false
+$inputResult = $null
+$inputSent = $false
+$inputAfterScreenshotCreated = $false
+$inputAfterScreenshotNonBlank = $false
+$inputProofReady = $false
 $playerLogResolutionInfo = $null
 $gameReportedWidth = $null
 $gameReportedHeight = $null
@@ -314,6 +489,38 @@ try {
 
         if ($screenshotCreated -and $screenshotAccepted) {
             Write-Host "Accepted nonblank screenshot. CaptureClientSizeMatchesRequested=$captureClientSizeMatchesRequested"
+
+            if ($SendHarmlessInput) {
+                $inputAttempted = $true
+                $selectedWindowHandle = ""
+                if ($visibility.SelectedWindow -and $visibility.SelectedWindow.Handle) {
+                    $selectedWindowHandle = [string]$visibility.SelectedWindow.Handle
+                }
+
+                Write-Host "Sending harmless input key '$HarmlessInputKey' to selected window $selectedWindowHandle."
+                $inputResult = Send-HarmlessInputToWindow -Handle $selectedWindowHandle -Key $HarmlessInputKey
+                $inputSent = [bool]$inputResult.SendInputSucceeded
+
+                if ($PostInputWaitSeconds -gt 0) {
+                    Start-Sleep -Seconds $PostInputWaitSeconds
+                }
+
+                $afterInputCaptureOutput = & (Join-Path $resolvedRoot "scripts\capture-vrising-window.ps1") `
+                    -OutputPath $afterInputScreenshotArtifact `
+                    -ArtifactLabel "$ArtifactLabel-after-input" `
+                    -Method $ScreenshotMethod `
+                    -WaitSeconds 0
+                $afterInputCaptureOutput | Out-Host
+                $afterInputCaptureResult = @($afterInputCaptureOutput)[-1]
+                $inputAfterScreenshotCreated = Test-Path -LiteralPath $afterInputScreenshotArtifact
+
+                if ($inputAfterScreenshotCreated -and $afterInputCaptureResult) {
+                    $afterNearBlack = [double]$afterInputCaptureResult.NearBlackRatio
+                    $afterNearWhite = [double]$afterInputCaptureResult.NearWhiteRatio
+                    $afterAverageLuma = [double]$afterInputCaptureResult.AverageLuma
+                    $inputAfterScreenshotNonBlank = ($afterNearBlack -lt 0.98 -and $afterNearWhite -lt 0.98 -and $afterAverageLuma -gt 1.0)
+                }
+            }
         } elseif ($screenshotCreated) {
             $failureReason = "Screenshot artifact was created but remained blank/invalid before timeout."
         } else {
@@ -413,6 +620,7 @@ try {
         ($restoredClientSettings -or -not [bool]$SetClientResolution)
     )
     $windowedModeReady = ($automationControlReady -and $captureClientSizeMatchesRequested -and ($gameModeIsWindowed -or [string]::IsNullOrWhiteSpace($gameReportedFullScreenMode)))
+    $inputProofReady = ($automationControlReady -and [bool]$SendHarmlessInput -and $inputAttempted -and $inputSent -and $inputAfterScreenshotCreated -and $inputAfterScreenshotNonBlank)
 
     if ([string]::IsNullOrWhiteSpace($failureReason)) {
         if (-not $visibility -or $visibility.Status -ne "VisibleGameWindow") {
@@ -424,6 +632,17 @@ try {
         } elseif (-not $screenshotAccepted) {
             $status = "Failed"
             $failureReason = "Screenshot artifact was created but remained blank/invalid before timeout."
+        } elseif ($SendHarmlessInput -and $inputProofReady) {
+            $status = "Pass"
+        } elseif ($SendHarmlessInput -and -not $inputAttempted) {
+            $status = "Failed"
+            $failureReason = "Harmless input proof was requested but no input was attempted."
+        } elseif ($SendHarmlessInput -and -not $inputSent) {
+            $status = "Failed"
+            $failureReason = "Harmless input SendInput did not report a full key down/up pair."
+        } elseif ($SendHarmlessInput -and (-not $inputAfterScreenshotCreated -or -not $inputAfterScreenshotNonBlank)) {
+            $status = "Failed"
+            $failureReason = "Harmless input was sent, but the after-input screenshot was missing or blank/invalid."
         } elseif ($windowedModeReady) {
             $status = "Pass"
         } elseif ($automationControlReady -and $gameResolutionMatchesRequested -and $gameModeIsFullScreenWindow -and -not $captureClientSizeMatchesRequested) {
@@ -464,6 +683,25 @@ try {
         ScreenshotNearWhiteRatio = $(if ($captureResult) { [double]$captureResult.NearWhiteRatio } else { $null })
         ScreenshotAverageLuma = $(if ($captureResult) { [double]$captureResult.AverageLuma } else { $null })
         ScreenshotArtifact = $(if (Test-Path -LiteralPath $screenshotArtifact) { $screenshotArtifact } else { "" })
+        SendHarmlessInput = [bool]$SendHarmlessInput
+        HarmlessInputKey = $(if ($SendHarmlessInput) { $HarmlessInputKey } else { "" })
+        InputAttempted = $inputAttempted
+        InputWindowHandle = $(if ($inputResult) { [string]$inputResult.WindowHandle } else { "" })
+        InputVirtualKey = $(if ($inputResult) { [string]$inputResult.VirtualKey } else { "" })
+        InputForegrounded = $(if ($inputResult) { [bool]$inputResult.Foregrounded } else { $false })
+        InputStructSize = $(if ($inputResult) { [int]$inputResult.InputStructSize } else { 0 })
+        InputSendInputCount = $(if ($inputResult) { [int]$inputResult.SendInputCount } else { 0 })
+        InputSendInputLastWin32Error = $(if ($inputResult) { [int]$inputResult.SendInputLastWin32Error } else { 0 })
+        InputSent = $inputSent
+        InputAfterScreenshotCreated = $inputAfterScreenshotCreated
+        InputAfterScreenshotNonBlank = $inputAfterScreenshotNonBlank
+        InputAfterScreenshotWidth = $(if ($afterInputCaptureResult) { [int]$afterInputCaptureResult.Width } else { $null })
+        InputAfterScreenshotHeight = $(if ($afterInputCaptureResult) { [int]$afterInputCaptureResult.Height } else { $null })
+        InputAfterScreenshotNearBlackRatio = $(if ($afterInputCaptureResult) { [double]$afterInputCaptureResult.NearBlackRatio } else { $null })
+        InputAfterScreenshotNearWhiteRatio = $(if ($afterInputCaptureResult) { [double]$afterInputCaptureResult.NearWhiteRatio } else { $null })
+        InputAfterScreenshotAverageLuma = $(if ($afterInputCaptureResult) { [double]$afterInputCaptureResult.AverageLuma } else { $null })
+        InputAfterScreenshotArtifact = $(if (Test-Path -LiteralPath $afterInputScreenshotArtifact) { $afterInputScreenshotArtifact } else { "" })
+        InputProofReady = $inputProofReady
         PlayerLogArtifact = $(if (Test-Path -LiteralPath $playerLogArtifact) { $playerLogArtifact } else { "" })
         BepInExLogArtifact = $(if (Test-Path -LiteralPath $bepInExLogArtifact) { $bepInExLogArtifact } else { "" })
         VisibilityArtifact = $(if (Test-Path -LiteralPath $visibilityArtifact) { $visibilityArtifact } else { "" })

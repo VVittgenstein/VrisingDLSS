@@ -1,6 +1,7 @@
 # Gameplay Automation Proof Protocol - 2026-06-06
 
-Status: updated after five no-DLSS automation proof runs.
+Status: updated after five no-DLSS automation proof runs and three harmless-input
+proof runs.
 
 ## Question
 
@@ -29,12 +30,27 @@ Actual run, only after the dry run matches the intended plan:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-vrising-automation-proof.ps1 -GamePath "C:\Software\VRising" -SetClientResolution -WaitForWindowSeconds 90 -WaitForNonBlankScreenshotSeconds 90 -ObservationSeconds 10
 ```
 
+Harmless input dry run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-vrising-automation-proof.ps1 -GamePath "C:\Software\VRising" -SetClientResolution -SendHarmlessInput -HarmlessInputKey Escape -WaitForWindowSeconds 90 -WaitForNonBlankScreenshotSeconds 90 -ObservationSeconds 5 -PostInputWaitSeconds 3 -DryRun
+```
+
+Harmless input actual run, only after the dry run matches the intended plan:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-vrising-automation-proof.ps1 -GamePath "C:\Software\VRising" -ArtifactLabel automation-proof-harmless-input-escape-20260606 -SetClientResolution -SendHarmlessInput -HarmlessInputKey Escape -WaitForWindowSeconds 90 -WaitForNonBlankScreenshotSeconds 90 -ObservationSeconds 5 -PostInputWaitSeconds 3
+```
+
 ## Expected Evidence
 
 - `VisibleGameWindow` from `inspect-vrising-visibility.ps1`.
 - A PNG screenshot under `artifacts/gameplay-automation/` with captured client size recorded.
 - The screenshot must be nonblank; a near-black, near-white, or near-binary loading/capture frame is not enough.
 - The `Player.log` `SetResolution` line must be parsed into game-reported resolution and `fullScreenMode`.
+- When `-SendHarmlessInput` is used, the selected `UnityWndClass` window handle, input
+  key, virtual key, `SendInput` count, foreground attempt, and after-input screenshot
+  must be recorded.
 - Archived player/BepInEx logs under `artifacts/gameplay-automation/`.
 - A result JSON under `artifacts/gameplay-automation/`.
 - `CrashEventCount=0`.
@@ -48,6 +64,12 @@ The result JSON reports `Status=Pass`, `VisibilityStatus=VisibleGameWindow`,
 `CrashEventCount=0`, `RemainingVRisingProcessCount=0`, `RestoredLoaderConfig=true`,
 and `RestoredClientSettings=true` when `-SetClientResolution` is used. For a full
 windowed pass, `WindowedModeReady=true`.
+
+For harmless input mode, `Status=Pass` means the smaller input proof passed:
+`AutomationControlReady=true`, `InputAttempted=true`, `InputSent=true`,
+`InputAfterScreenshotCreated=true`, `InputAfterScreenshotNonBlank=true`,
+`InputProofReady=true`, `CrashEventCount=0`, and no V Rising process remains. This
+does not prove menu navigation or gameplay entry.
 
 ## Partial Signal
 
@@ -73,6 +95,8 @@ Any of the following is a failure:
 - Screenshot exists but the capture is blank/invalid.
 - Neither capture size nor `Player.log` reports the requested `1920x1080` state.
 - Windows Application Error event for V Rising, Unity, coreclr, or VrisingDLSS.
+- Harmless input requested but no key was sent, `SendInput` did not report a full
+  key down/up pair, or the after-input screenshot is missing/blank.
 - Game process remains after cleanup.
 - Loader config restore fails.
 
@@ -121,3 +145,29 @@ A fifth run with the revised gates produced the intended classification:
 `GameResolutionMatchesRequested=true`, `GameReportedFullScreenMode=FullScreenWindow`,
 `WindowedModeReady=false`, `CrashEventCount=0`, and `RemainingVRisingProcessCount=0`.
 The local artifact label is `automation-proof-1920-window-v5-20260606`.
+
+## Harmless Input Proof Note
+
+The script now supports `-SendHarmlessInput` with `Escape`, `Enter`, or `Space`. The
+first intended runtime proof uses `Escape` because it is low risk and does not attempt
+to select `Continue` or enter gameplay. The proof only asks whether Codex can bring the
+real game window forward, send one harmless key through Win32 `SendInput`, capture an
+after-input screenshot, archive logs, and restore state.
+
+The first harmless-input run, `automation-proof-harmless-input-escape-20260606`,
+failed after reaching `AutomationControlReady=true` because the PowerShell cast used
+`[ushort]`; PowerShell requires `[UInt16]`. The game did not crash, settings/config were
+restored, and no V Rising process remained.
+
+The second harmless-input run, `automation-proof-harmless-input-escape-v2-20260606`,
+fixed that cast but `SendInput` returned `0` because the C# `INPUT` structure did not
+include the full mouse/keyboard/hardware union size. It still produced nonblank
+before/after screenshots, restored settings/config, and left no V Rising process.
+
+The third harmless-input run, `automation-proof-harmless-input-escape-v3-20260606`,
+passed: `Status=Pass`, `AutomationControlReady=true`, `InputAttempted=true`,
+`InputSent=true`, `InputStructSize=40`, `InputSendInputCount=2`,
+`InputAfterScreenshotCreated=true`, `InputAfterScreenshotNonBlank=true`,
+`InputProofReady=true`, `CrashEventCount=0`, and `RemainingVRisingProcessCount=0`.
+The run still reported `GameReportedFullScreenMode=FullScreenWindow`, which confirms
+the input proof is robust to the fullscreen-window shape.

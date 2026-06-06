@@ -70,6 +70,8 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
 - `dlss-user-rendering` exists as an experimental one-evaluate-per-Unity-frame candidate, but it still needs the correct FSR Off render-scale proof and visual/performance validation.
 - Phase 1 no-DLSS automation proof has partial control evidence: `scripts/run-vrising-automation-proof.ps1` can launch V Rising, detect the real `UnityWndClass` window instead of the BepInEx console, capture a nonblank screenshot, archive logs, restore settings/config, and leave no V Rising process. The latest local run `automation-proof-1920-window-v5-20260606` reported `Status=Partial`, `AutomationControlReady=true`, `GameResolutionMatchesRequested=true`, and `GameReportedFullScreenMode=FullScreenWindow`; screenshot capture still saw a `3840x2160` client area, so true `1920x1080` windowed mode is not proven.
 - Phase 1 direct-entry search found no supported client command-line auto-continue/direct-connect route in current official Stunlock launch options or local evidence. Local `ServerHistory.json` and interop strings strongly support the in-game `Continue`/direct-connect UI route instead.
+- The target local/private game for Continue automation is likely `Name=11111`: this is present in `ServerHistory.json`, and the user recalled the local game was named with many `1` characters and should be continuable directly.
+- Phase 1 harmless input proof passed in `automation-proof-harmless-input-escape-v3-20260606`: one `Escape` key was sent to the selected `UnityWndClass` window with `InputSendInputCount=2`, after-input screenshot was nonblank, no crash event was recorded, settings/config were restored, and no V Rising process remained. Computer Use is also available for subsequent multi-step UI navigation.
 
 ## Rejected Or Dangerous Routes
 
@@ -115,7 +117,7 @@ Follow the new goal order:
    - log/config/status detection;
    - fixed local/private test scene setup.
    First-pass local route inventory is in [../development/gameplay-automation-exploration-2026-06-06.md](../development/gameplay-automation-exploration-2026-06-06.md).
-3. Use [../development/gameplay-automation-proof-protocol-2026-06-06.md](../development/gameplay-automation-proof-protocol-2026-06-06.md) as the current proof-of-control protocol. The next Phase 1 implementation step is a no-DLSS harmless input proof robust to `FullScreenWindow`, then screenshot/log-driven navigation toward the local `Continue` flow.
+3. Use [../development/gameplay-automation-proof-protocol-2026-06-06.md](../development/gameplay-automation-proof-protocol-2026-06-06.md) as the current proof-of-control protocol. The next Phase 1 implementation step is a no-DLSS `Continue` UI-navigation proof toward the local `Name=11111` flow, likely using the existing launch/log/cleanup script plus Computer Use or bounded Win32 input for menu navigation.
 4. Persist the automation exploration results and either:
    - make automatic gameplay entry the default runtime-test path; or
    - document why all reasonable automation routes failed and continue with a durable semi-automatic protocol.

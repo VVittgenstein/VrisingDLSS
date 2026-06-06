@@ -48,6 +48,9 @@ External sources checked:
 - `ServerHistory.json` contains a continue-able local/private entry for `Name=11111`,
   `SessionGUID=25fe20c1-44bb-4fe8-bca7-1bc7cb322429`, and
   `ConnectAddress=SteamIPv4://192.168.1.7:9876`.
+- The user independently recalled that the target local game is named with many `1`
+  characters and should be continuable directly, matching the `Name=11111` local
+  history entry.
 - Local save exists:
   - Steam/user folder: `76561198564171843`;
   - save UUID: `f0e07524-03f4-4ef4-945c-b1f7e982071b`;
@@ -161,22 +164,34 @@ Evidence so far:
 - Third no-DLSS automation run got a nonblank game screenshot and cleaned up, but V Rising changed back to `3840x2160` despite `-screen-width 1920 -screen-height 1080`. Launch options alone are therefore insufficient for the standard constructive test shape on this local setup; temporary `ClientSettings.json` resolution override is now part of the next proof attempt.
 - Fourth no-DLSS automation run with `-SetClientResolution` got a nonblank game screenshot, archived logs, restored settings/config, and left no V Rising process. `Player.log` reported `SetResolution 1920, 1080, fullScreenMode FullScreenWindow`, while screenshot capture saw a `3840x2160` client area. This is likely fullscreen-window behavior rather than a failure to set the internal resolution.
 - Fifth no-DLSS automation run used revised gates and correctly returned `Status=Partial`: `AutomationControlReady=true`, `GameResolutionMatchesRequested=true`, `GameReportedFullScreenMode=FullScreenWindow`, and `WindowedModeReady=false`.
+- Harmless input proof passed on the third input run,
+  `automation-proof-harmless-input-escape-v3-20260606`: `InputSent=true`,
+  `InputSendInputCount=2`, `InputAfterScreenshotNonBlank=true`,
+  `InputProofReady=true`, `CrashEventCount=0`, and no remaining V Rising process.
+- The first two harmless-input runs are retained as negative evidence: one failed on a
+  PowerShell `[ushort]` cast bug, and one failed because the Win32 `INPUT` structure was
+  too small before adding the full mouse/keyboard/hardware union.
 
 Current judgment:
 
 - Most likely first automation implementation route.
-- Needs a conservative proof-of-control test before attempting full gameplay entry.
+- Conservative proof-of-control now covers launch, window selection, nonblank capture,
+  one harmless key input, log archival, and cleanup.
 - Proof-of-control is now partially established: automatic launch, game-window selection,
   nonblank screenshot capture, log archival, and cleanup work. True `1920x1080` windowed
   mode is still unproven because V Rising/Unity is choosing `FullScreenWindow`.
+- Computer Use is available in the Codex app and should be considered for multi-step UI
+  navigation, especially because it can snapshot occluded windows and press keys against
+  a selected window.
 
 Next test:
 
-- Add a no-DLSS, fullscreen-window-compatible harmless input proof. It should reuse the
-  visible-window/nonblank-screenshot/cleanup path, bring the `UnityWndClass` window to
-  foreground, send exactly one harmless input, capture before/after screenshots, and
-  report `Pass`/`Partial`/`Failed`.
-- Do not proceed to menu navigation until the proof-of-control artifact is clear.
+- Design the next no-DLSS UI-navigation proof toward the `Name=11111` `Continue` flow.
+  It should decide whether to use Computer Use snapshots/key presses, Win32 scripted
+  input, or a hybrid where the script handles launch/logs/cleanup and Computer Use
+  handles menu inspection/navigation.
+- Do not attempt full gameplay-entry automation until that proof defines exact UI state,
+  inputs, expected screenshot/log transitions, timeout, and cleanup.
 
 ### Route 5 - Screenshot/Image-State Recognition
 
@@ -271,13 +286,15 @@ Minimum durable protocol must define:
 ## Immediate Next Action
 
 Do not run DLSS probes yet. Direct client command-line entry is not strong enough for
-the next runtime bet. The next small reversible step is a no-DLSS harmless input proof
-that is robust to `FullScreenWindow`:
+the next runtime bet, while harmless input is now proven. The next small reversible step
+is a no-DLSS `Continue` UI-navigation proof:
 
 1. Reuse the exact launch/config/screenshot/cleanup path from
    `scripts/run-vrising-automation-proof.ps1`.
-2. Capture a before screenshot after `VisibleGameWindow`.
-3. Bring the `UnityWndClass` window foreground and send one harmless input.
-4. Capture an after screenshot and archive logs.
-5. Classify the result as `Pass`, `Partial`, or `Failed`; only after that, attempt
-   multi-step menu navigation toward `Continue`.
+2. Choose the UI automation mechanism before launch: Computer Use, Win32 scripted input,
+   or a bounded hybrid.
+3. Capture initial menu state and identify the `Continue` path for the `Name=11111`
+   local/private game.
+4. Send only the minimal navigation inputs needed for the proof.
+5. Pass only with screenshot/log evidence of expected state transition, no crash,
+   restored settings/config, and no remaining V Rising process.

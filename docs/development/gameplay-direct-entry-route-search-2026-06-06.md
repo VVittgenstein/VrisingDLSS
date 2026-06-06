@@ -85,6 +85,11 @@ This is strong evidence that the in-game `Continue` path has enough persisted da
 reopen the local/private session, but it is not evidence of a command-line direct-entry
 route.
 
+The user also recalled that the relevant local game name is "many 1s" and that it
+should be possible to continue directly into it. This matches the local
+`ServerHistory.json` evidence for `Name=11111` and makes the `Continue` UI path the
+preferred target after the harmless input proof.
+
 ### Interop String Scan
 
 The local interop string scan found client/UI symbols related to continuing and
@@ -154,9 +159,9 @@ Add a no-DLSS, fullscreen-window-compatible input proof:
 - Launch with the existing `run-vrising-automation-proof.ps1` setup.
 - Wait for `VisibleGameWindow` and a nonblank screenshot.
 - Bring the `UnityWndClass` window to the foreground.
-- Send one harmless input such as `Escape` or `Enter`.
+- Send one harmless input such as `Escape`.
 - Capture before/after screenshots and archive logs.
 - Pass only if input is delivered without crash, cleanup restores settings/config, and
   no V Rising process remains.
 
-Do not attempt full menu navigation until this input proof is implemented and verified.
+Do not attempt full menu navigation until this input proof is runtime-verified.
