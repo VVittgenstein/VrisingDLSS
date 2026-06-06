@@ -132,6 +132,10 @@ Result:
 
 ## Pitfalls Found
 
+- Current role: Computer Use is the best proven direction for entering and observing
+  the local/private `11111` gameplay fixture from Codex. It is not part of the DLSS
+  mod, not related to DLSS runtime selection, and must not be treated as a user-facing
+  feature or package dependency.
 - `Process.MainWindowHandle` and app-window lists can point at the BepInEx console.
   Always enumerate/select the real Unity/game window, not the console.
 - V Rising may report `SetResolution 1920, 1080, fullScreenMode FullScreenWindow`

@@ -109,3 +109,14 @@ should investigate a different camera dynamic-resolution route, such as:
   source after the current prefix mutation;
 - whether an earlier camera/component lifecycle hook can set the value before HDRP
   constructs the `HDCamera`.
+
+Follow-up static source review:
+
+- `docs/development/camera-dynamic-resolution-investigation-2026-06-06.md`
+  confirms that `HDCamera.allowDynamicResolution` reads
+  `HDAdditionalCameraData.allowDynamicResolution`, while the main render size is
+  ultimately gated by `DynamicResolutionHandler.GetScaledSize(...)`.
+- The next diagnostic patch does not repeat the RTHandles-only route. It forces
+  the handler instance field `m_CurrentCameraRequest=true` from the already-called
+  `DynamicResolutionHandler.Update(...)` prefix, then expects the next run to prove
+  whether the main camera scales to roughly `960x540 -> 1920x1080`.

@@ -235,6 +235,8 @@ internal static class RenderScaleControlProbe
             }
             else if (methodName == "Update")
             {
+                TryMutateDynamicResolutionHandler(instance, changes);
+
                 if (args.Length > 0)
                 {
                     var settings = args[0];
@@ -299,6 +301,13 @@ internal static class RenderScaleControlProbe
         return camera is not null
             && camera.GetType().FullName == "UnityEngine.Camera"
             && TrySetBoolMember(camera, "allowDynamicResolution", true, changes);
+    }
+
+    private static bool TryMutateDynamicResolutionHandler(object? handler, ICollection<string> changes)
+    {
+        return handler is not null
+            && handler.GetType().FullName == "UnityEngine.Rendering.DynamicResolutionHandler"
+            && TrySetBoolMember(handler, "m_CurrentCameraRequest", true, changes);
     }
 
     private static bool TryMutateDynamicResolutionSettings(ref object? settings, float targetPercentage, ICollection<string> changes)

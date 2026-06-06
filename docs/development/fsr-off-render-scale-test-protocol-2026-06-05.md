@@ -124,3 +124,17 @@ unchanged. Run `fsr-off-render-scale-1080p-hwdrs-v2-20260606` already confirmed 
 candidate remains full-size. The next launch must follow a new targeted camera
 dynamic-resolution route rather than only repeating the RTHandles/member-readback
 diagnostic.
+
+Current next diagnostic after static HDRP/Core source review:
+
+- `HDCamera.allowDynamicResolution` is backed by `HDAdditionalCameraData`, while
+  `DynamicResolutionHandler.GetScaledSize(...)` still returns the original size if
+  the handler's `m_CurrentCameraRequest` is false.
+- `RenderScaleControlProbe` now forces `m_CurrentCameraRequest=true` inside the
+  already-observed `DynamicResolutionHandler.Update(...)` prefix.
+- The next `1920x1080` Windowed run should pass only if the main gameplay camera
+  reaches approximately `actualWidth=960,actualHeight=540` or Stage 8E/user
+  rendering accepts an output-larger-than-input tuple.
+- If `m_CurrentCameraRequest=True` is logged but the camera remains full-size, the
+  next route should be an explicit software-fallback diagnostic rather than another
+  hardware DRS rerun.
