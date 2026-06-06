@@ -403,11 +403,27 @@ As of the read-only RenderGraph pass-map runtime result:
   It parsed the protected r2 declaration log as `529` declaration rows, `43`
   complete `Uber Post -> Edge Adaptive Spatial Upsampling -> Final Pass` chains,
   `43/43` `Uber write == EASU read`, and `43/43` `EASU write == Final first read`.
-  Local/upstream source plus interop now point to the next minimal experiment:
-  add a default-off `CompileRenderGraph(int)` pass-data field snapshot for
-  `UberPostPassData`, `EASUData`, and `FinalPassData`. That next probe should
-  remain read-only, avoid `GetTexture`, avoid native pointers, avoid command-buffer
-  work, and only map pass data fields/dimensions to the already proven declaration
-  chain. Do not jump directly to generated EASU/Final render-function patching.
+  Local/upstream source plus interop pointed to the next minimal experiment,
+  implemented as `Diagnostics.EnableRenderGraphPassDataSnapshotProbe=false` /
+  stage `rendergraph-pass-data`. It reuses the safe `CompileRenderGraph(int)`
+  postfix and reads only focused `UberPostPassData`, `EASUData`, `FinalPassData`,
+  and DLSS pass-data scalar/TextureHandle summaries. It must remain read-only,
+  avoid `GetTexture`, avoid native pointers, avoid command-buffer work, and only
+  map pass data fields/dimensions to the already proven declaration chain. First
+  menu smoke `rendergraph-pass-data-1080p-menu-20260606-r1` proved patch safety
+  but found base `RenderGraphPass` wrappers do not expose `data` directly. The
+  fixed typed Il2CppInterop route then passed
+  `rendergraph-pass-data-1080p-menu-20260606-r3` at true `1920x1080` Windowed:
+  `CrashEventCount=0`, analyzer `RenderGraph Pass Data=Pass`, `248` snapshot
+  lines, `248` `memberCount=` lines, `0` `data=not found`, `0` typed-read
+  failures, and `0` broad GetTexture logs. r3 mapped
+  `Uber Post -> Edge Adaptive Spatial Upsampling -> Final Pass`; EASU reported
+  `input=1920x1080 output=1920x1080`; Final reported
+  `performUpsampling=True`, `dynamicResIsOn=True`, and
+  `dynamicResFilter=EdgeAdaptiveScalingUpres`. Do not jump directly to generated
+  EASU/Final render-function patching. If more runtime evidence is needed, the
+  next step is protected `11111` gameplay proof for `rendergraph-pass-data`;
+  otherwise use this chain to design the next read-only/no-evaluate
+  execution-boundary candidate.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.

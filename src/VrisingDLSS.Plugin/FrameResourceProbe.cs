@@ -21,6 +21,7 @@ internal static class FrameResourceProbe
     private const int MaxRenderGraphPassListCompileLogs = 80;
     private const int MaxRenderGraphPassListEntryLogs = 320;
     private const int MaxRenderGraphPassDeclarationLogs = 260;
+    private const int MaxRenderGraphPassDataSnapshotLogs = 220;
     private const int MaxRenderGraphExecutionScopeLogs = 80;
     private const int MaxRenderGraphScopedEvaluateAttempts = 12;
     private const int MaxExistingRenderFuncLogs = 80;
@@ -59,6 +60,7 @@ internal static class FrameResourceProbe
     private static int RenderGraphPassListCompileCallCount;
     private static int RenderGraphPassListEntryLogCount;
     private static int RenderGraphPassDeclarationLogCount;
+    private static int RenderGraphPassDataSnapshotLogCount;
     private static int RenderGraphExecutionScopeCallCount;
     private static int RenderGraphScopedEvaluateAttemptCount;
     private static int ExistingRenderFuncCallCount;
@@ -125,6 +127,7 @@ internal static class FrameResourceProbe
     private static bool RenderGraphPassMapProbeEnabled;
     private static bool RenderGraphPassListProbeEnabled;
     private static bool RenderGraphPassResourceDeclarationProbeEnabled;
+    private static bool RenderGraphPassDataSnapshotProbeEnabled;
     private static bool RenderGraphGetTextureProbeEnabled;
     private static bool DlssPassResourceProbeEnabled;
     private static bool RenderGraphGetTextureDiagnosticLoggingEnabled;
@@ -181,6 +184,7 @@ internal static class FrameResourceProbe
         bool enableRenderGraphPassMapProbe = false,
         bool enableRenderGraphPassListProbe = false,
         bool enableRenderGraphPassResourceDeclarationProbe = false,
+        bool enableRenderGraphPassDataSnapshotProbe = false,
         bool enableRenderGraphGetTextureProbe = true,
         bool enableDlssPassResourceProbe = false)
     {
@@ -211,6 +215,7 @@ internal static class FrameResourceProbe
             RenderGraphPassMapProbeEnabled = RenderGraphPassMapProbeEnabled || enableRenderGraphPassMapProbe;
             RenderGraphPassListProbeEnabled = RenderGraphPassListProbeEnabled || enableRenderGraphPassListProbe;
             RenderGraphPassResourceDeclarationProbeEnabled = RenderGraphPassResourceDeclarationProbeEnabled || enableRenderGraphPassResourceDeclarationProbe;
+            RenderGraphPassDataSnapshotProbeEnabled = RenderGraphPassDataSnapshotProbeEnabled || enableRenderGraphPassDataSnapshotProbe;
             RenderGraphGetTextureProbeEnabled = RenderGraphGetTextureProbeEnabled || enableRenderGraphGetTextureProbe;
             DlssPassResourceProbeEnabled = DlssPassResourceProbeEnabled || enableDlssPassResourceProbe;
             RenderGraphGetTextureDiagnosticLoggingEnabled = RenderGraphGetTextureDiagnosticLoggingEnabled || ShouldEnableRenderGraphGetTextureDiagnosticLogging(
@@ -249,6 +254,7 @@ internal static class FrameResourceProbe
         RenderGraphPassMapProbeEnabled = enableRenderGraphPassMapProbe;
         RenderGraphPassListProbeEnabled = enableRenderGraphPassListProbe;
         RenderGraphPassResourceDeclarationProbeEnabled = enableRenderGraphPassResourceDeclarationProbe;
+        RenderGraphPassDataSnapshotProbeEnabled = enableRenderGraphPassDataSnapshotProbe;
         RenderGraphGetTextureProbeEnabled = enableRenderGraphGetTextureProbe;
         DlssPassResourceProbeEnabled = enableDlssPassResourceProbe;
         RenderGraphGetTextureDiagnosticLoggingEnabled = ShouldEnableRenderGraphGetTextureDiagnosticLogging(
@@ -350,6 +356,10 @@ internal static class FrameResourceProbe
         if (RenderGraphPassResourceDeclarationProbeEnabled)
         {
             log.LogInfo("RenderGraph pass resource-declaration probe enabled. It patches CompileRenderGraph(int) for focused read/write handle declarations only and does not resolve textures or evaluate DLSS.");
+        }
+        if (RenderGraphPassDataSnapshotProbeEnabled)
+        {
+            log.LogInfo("RenderGraph pass-data snapshot probe enabled. It patches CompileRenderGraph(int) for focused pass data fields only and does not resolve textures or evaluate DLSS.");
         }
         if (DlssPassResourceProbeEnabled)
         {
@@ -556,7 +566,7 @@ internal static class FrameResourceProbe
             patched++;
         }
 
-        if ((RenderGraphPassListProbeEnabled || RenderGraphPassResourceDeclarationProbeEnabled)
+        if ((RenderGraphPassListProbeEnabled || RenderGraphPassResourceDeclarationProbeEnabled || RenderGraphPassDataSnapshotProbeEnabled)
             && TryPatchRenderGraphPassListMethod(
                 log,
                 assemblies,
@@ -641,6 +651,7 @@ internal static class FrameResourceProbe
             RenderGraphPassMapProbeEnabled = false;
             RenderGraphPassListProbeEnabled = false;
             RenderGraphPassResourceDeclarationProbeEnabled = false;
+            RenderGraphPassDataSnapshotProbeEnabled = false;
             RenderGraphGetTextureProbeEnabled = false;
             DlssPassResourceProbeEnabled = false;
             RenderGraphGetTextureDiagnosticLoggingEnabled = false;
@@ -678,6 +689,7 @@ internal static class FrameResourceProbe
                 RenderGraphPassListCompileCallCount = 0;
                 RenderGraphPassListEntryLogCount = 0;
                 RenderGraphPassDeclarationLogCount = 0;
+                RenderGraphPassDataSnapshotLogCount = 0;
                 RenderGraphExecutionScopeCallCount = 0;
                 RenderGraphScopedEvaluateAttemptCount = 0;
                 ExistingRenderFuncCallCount = 0;
@@ -1754,7 +1766,7 @@ internal static class FrameResourceProbe
     {
         try
         {
-            if (!RenderGraphPassListProbeEnabled && !RenderGraphPassResourceDeclarationProbeEnabled)
+            if (!RenderGraphPassListProbeEnabled && !RenderGraphPassResourceDeclarationProbeEnabled && !RenderGraphPassDataSnapshotProbeEnabled)
             {
                 return;
             }
@@ -1842,6 +1854,7 @@ internal static class FrameResourceProbe
             }
 
             TryLogRenderGraphPassResourceDeclarations(compileCount, passSummaries);
+            TryLogRenderGraphPassDataSnapshots(compileCount, passSummaries);
         }
         catch (Exception ex)
         {
@@ -1890,6 +1903,60 @@ internal static class FrameResourceProbe
             var truncated = declarations.Count > 48 ? $"; truncated={declarations.Count - 48}" : string.Empty;
 
             log.LogInfo($"RenderGraph pass declaration #{declarationLogCount}: compile={compileCount}; ordinal={summary.Ordinal}; pass=\"{summary.Name}\"; category={summary.Category}; declarationCount={declarations.Count}; declarations=[{formattedDeclarations}]{truncated}");
+        }
+    }
+
+    private static void TryLogRenderGraphPassDataSnapshots(
+        int compileCount,
+        IEnumerable<(int Ordinal, object Pass, string Name, string TypeName, string Category)> passSummaries)
+    {
+        if (!RenderGraphPassDataSnapshotProbeEnabled)
+        {
+            return;
+        }
+
+        var log = Log;
+        if (log is null)
+        {
+            return;
+        }
+
+        foreach (var summary in passSummaries)
+        {
+            if (!IsFocusedRenderGraphPassDataSnapshotTarget(summary.Name, summary.TypeName, summary.Category))
+            {
+                continue;
+            }
+
+            int snapshotLogCount;
+            lock (Sync)
+            {
+                RenderGraphPassDataSnapshotLogCount++;
+                snapshotLogCount = RenderGraphPassDataSnapshotLogCount;
+            }
+
+            if (snapshotLogCount > MaxRenderGraphPassDataSnapshotLogs && snapshotLogCount % 500 != 0)
+            {
+                continue;
+            }
+
+            var passData = TryReadPropertyObject(summary.Pass, "data")
+                ?? TryReadFieldObject(summary.Pass, "data")
+                ?? TryReadTypedRenderGraphPassDataSnapshotObject(summary.Pass, summary.Name);
+            if (passData is null)
+            {
+                log.LogInfo($"RenderGraph pass-data snapshot #{snapshotLogCount}: compile={compileCount}; ordinal={summary.Ordinal}; pass=\"{summary.Name}\"; category={summary.Category}; passType={summary.TypeName}; data=not found");
+                continue;
+            }
+
+            var dataType = passData.GetType().FullName ?? passData.GetType().Name;
+            var members = CollectRenderGraphPassDataSnapshotMembers(summary.Name, dataType, passData);
+            var formattedMembers = members.Count == 0
+                ? "none"
+                : string.Join("; ", members.Take(48).Select(FormatRenderGraphPassDataSnapshotMember));
+            var truncated = members.Count > 48 ? $"; truncated={members.Count - 48}" : string.Empty;
+
+            log.LogInfo($"RenderGraph pass-data snapshot #{snapshotLogCount}: compile={compileCount}; ordinal={summary.Ordinal}; pass=\"{summary.Name}\"; category={summary.Category}; passType={summary.TypeName}; dataType={dataType}; memberCount={members.Count}; members=[{formattedMembers}]{truncated}");
         }
     }
 
@@ -1981,6 +2048,190 @@ internal static class FrameResourceProbe
             || passName.IndexOf("Motion Blur", StringComparison.OrdinalIgnoreCase) >= 0
             || passName.IndexOf("Temporal Anti", StringComparison.OrdinalIgnoreCase) >= 0
             || passName.IndexOf("TAA", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static bool IsFocusedRenderGraphPassDataSnapshotTarget(string passName, string passType, string category)
+    {
+        if (string.Equals(category, "dlss", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var value = $"{passName} {passType}";
+        return value.IndexOf("Uber Post", StringComparison.OrdinalIgnoreCase) >= 0
+            || value.IndexOf("UberPostPassData", StringComparison.OrdinalIgnoreCase) >= 0
+            || value.IndexOf("Edge Adaptive Spatial Upsampling", StringComparison.OrdinalIgnoreCase) >= 0
+            || value.IndexOf("EASUData", StringComparison.OrdinalIgnoreCase) >= 0
+            || value.IndexOf("Final Pass", StringComparison.OrdinalIgnoreCase) >= 0
+            || value.IndexOf("FinalPassData", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static object? TryReadTypedRenderGraphPassDataSnapshotObject(object pass, string passName)
+    {
+#if VRISINGDLSS_LOCAL_INTEROP
+        if (pass is not Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase il2CppPass)
+        {
+            return null;
+        }
+
+        try
+        {
+            if (passName.IndexOf("Uber Post", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return TryReadTypedRenderGraphPassData<UnityEngine.Rendering.HighDefinition.HDRenderPipeline.UberPostPassData>(il2CppPass);
+            }
+
+            if (passName.IndexOf("Edge Adaptive Spatial Upsampling", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return TryReadTypedRenderGraphPassData<UnityEngine.Rendering.HighDefinition.HDRenderPipeline.EASUData>(il2CppPass);
+            }
+
+            if (passName.IndexOf("Final Pass", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return TryReadTypedRenderGraphPassData<UnityEngine.Rendering.HighDefinition.HDRenderPipeline.FinalPassData>(il2CppPass);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log?.LogWarning($"RenderGraph pass-data typed read failed for pass \"{FirstLine(passName)}\": {GetExceptionMessage(ex)}");
+        }
+#endif
+        return null;
+    }
+
+#if VRISINGDLSS_LOCAL_INTEROP
+    private static object? TryReadTypedRenderGraphPassData<TPassData>(
+        Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase pass)
+        where TPassData : class
+    {
+        var typedPass = pass.TryCast<UnityEngine.Experimental.Rendering.RenderGraphModule.RenderGraphPass<TPassData>>();
+        return typedPass?.data;
+    }
+#endif
+
+    private static IReadOnlyList<RenderGraphPassDataSnapshotMember> CollectRenderGraphPassDataSnapshotMembers(
+        string passName,
+        string dataType,
+        object passData)
+    {
+        var members = new List<RenderGraphPassDataSnapshotMember>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var memberName in GetRenderGraphPassDataSnapshotMemberNames(passName, dataType))
+        {
+            AddRenderGraphPassDataSnapshotMember(memberName, passData, members, seen);
+        }
+
+        return members;
+    }
+
+    private static IReadOnlyList<string> GetRenderGraphPassDataSnapshotMemberNames(string passName, string dataType)
+    {
+        var value = $"{passName} {dataType}";
+        if (value.IndexOf("Uber Post", StringComparison.OrdinalIgnoreCase) >= 0
+            || value.IndexOf("UberPostPassData", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return new[]
+            {
+                "width",
+                "height",
+                "viewCount",
+                "source",
+                "destination",
+                "logLut",
+                "bloomTexture"
+            };
+        }
+
+        if (value.IndexOf("Edge Adaptive Spatial Upsampling", StringComparison.OrdinalIgnoreCase) >= 0
+            || value.IndexOf("EASUData", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return new[]
+            {
+                "inputWidth",
+                "inputHeight",
+                "outputWidth",
+                "outputHeight",
+                "viewCount",
+                "source",
+                "destination"
+            };
+        }
+
+        if (value.IndexOf("Final Pass", StringComparison.OrdinalIgnoreCase) >= 0
+            || value.IndexOf("FinalPassData", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return new[]
+            {
+                "performUpsampling",
+                "dynamicResIsOn",
+                "dynamicResFilter",
+                "source",
+                "destination",
+                "afterPostProcessTexture",
+                "alphaTexture",
+                "uiBuffer",
+                "postProcessIsFinalPass"
+            };
+        }
+
+        if (value.IndexOf("Deep Learning Super Sampling", StringComparison.OrdinalIgnoreCase) >= 0
+            || value.IndexOf("DLSSData", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return new[]
+            {
+                "resourceHandles",
+                "parameters"
+            };
+        }
+
+        return Array.Empty<string>();
+    }
+
+    private static void AddRenderGraphPassDataSnapshotMember(
+        string memberName,
+        object passData,
+        ICollection<RenderGraphPassDataSnapshotMember> members,
+        ISet<string> seen)
+    {
+        var value = TryReadPropertyObject(passData, memberName)
+            ?? TryReadFieldObject(passData, memberName);
+        if (value is null)
+        {
+            return;
+        }
+
+        var kind = "value";
+        string summary;
+        if (TypeNameContains(value.GetType(), "TextureHandle"))
+        {
+            kind = "texture";
+            var resourceHandle = TryGetResourceHandleFromTextureHandle(value);
+            summary = resourceHandle is null
+                ? FirstLine(SummarizeValue(value))
+                : FirstLine(SummarizeValue(resourceHandle));
+        }
+        else if (TypeNameContains(value.GetType(), "ResourceHandle"))
+        {
+            kind = IsTextureResourceHandle(value) ? "texture-resource" : "resource";
+            summary = FirstLine(SummarizeValue(value));
+        }
+        else
+        {
+            summary = FirstLine(SummarizeValue(value));
+        }
+
+        var key = $"{memberName}:{kind}:{summary}";
+        if (!seen.Add(key))
+        {
+            return;
+        }
+
+        members.Add(new RenderGraphPassDataSnapshotMember(memberName, kind, summary));
+    }
+
+    private static string FormatRenderGraphPassDataSnapshotMember(RenderGraphPassDataSnapshotMember member)
+    {
+        return $"{member.Label}:{member.Kind}:{member.Summary}";
     }
 
     private static IReadOnlyList<RenderGraphPassResourceDeclaration> CollectRenderGraphPassResourceDeclarations(object pass)
@@ -6040,6 +6291,14 @@ internal static class FrameResourceProbe
         }
 
         var type = value.GetType();
+        if (IsTerminalValue(value))
+        {
+            var formattedValue = value is IFormattable formattable
+                ? formattable.ToString(null, CultureInfo.InvariantCulture)
+                : value.ToString();
+            return $"{type.FullName ?? type.Name}={FirstLine(formattedValue ?? string.Empty)}";
+        }
+
         var parts = new List<string> { type.FullName ?? type.Name };
 
         foreach (var propertyName in new[]
@@ -6316,6 +6575,8 @@ internal static class FrameResourceProbe
     private readonly record struct RenderGraphTextureCandidate(string Label, string ResourceName, IntPtr Pointer, string Status, int FrameCount = -1);
 
     private readonly record struct RenderGraphPassResourceDeclaration(string Label, string Kind, string Summary);
+
+    private readonly record struct RenderGraphPassDataSnapshotMember(string Label, string Kind, string Summary);
 
     private readonly record struct RenderGraphRegistryCandidate(string Label, object Instance);
 

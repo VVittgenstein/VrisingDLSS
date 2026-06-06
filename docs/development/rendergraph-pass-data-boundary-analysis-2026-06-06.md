@@ -191,7 +191,7 @@ Downloaded reference snapshots:
 | `_FinalPass_b__1069_0(...)` | Current command buffer after EASU, final target write | Also generated render-func family; too late for full DLSS inputs by itself | Do not jump here yet |
 | Closed `RenderGraphPass<EASUData>.Execute(...)` | The generic pass execution layer for EASU | Static shape exists; open generic patch was rejected and closed-generic runtime stability is unproven | Static-only candidate |
 | `RenderGraph.CompileRenderGraph(int)` declarations | Safe pass order and handle declaration map | Passed menu plus protected `11111` gameplay with `GetTexture=0` | Useful observation, not evaluate |
-| `RenderGraph.CompileRenderGraph(int)` pass-data snapshot | Same safe point plus pass-data field/handle/dimension mapping | Not implemented yet | Next minimal experiment |
+| `RenderGraph.CompileRenderGraph(int)` pass-data snapshot | Same safe point plus pass-data field/handle/dimension mapping | Menu-smoked at `1920x1080` Windowed with pass data readable and `GetTexture=0` | Accepted observation boundary |
 
 ## Decision
 
@@ -202,10 +202,10 @@ The official HDRP DLSS evaluate boundary is:
 There is still no proven safe BepInEx/Harmony-equivalent evaluate boundary in
 V Rising.
 
-The next smallest safe step is not another evaluate attempt and not an EASU
-render-func patch. It is a default-off `CompileRenderGraph(int)` pass-data
-snapshot that reads focused pass `data` fields at the already-proven observation
-point:
+The next safe observation boundary is not another evaluate attempt and not an
+EASU render-func patch. It is the default-off `rendergraph-pass-data`
+`CompileRenderGraph(int)` pass-data snapshot that reads focused pass `data`
+fields at the already-proven observation point:
 
 - `UberPostPassData`: `width`, `height`, `viewCount`, `source`, `destination`,
   `logLut`, `bloomTexture`.
@@ -231,6 +231,31 @@ Fail/stop signal:
 - The probe needs `GetTexture`, native pointers, command-buffer work, or pass
   execution to answer its question.
 
-Only after that pass-data proof should an execution-boundary probe be considered,
-and it should start as read-only/no-evaluate/menu-only before any protected
-gameplay or DLSS work.
+Implementation status:
+
+- Config key: `Diagnostics.EnableRenderGraphPassDataSnapshotProbe=false`.
+- Helper stage: `rendergraph-pass-data`.
+- Analyzer stage: `RenderGraph Pass Data`, with `memberCount=` required for pass
+  and `data=not found` treated as failure.
+- Package default and package validator keep the key `false`.
+- The probe shares the already-proven `CompileRenderGraph(int)` postfix used by
+  pass-list/declaration probes.
+- First menu smoke `rendergraph-pass-data-1080p-menu-20260606-r1` proved patch
+  safety but found that base `RenderGraphPass` wrappers do not expose `data`
+  directly.
+- The implementation now uses Il2CppInterop's checked
+  `TryCast<RenderGraphPass<HDRenderPipeline.*PassData>>()` route for
+  `UberPostPassData`, `EASUData`, and `FinalPassData`.
+- Runtime proof `rendergraph-pass-data-1080p-menu-20260606-r3` passed at true
+  `1920x1080` Windowed with `CrashEventCount=0`, analyzer
+  `RenderGraph Pass Data=Pass`, `248` snapshot lines, `248` `memberCount=`
+  lines, `0` `data=not found`, `0` typed-read failures, and `0` GetTexture logs.
+- r3 observed the current menu chain as `Uber Post -> Edge Adaptive Spatial
+  Upsampling -> Final Pass`: Uber `width=1920 height=1080`, EASU
+  `inputWidth=1920 inputHeight=1080 outputWidth=1920 outputHeight=1080`, and
+  Final `performUpsampling=True`, `dynamicResIsOn=True`, and
+  `dynamicResFilter=EdgeAdaptiveScalingUpres`.
+
+Only after protected pass-data proof, if needed, should an execution-boundary
+probe be considered, and it should start as read-only/no-evaluate/menu-only
+before any protected gameplay or DLSS work.

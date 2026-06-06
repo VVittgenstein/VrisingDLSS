@@ -201,6 +201,12 @@ $results.Add((New-StageResult `
     -StartedPatterns @("RenderGraph pass resource-declaration probe enabled", "RenderGraph pass-list patched")))
 
 $results.Add((New-StageResult `
+    -Stage "RenderGraph Pass Data" `
+    -PassPatterns @("memberCount=") `
+    -FailPatterns @("RenderGraph pass-list logging failed", "RenderGraph pass-list failed to patch", "RenderGraph pass-list target was not found", "data=not found") `
+    -StartedPatterns @("RenderGraph pass-data snapshot probe enabled", "RenderGraph pass-list patched")))
+
+$results.Add((New-StageResult `
     -Stage "Stage 5D DLSS Runtime" `
     -PassPatterns @("DLSS runtime probe succeeded:") `
     -FailPatterns @("DLSS runtime probe failed:", "DLSS runtime probe skipped:") `

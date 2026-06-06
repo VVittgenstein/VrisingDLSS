@@ -315,8 +315,43 @@ the protected save with `ChangeCount=0`, but it did not enter gameplay. Protecte
 gameplay proof `rendergraph-pass-declarations-gameplay-1080p-20260606-r2` then
 passed in the `11111` fixture with `529` declaration lines, `0` broad GetTexture
 logs, no WER crash, no movement keys, and save restore `ChangeCount=0`. Do not
-rerun this stage unchanged; the next useful work is declaration-summary analysis
-for a safer current-frame upscaler pass boundary.
+rerun this stage unchanged; use the pass-data snapshot probe for the next
+read-only mapping step.
+
+## RenderGraph Pass-Data Snapshot Probe
+
+`EnableRenderGraphPassDataSnapshotProbe` is disabled by default and is read-only.
+It reuses the safe `CompileRenderGraph(int)` observation point and logs capped
+`RenderGraph pass-data snapshot #` lines for focused `Uber Post`,
+`Edge Adaptive Spatial Upsampling`, `Final Pass`, and DLSS pass-data shapes.
+
+It reads only pass-data scalar fields and `TextureHandle.handle` summaries. It
+does not call `GetTexture`, does not call `GetTextureResource`, does not resolve
+resource names, does not resolve native texture pointers, does not patch generated
+render functions, does not touch command buffers, does not load DLSS, and does not
+evaluate a frame.
+
+Use it after declaration proof when the next question is whether pass-data fields
+match the declaration chain:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\path\to\VRising" -Stage rendergraph-pass-data -DurationSeconds 120 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080
+```
+
+A useful run should produce `RenderGraph pass-data snapshot #` lines with
+`memberCount=`, `EASUData.source/destination`, EASU input/output dimensions, and
+`FinalPassData.source/destination`, while keeping `RenderGraph GetTexture call #`
+at `0`. Treat no `memberCount=` lines, any `data=not found`, any
+`RenderGraph pass-list logging failed`, or any WER/IL2CPP/coreclr crash as a
+failed route.
+
+Current evidence: menu smoke `rendergraph-pass-data-1080p-menu-20260606-r3`
+passed at true `1920x1080` Windowed with `248` pass-data snapshot lines, `248`
+`memberCount=` lines, `0` `data=not found`, `0` typed-read failures, `0`
+GetTexture logs, and no WER crash. It mapped `Uber Post -> Edge Adaptive Spatial
+Upsampling -> Final Pass` through typed pass data: Uber `1920x1080`, EASU
+`input=1920x1080` and `output=1920x1080`, and Final
+`dynamicResIsOn=True` / `dynamicResFilter=EdgeAdaptiveScalingUpres`.
 
 ## RenderGraph Pass-Boundary Probe
 

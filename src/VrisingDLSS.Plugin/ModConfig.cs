@@ -28,6 +28,7 @@ internal sealed class ModConfig
     internal ConfigEntry<bool> EnableRenderGraphPassMapProbe { get; }
     internal ConfigEntry<bool> EnableRenderGraphPassListProbe { get; }
     internal ConfigEntry<bool> EnableRenderGraphPassResourceDeclarationProbe { get; }
+    internal ConfigEntry<bool> EnableRenderGraphPassDataSnapshotProbe { get; }
     internal ConfigEntry<bool> EnableRenderGraphGetTextureProbe { get; }
     internal ConfigEntry<bool> EnableDlssPassResourceProbe { get; }
     internal ConfigEntry<bool> EnableUpscalerStateProbe { get; }
@@ -76,6 +77,7 @@ internal sealed class ModConfig
         EnableRenderGraphPassMapProbe = config.Bind("Diagnostics", "EnableRenderGraphPassMapProbe", false, "Read-only RenderGraph pass recording probe. Patches RenderGraph.OnPassAdded to log pass names/categories only; does not resolve textures or evaluate DLSS.");
         EnableRenderGraphPassListProbe = config.Bind("Diagnostics", "EnableRenderGraphPassListProbe", false, "Read-only RenderGraph compile-list probe. Patches CompileRenderGraph(int) to snapshot m_RenderPasses names/categories only; does not resolve textures or evaluate DLSS.");
         EnableRenderGraphPassResourceDeclarationProbe = config.Bind("Diagnostics", "EnableRenderGraphPassResourceDeclarationProbe", false, "Read-only RenderGraph pass resource declaration probe. Patches CompileRenderGraph(int) to snapshot focused pass read/write handle declarations only; does not resolve textures or evaluate DLSS.");
+        EnableRenderGraphPassDataSnapshotProbe = config.Bind("Diagnostics", "EnableRenderGraphPassDataSnapshotProbe", false, "Read-only RenderGraph pass data snapshot probe. Patches CompileRenderGraph(int) to log focused pass data fields and TextureHandle declarations only; does not resolve textures or evaluate DLSS.");
         EnableRenderGraphGetTextureProbe = config.Bind("Diagnostics", "EnableRenderGraphGetTextureProbe", true, "Patch RenderGraphResourceRegistry.GetTexture(TextureHandle&) for diagnostic resource discovery. Disable only for deliberate materialization-only isolation.");
         EnableDlssPassResourceProbe = config.Bind("Diagnostics", "EnableDlssPassResourceProbe", false, "High-risk research-only patching of DLSSPass resource helper methods. Does not patch DLSSPass.Render; leave false unless deliberate Stage 8A resource testing is intentional.");
         EnableUpscalerStateProbe = config.Bind("Diagnostics", "EnableUpscalerStateProbe", false, "Patch HDRP/dynamic-resolution/DLSS setup methods and log read-only camera/upscale state snapshots. Diagnostic only; does not change render scale.");
