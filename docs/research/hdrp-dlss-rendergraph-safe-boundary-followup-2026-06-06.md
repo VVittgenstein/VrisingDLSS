@@ -290,3 +290,25 @@ to `<EdgeAdaptiveSpatialUpsampling>b__1066_0`, and `Final Pass` to
 metadata failures, `0` broad GetTexture logs, no crash, no movement keys, and
 save restore `ChangeCount=0`. This is still metadata evidence only, not an
 execution/evaluate boundary.
+
+## 2026-06-06 Harmony Boundary Audit
+
+Follow-up audit:
+`docs/research/hdrp-rendergraph-harmony-boundary-audit-2026-06-06.md`.
+
+That audit checked local Unity source, V Rising interop decompile output, BepInEx
+runtime-detour availability, Unity RenderGraph docs, NVIDIA Streamline, and
+OptiScaler's public model. It confirms the exact official boundary remains the
+`Deep Learning Super Sampling` RenderGraph render function, where
+`DLSSPass.GetCameraResources(...)` converts current-frame handles and
+`DLSSPass.Render(..., ctx.cmd)` submits work.
+
+It also explains why the safe managed-wrapper search is currently exhausted:
+`RenderGraphPass<T>.Execute(...)`, `RenderFunc<T>.Invoke(...)`, and
+`DLSSPass.GetCameraResources(...)` are `CallerCount(0)` generated
+`il2cpp_runtime_invoke` wrappers in this V Rising build; the ref
+`CompiledPassInfo` executor family and direct `DLSSPass.Render` already have
+local crash evidence. There is no proven safe BepInEx/Harmony-equivalent boundary
+for the official DLSS window. Keep `CompileRenderGraph(int)` probes read-only,
+and treat any future native method-pointer work as a separate no-op design first,
+not as ordinary Harmony patching.

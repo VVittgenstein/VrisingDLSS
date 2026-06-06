@@ -25,6 +25,10 @@ This directory contains third-party reference material collected for static rese
 - `OptiScaler/README.md` and `OptiScaler/OptiScaler.ini` - OptiScaler reference
   snapshots used only to understand how existing upscaler-input interception and
   resource tracking are framed by that project.
+- `hdrp-rendergraph-boundary-2026-06-06/` - narrow local reference snapshot for
+  the HDRP DLSS / RenderGraph execution-boundary audit, including Unity Graphics
+  2022.3 source copies, Unity RenderGraph docs, NVIDIA Streamline guides, and
+  OptiScaler README/INI evidence.
 - `dlss-performance-investigation-2026-06-06/` - local copies of official Unity
   HDRP/Dynamic Resolution/RenderGraph docs, NVIDIA Streamline/NGX references, and
   OptiScaler/forum research used to diagnose the "DLSS succeeds but FPS is worse /

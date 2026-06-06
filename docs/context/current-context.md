@@ -484,5 +484,24 @@ As of the read-only RenderGraph pass-map runtime result:
   evidence, not an execution/evaluate boundary. Do not rerun this stage
   unchanged; next action is local source/interop design for a safer equivalent to
   the official HDRP execution boundary.
+- Narrow source/interop/web follow-up is recorded in
+  `docs/research/hdrp-rendergraph-harmony-boundary-audit-2026-06-06.md`.
+  Official Unity HDRP obtains resources and submits DLSS inside the
+  `Deep Learning Super Sampling` RenderGraph render function:
+  `DoDLSSPass -> DLSSPass.GetCameraResources -> DLSSPass.Render(ctx.cmd)`.
+  Unity RenderGraph docs/source confirm actual resources are available in pass
+  execution code, while local V Rising interop decompile shows
+  `RenderGraphPass<T>.Execute(...)`, `RenderFunc<T>.Invoke(...)`, and
+  `DLSSPass.GetCameraResources(...)` managed wrappers report `CallerCount(0)`
+  and use `IL2CPP.il2cpp_runtime_invoke(...)`. This explains why the
+  execute-delegate probe was stable but silent. There is no currently proven
+  safe BepInEx/Harmony-equivalent boundary for the official DLSS window. Keep
+  `CompileRenderGraph(int)` as a read-only map only. Do not patch generated
+  render funcs, `DLSSPass.Render`, ref-`CompiledPassInfo` executor wrappers, or
+  `RenderFunc<T>.Invoke`/`RenderGraphPass<T>.Execute` as the next normal route.
+  If more map state is needed, add only a default-off compiled-pass-info snapshot
+  from `CompileRenderGraph(int)`. If approaching the real execution boundary,
+  first design a separate `native-renderfunc-entry` no-op method-pointer probe;
+  this is a new risk class, not ordinary Harmony patching.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.
