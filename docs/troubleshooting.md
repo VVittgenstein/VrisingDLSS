@@ -428,7 +428,7 @@ the RenderGraph map.
 ## Native RenderFunc Entry Preflight
 
 `scripts\get-native-renderfunc-entry-preflight.ps1` is a static/log preflight
-for the possible future `native-renderfunc-entry` no-op probe. It does not start
+for the `native-renderfunc-entry` no-op probe. It does not start
 V Rising, install a native detour, resolve RenderGraph resources, touch command
 buffers, or evaluate DLSS.
 
@@ -443,8 +443,15 @@ showed stable focused `method_ptr` values for `Uber Post`, `Edge Adaptive
 Spatial Upsampling`, and `Final Pass`, and deep inspection confirmed local
 `NativeDetour(IntPtr, IntPtr)`, Il2Cpp `MethodPointer`, and Harmony IL2CPP
 MethodPointer detour/`OriginalTrampoline` evidence. This is not runtime hook
-proof; the next runtime step must be a separate default-off menu-only no-op
-probe that increments counters and immediately calls the original trampoline.
+proof.
+
+`Diagnostics.EnableNativeRenderFuncEntryProbe` is now implemented separately and
+defaults to `false`. The helper stage is `native-renderfunc-entry`; it targets
+only the EASU render-function `method_ptr`, waits for three stable observations,
+installs an Il2CppInterop native detour, increments one counter, and immediately
+calls the original trampoline. It must be tested menu-only at true `1920x1080`
+Windowed before any gameplay use. See
+`docs/development/native-renderfunc-entry-probe-implementation-2026-06-06.md`.
 
 ## RenderGraph Execute-Delegate Probe
 

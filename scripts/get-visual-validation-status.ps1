@@ -516,7 +516,7 @@ if (Test-Path -LiteralPath $reviewResolved) {
 }
 
 if (@($issues | Where-Object { $_ -like "Candidate * regressed*" -or $_ -like "Candidate P95 frame time worsened*" }).Count -gt 0) {
-    $nextRecommendation = "Cached-driver real-evaluate crashed in nvwgf2umx.dll even with GetTexture evaluate/output-follow-up at zero. The safe CompileRenderGraph map path has pass-list, declarations, pass-data, renderfunc-metadata, and compiled-pass-info proof; execute-delegate was stable but silent; native-renderfunc-entry preflight passed. The next narrow step is a separate default-off menu-only no-op method-pointer probe that increments counters and immediately calls the original trampoline. Do not patch generated render funcs through Harmony or rerun completed/rejected probes unchanged."
+    $nextRecommendation = "Cached-driver real-evaluate crashed in nvwgf2umx.dll even with GetTexture evaluate/output-follow-up at zero. The safe CompileRenderGraph map path has pass-list, declarations, pass-data, renderfunc-metadata, and compiled-pass-info proof; execute-delegate was stable but silent; native-renderfunc-entry preflight passed and the default-off probe is implemented. The next narrow step is a menu-only true 1920x1080 Windowed native-renderfunc-entry proof that increments counters and immediately calls the original trampoline. Do not patch generated render funcs through Harmony or rerun completed/rejected probes unchanged."
 }
 
 if ($issues.Count -gt 0) {

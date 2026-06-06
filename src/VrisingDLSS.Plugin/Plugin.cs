@@ -83,6 +83,7 @@ public sealed class Plugin : BasePlugin
             || _config.EnableRenderGraphPassRenderFuncMetadataProbe.Value
             || _config.EnableRenderGraphCompiledPassInfoProbe.Value
             || _config.EnableRenderGraphExecuteDelegateProbe.Value
+            || _config.EnableNativeRenderFuncEntryProbe.Value
             || _config.EnableDlss.Value
             || _config.EnableDlssUserRenderingNoEvaluateProbe.Value
             || _config.EnableDlssCachedTupleDriverProbe.Value)
@@ -232,6 +233,7 @@ public sealed class Plugin : BasePlugin
             _config?.EnableRenderGraphPassRenderFuncMetadataProbe.Value ?? false,
             _config?.EnableRenderGraphCompiledPassInfoProbe.Value ?? false,
             _config?.EnableRenderGraphExecuteDelegateProbe.Value ?? false,
+            _config?.EnableNativeRenderFuncEntryProbe.Value ?? false,
             _config?.EnableRenderGraphGetTextureProbe.Value ?? true,
             _config?.EnableDlssPassResourceProbe.Value ?? false);
     }

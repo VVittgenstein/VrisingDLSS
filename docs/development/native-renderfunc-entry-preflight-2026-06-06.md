@@ -1,7 +1,9 @@
 # Native RenderFunc Entry Preflight - 2026-06-06
 
-Status: preflight passed. This is design evidence only; no native detour has
-been installed and no game runtime was launched by this preflight.
+Status: preflight passed. This is design evidence only; no native detour was
+installed and no game runtime was launched by this preflight. A separate
+default-off runtime probe was implemented afterward; see
+`docs/development/native-renderfunc-entry-probe-implementation-2026-06-06.md`.
 
 ## Question
 
@@ -63,16 +65,16 @@ Deep local BepInEx/Il2CppInterop evidence:
 
 ## Interpretation
 
-This makes a future `native-renderfunc-entry` no-op probe technically plausible,
-but not yet safe by itself. The remaining sharp edge is ABI/signature fidelity:
+This made the separate `native-renderfunc-entry` no-op probe technically
+plausible, but not safe by itself. The remaining sharp edge is ABI/signature fidelity:
 the replacement delegate must match the native render-function entry signature.
 A wrong signature could crash before any managed log, which is exactly the kind
 of failure already seen with rejected Harmony routes.
 
 Therefore this preflight is not permission to evaluate DLSS or touch resources.
-It only narrows the next implementation design.
+It only narrowed the implementation design.
 
-## Minimum Safe Design For The Next Probe
+## Minimum Safe Design For The Runtime Probe
 
 The first runtime probe must be default-off and menu-first:
 
@@ -94,7 +96,7 @@ The first runtime probe must be default-off and menu-first:
 - undo/dispose the detour on cleanup/shutdown when possible;
 - first runtime proof is menu-only at true `1920x1080` Windowed.
 
-Pass criteria for a future menu proof:
+Pass criteria for the first menu proof:
 
 - no WER crash;
 - true `1920x1080` Windowed;
@@ -116,6 +118,7 @@ Fail criteria:
 
 ## Decision
 
-Proceed only to a separately implemented `native-renderfunc-entry` no-op probe.
-Do not patch generated HDRP render funcs through Harmony, do not retry
-`DLSSPass.Render`, and do not use this as a production evaluate boundary.
+Proceed only to the separately implemented `native-renderfunc-entry` no-op probe
+and only for a menu-first proof. Do not patch generated HDRP render funcs
+through Harmony, do not retry `DLSSPass.Render`, and do not use this as a
+production evaluate boundary.

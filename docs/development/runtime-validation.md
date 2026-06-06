@@ -535,11 +535,20 @@ Current Stage 8A status:
   `Status=PreflightPass_DesignOnly`: Uber/EASU/Final method pointers were stable,
   `invoke_impl == method_ptr`, `NativeDetour(IntPtr, IntPtr)` exists locally,
   Il2Cpp method metadata exposes `MethodPointer`, and Harmony's IL2CPP backend
-  detours that MethodPointer while preserving `OriginalTrampoline`. This makes a
-  future `native-renderfunc-entry` no-op probe technically plausible, but it does
-  not prove ABI safety, install a hook, resolve resources, touch command buffers,
-  or evaluate DLSS. See
+  detours that MethodPointer while preserving `OriginalTrampoline`. This made a
+  separate `native-renderfunc-entry` no-op probe technically plausible, but the
+  preflight itself does not prove ABI safety, install a hook, resolve resources,
+  touch command buffers, or evaluate DLSS. See
   `docs/development/native-renderfunc-entry-preflight-2026-06-06.md`.
+- Implementation follow-up added
+  `Diagnostics.EnableNativeRenderFuncEntryProbe=false` and helper stage
+  `native-renderfunc-entry`. It reuses `CompileRenderGraph(int)` only to observe
+  the EASU `method_ptr`, waits for three stable observations, installs an
+  Il2CppInterop native detour, increments a counter, and immediately calls the
+  original trampoline. Static build and dry-run config validation passed; no
+  game runtime proof has been run yet. First proof must be menu-only at true
+  `1920x1080` Windowed. See
+  `docs/development/native-renderfunc-entry-probe-implementation-2026-06-06.md`.
 - See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.
 
 ## Stage 8B: First Guarded DLSS Evaluate Diagnostic

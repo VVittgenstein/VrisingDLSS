@@ -212,7 +212,7 @@ $result = [pscustomobject]@{
     }
     DeepEvidence = $deepEvidence
     Decision = "This is preflight evidence only. It does not install a detour, start V Rising, touch resources, read command buffers, or evaluate DLSS."
-    NextRecommendation = "If this passes, the next implementation step is a default-off native-renderfunc-entry no-op probe that increments counters only and immediately calls the original trampoline. Start menu-only; do not patch generated render funcs through Harmony."
+    NextRecommendation = "If this passes, use the separately implemented native-renderfunc-entry stage for the first menu-only runtime proof. It should increment counters only and immediately call the original trampoline. Do not patch generated render funcs through Harmony."
     LaunchesGame = $false
 }
 

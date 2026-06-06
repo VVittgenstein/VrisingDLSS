@@ -7,6 +7,8 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace VrisingDLSS.Plugin;
 
@@ -25,6 +27,8 @@ internal static class FrameResourceProbe
     private const int MaxRenderGraphPassRenderFuncMetadataLogs = 220;
     private const int MaxRenderGraphCompiledPassInfoLogs = 220;
     private const int MaxRenderGraphExecuteDelegateLogs = 180;
+    private const int MaxNativeRenderFuncEntryStatusLogs = 80;
+    private const int NativeRenderFuncEntryStableObservationThreshold = 3;
     private const int MaxRenderGraphExecutionScopeLogs = 80;
     private const int MaxRenderGraphScopedEvaluateAttempts = 12;
     private const int MaxExistingRenderFuncLogs = 80;
@@ -67,6 +71,9 @@ internal static class FrameResourceProbe
     private static int RenderGraphPassRenderFuncMetadataLogCount;
     private static int RenderGraphCompiledPassInfoLogCount;
     private static int RenderGraphExecuteDelegateLogCount;
+    private static int NativeRenderFuncEntryStatusLogCount;
+    private static int NativeRenderFuncEntryObservationLogCount;
+    private static int NativeRenderFuncEntryCallCount;
     private static int RenderGraphExecutionScopeCallCount;
     private static int RenderGraphScopedEvaluateAttemptCount;
     private static int ExistingRenderFuncCallCount;
@@ -137,6 +144,10 @@ internal static class FrameResourceProbe
     private static bool RenderGraphPassRenderFuncMetadataProbeEnabled;
     private static bool RenderGraphCompiledPassInfoProbeEnabled;
     private static bool RenderGraphExecuteDelegateProbeEnabled;
+    private static bool NativeRenderFuncEntryProbeEnabled;
+    private static bool NativeRenderFuncEntryInstallAttempted;
+    private static bool NativeRenderFuncEntryInstalled;
+    private static bool NativeRenderFuncEntryCountAdvancedLogged;
     private static bool RenderGraphGetTextureProbeEnabled;
     private static bool DlssPassResourceProbeEnabled;
     private static bool RenderGraphGetTextureDiagnosticLoggingEnabled;
@@ -166,6 +177,13 @@ internal static class FrameResourceProbe
     private static bool DlssVisibleWritebackProbeSucceeded;
     private static bool DlssVisibleWritebackShutdownLogged;
     private static DlssEvaluateProbeSettings DlssEvaluateSettings;
+    private static IntPtr NativeRenderFuncEntryCandidatePointer;
+    private static int NativeRenderFuncEntryCandidateObservationCount;
+    private static string? NativeRenderFuncEntryCandidatePassName;
+    private static string? NativeRenderFuncEntryCandidateMethodSummary;
+    private static object? NativeRenderFuncEntryDetour;
+    private static NativeRenderFuncEntryDelegate? NativeRenderFuncEntryReplacementDelegate;
+    private static NativeRenderFuncEntryDelegate? NativeRenderFuncEntryOriginalDelegate;
     private static bool UnityTimeLookupAttempted;
     private static PropertyInfo? UnityTimeFrameCountProperty;
 
@@ -197,6 +215,7 @@ internal static class FrameResourceProbe
         bool enableRenderGraphPassRenderFuncMetadataProbe = false,
         bool enableRenderGraphCompiledPassInfoProbe = false,
         bool enableRenderGraphExecuteDelegateProbe = false,
+        bool enableNativeRenderFuncEntryProbe = false,
         bool enableRenderGraphGetTextureProbe = true,
         bool enableDlssPassResourceProbe = false)
     {
@@ -231,6 +250,7 @@ internal static class FrameResourceProbe
             RenderGraphPassRenderFuncMetadataProbeEnabled = RenderGraphPassRenderFuncMetadataProbeEnabled || enableRenderGraphPassRenderFuncMetadataProbe;
             RenderGraphCompiledPassInfoProbeEnabled = RenderGraphCompiledPassInfoProbeEnabled || enableRenderGraphCompiledPassInfoProbe;
             RenderGraphExecuteDelegateProbeEnabled = RenderGraphExecuteDelegateProbeEnabled || enableRenderGraphExecuteDelegateProbe;
+            NativeRenderFuncEntryProbeEnabled = NativeRenderFuncEntryProbeEnabled || enableNativeRenderFuncEntryProbe;
             RenderGraphGetTextureProbeEnabled = RenderGraphGetTextureProbeEnabled || enableRenderGraphGetTextureProbe;
             DlssPassResourceProbeEnabled = DlssPassResourceProbeEnabled || enableDlssPassResourceProbe;
             RenderGraphGetTextureDiagnosticLoggingEnabled = RenderGraphGetTextureDiagnosticLoggingEnabled || ShouldEnableRenderGraphGetTextureDiagnosticLogging(
@@ -273,6 +293,7 @@ internal static class FrameResourceProbe
         RenderGraphPassRenderFuncMetadataProbeEnabled = enableRenderGraphPassRenderFuncMetadataProbe;
         RenderGraphCompiledPassInfoProbeEnabled = enableRenderGraphCompiledPassInfoProbe;
         RenderGraphExecuteDelegateProbeEnabled = enableRenderGraphExecuteDelegateProbe;
+        NativeRenderFuncEntryProbeEnabled = enableNativeRenderFuncEntryProbe;
         RenderGraphGetTextureProbeEnabled = enableRenderGraphGetTextureProbe;
         DlssPassResourceProbeEnabled = enableDlssPassResourceProbe;
         RenderGraphGetTextureDiagnosticLoggingEnabled = ShouldEnableRenderGraphGetTextureDiagnosticLogging(
@@ -390,6 +411,10 @@ internal static class FrameResourceProbe
         if (RenderGraphExecuteDelegateProbeEnabled)
         {
             log.LogInfo("RenderGraph execute-delegate probe enabled. It patches closed GetExecuteDelegate<TPassData>() methods for focused pass data only and does not resolve textures, touch command buffers, or evaluate DLSS.");
+        }
+        if (NativeRenderFuncEntryProbeEnabled)
+        {
+            log.LogWarning("Native render-func entry no-op probe enabled. It waits for one stable EASU method_ptr, increments a counter, and immediately calls the original trampoline; use only for menu-only local boundary testing.");
         }
         if (DlssPassResourceProbeEnabled)
         {
@@ -596,7 +621,7 @@ internal static class FrameResourceProbe
             patched++;
         }
 
-        if ((RenderGraphPassListProbeEnabled || RenderGraphPassResourceDeclarationProbeEnabled || RenderGraphPassDataSnapshotProbeEnabled || RenderGraphPassRenderFuncMetadataProbeEnabled || RenderGraphCompiledPassInfoProbeEnabled)
+        if ((RenderGraphPassListProbeEnabled || RenderGraphPassResourceDeclarationProbeEnabled || RenderGraphPassDataSnapshotProbeEnabled || RenderGraphPassRenderFuncMetadataProbeEnabled || RenderGraphCompiledPassInfoProbeEnabled || NativeRenderFuncEntryProbeEnabled)
             && TryPatchRenderGraphPassListMethod(
                 log,
                 assemblies,
@@ -638,11 +663,13 @@ internal static class FrameResourceProbe
     {
         if (!Installed || HarmonyInstance is null || HarmonyType is null)
         {
+            TryDisposeNativeRenderFuncEntryDetour(log);
             return;
         }
 
         try
         {
+            TryDisposeNativeRenderFuncEntryDetour(log);
             TryShutdownDlssUserRendering(log);
             TryShutdownDlssVisibleWriteback(log);
             if (DlssSuperResolutionFrameSequenceEvaluateProbeEnabled)
@@ -696,6 +723,10 @@ internal static class FrameResourceProbe
             RenderGraphPassRenderFuncMetadataProbeEnabled = false;
             RenderGraphCompiledPassInfoProbeEnabled = false;
             RenderGraphExecuteDelegateProbeEnabled = false;
+            NativeRenderFuncEntryProbeEnabled = false;
+            NativeRenderFuncEntryInstallAttempted = false;
+            NativeRenderFuncEntryInstalled = false;
+            NativeRenderFuncEntryCountAdvancedLogged = false;
             RenderGraphGetTextureProbeEnabled = false;
             DlssPassResourceProbeEnabled = false;
             RenderGraphGetTextureDiagnosticLoggingEnabled = false;
@@ -737,6 +768,13 @@ internal static class FrameResourceProbe
                 RenderGraphPassRenderFuncMetadataLogCount = 0;
                 RenderGraphCompiledPassInfoLogCount = 0;
                 RenderGraphExecuteDelegateLogCount = 0;
+                NativeRenderFuncEntryStatusLogCount = 0;
+                NativeRenderFuncEntryObservationLogCount = 0;
+                NativeRenderFuncEntryCallCount = 0;
+                NativeRenderFuncEntryCandidatePointer = IntPtr.Zero;
+                NativeRenderFuncEntryCandidateObservationCount = 0;
+                NativeRenderFuncEntryCandidatePassName = null;
+                NativeRenderFuncEntryCandidateMethodSummary = null;
                 RenderGraphExecutionScopeCallCount = 0;
                 RenderGraphScopedEvaluateAttemptCount = 0;
                 ExistingRenderFuncCallCount = 0;
@@ -1886,7 +1924,8 @@ internal static class FrameResourceProbe
                 && !RenderGraphPassResourceDeclarationProbeEnabled
                 && !RenderGraphPassDataSnapshotProbeEnabled
                 && !RenderGraphPassRenderFuncMetadataProbeEnabled
-                && !RenderGraphCompiledPassInfoProbeEnabled)
+                && !RenderGraphCompiledPassInfoProbeEnabled
+                && !NativeRenderFuncEntryProbeEnabled)
             {
                 return;
             }
@@ -1977,6 +2016,7 @@ internal static class FrameResourceProbe
             TryLogRenderGraphPassDataSnapshots(compileCount, passSummaries);
             TryLogRenderGraphPassRenderFuncMetadata(compileCount, passSummaries);
             TryLogRenderGraphCompiledPassInfos(compileCount, __instance, passSummaries);
+            TryLogNativeRenderFuncEntryStatus(compileCount);
         }
         catch (Exception ex)
         {
@@ -2146,7 +2186,7 @@ internal static class FrameResourceProbe
         int compileCount,
         IEnumerable<(int Ordinal, object Pass, string Name, string TypeName, string Category)> passSummaries)
     {
-        if (!RenderGraphPassRenderFuncMetadataProbeEnabled)
+        if (!RenderGraphPassRenderFuncMetadataProbeEnabled && !NativeRenderFuncEntryProbeEnabled)
         {
             return;
         }
@@ -2164,14 +2204,20 @@ internal static class FrameResourceProbe
                 continue;
             }
 
-            int metadataLogCount;
-            lock (Sync)
+            var metadataLogCount = 0;
+            var shouldLogMetadata = false;
+            if (RenderGraphPassRenderFuncMetadataProbeEnabled)
             {
-                RenderGraphPassRenderFuncMetadataLogCount++;
-                metadataLogCount = RenderGraphPassRenderFuncMetadataLogCount;
+                lock (Sync)
+                {
+                    RenderGraphPassRenderFuncMetadataLogCount++;
+                    metadataLogCount = RenderGraphPassRenderFuncMetadataLogCount;
+                }
+
+                shouldLogMetadata = metadataLogCount <= MaxRenderGraphPassRenderFuncMetadataLogs || metadataLogCount % 500 == 0;
             }
 
-            if (metadataLogCount > MaxRenderGraphPassRenderFuncMetadataLogs && metadataLogCount % 500 != 0)
+            if (!shouldLogMetadata && !NativeRenderFuncEntryProbeEnabled)
             {
                 continue;
             }
@@ -2181,12 +2227,377 @@ internal static class FrameResourceProbe
                 ?? TryReadTypedRenderGraphPassRenderFuncObject(summary.Pass, summary.Name);
             if (renderFunc is null)
             {
-                log.LogInfo($"RenderGraph pass render-func metadata renderFunc=not found #{metadataLogCount}: compile={compileCount}; ordinal={summary.Ordinal}; pass=\"{summary.Name}\"; category={summary.Category}; passType={summary.TypeName}");
+                if (shouldLogMetadata)
+                {
+                    log.LogInfo($"RenderGraph pass render-func metadata renderFunc=not found #{metadataLogCount}: compile={compileCount}; ordinal={summary.Ordinal}; pass=\"{summary.Name}\"; category={summary.Category}; passType={summary.TypeName}");
+                }
+
                 continue;
             }
 
-            var renderFuncSummary = SummarizeRenderGraphRenderFunc(renderFunc);
-            log.LogInfo($"RenderGraph pass render-func metadata #{metadataLogCount}: compile={compileCount}; ordinal={summary.Ordinal}; pass=\"{summary.Name}\"; category={summary.Category}; passType={summary.TypeName}; renderFunc={renderFuncSummary}");
+            TryObserveNativeRenderFuncEntryCandidate(compileCount, summary, renderFunc);
+            if (shouldLogMetadata)
+            {
+                var renderFuncSummary = SummarizeRenderGraphRenderFunc(renderFunc);
+                log.LogInfo($"RenderGraph pass render-func metadata #{metadataLogCount}: compile={compileCount}; ordinal={summary.Ordinal}; pass=\"{summary.Name}\"; category={summary.Category}; passType={summary.TypeName}; renderFunc={renderFuncSummary}");
+            }
+        }
+    }
+
+    private static void TryObserveNativeRenderFuncEntryCandidate(
+        int compileCount,
+        (int Ordinal, object Pass, string Name, string TypeName, string Category) summary,
+        object renderFunc)
+    {
+        if (!NativeRenderFuncEntryProbeEnabled || !IsNativeRenderFuncEntryTarget(summary.Name, summary.TypeName, summary.Category, renderFunc))
+        {
+            return;
+        }
+
+        var log = Log;
+        if (log is null)
+        {
+            return;
+        }
+
+        if (!TryReadRenderFuncPointer(renderFunc, "method_ptr", out var methodPtr) || methodPtr == IntPtr.Zero)
+        {
+            log.LogWarning($"Native render-func entry probe failed: EASU method_ptr was not available at compile={compileCount}; pass=\"{summary.Name}\"; ordinal={summary.Ordinal}");
+            return;
+        }
+
+        var methodSummary = SummarizeNativeRenderFuncEntryMethod(renderFunc);
+        var shouldInstall = false;
+        var observations = 0;
+        var candidateChanged = false;
+        var candidateAlreadyInstalled = false;
+        var previousPointer = IntPtr.Zero;
+        lock (Sync)
+        {
+            if (NativeRenderFuncEntryCandidatePointer == IntPtr.Zero)
+            {
+                NativeRenderFuncEntryCandidatePointer = methodPtr;
+                NativeRenderFuncEntryCandidatePassName = summary.Name;
+                NativeRenderFuncEntryCandidateMethodSummary = methodSummary;
+            }
+            else if (NativeRenderFuncEntryCandidatePointer != methodPtr)
+            {
+                previousPointer = NativeRenderFuncEntryCandidatePointer;
+                candidateChanged = true;
+                NativeRenderFuncEntryInstallAttempted = true;
+            }
+
+            if (!candidateChanged)
+            {
+                NativeRenderFuncEntryCandidateObservationCount++;
+                observations = NativeRenderFuncEntryCandidateObservationCount;
+                NativeRenderFuncEntryCandidatePassName = summary.Name;
+                NativeRenderFuncEntryCandidateMethodSummary = methodSummary;
+                candidateAlreadyInstalled = NativeRenderFuncEntryInstalled;
+                if (!NativeRenderFuncEntryInstalled
+                    && !NativeRenderFuncEntryInstallAttempted
+                    && NativeRenderFuncEntryCandidateObservationCount >= NativeRenderFuncEntryStableObservationThreshold)
+                {
+                    NativeRenderFuncEntryInstallAttempted = true;
+                    shouldInstall = true;
+                }
+            }
+        }
+
+        if (candidateChanged)
+        {
+            log.LogWarning($"Native render-func entry probe failed: EASU method_ptr changed before install; previous=0x{previousPointer.ToInt64():X}; current=0x{methodPtr.ToInt64():X}; pass=\"{summary.Name}\"");
+            return;
+        }
+
+        int observationLogCount;
+        lock (Sync)
+        {
+            NativeRenderFuncEntryObservationLogCount++;
+            observationLogCount = NativeRenderFuncEntryObservationLogCount;
+        }
+
+        if (observationLogCount <= MaxNativeRenderFuncEntryStatusLogs || observationLogCount % 300 == 0)
+        {
+            log.LogInfo($"Native render-func entry candidate observed #{observationLogCount}: compile={compileCount}; pass=\"{summary.Name}\"; ordinal={summary.Ordinal}; category={summary.Category}; method_ptr=0x{methodPtr.ToInt64():X}; observations={observations}; installed={candidateAlreadyInstalled}; {methodSummary}");
+        }
+
+        if (shouldInstall)
+        {
+            TryInstallNativeRenderFuncEntryDetour(methodPtr, summary.Name, methodSummary);
+        }
+    }
+
+    private static bool IsNativeRenderFuncEntryTarget(string passName, string passType, string category, object renderFunc)
+    {
+        var value = $"{passName} {passType} {category}";
+        if (value.IndexOf("Edge Adaptive Spatial Upsampling", StringComparison.OrdinalIgnoreCase) < 0
+            && value.IndexOf("EASUData", StringComparison.OrdinalIgnoreCase) < 0)
+        {
+            return false;
+        }
+
+        var methodName = TryReadNativeRenderFuncEntryMethodName(renderFunc);
+        return string.IsNullOrWhiteSpace(methodName)
+            || methodName.IndexOf("EdgeAdaptiveSpatialUpsampling", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static void TryInstallNativeRenderFuncEntryDetour(IntPtr methodPtr, string passName, string methodSummary)
+    {
+        var log = Log;
+        if (log is null)
+        {
+            return;
+        }
+
+        object? detour = null;
+        try
+        {
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            var runtimeType = FindRuntimeType(assemblies, "Il2CppInterop.Runtime.Startup.Il2CppInteropRuntime");
+            if (runtimeType is null)
+            {
+                log.LogWarning("Native render-func entry probe failed: Il2CppInteropRuntime type was not found.");
+                return;
+            }
+
+            var runtimeInstance = TryReadStaticPropertyObject(runtimeType, "Instance");
+            var detourProvider = runtimeInstance is null
+                ? null
+                : TryReadPropertyObject(runtimeInstance, "DetourProvider");
+            if (detourProvider is null)
+            {
+                log.LogWarning("Native render-func entry probe failed: Il2CppInterop DetourProvider was not available.");
+                return;
+            }
+
+            var replacementDelegate = new NativeRenderFuncEntryDelegate(NativeRenderFuncEntryDetourCallback);
+            var createMethod = detourProvider.GetType()
+                .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                .Where(method => string.Equals(method.Name, "Create", StringComparison.Ordinal))
+                .Where(method => method.IsGenericMethodDefinition)
+                .FirstOrDefault(method =>
+                {
+                    var parameters = method.GetParameters();
+                    return parameters.Length == 2
+                        && parameters[0].ParameterType == typeof(IntPtr);
+                });
+            if (createMethod is null)
+            {
+                log.LogWarning("Native render-func entry probe failed: DetourProvider.Create<TDelegate>(IntPtr, TDelegate) was not found.");
+                return;
+            }
+
+            detour = createMethod
+                .MakeGenericMethod(typeof(NativeRenderFuncEntryDelegate))
+                .Invoke(detourProvider, new object[] { methodPtr, replacementDelegate });
+            if (detour is null)
+            {
+                log.LogWarning("Native render-func entry probe failed: DetourProvider.Create returned null.");
+                return;
+            }
+
+            var generateTrampolineMethod = detour.GetType()
+                .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                .Where(method => string.Equals(method.Name, "GenerateTrampoline", StringComparison.Ordinal))
+                .Where(method => method.IsGenericMethodDefinition)
+                .FirstOrDefault(method => method.GetParameters().Length == 0);
+            var applyMethod = FindMethodBySignature(detour.GetType(), "Apply", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance, Array.Empty<Type>());
+            if (generateTrampolineMethod is null || applyMethod is null)
+            {
+                DisposeObject(detour);
+                log.LogWarning("Native render-func entry probe failed: detour trampoline/apply methods were not found.");
+                return;
+            }
+
+            var originalDelegate = generateTrampolineMethod
+                .MakeGenericMethod(typeof(NativeRenderFuncEntryDelegate))
+                .Invoke(detour, Array.Empty<object>()) as NativeRenderFuncEntryDelegate;
+            if (originalDelegate is null)
+            {
+                DisposeObject(detour);
+                log.LogWarning("Native render-func entry probe failed: original trampoline delegate was not created.");
+                return;
+            }
+
+            NativeRenderFuncEntryReplacementDelegate = replacementDelegate;
+            NativeRenderFuncEntryOriginalDelegate = originalDelegate;
+            applyMethod.Invoke(detour, Array.Empty<object>());
+
+            lock (Sync)
+            {
+                NativeRenderFuncEntryDetour = detour;
+                NativeRenderFuncEntryInstalled = true;
+                NativeRenderFuncEntryCandidatePassName = passName;
+                NativeRenderFuncEntryCandidateMethodSummary = methodSummary;
+            }
+
+            log.LogInfo($"Native render-func entry detour installed: pass=\"{passName}\"; method_ptr=0x{methodPtr.ToInt64():X}; {methodSummary}");
+        }
+        catch (Exception ex)
+        {
+            if (detour is not null)
+            {
+                DisposeObject(detour);
+            }
+
+            NativeRenderFuncEntryOriginalDelegate = null;
+            NativeRenderFuncEntryReplacementDelegate = null;
+            log.LogWarning($"Native render-func entry probe failed: detour install threw {FirstLine(GetExceptionMessage(ex))}");
+        }
+    }
+
+    private static void TryLogNativeRenderFuncEntryStatus(int compileCount)
+    {
+        if (!NativeRenderFuncEntryProbeEnabled)
+        {
+            return;
+        }
+
+        var log = Log;
+        if (log is null)
+        {
+            return;
+        }
+
+        var entryCount = Volatile.Read(ref NativeRenderFuncEntryCallCount);
+        var shouldLogAdvanced = false;
+        var installed = false;
+        var observations = 0;
+        var pointer = IntPtr.Zero;
+        var statusLogCount = 0;
+        string? passName;
+        string? methodSummary;
+        lock (Sync)
+        {
+            NativeRenderFuncEntryStatusLogCount++;
+            statusLogCount = NativeRenderFuncEntryStatusLogCount;
+            if (statusLogCount > MaxNativeRenderFuncEntryStatusLogs && statusLogCount % 300 != 0)
+            {
+                return;
+            }
+
+            installed = NativeRenderFuncEntryInstalled;
+            observations = NativeRenderFuncEntryCandidateObservationCount;
+            pointer = NativeRenderFuncEntryCandidatePointer;
+            passName = NativeRenderFuncEntryCandidatePassName;
+            methodSummary = NativeRenderFuncEntryCandidateMethodSummary;
+            if (installed && entryCount > 0 && !NativeRenderFuncEntryCountAdvancedLogged)
+            {
+                NativeRenderFuncEntryCountAdvancedLogged = true;
+                shouldLogAdvanced = true;
+            }
+        }
+
+        log.LogInfo($"Native render-func entry status #{statusLogCount}: compile={compileCount}; installed={installed}; entryCount={entryCount}; observations={observations}; candidatePointer=0x{pointer.ToInt64():X}; pass=\"{passName ?? "unknown"}\"; {methodSummary ?? "method=unknown"}");
+        if (shouldLogAdvanced)
+        {
+            log.LogInfo($"Native render-func entry count advanced: entryCount={entryCount}; pass=\"{passName ?? "unknown"}\"; candidatePointer=0x{pointer.ToInt64():X}");
+        }
+    }
+
+    private static void TryDisposeNativeRenderFuncEntryDetour(ManualLogSource log)
+    {
+        object? detour;
+        lock (Sync)
+        {
+            detour = NativeRenderFuncEntryDetour;
+            NativeRenderFuncEntryDetour = null;
+            NativeRenderFuncEntryInstalled = false;
+            NativeRenderFuncEntryOriginalDelegate = null;
+            NativeRenderFuncEntryReplacementDelegate = null;
+        }
+
+        if (detour is null)
+        {
+            return;
+        }
+
+        try
+        {
+            DisposeObject(detour);
+            log.LogInfo("Native render-func entry detour disposed.");
+        }
+        catch (Exception ex)
+        {
+            log.LogWarning($"Native render-func entry detour dispose failed: {GetExceptionMessage(ex)}");
+        }
+    }
+
+    private static void DisposeObject(object instance)
+    {
+        if (instance is IDisposable disposable)
+        {
+            disposable.Dispose();
+            return;
+        }
+
+        var disposeMethod = FindMethodBySignature(
+            instance.GetType(),
+            "Dispose",
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
+            Array.Empty<Type>());
+        disposeMethod?.Invoke(instance, Array.Empty<object>());
+    }
+
+    private static void NativeRenderFuncEntryDetourCallback(
+        IntPtr thisPtr,
+        IntPtr passDataPtr,
+        IntPtr renderGraphContextPtr,
+        IntPtr methodInfoPtr)
+    {
+        Interlocked.Increment(ref NativeRenderFuncEntryCallCount);
+        var original = NativeRenderFuncEntryOriginalDelegate;
+        original?.Invoke(thisPtr, passDataPtr, renderGraphContextPtr, methodInfoPtr);
+    }
+
+    private static string SummarizeNativeRenderFuncEntryMethod(object renderFunc)
+    {
+        var methodInfo = TryReadMemberObject(renderFunc, "method")
+            ?? TryReadMemberObject(renderFunc, "Method")
+            ?? TryReadMemberObject(renderFunc, "method_info")
+            ?? TryReadMemberObject(renderFunc, "original_method_info");
+        if (methodInfo is null)
+        {
+            return "method=not found";
+        }
+
+        var methodName = FirstLine(TryReadPropertyString(methodInfo, "Name") ?? "unknown");
+        var declaringType = FirstLine(TryReadPropertyString(methodInfo, "DeclaringType") ?? "unknown");
+        var reflectedType = FirstLine(TryReadPropertyString(methodInfo, "ReflectedType") ?? "unknown");
+        var metadataToken = FirstLine(TryReadPropertyString(methodInfo, "MetadataToken") ?? "unknown");
+        return $"methodName={methodName}; declaringType={declaringType}; reflectedType={reflectedType}; metadataToken={metadataToken}";
+    }
+
+    private static string? TryReadNativeRenderFuncEntryMethodName(object renderFunc)
+    {
+        var methodInfo = TryReadMemberObject(renderFunc, "method")
+            ?? TryReadMemberObject(renderFunc, "Method")
+            ?? TryReadMemberObject(renderFunc, "method_info")
+            ?? TryReadMemberObject(renderFunc, "original_method_info");
+        return methodInfo is null ? null : TryReadPropertyString(methodInfo, "Name");
+    }
+
+    private static bool TryReadRenderFuncPointer(object renderFunc, string memberName, out IntPtr pointer)
+    {
+        pointer = IntPtr.Zero;
+        var value = TryReadMemberObject(renderFunc, memberName);
+        switch (value)
+        {
+            case IntPtr intPtr:
+                pointer = intPtr;
+                return true;
+            case UIntPtr uintPtr:
+                pointer = unchecked((IntPtr)(long)uintPtr.ToUInt64());
+                return true;
+            case long signed:
+                pointer = new IntPtr(signed);
+                return true;
+            case ulong unsigned:
+                pointer = unchecked((IntPtr)(long)unsigned);
+                return true;
+            default:
+                return false;
         }
     }
 
@@ -7150,6 +7561,13 @@ internal static class FrameResourceProbe
     private readonly record struct RenderGraphPassDataSnapshotMember(string Label, string Kind, string Summary);
 
     private readonly record struct RenderGraphRegistryCandidate(string Label, object Instance);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate void NativeRenderFuncEntryDelegate(
+        IntPtr thisPtr,
+        IntPtr passDataPtr,
+        IntPtr renderGraphContextPtr,
+        IntPtr methodInfoPtr);
 
     private readonly record struct DlssUserRenderingResourceTuple(
         IntPtr ColorPointer,

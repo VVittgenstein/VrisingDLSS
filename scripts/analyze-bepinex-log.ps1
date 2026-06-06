@@ -225,6 +225,12 @@ $results.Add((New-StageResult `
     -StartedPatterns @("RenderGraph execute-delegate probe enabled", "RenderGraph execute-delegate probe patched")))
 
 $results.Add((New-StageResult `
+    -Stage "Native RenderFunc Entry" `
+    -PassPatterns @("Native render-func entry count advanced:") `
+    -FailPatterns @("Native render-func entry probe failed:", "Native render-func entry detour dispose failed:") `
+    -StartedPatterns @("Native render-func entry no-op probe enabled", "Native render-func entry candidate observed", "Native render-func entry detour installed:", "Native render-func entry status #")))
+
+$results.Add((New-StageResult `
     -Stage "Stage 5D DLSS Runtime" `
     -PassPatterns @("DLSS runtime probe succeeded:") `
     -FailPatterns @("DLSS runtime probe failed:", "DLSS runtime probe skipped:") `

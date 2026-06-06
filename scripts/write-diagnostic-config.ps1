@@ -25,6 +25,7 @@ param(
         "rendergraph-renderfunc-metadata",
         "rendergraph-compiled-pass-info",
         "rendergraph-execute-delegate",
+        "native-renderfunc-entry",
         "render-scale-control",
         "dlss-user-rendering",
         "dlss-user-rendering-cached-driver",
@@ -89,6 +90,7 @@ function New-ConfigMap {
             EnableRenderGraphPassRenderFuncMetadataProbe = "false"
             EnableRenderGraphCompiledPassInfoProbe = "false"
             EnableRenderGraphExecuteDelegateProbe = "false"
+            EnableNativeRenderFuncEntryProbe = "false"
             EnableRenderGraphGetTextureProbe = "true"
             EnableDlssPassResourceProbe = "false"
             EnableUpscalerStateProbe = "false"
@@ -290,6 +292,13 @@ function Set-SwitchesForStage {
         "rendergraph-execute-delegate" {
             $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
             $Config.Diagnostics.EnableRenderGraphExecuteDelegateProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
+            $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+            $Config.Diagnostics.EnableHookProbe = "false"
+        }
+        "native-renderfunc-entry" {
+            $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncEntryProbe = "true"
             $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"
             $Config.Diagnostics.EnableHookProbe = "false"

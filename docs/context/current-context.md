@@ -546,8 +546,14 @@ As of the read-only RenderGraph pass-map runtime result:
   `method_ptr=0x7FF8E91BE7F0`; all had `invoke_impl == method_ptr`. Deep
   inspection confirmed local `NativeDetour(IntPtr, IntPtr)`,
   Il2Cpp `MethodPointer`, and Harmony IL2CPP backend MethodPointer detour /
-  `OriginalTrampoline` evidence. This is still design evidence only. The next
-  implementation step may be a separate default-off `native-renderfunc-entry`
-  no-op probe that increments counters and immediately calls the original
-  trampoline; it must start menu-only and must not resolve resources, touch
-  command buffers, or evaluate DLSS.
+  `OriginalTrampoline` evidence. This remains design evidence only.
+- The separate default-off `native-renderfunc-entry` no-op probe is now
+  implemented and statically validated; see
+  `docs/development/native-renderfunc-entry-probe-implementation-2026-06-06.md`.
+  Config key: `Diagnostics.EnableNativeRenderFuncEntryProbe=false`. Helper
+  stage: `native-renderfunc-entry`. It observes only the EASU `method_ptr` from
+  `CompileRenderGraph(int)`, waits for three stable observations, installs an
+  Il2CppInterop native detour, increments one counter, and immediately calls the
+  original trampoline. It must start with a menu-only true `1920x1080` Windowed
+  runtime proof and must not resolve resources, touch command buffers, or
+  evaluate DLSS.
