@@ -119,3 +119,32 @@ Fail evidence:
 Cleanup requirements remain unchanged: `1920x1080` Windowed, back up and restore
 the local/private `11111` save, restore loader config and release-safe native DLL,
 and leave no `VRising` process running.
+
+## Handler-Request V3 Result
+
+Run `fsr-off-render-scale-1080p-handler-request-v3-20260606` completed safely but
+failed the MVP tuple proof:
+
+- Computer Use entered the `11111` gameplay fixture at `1920x1080` Windowed.
+- Cleanup passed and restored the `11111` save to `ChangeCount=0`.
+- Stage 8E did not accept a Super Resolution tuple.
+- `CameraColor_960` count was `0`; `CameraColor_1920` count was `455`.
+- The gameplay camera stayed `actualWidth=1920,actualHeight=1080`.
+- Auxiliary `960x540` resources appeared only for low/half-resolution effect targets
+  such as LowResDepthBuffer, AO, bloom, and low-res transparent buffers.
+- No `m_CurrentCameraRequest` readback appeared, so the run did not prove whether the
+  handler request was false, already true, or hidden from reflection.
+
+Follow-up code change:
+
+- `RenderScaleControlProbe` now directly invokes
+  `DynamicResolutionHandler.SetCurrentCameraRequest(true)` from the observed
+  `DynamicResolutionHandler.Update(...)` prefix.
+- The probe now emits capped `Render-scale control handler request diagnostic` lines
+  with handler type, direct invocation result, `m_CurrentCameraRequest` before/after
+  readback, and whether the private field is writable.
+
+The next run should use that direct handler-request diagnostic. If it proves the
+handler request is true while `CameraColor` remains full-size, move to an explicit
+software-fallback / ScalableBufferManager diagnostic rather than another
+hardware-DRS-only rerun.

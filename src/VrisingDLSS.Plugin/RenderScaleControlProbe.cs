@@ -14,6 +14,7 @@ internal static class RenderScaleControlProbe
     private const int MaxMemberWriteFailureLogs = 20;
     private const int MaxHardwareDynamicResolutionRequestLogs = 16;
     private const int MaxHardwareDynamicResolutionRequestFailureLogs = 3;
+    private const int MaxHandlerRequestDiagnosticLogs = 12;
     private const string GlobalDynamicResolutionSettingsTypeName = "UnityEngine.Rendering.GlobalDynamicResolutionSettings";
     private const string TaaUpscaleFilterName = "TAAU";
     private const float DlaaRenderScalePercent = 100f;
@@ -41,6 +42,7 @@ internal static class RenderScaleControlProbe
     private static int MemberWriteFailureLogCount;
     private static int HardwareDynamicResolutionRequestLogCount;
     private static int HardwareDynamicResolutionRequestFailureLogCount;
+    private static int HandlerRequestDiagnosticLogCount;
     private static RenderScaleSettings Settings;
 
     internal static void Install(ManualLogSource log, string qualityMode, int renderScaleOverride)
@@ -174,6 +176,7 @@ internal static class RenderScaleControlProbe
             MemberWriteFailureLogCount = 0;
             HardwareDynamicResolutionRequestLogCount = 0;
             HardwareDynamicResolutionRequestFailureLogCount = 0;
+            HandlerRequestDiagnosticLogCount = 0;
         }
     }
 
@@ -305,9 +308,56 @@ internal static class RenderScaleControlProbe
 
     private static bool TryMutateDynamicResolutionHandler(object? handler, ICollection<string> changes)
     {
-        return handler is not null
-            && handler.GetType().FullName == "UnityEngine.Rendering.DynamicResolutionHandler"
-            && TrySetBoolMember(handler, "m_CurrentCameraRequest", true, changes);
+        if (handler is null)
+        {
+            LogHandlerRequestDiagnostic("handler=null");
+            return false;
+        }
+
+        var handlerType = handler.GetType();
+        if (handlerType.FullName != "UnityEngine.Rendering.DynamicResolutionHandler")
+        {
+            LogHandlerRequestDiagnostic($"unexpected handler type={handlerType.FullName ?? handlerType.Name}");
+            return false;
+        }
+
+        var before = TryReadMember(handler, "m_CurrentCameraRequest");
+        var invoked = TryInvokeSetCurrentCameraRequest(handler, out var invokeError);
+        var changed = TrySetBoolMember(handler, "m_CurrentCameraRequest", true, changes);
+        var after = TryReadMember(handler, "m_CurrentCameraRequest");
+        var writable = FindWritableMember(handlerType, "m_CurrentCameraRequest") is not null;
+
+        LogHandlerRequestDiagnostic(
+            $"type={handlerType.FullName}; before={FormatValue(before)}; invokedSetCurrentCameraRequest={invoked}; fieldWritable={writable}; after={FormatValue(after)}{(string.IsNullOrWhiteSpace(invokeError) ? string.Empty : $"; invokeError={invokeError}")}");
+
+        return changed || invoked;
+    }
+
+    private static bool TryInvokeSetCurrentCameraRequest(object handler, out string error)
+    {
+        error = string.Empty;
+        try
+        {
+            var method = FindMethodBySignature(
+                handler.GetType(),
+                "SetCurrentCameraRequest",
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
+                new[] { typeof(bool) });
+
+            if (method is null)
+            {
+                error = "method not found";
+                return false;
+            }
+
+            method.Invoke(handler, new object[] { true });
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = GetExceptionMessage(ex);
+            return false;
+        }
     }
 
     private static bool TryMutateDynamicResolutionSettings(ref object? settings, float targetPercentage, ICollection<string> changes)
@@ -478,6 +528,23 @@ internal static class RenderScaleControlProbe
         }
 
         Log?.LogWarning($"Render-scale control could not request hardware dynamic resolution state #{count}: {error}");
+    }
+
+    private static void LogHandlerRequestDiagnostic(string message)
+    {
+        int count;
+        lock (Sync)
+        {
+            if (HandlerRequestDiagnosticLogCount >= MaxHandlerRequestDiagnosticLogs)
+            {
+                return;
+            }
+
+            HandlerRequestDiagnosticLogCount++;
+            count = HandlerRequestDiagnosticLogCount;
+        }
+
+        Log?.LogInfo($"Render-scale control handler request diagnostic #{count}: {message}");
     }
 
     private static bool TrySetBoolMember(object instance, string memberName, bool value, ICollection<string> changes)

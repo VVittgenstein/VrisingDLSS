@@ -262,6 +262,15 @@ function Get-NextRecommendation {
         $CurrentLogText.IndexOf("color=1920x1080 output=1920x1080", [StringComparison]::OrdinalIgnoreCase) -ge 0) {
         if ($CurrentLogText.IndexOf("Render-scale control member write did not stick", [StringComparison]::OrdinalIgnoreCase) -ge 0 -and
             $CurrentLogText.IndexOf("RTHandles.SetHardwareDynamicResolutionState=true", [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+            if ($CurrentLogText.IndexOf("_960x540", [StringComparison]::OrdinalIgnoreCase) -ge 0 -and
+                $CurrentLogText.IndexOf("Render-scale control handler request diagnostic", [StringComparison]::OrdinalIgnoreCase) -lt 0) {
+                return "The latest handler-request gameplay run reached 1920x1080 Windowed gameplay and produced some auxiliary 960x540 dynamic resources, but the DLSS color/depth/motion/output candidate stayed color=1920x1080 output=1920x1080 and no handler request readback was logged. Rebuild/stage the current plugin with the direct DynamicResolutionHandler.SetCurrentCameraRequest(true) diagnostic, then rerun the same FSR Off proof once."
+            }
+
+            if ($CurrentLogText.IndexOf("Render-scale control handler request diagnostic", [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                return "The latest dlss-user-rendering gameplay log includes handler-request diagnostics but still did not accept an FSR Off Super Resolution tuple. Inspect the handler before/after/invocation fields; if SetCurrentCameraRequest(true) or m_CurrentCameraRequest=True is proven while CameraColor remains 1920x1080, move to an explicit software-fallback/ScalableBufferManager diagnostic instead of another hardware-DRS rerun."
+            }
+
             return "The latest targeted dlss-user-rendering gameplay log still did not accept an FSR Off Super Resolution tuple after RTHandles.SetHardwareDynamicResolutionState=true. Static follow-up points to DynamicResolutionHandler.m_CurrentCameraRequest as the next gate: rebuild/stage the current plugin and rerun the 1920x1080 Windowed FSR Off proof only with the new handler-request diagnostic, expecting either a 960x540 -> 1920x1080 tuple or evidence for an explicit software-fallback route."
         }
 

@@ -138,3 +138,20 @@ Current next diagnostic after static HDRP/Core source review:
 - If `m_CurrentCameraRequest=True` is logged but the camera remains full-size, the
   next route should be an explicit software-fallback diagnostic rather than another
   hardware DRS rerun.
+
+Handler-request runtime result:
+
+- `fsr-off-render-scale-1080p-handler-request-v3-20260606` reached stable `11111`
+  gameplay automatically and cleaned up safely, but still failed the MVP tuple proof.
+- `CameraColor_960` count was `0`, `CameraColor_1920` count was `455`, and Stage 8E
+  did not accept a Super Resolution tuple.
+- Auxiliary `960x540` resources appeared only for low/half-resolution effects such
+  as LowResDepthBuffer, AO, bloom, and low-res transparent buffers.
+- No `m_CurrentCameraRequest` readback appeared in that log, so the next run must use
+  the newer direct `DynamicResolutionHandler.SetCurrentCameraRequest(true)`
+  invocation/readback diagnostic from the `Update(...)` prefix.
+
+Do not repeat `fsr-off-render-scale-1080p-handler-request-v3-20260606` unchanged.
+The next launch should either produce a usable `960x540 -> 1920x1080` tuple, or prove
+through handler diagnostics that the request is already true/successfully invoked and
+the next route is explicit software fallback / ScalableBufferManager investigation.
