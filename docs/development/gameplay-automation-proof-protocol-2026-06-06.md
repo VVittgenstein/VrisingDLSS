@@ -1,7 +1,8 @@
 # Gameplay Automation Proof Protocol - 2026-06-06
 
 Status: updated after five no-DLSS automation proof runs, three harmless-input
-proof runs, and one observation-only Computer Use session.
+proof runs, one observation-only Computer Use session, one `WindowMode=3` proof, and
+one successful automatic Continue-to-gameplay proof.
 
 ## Question
 
@@ -192,4 +193,26 @@ Use
 [computer-use-vrising-automation-notes-2026-06-06.md](computer-use-vrising-automation-notes-2026-06-06.md)
 and
 [gameplay-continue-ui-navigation-protocol-2026-06-06.md](gameplay-continue-ui-navigation-protocol-2026-06-06.md)
-before the first real Continue activation.
+for future gameplay-entry automation.
+
+## Windowed And Gameplay Entry Result
+
+`automation-windowmode3-1080p-v1-20260606` proved the user's preferred constructive
+test shape. Temporarily writing `GraphicSettings.WindowMode=3` alongside the existing
+resolution override made `Player.log` report:
+
+```text
+SetResolution 1920, 1080, fullScreenMode Windowed
+```
+
+The script-side screenshot was `1920x1080`, cleanup passed, and the user's original
+`ClientSettings.json` was restored with no persisted `WindowMode` field.
+
+`automation-continue-click-windowed-v1-20260606` then proved automatic gameplay entry:
+Computer Use clicked Continue exactly once from the `11111` menu, observed loading at
+20 seconds, and observed stable gameplay with character/HUD at 50 seconds. Player and
+server logs confirmed the local server started, loaded the known save, and connected
+character `Helen`. Cleanup passed with `CrashEventCount=0` and no remaining process.
+
+Entering gameplay rotated autosaves, so the save was restored from the pre-proof backup.
+Future gameplay-entry tests must include the same save backup/compare/restore discipline.

@@ -37,6 +37,13 @@ included in the GitHub/Thunderstore release package.
    - `RestoredClientSettings=true` when resolution was changed
    - `RestoredLoaderConfig=true`
    - `RemainingVRisingProcessCount=0`
+8. For the preferred constructive test shape, start sessions with:
+   - `-SetClientResolution`
+   - `-SetClientWindowMode -ClientWindowMode 3`
+   This makes the player log report `fullScreenMode Windowed` and keeps the
+   script-side screenshot at `1920x1080`.
+9. Before entering the `11111` save, back up its save directory. Gameplay entry can
+   rotate autosaves even if no further input is sent.
 
 ## Safety Boundary
 
@@ -79,6 +86,24 @@ Result:
 - The captured main menu showed the Chinese Continue entry with save name `11111`.
 - Cleanup passed and left no game process.
 
+## Continue Proof
+
+Run label: `automation-continue-click-windowed-v1-20260606`.
+
+Result:
+
+- The session used `GraphicSettings.WindowMode=3` and `1920x1080`.
+- Computer Use captured the main menu, clicked the visible Continue label exactly once
+  at `(205, 354)` in the `1283x751` screenshot, and then observed gameplay.
+- The 50-second follow-up screenshot showed stable gameplay with character, HUD,
+  hotbar, quest text, and minimap.
+- Player/server logs confirmed local server startup, save load, and character `Helen`
+  connection.
+- Cleanup passed with no crash and no remaining V Rising process.
+
+This proves automatic gameplay entry for the local/private `11111` fixture. Computer
+Use remains a local validation tool only; it is not part of the DLSS mod.
+
 ## Pitfalls Found
 
 - `Process.MainWindowHandle` and app-window lists can point at the BepInEx console.
@@ -91,6 +116,9 @@ Result:
   - Computer Use observed a `2560x1440` logical screenshot.
   Treat coordinates as belonging to the current Computer Use screenshot, not to the
   script-side PNG or physical monitor size.
+- After `WindowMode=3`, the script-side screenshot can be `1920x1080` while Computer
+  Use sees a smaller decorated/logical window screenshot such as `1283x751`. Continue
+  click coordinates still belong to the Computer Use screenshot.
 - Black/near-black startup frames are common. A visible window is not enough; wait for
   a nonblank screenshot before assuming the UI is ready.
 - The main menu was localized in Chinese. The target Continue entry is the Chinese
@@ -99,12 +127,18 @@ Result:
   stronger current path is the observed Continue menu.
 - Do not leave a `Status=Ready` session open without running the stop script. The start
   script intentionally leaves `CleanupRequired=true`.
+- Do not assume gameplay entry leaves the local save untouched. The first successful
+  Continue proof created `AutoSave_24.save.gz` and rotated older autosaves. The save
+  was restored from the pre-proof backup; future tests need the same backup/restore
+  discipline.
 
 ## Next Click Protocol Notes
 
-Before the first real Continue activation:
+For future Continue activations:
 
 - Start a fresh session with a new artifact label.
+- Use `-SetClientResolution -SetClientWindowMode -ClientWindowMode 3`.
+- Back up the `11111` save folder first.
 - Reacquire the `VRising` window through Computer Use.
 - Capture the main menu screenshot and record the screenshot dimensions.
 - Use only one intended action:
@@ -114,3 +148,5 @@ Before the first real Continue activation:
 - Take one follow-up screenshot after a short wait.
 - Classify the result as loading/progress, no-op, wrong menu, crash, or cleanup failure.
 - Always run the stop-session script after classification.
+- Compare the save directory to the backup and restore it unless the test explicitly
+  needs to retain the new save state.

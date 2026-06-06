@@ -94,6 +94,11 @@ The observation-only Computer Use run
 `automation-session-continue-computeruse-20260606` confirmed this target on the live
 main menu: the Chinese Continue entry was visible with `11111` underneath.
 
+The bounded Continue proof `automation-continue-click-windowed-v1-20260606` then
+activated that menu entry with one Computer Use click and reached stable gameplay. This
+proves the UI route for the known local/private fixture; it does not create new
+evidence for a client command-line direct-entry flag.
+
 ### Interop String Scan
 
 The local interop string scan found client/UI symbols related to continuing and
@@ -158,14 +163,19 @@ auto-connect.
 
 ## Next Minimal Test Candidate
 
-Run the first bounded no-DLSS Continue activation proof:
+For future runtime tests, use the proven automatic UI route:
 
 - Start a fresh session with `start-vrising-automation-session.ps1`.
+- Include `-SetClientResolution -SetClientWindowMode -ClientWindowMode 3` for
+  `1920x1080` Windowed.
+- Back up the `11111` save folder first.
 - Use Computer Use to reacquire the real `VRising` window and capture the main menu.
-- Attempt exactly one activation of the visible Continue / `11111` entry.
-- Capture a follow-up screenshot and inspect logs for loading or local server progress.
+- Activate the visible Continue / `11111` entry.
+- Capture follow-up screenshots and inspect logs for loading/gameplay progress.
 - Run `stop-vrising-automation-session.ps1` and require clean restore/no crash/no
   remaining process.
+- Compare the save to the backup and restore it unless the test explicitly needs to
+  keep the changed state.
 
 Use
 [gameplay-continue-ui-navigation-protocol-2026-06-06.md](gameplay-continue-ui-navigation-protocol-2026-06-06.md)

@@ -12,6 +12,9 @@ param(
     [ValidateSet("Auto", "PrintWindow", "ScreenCopy")]
     [string]$ScreenshotMethod = "Auto",
     [switch]$SetClientResolution,
+    [switch]$SetClientWindowMode,
+    [ValidateRange(0, 3)]
+    [int]$ClientWindowMode = 3,
     [switch]$SkipInstall,
     [switch]$DryRun
 )
@@ -122,8 +125,10 @@ $plan = [pscustomobject]@{
     GamePath = $resolvedGamePath
     LaunchArgs = $launchArgs
     SetClientResolution = [bool]$SetClientResolution
+    SetClientWindowMode = [bool]$SetClientWindowMode
+    ClientWindowMode = $(if ($SetClientWindowMode) { $ClientWindowMode } else { $null })
     ClientSettingsPath = $clientSettingsPath
-    ClientSettingsBackupArtifact = $(if ($SetClientResolution) { $clientSettingsBackupArtifact } else { "" })
+    ClientSettingsBackupArtifact = $(if ($SetClientResolution -or $SetClientWindowMode) { $clientSettingsBackupArtifact } else { "" })
     ScreenshotMethod = $ScreenshotMethod
     ArtifactLabel = $ArtifactLabel
     SessionArtifact = $sessionArtifact
@@ -153,7 +158,8 @@ $visibility = $null
 $captureResult = $null
 $screenshotCreated = $false
 $screenshotAccepted = $false
-$restoredClientSettings = -not [bool]$SetClientResolution
+$clientSettingsChanged = [bool]($SetClientResolution -or $SetClientWindowMode)
+$restoredClientSettings = -not $clientSettingsChanged
 $restoredLoaderConfig = $false
 $status = "Failed"
 $failureReason = ""
@@ -166,22 +172,40 @@ try {
 
     & (Join-Path $resolvedRoot "scripts\write-diagnostic-config.ps1") -GamePath $resolvedGamePath -Stage loader | Out-Host
 
-    if ($SetClientResolution) {
+    if ($clientSettingsChanged) {
         if (-not (Test-Path -LiteralPath $clientSettingsPath)) {
             throw "ClientSettings.json was not found: $clientSettingsPath"
         }
 
         Copy-Item -LiteralPath $clientSettingsPath -Destination $clientSettingsBackupArtifact -Force
         $settings = Get-Content -LiteralPath $clientSettingsPath -Raw | ConvertFrom-Json
-        if (-not $settings.GraphicSettings -or -not $settings.GraphicSettings.Resolution) {
-            throw "ClientSettings.json does not contain GraphicSettings.Resolution."
+        if (-not $settings.GraphicSettings) {
+            throw "ClientSettings.json does not contain GraphicSettings."
         }
 
-        $settings.GraphicSettings.Resolution.x = $Width
-        $settings.GraphicSettings.Resolution.y = $Height
+        if ($SetClientResolution) {
+            if (-not $settings.GraphicSettings.Resolution) {
+                throw "ClientSettings.json does not contain GraphicSettings.Resolution."
+            }
+
+            $settings.GraphicSettings.Resolution.x = $Width
+            $settings.GraphicSettings.Resolution.y = $Height
+            Write-Host "Temporarily set ClientSettings GraphicSettings.Resolution to ${Width}x${Height}."
+        }
+
+        if ($SetClientWindowMode) {
+            $windowModeProperty = $settings.GraphicSettings.PSObject.Properties["WindowMode"]
+            if ($windowModeProperty) {
+                $windowModeProperty.Value = $ClientWindowMode
+            } else {
+                $settings.GraphicSettings | Add-Member -NotePropertyName "WindowMode" -NotePropertyValue $ClientWindowMode
+            }
+
+            Write-Host "Temporarily set ClientSettings GraphicSettings.WindowMode to $ClientWindowMode."
+        }
+
         $settings | ConvertTo-Json -Depth 32 | Set-Content -LiteralPath $clientSettingsPath -Encoding UTF8
         $restoredClientSettings = $false
-        Write-Host "Temporarily set ClientSettings GraphicSettings.Resolution to ${Width}x${Height}."
     }
 
     Write-Host "AutomationSessionStart=$($runStart.ToString('o'))"
@@ -265,7 +289,7 @@ try {
         }
 
         try {
-            if ($SetClientResolution -and (Test-Path -LiteralPath $clientSettingsBackupArtifact)) {
+            if ($clientSettingsChanged -and (Test-Path -LiteralPath $clientSettingsBackupArtifact)) {
                 Copy-Item -LiteralPath $clientSettingsBackupArtifact -Destination $clientSettingsPath -Force
                 $restoredClientSettings = $true
             }
@@ -304,6 +328,8 @@ try {
         BepInExLogArtifact = $bepInExLogArtifact
         VisibilityArtifact = $(if (Test-Path -LiteralPath $visibilityArtifact) { $visibilityArtifact } else { "" })
         SetClientResolution = [bool]$SetClientResolution
+        SetClientWindowMode = [bool]$SetClientWindowMode
+        ClientWindowMode = $(if ($SetClientWindowMode) { $ClientWindowMode } else { $null })
         ClientSettingsPath = $clientSettingsPath
         ClientSettingsBackupArtifact = $(if (Test-Path -LiteralPath $clientSettingsBackupArtifact) { $clientSettingsBackupArtifact } else { "" })
         RestoredClientSettings = $restoredClientSettings

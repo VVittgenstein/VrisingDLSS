@@ -1,7 +1,7 @@
 # Gameplay Continue UI Navigation Protocol - 2026-06-06
 
-Status: in progress. The observation-only Computer Use session passed; the next step is
-the first bounded `Continue` navigation proof.
+Status: passed for the known local/private `11111` fixture under `1920x1080`
+Windowed conditions.
 
 ## Question
 
@@ -21,19 +21,19 @@ single Continue activation and then use screenshots/logs to classify progress.
 Dry run:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-vrising-automation-session.ps1 -GamePath "C:\Software\VRising" -ArtifactLabel automation-session-continue-computeruse-20260606 -SetClientResolution -DryRun
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-vrising-automation-session.ps1 -GamePath "C:\Software\VRising" -ArtifactLabel automation-continue-click-windowed-v1-20260606 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 -DryRun
 ```
 
 Actual start:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-vrising-automation-session.ps1 -GamePath "C:\Software\VRising" -ArtifactLabel automation-session-continue-computeruse-20260606 -SetClientResolution
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-vrising-automation-session.ps1 -GamePath "C:\Software\VRising" -ArtifactLabel automation-continue-click-windowed-v1-20260606 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3
 ```
 
 Cleanup:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\stop-vrising-automation-session.ps1 -SessionPath "Z:\VrisingDLSS\artifacts\gameplay-automation\Session-automation-session-continue-computeruse-20260606.json"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\stop-vrising-automation-session.ps1 -SessionPath "Z:\VrisingDLSS\artifacts\gameplay-automation\Session-automation-continue-click-windowed-v1-20260606.json"
 ```
 
 The start script intentionally leaves V Rising running only when `Status=Ready` and
@@ -60,7 +60,7 @@ The observation run `automation-session-continue-computeruse-20260606` passed:
 This confirms the user's recollection that the local game named with many `1`
 characters is the active Continue target.
 
-## Next Continue Proof
+## Continue Proof Contract
 
 Question: can one bounded Computer Use action activate Continue for `11111` and reach a
 loading or gameplay-progress state?
@@ -91,10 +91,63 @@ Cleanup path:
 - If the game reaches gameplay or local server startup, still close the client through
   the stop script; do not save/alter the local fixture further in the same proof.
 
+## Continue Activation Result
+
+Run label: `automation-continue-click-windowed-v1-20260606`.
+
+Preconditions:
+
+- The target save folder was backed up first:
+  `artifacts/gameplay-automation/SaveBackup-automation-continue-click-computeruse-v1-20260606.zip`.
+- The session used `-SetClientResolution -SetClientWindowMode -ClientWindowMode 3`.
+- A separate window-mode proof, `automation-windowmode3-1080p-v1-20260606`, showed
+  `SetResolution 1920, 1080, fullScreenMode Windowed` and a `1920x1080` script-side
+  screenshot.
+
+Result:
+
+- Start session: `Status=Ready`, `ScreenshotWidth=1920`, `ScreenshotHeight=1080`,
+  `SetClientWindowMode=true`, and `ClientWindowMode=3`.
+- Player log: `WindowMode=3` and `SetResolution 1920, 1080, fullScreenMode Windowed`.
+- Computer Use before screenshot: main menu with Continue / `11111`.
+- Computer Use action: exactly one click at window-relative coordinate `(205, 354)`
+  in the current `1283x751` screenshot, targeting the visible Continue label.
+- 20-second follow-up: the menu was gone and the game was in loading/progress.
+- 50-second follow-up: stable gameplay was visible, with character, HUD, hotbar,
+  quest text, and minimap.
+- Player log: game connect data found, local dedicated server process started, client
+  connected to `SteamIPv4://127.0.0.1:9876`.
+- Server log: loaded
+  `CloudSaves/.../v4/f0e07524-03f4-4ef4-945c-b1f7e982071b/AutoSave_23.save.gz` and
+  character `Helen` connected.
+- Cleanup: `Status=Pass`, `CrashEventCount=0`, `RestoredClientSettings=true`,
+  `RestoredLoaderConfig=true`, and `RemainingVRisingProcessCount=0`.
+
+Conclusion:
+
+- Automatic gameplay entry is proven for the local/private `11111` fixture.
+- Future runtime tests should default to the session harness plus Computer Use to enter
+  gameplay automatically, not to the semi-automatic human-ready protocol, unless this
+  route regresses.
+
+## Save Mutation Note
+
+Entering gameplay triggered save rotation: `AutoSave_24.save.gz` was added and some
+older autosaves were removed. The changed post-proof state was archived at
+`artifacts/gameplay-automation/SaveAfterProof-automation-continue-click-windowed-v1-20260606.zip`.
+The save was then restored from the pre-proof backup, and
+`SaveCompareAfterRestore-automation-continue-click-windowed-v1-20260606.json`
+reported `Status=Restored`, `BeforeFileCount=12`, `AfterFileCount=12`, and
+`ChangeCount=0`.
+
+Rule: any future automated gameplay-entry proof or runtime test against the `11111`
+fixture must back up the save first and either restore it after the test or explicitly
+record why the new save state should be retained.
+
 ## Resolution Note
 
-This route does not require a true `1920x1080` standalone window. The current evidence
-supports the user's suspicion that the game is effectively using a fullscreen-window
-presentation mode: launch options and `ClientSettings.json` make `Player.log` report
-`1920x1080`, but capture surfaces may remain desktop-sized. Treat that as acceptable
-for menu automation, while keeping true windowed mode open as a separate blocker.
+`ClientSettings.json` does not normally persist `GraphicSettings.WindowMode`, but the
+game dumps `WindowMode=1` and presents `FullScreenWindow` by default. Temporarily adding
+`GraphicSettings.WindowMode=3` under the session harness makes V Rising report
+`fullScreenMode Windowed` and produces a `1920x1080` script-side screenshot. The
+original settings file is restored by the stop-session script.

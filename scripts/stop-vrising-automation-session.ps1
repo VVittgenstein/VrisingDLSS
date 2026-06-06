@@ -132,6 +132,8 @@ $plan = [pscustomobject]@{
     GamePath = $resolvedGamePath
     ProcessId = $session.ProcessId
     SetClientResolution = [bool]$session.SetClientResolution
+    SetClientWindowMode = [bool]$session.SetClientWindowMode
+    ClientWindowMode = $session.ClientWindowMode
     ClientSettingsPath = [string]$session.ClientSettingsPath
     ClientSettingsBackupArtifact = [string]$session.ClientSettingsBackupArtifact
     CleanupArtifact = $cleanupArtifact
@@ -145,7 +147,8 @@ if ($DryRun) {
 $status = "Pass"
 $failureReasons = New-Object System.Collections.Generic.List[string]
 $closedProcesses = @()
-$restoredClientSettings = -not [bool]$session.SetClientResolution
+$clientSettingsChanged = [bool]($session.SetClientResolution -or $session.SetClientWindowMode)
+$restoredClientSettings = -not $clientSettingsChanged
 $restoredLoaderConfig = $false
 $bepInExLogArchived = $false
 $playerLogArchived = $false
@@ -204,7 +207,7 @@ try {
     }
 
     try {
-        if ([bool]$session.SetClientResolution) {
+        if ($clientSettingsChanged) {
             $clientSettingsPath = [string]$session.ClientSettingsPath
             $clientSettingsBackupArtifact = [string]$session.ClientSettingsBackupArtifact
             if ([string]::IsNullOrWhiteSpace($clientSettingsPath) -or [string]::IsNullOrWhiteSpace($clientSettingsBackupArtifact)) {
@@ -261,6 +264,8 @@ $result = [pscustomobject]@{
     WerArtifact = $(if (Test-Path -LiteralPath $werArtifact) { $werArtifact } else { "" })
     CrashEventCount = $crashEvents.Count
     SetClientResolution = [bool]$session.SetClientResolution
+    SetClientWindowMode = [bool]$session.SetClientWindowMode
+    ClientWindowMode = $session.ClientWindowMode
     RestoredClientSettings = $restoredClientSettings
     RestoredLoaderConfig = $restoredLoaderConfig
     CleanupRequired = $false

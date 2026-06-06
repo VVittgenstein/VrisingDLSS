@@ -1,7 +1,7 @@
 # Gameplay Automation Exploration - 2026-06-06
 
-Status: Phase 1 in progress. The no-DLSS proof-of-control route has launched V Rising
-several times and now distinguishes automation control from true windowed-mode control.
+Status: Phase 1 automatic gameplay entry is proven for the known local/private
+`11111` fixture under `1920x1080` Windowed conditions.
 
 Goal: determine whether Codex can automatically enter a stable local/private V Rising
 gameplay scene for runtime validation. Do not fall back to semi-automatic testing until
@@ -45,6 +45,9 @@ External sources checked:
   - the simple excerpt did not expose a VSync field, so VSync state needs a separate verification path before final performance tests.
 - `ClientSettings.json` does not expose a visible `WindowMode` field, but `Player.log`
   dumps `"WindowMode": 1` and the game reports `fullScreenMode FullScreenWindow`.
+- Temporarily adding `GraphicSettings.WindowMode = 3` through the session harness makes
+  `Player.log` report `SetResolution 1920, 1080, fullScreenMode Windowed` and keeps
+  the script-side screenshot at `1920x1080`.
 - `ServerHistory.json` contains a continue-able local/private entry for `Name=11111`,
   `SessionGUID=25fe20c1-44bb-4fe8-bca7-1bc7cb322429`, and
   `ConnectAddress=SteamIPv4://192.168.1.7:9876`.
@@ -72,6 +75,12 @@ External sources checked:
   PowerShell scripts responsible for launch, log capture, and cleanup. Operating notes
   are in
   [computer-use-vrising-automation-notes-2026-06-06.md](computer-use-vrising-automation-notes-2026-06-06.md).
+- The first full automatic Continue proof,
+  `automation-continue-click-windowed-v1-20260606`, reached stable gameplay without
+  human input. The 50-second follow-up Computer Use screenshot showed character, HUD,
+  hotbar, quest text, and minimap. Player/server logs confirmed local server startup,
+  save load, and character `Helen` connection. Cleanup passed, and the save was
+  restored from a pre-proof backup after autosave rotation was detected.
 
 ## Route Matrix
 
@@ -90,14 +99,17 @@ Current judgment:
 - Does not by itself enter gameplay.
 - On this local machine, launch options plus `ClientSettings.json` resolution override
   can make `Player.log` report `SetResolution 1920, 1080`, but Unity may still present
-  `fullScreenMode FullScreenWindow` with a desktop-sized capture client area.
+  `fullScreenMode FullScreenWindow` with a desktop-sized capture client area unless
+  `GraphicSettings.WindowMode=3` is also temporarily injected.
 
-Next test:
+Current preferred launch shape:
 
 - Launch with `-windowed -screen-width 1920 -screen-height 1080 -screen-fullscreen 0 -force-d3d11 -single-instance -logFile <artifact log>`.
+- Temporarily set `GraphicSettings.Resolution = 1920x1080` and
+  `GraphicSettings.WindowMode = 3`.
 - Record both the captured client size and the game-reported `SetResolution` line.
-- Pass only if the visible game window is detected, the screenshot is nonblank, cleanup succeeds, and the capture shape is truly windowed. Treat `FullScreenWindow` with requested game resolution as partial, not a hard failure.
-- Cleanup: close/kill `VRising.exe`, restore loader config, archive log/screenshot.
+- Cleanup: close/kill `VRising.exe`/server process, restore ClientSettings and loader
+  config, archive logs/screenshots.
 
 ### Route 2 - Client Command-Line Auto-Continue or Auto-Connect
 
@@ -178,28 +190,31 @@ Evidence so far:
 
 Current judgment:
 
-- Most likely first automation implementation route.
+- Proven first automation implementation route.
 - Conservative proof-of-control now covers launch, window selection, nonblank capture,
   one harmless key input, log archival, and cleanup.
-- Proof-of-control is now partially established: automatic launch, game-window selection,
-  nonblank screenshot capture, log archival, and cleanup work. True `1920x1080` windowed
-  mode is still unproven because V Rising/Unity is choosing `FullScreenWindow`.
+- Proof-of-control is established for automatic launch, game-window selection, nonblank
+  screenshot capture, log archival, cleanup, and true `1920x1080` Windowed mode through
+  temporary `GraphicSettings.WindowMode=3`.
 - Computer Use is available in the Codex app and should be considered for multi-step UI
   navigation, especially because it can snapshot occluded windows and press keys against
   a selected window.
 - Observation-only Computer Use proof passed with label
-`automation-session-continue-computeruse-20260606`: it selected the real `VRising`
-window rather than the BepInEx console, captured the Chinese main menu, and showed
+  `automation-session-continue-computeruse-20260606`: it selected the real `VRising`
+  window rather than the BepInEx console, captured the Chinese main menu, and showed
   the Continue entry with save name `11111`. Cleanup then passed with `CrashEventCount=0` and no
   remaining process.
+- Continue activation proof passed with label
+  `automation-continue-click-windowed-v1-20260606`: one Computer Use click on the
+  Continue label reached stable gameplay under `1920x1080` Windowed conditions.
 
-Next test:
+Next default:
 
-- Run the first bounded no-DLSS Continue activation proof toward the `Name=11111`
-  flow using the session harness plus Computer Use. Use
+- Future runtime tests should enter gameplay through the session harness plus Computer
+  Use, using
   [gameplay-continue-ui-navigation-protocol-2026-06-06.md](gameplay-continue-ui-navigation-protocol-2026-06-06.md)
-  and do not attempt full gameplay-entry automation until that proof defines exact UI
-  state, input, expected screenshot/log transitions, timeout, and cleanup.
+  and save backup/restore for the `11111` fixture. Semi-automatic gameplay entry is not
+  the default path unless this route regresses.
 
 ### Route 5 - Screenshot/Image-State Recognition
 
@@ -213,12 +228,12 @@ Evidence so far:
 
 Current judgment:
 
-- Feasible as a state detector.
-- Needs templates, image hashes, or a simple visual classifier based on real screenshots.
+- Feasible as a state detector and already useful for pass/fail classification.
+- Computer Use screenshots now provide known main-menu, loading/progress, and stable
+  gameplay reference frames for the `11111` route.
 
-Next test:
+Next improvement:
 
-- Capture launch/main-menu/loading/gameplay states during a controlled run and save them under `artifacts/gameplay-automation/`.
 - Build small deterministic detectors before relying on them in tests.
 
 ### Route 6 - Log-State Detection
@@ -253,11 +268,16 @@ Evidence so far:
 Current judgment:
 
 - Useful fixture for repeated tests.
-- Needs snapshot/backup protocol before automation starts modifying it.
+- Requires snapshot/backup protocol before automation starts modifying it.
+- First successful Continue proof confirmed this is not optional: entering gameplay
+  rotated autosaves, so the post-proof save was archived and then restored from the
+  pre-proof backup.
 
-Next test:
+Default protocol:
 
-- Create a documented backup/restore process for the save directory or pick a dedicated copied test save.
+- Back up the save directory before automated gameplay/runtime tests.
+- Compare after the test.
+- Restore unless retaining the changed state is explicitly intended and documented.
 - Record expected scene/location after entry.
 
 ### Route 8 - Mod-Side Gameplay State Detection
@@ -293,16 +313,17 @@ Minimum durable protocol must define:
 
 ## Immediate Next Action
 
-Do not run DLSS probes yet. Direct client command-line entry is not strong enough for
-the next runtime bet, while harmless input is now proven. The next small reversible step
-is a no-DLSS `Continue` UI-navigation proof:
+Phase 1 route A is achieved for the local/private `11111` fixture. Do not fall back to
+the semi-automatic protocol by default. Future runtime/DLSS tests should use the
+proven automated gameplay-entry path:
 
-1. Reuse the exact launch/config/screenshot/cleanup path from
-   `scripts/run-vrising-automation-proof.ps1`.
-2. Choose the UI automation mechanism before launch: Computer Use, Win32 scripted input,
-   or a bounded hybrid.
-3. Capture initial menu state and identify the `Continue` path for the `Name=11111`
-   local/private game.
-4. Send only the minimal navigation inputs needed for the proof.
-5. Pass only with screenshot/log evidence of expected state transition, no crash,
-   restored settings/config, and no remaining V Rising process.
+1. Back up the `11111` save directory.
+2. Start V Rising with `scripts/start-vrising-automation-session.ps1` using
+   `-SetClientResolution -SetClientWindowMode -ClientWindowMode 3`.
+3. Use Computer Use to reacquire the real `VRising` window and activate Continue.
+4. Confirm gameplay with screenshots and/or Player/server log patterns.
+5. Run `scripts/stop-vrising-automation-session.ps1`.
+6. Compare the save directory and restore it unless the changed save state is
+   intentionally retained.
+
+After this, resume the DLSS runtime path from `docs/development/pause-state-2026-06-05.md`.
