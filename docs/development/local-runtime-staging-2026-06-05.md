@@ -136,6 +136,10 @@ Current validated evidence:
   - Release-safe smoke with V Rising FSR Off had no crash event but no SR tuple because `CameraColor` and output were both `3840x2160`.
   - Release-safe smoke with V Rising FSR Performance accepted `1920x1080 -> 3840x2160`, attempted one user-rendering evaluate, received expected SDK-wrapper-blocked status, disabled the candidate for the session, had `CrashEventCount=0`, and restored FSR Off plus loader config.
   - Local SDK-wrapper smoke with V Rising FSR Performance accepted `1920x1080 -> 3840x2160`, used `Edge Adaptive Spatial Upsampling` as the output target, reached `sequenceSuccesses=11100` with `sequenceCreates=1`, had no blocked/failed/disabled user-rendering lines, had `CrashEventCount=0`, and cleanup restored FSR Off, loader config, and the release-safe native DLL.
+  - Local SDK-wrapper smoke with V Rising FSR Off in v6 accepted a mod-owned
+    `960x540 -> 1920x1080` tuple and reached repeated `DLSS user rendering evaluate
+    succeeded` lines with `sequenceCreates=1`, `render=960x540`, and
+    `target=1920x1080`.
 - Local GPU/driver for Stage 6/7 pass: NVIDIA GeForce RTX 5060, driver `610.47`.
 
 Archived logs:
@@ -205,7 +209,11 @@ Next implementation gate:
 
 - Keep ordinary `dlss-evaluate-inputs` diagnostics safe by leaving `Diagnostics.EnableRenderGraphDiagnosticPass=false`, `Diagnostics.EnableExistingRenderFuncProbe=false`, `Diagnostics.EnableFrameResourceProbe=false`, and `Diagnostics.EnableHarmonyCallProbe=false`.
 - Keep Stage 8B/8C/8D/8E/8F/8G/9A/10A as guarded diagnostics while `DLSS.EnableDLSS=false` remains the package default.
-- Replace the transition FSR Performance route with a guarded mod-owned render-scale route. The next MVP-target visual/performance capture must keep V Rising `FsrQualityMode=Off` for both baseline and candidate, then prove that `DLSS.EnableDLSS=true` controls the render scale/upscale path and improves over native 4K.
+- The transition FSR Performance route has been replaced for constructive tuple proof
+  by the guarded v6 mod-owned render-scale route. The next MVP-target
+  visual/performance capture must keep V Rising `FsrQualityMode=Off` for both
+  baseline and candidate, then prove that `DLSS.EnableDLSS=true` is visually correct
+  and improves over native output under controlled GPU-bound conditions.
 - Use `scripts\run-vrising-diagnostic.ps1 -Stage dlss-user-rendering -UseSdkWrapperNative -DlssRuntimePath "Z:\VrisingDLSS\ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll"` for local/private SDK-wrapper user-rendering smoke runs. The helper temporarily stages the SDK-wrapper native DLL and restores the release-safe native DLL plus loader config after cleanup.
 - Implement a guarded normal-user rendering path only after choosing a safe output/writeback strategy from the accepted passive `GetTexture` evidence.
 - Validate image correctness, render-scale behavior, jitter/pre-exposure, resize/reset behavior, and fallback behavior in a local/private gameplay scene before any public MVP release.

@@ -16,7 +16,14 @@ The release-safe route remains:
 4. Keep the first playable public target to DLSS Super Resolution on Windows/D3D11, local/private gameplay first.
 5. Treat public/official server use as not guaranteed and keep the package explicitly unofficial, graphics-only, free, and non-commercial.
 
-The current repository is already aligned with that route for a diagnostic package. It is not a playable DLSS MVP yet because `DLSS.EnableDLSS=true` does not change visible rendering. Stage 10A guarded visible-path write-back validation has passed locally, and a static main-menu visual smoke comparison did not show a gross black/white/wrong-window failure. The next engineering step is local/private gameplay image-correctness validation.
+The current repository is already aligned with that route for a diagnostic package.
+It is not a playable DLSS MVP yet because normal-user image correctness,
+performance, resize/reset, fallback, and runtime distribution remain unvalidated.
+Stage 10A guarded visible-path write-back validation has passed locally, and the
+2026-06-06 v6 FSR Off constructive run proved that `DLSS.EnableDLSS=true` can use a
+mod-owned `960x540 -> 1920x1080` tuple with repeated SDK-wrapper evaluate success.
+The next engineering step is local/private gameplay image-correctness and
+performance validation.
 
 ## 2026-06-05 Source Refresh
 
@@ -92,20 +99,25 @@ Unity HDRP source reinforces the next implementation gates:
 - HDRP places DLSS around post-processing injection points; output order and UI/post-process placement must be validated rather than assumed.
 - Resize/camera reset behavior matters because HDRP has explicit state and history reset paths.
 
-Current technical implication: the next safe runtime proof is:
+2026-06-06 update: Stage 6B has passed in the actual V Rising D3D11 route, and v6
+has passed the FSR Off constructive render-scale/evaluate proof at `1920x1080`
+Windowed. The next safe runtime proof is no longer tuple existence; it is paired
+visual/performance gameplay comparison plus resize/reset/fallback validation with
+both baseline and candidate using V Rising `FsrQualityMode=Off`.
 
-1. Stage 6B `dlss-optimal-settings` with the SDK-wrapper native DLL, to prove `NGX_DLSS_GET_OPTIMAL_SETTINGS` in the actual V Rising D3D11 device route.
-2. Then the FSR Off render-scale protocol: V Rising `FsrQualityMode=Off`, `DLSS.EnableDLSS=true`, mod-owned render-scale request, and acceptance of an output-larger-than-input tuple such as the Performance-mode 4K target's expected `1920x1080 -> 3840x2160` shape.
-3. Only after that, run paired visual/performance gameplay comparison with both baseline and candidate using V Rising `FsrQualityMode=Off`.
-
-Do not run another gameplay capture merely to observe FPS. The current evidence already explains why built-in FSR Performance produced the expected tuple and why FSR Off currently blocks SR: the mod-owned render-scale path is the missing proof.
+Do not run another gameplay capture merely to observe FPS. The next capture must
+have a written question about image correctness, performance value, resize/reset, or
+fallback behavior, with the `11111` save backed up and restored.
 
 ### Updated time estimate
 
 The time estimate remains conditional:
 
-- Stage 6B runtime proof plus FSR Off render-scale proof: 1-3 focused days if HDRP accepts the existing render-scale-control probe; longer if V Rising overrides dynamic-resolution state after the probe.
-- First credible visible DLSS output under FSR Off: 2-5 focused engineering days after the render-scale proof.
+- Stage 6B runtime proof plus FSR Off render-scale proof: completed locally as of
+  2026-06-06 v6 for the `1920x1080` constructive target.
+- First credible visible DLSS output under FSR Off: next gated item; likely 2-5
+  focused engineering days after the v6 proof, depending on image correctness and
+  reset/fallback behavior.
 - Private playable alpha: 1-3 weeks for resize/reset, mip bias, status/fallback, and image checks.
 - Public Thunderstore beta without bundled NVIDIA runtime: 2-5 weeks if image correctness and performance are good.
 - Public package with bundled NVIDIA runtime: still unknown until the separate NVIDIA/runtime distribution review is resolved.

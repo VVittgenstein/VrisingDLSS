@@ -15,7 +15,7 @@ internal static class RenderScaleControlProbe
     private const int MaxHardwareDynamicResolutionRequestLogs = 16;
     private const int MaxHardwareDynamicResolutionRequestFailureLogs = 3;
     private const int MaxHandlerRequestDiagnosticLogs = 12;
-    private const int MaxSoftwareFallbackDiagnosticLogs = 12;
+    private const int MaxSoftwareFallbackDiagnosticLogs = 32;
     private const string GlobalDynamicResolutionSettingsTypeName = "UnityEngine.Rendering.GlobalDynamicResolutionSettings";
     private const string TaaUpscaleFilterName = "TAAU";
     private const float DlaaRenderScalePercent = 100f;
@@ -241,7 +241,7 @@ internal static class RenderScaleControlProbe
             }
             else if (methodName == "Update")
             {
-                TryMutateDynamicResolutionHandler(instance, changes);
+                TryMutateDynamicResolutionHandler(instance, phase, targetPercentage, changes);
 
                 if (args.Length > 0)
                 {
@@ -309,7 +309,7 @@ internal static class RenderScaleControlProbe
             && TrySetBoolMember(camera, "allowDynamicResolution", true, changes);
     }
 
-    private static bool TryMutateDynamicResolutionHandler(object? handler, ICollection<string> changes)
+    private static bool TryMutateDynamicResolutionHandler(object? handler, string phase, float targetPercentage, ICollection<string> changes)
     {
         if (handler is null)
         {
@@ -333,16 +333,17 @@ internal static class RenderScaleControlProbe
         LogHandlerRequestDiagnostic(
             $"type={handlerType.FullName}; before={FormatValue(before)}; invokedSetCurrentCameraRequest={invoked}; fieldWritable={writable}; after={FormatValue(after)}{(string.IsNullOrWhiteSpace(invokeError) ? string.Empty : $"; invokeError={invokeError}")}");
 
-        var softwareFallbackChanged = TryForceSoftwareFallback(handler, changes);
+        var softwareFallbackChanged = TryForceSoftwareFallback(handler, phase, targetPercentage, changes);
         return changed || invoked || softwareFallbackChanged;
     }
 
-    private static bool TryForceSoftwareFallback(object handler, ICollection<string> changes)
+    private static bool TryForceSoftwareFallback(object handler, string phase, float targetPercentage, ICollection<string> changes)
     {
         var handlerType = handler.GetType();
         var requestBefore = TryReadMember(handler, "m_CurrentCameraRequest");
         var fallbackBefore = TryReadMember(handler, "m_ForceSoftwareFallback");
         var typeBefore = TryReadMember(handler, "type");
+        var fieldsBefore = SummarizeDynamicResolutionHandlerFields(handler);
         var scalableBefore = SummarizeScalableBufferManager();
 
         var invokedFallback = TryInvokeParameterless(handler, "ForceSoftwareFallback", out _, out var fallbackInvokeError);
@@ -353,8 +354,11 @@ internal static class RenderScaleControlProbe
             fieldChanged = TrySetBoolMember(handler, "m_ForceSoftwareFallback", true, changes);
         }
 
+        var fractionChanged = phase == "postfix"
+            && TryForceDynamicResolutionFraction(handler, targetPercentage, changes);
         var requestAfter = TryReadMember(handler, "m_CurrentCameraRequest");
         var fallbackAfter = TryReadMember(handler, "m_ForceSoftwareFallback");
+        var fieldsAfter = SummarizeDynamicResolutionHandlerFields(handler);
         var softwareEnabled = TryInvokeParameterless(handler, "SoftwareDynamicResIsEnabled", out var softwareEnabledValue, out var softwareEnabledError);
         var hardwareEnabled = TryInvokeParameterless(handler, "HardwareDynamicResIsEnabled", out var hardwareEnabledValue, out var hardwareEnabledError);
         var dynamicEnabled = TryInvokeParameterless(handler, "DynamicResolutionEnabled", out var dynamicEnabledValue, out var dynamicEnabledError);
@@ -369,9 +373,24 @@ internal static class RenderScaleControlProbe
 
         var fallbackWritable = FindWritableMember(handlerType, "m_ForceSoftwareFallback") is not null;
         LogSoftwareFallbackDiagnostic(
-            $"type={handlerType.FullName}; requestBefore={FormatValue(requestBefore)}; requestAfter={FormatValue(requestAfter)}; typeBefore={FormatValue(typeBefore)}; fallbackBefore={FormatValue(fallbackBefore)}; invokedForceSoftwareFallback={invokedFallback}; fallbackFieldWritable={fallbackWritable}; fallbackAfter={FormatValue(fallbackAfter)}; SoftwareDynamicResIsEnabled={FormatInvocation(softwareEnabled, softwareEnabledValue, softwareEnabledError)}; HardwareDynamicResIsEnabled={FormatInvocation(hardwareEnabled, hardwareEnabledValue, hardwareEnabledError)}; DynamicResolutionEnabled={FormatInvocation(dynamicEnabled, dynamicEnabledValue, dynamicEnabledError)}; GetCurrentScale={FormatInvocation(currentScale, currentScaleValue, currentScaleError)}; GetResolvedScale={FormatInvocation(resolvedScale, resolvedScaleValue, resolvedScaleError)}; ScalableBufferManagerBefore={scalableBefore}; ScalableBufferManagerAfter={scalableAfter}{(string.IsNullOrWhiteSpace(fallbackInvokeError) ? string.Empty : $"; fallbackInvokeError={fallbackInvokeError}")}");
+            $"phase={phase}; type={handlerType.FullName}; targetFraction={FormatPercentage(ClampPercentage(targetPercentage) / 100f)}; requestBefore={FormatValue(requestBefore)}; requestAfter={FormatValue(requestAfter)}; typeBefore={FormatValue(typeBefore)}; fallbackBefore={FormatValue(fallbackBefore)}; invokedForceSoftwareFallback={invokedFallback}; fallbackFieldWritable={fallbackWritable}; fallbackAfter={FormatValue(fallbackAfter)}; fractionForcedInPostfix={fractionChanged}; fieldsBefore={fieldsBefore}; fieldsAfter={fieldsAfter}; SoftwareDynamicResIsEnabled={FormatInvocation(softwareEnabled, softwareEnabledValue, softwareEnabledError)}; HardwareDynamicResIsEnabled={FormatInvocation(hardwareEnabled, hardwareEnabledValue, hardwareEnabledError)}; DynamicResolutionEnabled={FormatInvocation(dynamicEnabled, dynamicEnabledValue, dynamicEnabledError)}; GetCurrentScale={FormatInvocation(currentScale, currentScaleValue, currentScaleError)}; GetResolvedScale={FormatInvocation(resolvedScale, resolvedScaleValue, resolvedScaleError)}; ScalableBufferManagerBefore={scalableBefore}; ScalableBufferManagerAfter={scalableAfter}{(string.IsNullOrWhiteSpace(fallbackInvokeError) ? string.Empty : $"; fallbackInvokeError={fallbackInvokeError}")}");
 
-        return invokedFallback || fieldChanged;
+        return invokedFallback || fieldChanged || fractionChanged;
+    }
+
+    private static bool TryForceDynamicResolutionFraction(object handler, float targetPercentage, ICollection<string> changes)
+    {
+        var targetFraction = ClampPercentage(targetPercentage) / 100f;
+        var changed = false;
+        changed |= TrySetBoolMember(handler, "m_Enabled", true, changes);
+        changed |= TrySetBoolMember(handler, "m_UseMipBias", true, changes);
+        changed |= TrySetBoolMember(handler, "m_CurrentCameraRequest", true, changes);
+        changed |= TrySetBoolMember(handler, "m_ForcingRes", true, changes);
+        changed |= TrySetBoolMember(handler, "m_ForceSoftwareFallback", true, changes);
+        changed |= TrySetFloatMember(handler, "m_MinScreenFraction", Math.Min(targetFraction, 1f), changes);
+        changed |= TrySetFloatMember(handler, "m_MaxScreenFraction", 1f, changes);
+        changed |= TrySetFloatMember(handler, "m_CurrentFraction", targetFraction, changes);
+        return changed;
     }
 
     private static bool TryInvokeSetCurrentCameraRequest(object handler, out string error)
@@ -954,6 +973,34 @@ internal static class RenderScaleControlProbe
         })
         {
             var value = TryReadMember(settings, memberName);
+            if (value is not null)
+            {
+                parts.Add($"{memberName}={FormatValue(value)}");
+            }
+        }
+
+        return parts.Count == 0 ? "unavailable" : string.Join(",", parts);
+    }
+
+    private static string SummarizeDynamicResolutionHandlerFields(object handler)
+    {
+        var parts = new List<string>();
+        foreach (var memberName in new[]
+        {
+            "m_Enabled",
+            "m_UseMipBias",
+            "m_MinScreenFraction",
+            "m_MaxScreenFraction",
+            "m_CurrentFraction",
+            "m_ForcingRes",
+            "m_CurrentCameraRequest",
+            "m_ForceSoftwareFallback",
+            "m_RunUpscalerFilterOnFullResolution",
+            "type",
+            "filter"
+        })
+        {
+            var value = TryReadMember(handler, memberName);
             if (value is not null)
             {
                 parts.Add($"{memberName}={FormatValue(value)}");

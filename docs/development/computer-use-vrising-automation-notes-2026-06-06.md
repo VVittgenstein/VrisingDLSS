@@ -226,6 +226,50 @@ Result:
   DLSS tuple still stayed full-size. The next technical run is software fallback, not
   another identical handler-request run.
 
+## Software-Fallback Render-Scale Follow-up
+
+Run label: `fsr-off-render-scale-1080p-software-fallback-v5-20260606`.
+
+Result:
+
+- The same Computer Use route selected the real `VRising` window, clicked Continue
+  once at the known `11111` menu entry, and reached stable gameplay.
+- Start-session used `Stage=dlss-user-rendering`, SDK-wrapper native DLL,
+  `GraphicSettings.WindowMode=3`, and `1920x1080` Windowed setup.
+- No movement or gameplay keys were sent by automation.
+- One follow-up observation returned a stale/crossed window capture rather than the
+  real game foreground. No input was sent while the capture was ambiguous. The fix was
+  to run `list_apps` again, select `process:C:\Software\VRising\VRising.exe`, rehydrate
+  the `VRising` window, then capture a fresh screenshot.
+- Stop-session cleanup passed with `CrashEventCount=0`,
+  `RestoredClientSettings=true`, `RestoredLoaderConfig=true`,
+  `RestoredReleaseSafeNative=true`, and `RemainingVRisingProcessCount=0`.
+- The `11111` save changed during gameplay entry, was archived, and was restored from
+  the pre-run backup with `ChangeCount=0`.
+- Technical result: `ForceSoftwareFallback()` worked, but `GetCurrentScale` and
+  `GetResolvedScale` stayed `1.0`; the main DLSS tuple remained full-size.
+
+## Post-Update Fraction Render-Scale Follow-up
+
+Run label: `fsr-off-render-scale-1080p-post-update-fraction-v6-20260606`.
+
+Result:
+
+- The same Computer Use route again selected the real `VRising` window, clicked
+  Continue once at the known `11111` menu entry, observed loading after about
+  20 seconds, and observed stable gameplay after about 65 seconds.
+- Start-session used `Stage=dlss-user-rendering`, SDK-wrapper native DLL,
+  `GraphicSettings.WindowMode=3`, and `1920x1080` Windowed setup.
+- No movement or gameplay keys were sent by automation.
+- Stop-session cleanup passed with `CrashEventCount=0`,
+  `RestoredClientSettings=true`, `RestoredLoaderConfig=true`,
+  `RestoredReleaseSafeNative=true`, and `RemainingVRisingProcessCount=0`.
+- The `11111` save changed during gameplay entry, was archived, and was restored from
+  the pre-run backup with `ChangeCount=0`.
+- Technical result: v6 passed the FSR Off tuple proof. The main camera/resources
+  switched to `960x540`, Stage 8E accepted `960x540 -> 1920x1080`, and
+  `DLSS user rendering evaluate succeeded` reached repeated SDK-wrapper successes.
+
 ## Next Click Protocol Notes
 
 For future Continue activations:

@@ -120,3 +120,8 @@ Follow-up static source review:
   the handler instance field `m_CurrentCameraRequest=true` from the already-called
   `DynamicResolutionHandler.Update(...)` prefix, then expects the next run to prove
   whether the main camera scales to roughly `960x540 -> 1920x1080`.
+
+Later follow-up: v3/v4 proved the handler request is true but insufficient, v5 proved
+software fallback alone keeps the active fraction at `1.0`, and v6 passed the FSR Off
+tuple/evaluate proof by forcing the active handler's post-update fraction to `0.5`.
+See `docs/development/post-update-fraction-runtime-result-2026-06-06.md`.

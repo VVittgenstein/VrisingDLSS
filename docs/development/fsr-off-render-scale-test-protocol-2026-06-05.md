@@ -1,8 +1,8 @@
 # FSR-Off Render-Scale Test Protocol - 2026-06-05
 
-Status: first `1920x1080` Windowed run completed on 2026-06-06 with partial control
-and failed MVP proof. Do not repeat the same runtime test unchanged until the camera
-dynamic-resolution blocker is addressed.
+Status: v6 `1920x1080` Windowed constructive proof passed on 2026-06-06. Do not
+repeat the earlier failed camera-request, hardware-DRS, or fallback-only runs
+unchanged.
 
 This protocol exists to prevent blind testing. Do not launch V Rising for this step until the test question, expected evidence, pass/fail signals, and cleanup path are still accurate.
 
@@ -118,29 +118,24 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\write-diagnostic-c
 Do not start a follow-up run until the previous result has been summarized in a durable local record.
 
 Current follow-up rule: do not launch the same `dlss-user-rendering` runtime test
-unchanged. Run `fsr-off-render-scale-1080p-hwdrs-v2-20260606` already confirmed that
-`RTHandles.SetHardwareDynamicResolutionState=true` is requested successfully while
-`UnityEngine.Camera.allowDynamicResolution` refuses the `true` write and the main
-candidate remains full-size. The next launch must follow a new targeted camera
-dynamic-resolution route rather than only repeating the RTHandles/member-readback
-diagnostic.
+unchanged unless the new question is visual correctness, performance, resize/reset,
+or fallback behavior. The render-scale tuple proof itself has passed in v6.
 
-Current next diagnostic after static HDRP/Core source review and v4 runtime evidence:
+Current result after static HDRP/Core source review and v6 runtime evidence:
 
 - `HDCamera.allowDynamicResolution` is backed by `HDAdditionalCameraData`, and v4
   proved the active `DynamicResolutionHandler` request is already true/successfully
   invoked in the observed `Update(...)` route.
-- `RenderScaleControlProbe` now invokes
-  `DynamicResolutionHandler.ForceSoftwareFallback()` from that same observed handler
-  route and logs `SoftwareDynamicResIsEnabled`, `HardwareDynamicResIsEnabled`,
-  `DynamicResolutionEnabled`, `GetCurrentScale`, `GetResolvedScale`, and
-  `ScalableBufferManager` state.
-- The next `1920x1080` Windowed run should pass only if the main gameplay camera
-  reaches approximately `actualWidth=960,actualHeight=540` or Stage 8E/user
-  rendering accepts an output-larger-than-input tuple.
-- If software fallback reports a near-0.5 resolved scale but the camera remains
-  full-size, the next route should move closer to `HDCamera.GetScaledSize(...)` or
-  actual RTHandle/camera-size assignment rather than another settings/request rerun.
+- V5 proved `ForceSoftwareFallback()` alone is not enough: fallback was active, but
+  `GetCurrentScale=1` and `GetResolvedScale=(1.00, 1.00)` kept the main camera
+  full-size.
+- V6 forced the active handler's post-update fraction and state to the target
+  Performance fraction. The run produced `HDCamera actualWidth=960,actualHeight=540`,
+  accepted `CameraColor/Depth/Motion=960x540` with output `1920x1080`, and ran the
+  SDK-wrapper `dlss-user-rendering` candidate repeatedly against that tuple.
+- The next test should not ask whether the tuple can exist. It should ask whether the
+  current intervention is visually correct, stable across resize/settings changes,
+  performant, and safe to disable/fallback.
 
 Handler-request runtime result:
 
@@ -165,7 +160,17 @@ Direct handler-request runtime result:
 - The `11111` save was restored from the pre-run backup with `ChangeCount=0`.
 
 Do not repeat `fsr-off-render-scale-1080p-handler-request-v3-20260606` or
-`fsr-off-render-scale-1080p-handler-request-v4-20260606` unchanged. The next launch is
-`fsr-off-render-scale-1080p-software-fallback-v5-20260606`; it should either produce a
-usable `960x540 -> 1920x1080` tuple or prove through fallback diagnostics where the
-scale stops applying.
+`fsr-off-render-scale-1080p-handler-request-v4-20260606` unchanged.
+
+Software fallback and post-update fraction results:
+
+- `fsr-off-render-scale-1080p-software-fallback-v5-20260606` reached gameplay and
+  cleaned up safely, but failed the tuple proof. It proved fallback state was active
+  while `m_CurrentFraction`/resolved scale stayed `1.0`.
+- `fsr-off-render-scale-1080p-post-update-fraction-v6-20260606` reached gameplay and
+  cleaned up safely, accepted the expected `960x540 -> 1920x1080` tuple under V Rising
+  FSR Off, and reached repeated successful `DLSS user rendering evaluate succeeded`
+  lines with `sequenceCreates=1`.
+
+Detailed evidence:
+`docs/development/post-update-fraction-runtime-result-2026-06-06.md`.

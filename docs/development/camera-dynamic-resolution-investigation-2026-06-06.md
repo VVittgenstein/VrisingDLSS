@@ -212,3 +212,51 @@ Useful fail evidence:
   `HDCamera.actualWidth/actualHeight` and `CameraColor` remain full-size. That would
   point to a later camera-size or RTHandle allocation point rather than another
   request/settings toggle.
+
+## Software-Fallback V5 Result
+
+Run `fsr-off-render-scale-1080p-software-fallback-v5-20260606` completed safely and
+proved the next missing piece:
+
+- `ForceSoftwareFallback()` stuck: `HardwareDynamicResIsEnabled=False` appeared in
+  all fallback diagnostics, and `SoftwareDynamicResIsEnabled=True` appeared after
+  the handler became enabled.
+- The active fraction did not change: `GetCurrentScale=1` and
+  `GetResolvedScale=(1.00, 1.00)` appeared in every fallback diagnostic.
+- The gameplay camera stayed full-size: `actualWidth=1920,actualHeight=1080`.
+- `CameraColor_960` count was `0`; `CameraColor_1920` count was `752`.
+- Stage 8E did not accept a Super Resolution tuple.
+
+V5 therefore ruled out "fallback flag only" as the complete fix. The relevant
+runtime field was `m_CurrentFraction`, together with the enabled/forcing/min/max
+state that makes `DynamicResolutionHandler.GetScaledSize(...)` return the scaled
+size.
+
+## Post-Update Fraction V6 Result
+
+Run `fsr-off-render-scale-1080p-post-update-fraction-v6-20260606` completed safely
+and passed the camera dynamic-resolution proof:
+
+- The `DynamicResolutionHandler.Update(...)` postfix wrote
+  `m_CurrentFraction=0.5`, `m_MinScreenFraction=0.5`, `m_MaxScreenFraction=1`,
+  `m_ForcingRes=True`, `m_ForceSoftwareFallback=True`, and
+  `m_CurrentCameraRequest=True`.
+- `GetCurrentScale=0.5`, `GetResolvedScale=(0.50, 0.50)`, and
+  `SoftwareDynamicResIsEnabled=True` were repeatedly logged.
+- `HDCamera` observations switched from full-size to
+  `actualWidth=960,actualHeight=540`.
+- Stage 8E accepted the expected `960x540 -> 1920x1080` tuple with
+  `CameraColor`, `CameraDepthStencil`, and `Motion Vectors` all at `960x540`.
+- `DLSS user rendering evaluate succeeded` reached a persistent SDK-wrapper path
+  with `sequenceCreates=1`, `render=960x540`, `target=1920x1080`, and
+  `evaluateSuccesses=9000` in the final logged success line.
+
+Current interpretation: the static Core RP model was correct, but the missing state
+was not just camera permission or the fallback bit. For this game/runtime, the
+intervention must ensure the active handler's post-update fraction is `0.5` before
+HDRP allocates/scales the gameplay camera resources.
+
+Do not repeat the camera-request, hardware-DRS, or fallback-only diagnostics
+unchanged. The next engineering work is to turn the v6 diagnostic intervention into
+a guarded normal-user feature and validate image correctness, performance,
+resize/reset behavior, and safe fallback.

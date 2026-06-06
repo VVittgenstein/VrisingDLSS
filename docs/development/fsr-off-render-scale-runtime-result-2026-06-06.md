@@ -157,3 +157,10 @@ Follow-up executed: `fsr-off-render-scale-1080p-hwdrs-v2-20260606` confirmed tha
 actual gameplay `UnityEngine.Camera.allowDynamicResolution` write still does not stick
 and main SR candidates remain full-size. See
 `docs/development/fsr-off-render-scale-hwdrs-runtime-result-2026-06-06.md`.
+
+Later follow-up: v3/v4 ruled out the handler request bit, v5 ruled out
+`ForceSoftwareFallback()` alone, and v6
+`fsr-off-render-scale-1080p-post-update-fraction-v6-20260606` passed the FSR Off
+`960x540 -> 1920x1080` tuple/evaluate proof by forcing the active handler's
+post-update fraction. See
+`docs/development/post-update-fraction-runtime-result-2026-06-06.md`.

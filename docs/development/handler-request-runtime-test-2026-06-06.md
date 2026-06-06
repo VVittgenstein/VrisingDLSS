@@ -237,3 +237,64 @@ Implementation status:
 - `RenderScaleControlProbe` now invokes `ForceSoftwareFallback()` from the same
   observed `DynamicResolutionHandler.Update(...)` route and emits capped software
   fallback diagnostics.
+
+## Software Fallback V5 Result
+
+Run label: `fsr-off-render-scale-1080p-software-fallback-v5-20260606`.
+
+Result: useful fail. The run reached stable `11111` gameplay at `1920x1080`
+Windowed and cleaned up safely, but it still failed the MVP tuple proof.
+
+- `ForceSoftwareFallback()` was invoked and `HardwareDynamicResIsEnabled=False`
+  appeared in all 12 fallback diagnostics.
+- `SoftwareDynamicResIsEnabled=True` appeared 9 times.
+- `GetCurrentScale=1` and `GetResolvedScale=(1.00, 1.00)` appeared in all 12
+  fallback diagnostics.
+- Stage 8E did not accept a Super Resolution tuple.
+- `CameraColor_960` count was `0`; `CameraColor_1920` count was `752`.
+- `HDCamera` observations stayed full-size: `actualWidth=960` count was `0`,
+  and `actualWidth=1920` count was `456`.
+- Auxiliary `960x540` resources such as `LowResDepthBuffer` were still present,
+  but not as the main DLSS color/depth/motion/output tuple.
+- Cleanup passed with `CrashEventCount=0`, no remaining V Rising process, loader
+  config restored, release-safe native restored, `ClientSettings.json` restored,
+  and the `11111` save restored to `ChangeCount=0`.
+
+Conclusion: explicit software fallback was necessary but not sufficient. The
+effective runtime fraction remained `1.0`, so the follow-up patch moved from
+request/fallback toggles to directly setting the active handler's post-update
+fraction fields.
+
+## Post-Update Fraction V6 Result
+
+Run label: `fsr-off-render-scale-1080p-post-update-fraction-v6-20260606`.
+
+Result: pass for the FSR Off `1920x1080` constructive tuple and SDK-wrapper
+`dlss-user-rendering` smoke proof.
+
+- The `Update(...)` postfix forced the active handler to
+  `m_CurrentFraction=0.5`, `m_MinScreenFraction=0.5`,
+  `m_MaxScreenFraction=1`, `m_ForcingRes=True`,
+  `m_ForceSoftwareFallback=True`, and `m_CurrentCameraRequest=True`.
+- `GetCurrentScale=0.5`, `GetResolvedScale=(0.50, 0.50)`, and
+  `SoftwareDynamicResIsEnabled=True` appeared 31 times.
+- `CameraColor_960` count was `504`; `CameraColor_1920` count was `0`.
+- `HDCamera` observations switched to `actualWidth=960,actualHeight=540`;
+  `actualWidth=1920` count was `0`.
+- Stage 8E accepted a real tuple:
+  `CameraColor=960x540`, `CameraDepthStencil=960x540`,
+  `Motion Vectors=960x540`, and output `Edge Adaptive Spatial Upsampling=1920x1080`.
+- `DLSS user rendering evaluate succeeded` lines reached
+  `sequenceSuccesses=9000`, `sequenceCreates=1`, `render=960x540`,
+  `target=1920x1080`, and `evaluateSuccesses=9000`.
+- No `DLSS user rendering blocked` or `DLSS user rendering failed` lines appeared.
+- Automation and cleanup passed; no movement keys were sent; the `11111` save was
+  restored to `ChangeCount=0`.
+
+Detailed evidence is recorded in
+`docs/development/post-update-fraction-runtime-result-2026-06-06.md`.
+
+Current next step: do not repeat v3, v4, or v5 unchanged. V6 changes the active
+question from "can FSR Off expose a Super Resolution tuple?" to "can this
+render-scale intervention be made visually correct, performant, resize/reset safe,
+and release-clean?"
