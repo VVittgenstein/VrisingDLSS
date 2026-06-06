@@ -151,6 +151,53 @@ going:
 - If C# wall time is small but FPS remains low, instrument GPU submission/present
   timing next.
 
+## Timing Test Result
+
+Run label: `v6-user-rendering-1080p-timing-20260606-r3`.
+
+The timing fields worked and changed the diagnosis:
+
+- Baseline average FPS: `205.255`.
+- Candidate average FPS: `86.761` (`-57.730%`).
+- Baseline 1% low FPS: `153.451`.
+- Candidate 1% low FPS: `67.061` (`-56.298%`).
+- Baseline P95 frame time: `5.896 ms`.
+- Candidate P95 frame time: `13.642 ms` (`+131.377%`).
+- Baseline average GPU utilization/power: `98.111%`, `137.760 W`.
+- Candidate average GPU utilization/power: `40.889%`, `78.541 W`.
+
+The first frame-sequence create was expensive:
+
+- C# bridge first call: `604.85 ms`.
+- Native prepare/create portion: `604.451 ms`.
+- Native evaluate on the first call: `0.296 ms`.
+
+Stable frames were not expensive inside the measured native call:
+
+- At `sequenceSuccesses=12000`, C# bridge last call was `0.092 ms`.
+- Native total was `0.085 ms`.
+- Native evaluate was `0.083 ms`.
+- Native describe/query/prepare were each about `0.001 ms` or less.
+
+Across the 45 logged timing samples, the first create dominated the average. Stable
+`NGX_D3D11_EVALUATE_DLSS_EXT(...)` CPU wall time stayed around `0.07-0.11 ms`, far
+below the observed candidate frame time around `11.5 ms`.
+
+Additional hot-path counts from the candidate log:
+
+- `RenderGraph GetTexture call`: `18414`.
+- Logged `DLSS user rendering evaluate succeeded` samples: `45` for `12000` total
+  successes.
+- `DLSS user rendering evaluate failed/blocked/skipped`: `0`.
+- `Render-scale control software fallback diagnostic`: `32`.
+
+Updated interpretation: the sustained regression is not explained by C# bridge wall
+time, native describe/query cost, or direct NGX evaluate CPU wall time. The next
+isolation should test the render-scale/HDRP path without DLSS evaluate, because the
+remaining likely sources are the v6 render-scale/software-fallback path, the very hot
+RenderGraph resource-discovery hook, HDRP's own upscale path, or GPU submission/present
+behavior not captured by CPU-side timing.
+
 ## Route Decision
 
 Do not treat `DLSS user rendering evaluate succeeded` as a performance pass. The

@@ -85,6 +85,17 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
   P95 frame time worsened `5.947 ms -> 14.775 ms`, and average GPU utilization
   dropped `97.5% -> 43.444%`. This suggests a render-thread/synchronization or
   evaluate-placement problem, not a missing DLSS tuple.
+- Timing follow-up `v6-user-rendering-1080p-timing-20260606-r3` reproduced the
+  performance blocker while proving stable per-frame native evaluate CPU wall time is
+  tiny. Baseline/candidate average FPS was `205.255 -> 86.761`, 1% low was
+  `153.451 -> 67.061`, P95 frame time was `5.896 ms -> 13.642 ms`, and GPU
+  utilization was `98.111% -> 40.889%`. The first DLSS frame-sequence create cost
+  about `604.85 ms`, but the stable call at `sequenceSuccesses=12000` reported
+  `bridgeTiming lastMs=0.092`, native `total=0.085 ms`, and native `evaluate=0.083 ms`.
+  The candidate log had `18414` `RenderGraph GetTexture call` lines and no
+  user-rendering failed/blocked/skipped lines. This narrows the blocker away from
+  direct NGX evaluate CPU wall time and toward render-scale/HDRP path, hot
+  RenderGraph hook overhead, or GPU submission/present behavior.
 - Phase 1 no-DLSS automation proof has partial-control history: `scripts/run-vrising-automation-proof.ps1` can launch V Rising, detect the real `UnityWndClass` window instead of the BepInEx console, capture a nonblank screenshot, archive logs, restore settings/config, and leave no V Rising process. Earlier run `automation-proof-1920-window-v5-20260606` reported `Status=Partial` because it used `FullScreenWindow`; this was later solved for the session harness by temporarily adding `GraphicSettings.WindowMode=3`.
 - Phase 1 direct-entry search found no supported client command-line auto-continue/direct-connect route in current official Stunlock launch options or local evidence. Local `ServerHistory.json` and interop strings strongly support the in-game `Continue`/direct-connect UI route instead.
 - The target local/private game for Continue automation is likely `Name=11111`: this is present in `ServerHistory.json`, and the user recalled the local game was named with many `1` characters and should be continuable directly.
@@ -122,9 +133,9 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
 - FSR Off render-scale control has one passing constructive proof: v6 forced the active dynamic-resolution handler fraction to `0.5`, produced the expected `960x540 -> 1920x1080` tuple, and ran repeated SDK-wrapper `dlss-user-rendering` evaluates under V Rising FSR Off. Earlier v1-v5 failures remain useful negative evidence and should not be repeated unchanged.
 - Normal-user `dlss-user-rendering` now has gameplay screenshots and repeated evaluate
   success under V Rising FSR Off, but it fails the performance gate severely. The next
-  technical blocker is to use the added C#/native timing fields to identify whether
-  synchronous NGX evaluate from `RenderGraph GetTexture` is stalling the render thread
-  and to move evaluation toward a proper render/upscale pass if confirmed.
+  technical blocker is to isolate render-scale-only behavior from
+  `dlss-user-rendering`, because r3 showed stable native evaluate CPU wall time around
+  `0.08-0.12 ms` while the candidate still ran at only `86.761` average FPS.
 - Gameplay image-correctness still needs a human review only after the severe
   performance regression is fixed; do not write a passing human review for the r2
   artifact.
@@ -149,10 +160,9 @@ Follow the new goal order:
      `1920x1080` Windowed visual/performance result: screenshots and evaluate passed,
      performance blocked;
    - do not repeat `fsr-off-render-scale-1080p-v1-20260606`, `fsr-off-render-scale-1080p-hwdrs-v2-20260606`, `fsr-off-render-scale-1080p-handler-request-v3-20260606`, `fsr-off-render-scale-1080p-handler-request-v4-20260606`, or `fsr-off-render-scale-1080p-software-fallback-v5-20260606` unchanged;
-   - next loop should run the same protected `1920x1080` Windowed
-     `dlss-user-rendering` comparison with the new timing fields and decide whether
-     the call must move out of the passive `RenderGraph GetTexture`
-     resource-discovery postfix;
+   - next loop should run or enable a protected `1920x1080` Windowed
+     `render-scale-control`/no-DLSS-evaluate comparison to see whether the v6
+     render-scale/HDRP path alone causes the FPS/GPU-utilization drop;
    - after performance is no longer severely negative, resume visual correctness,
      resize/reset, fallback, and productionizing the guarded v6 render-scale
      intervention;
@@ -169,6 +179,7 @@ As of the v6 user-rendering visual/performance follow-up:
   tuple/evaluate pass, safe cleanup, save restoration, external DLSS mod practice
   research, the `v6-user-rendering-1080p-auto-visual-20260606-r2` blocked
   visual/performance result, the initial DLSS performance-placement investigation, and
-  bounded C#/native timing instrumentation for the next user-rendering run.
+  the `v6-user-rendering-1080p-timing-20260606-r3` timing result showing stable NGX
+  evaluate CPU wall time is not the sustained performance blocker.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.

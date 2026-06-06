@@ -291,6 +291,22 @@ Result:
   dropped from `97.5%` to `43.444%`. Treat this as a DLSS placement/timing blocker,
   not an automation failure.
 
+## V6 Timing Follow-up
+
+Run label: `v6-user-rendering-1080p-timing-20260606-r3`.
+
+Result:
+
+- The same Computer Use route selected the real `VRising` window for both baseline
+  and candidate, clicked the known `11111` Continue entry once per run, and sent no
+  movement/gameplay keys.
+- Both runs reached stable gameplay and produced valid `1920x1080` screenshots.
+- Cleanup restored FSR mode, loader config, release-safe native DLL, client settings,
+  and the `11111` save (`ChangeCount=0` after restore).
+- Technical result: timing fields were collected. Stable native DLSS evaluate CPU wall
+  time was about `0.08-0.11 ms`, so the ongoing FPS regression is not explained by the
+  direct NGX evaluate call itself.
+
 ## Next Click Protocol Notes
 
 For future Continue activations:

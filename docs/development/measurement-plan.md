@@ -102,6 +102,12 @@ does not yet mean DLSS performance success. The next technical question is where
 render-thread/native evaluate time is spent and whether the current `RenderGraph
 GetTexture` postfix placement is forcing a stall.
 
+Timing follow-up `v6-user-rendering-1080p-timing-20260606-r3` answered that the stable
+native evaluate CPU wall time is not the sustained frame-time source: at
+`sequenceSuccesses=12000`, bridge `lastMs=0.092`, native `total=0.085 ms`, and native
+`evaluate=0.083 ms`, while average FPS still regressed `205.255 -> 86.761`. The next
+measurement should isolate the `render-scale-control` path without DLSS evaluate.
+
 Use `scripts/set-vrising-fsr-mode.ps1` for local test setup when changing V Rising's built-in FSR mode. It backs up `ClientSettings.json` under ignored local artifacts before writing and does not launch the game. The visual comparison helper can do this automatically with `-FsrMode Off` for the final MVP comparison, or `-FsrMode Performance` for explicitly labeled transition diagnostics; it restores the previous value during cleanup.
 
 When `KeepDlssVisibleWritebackProbeRunning=true` is used, candidate performance captures measure diagnostic hold-mode overhead. A large negative FPS delta under that mode means the proof loop is too expensive, not that the normal-user DLSS path is necessarily slow. Use `-CandidateStage dlss-user-rendering` for the MVP performance question: one persistent feature, at most one evaluate per Unity frame, no repeated proof loop, and explicit cleanup on resize/settings changes.

@@ -131,9 +131,18 @@ Current Stage 2C status:
   FPS. Candidate P95 frame time worsened from `5.947 ms` to `14.775 ms`, while
   average GPU utilization dropped from `97.5%` to `43.444%`. Treat this as a
   render-thread/synchronization investigation, not a tuple/evaluate failure.
+- Timing follow-up `v6-user-rendering-1080p-timing-20260606-r3` reproduced the same
+  blocker while proving stable per-frame native evaluate CPU wall time is tiny.
+  Baseline/candidate average FPS was `205.255 -> 86.761`, 1% low was
+  `153.451 -> 67.061`, P95 frame time was `5.896 ms -> 13.642 ms`, and average GPU
+  utilization was `98.111% -> 40.889%`. The first session create cost about
+  `604.85 ms`, but a stable sample at `sequenceSuccesses=12000` reported bridge
+  `lastMs=0.092`, native `total=0.085 ms`, and native `evaluate=0.083 ms`. The next
+  isolation target is a no-DLSS-evaluate `render-scale-control` comparison.
 - Latest result summaries: `docs/development/handler-request-runtime-test-2026-06-06.md`,
   `docs/development/post-update-fraction-runtime-result-2026-06-06.md`, and
-  `docs/development/v6-user-rendering-visual-test-2026-06-06.md`.
+  `docs/development/v6-user-rendering-visual-test-2026-06-06.md`, plus
+  `docs/development/v6-user-rendering-timing-test-2026-06-06.md`.
 
 ## Stage 3: Read-Only Harmony Probe
 
@@ -792,8 +801,8 @@ Current helper smoke status:
   performance regressed severely: average FPS `203.617 -> 80.242`, 1% low FPS
   `156.078 -> 58.688`, P95 frame time `5.947 ms -> 14.775 ms`, and average GPU
   utilization `97.5% -> 43.444%`.
-- This result proves `DLSS user rendering evaluate succeeded` is not enough. The next
-  rendering step is to instrument C# and native evaluate timing, then move evaluation
-  out of the passive `RenderGraph GetTexture` resource-discovery postfix if timing
-  confirms a stall.
+- The timing follow-up `v6-user-rendering-1080p-timing-20260606-r3` then proved
+  `DLSS user rendering evaluate succeeded` is not enough and also showed the stable
+  native evaluate CPU call is not the sustained 11 ms frame-time source. The next
+  rendering step is to isolate the v6 render-scale/HDRP path without DLSS evaluate.
 - Current route decision: DLSS itself does not depend on FSR. The final MVP validation must keep V Rising `FsrQualityMode=Off` for baseline and candidate, while the mod controls render scale/upscale through HDRP dynamic-resolution/DLSS-path integration. The next gate is no longer tuple existence; it is visual correctness, performance, resize/reset, fallback behavior, and release-boundary validation.
