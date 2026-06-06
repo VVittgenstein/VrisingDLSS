@@ -348,10 +348,17 @@ failed route.
 Current evidence: menu smoke `rendergraph-pass-data-1080p-menu-20260606-r3`
 passed at true `1920x1080` Windowed with `248` pass-data snapshot lines, `248`
 `memberCount=` lines, `0` `data=not found`, `0` typed-read failures, `0`
-GetTexture logs, and no WER crash. It mapped `Uber Post -> Edge Adaptive Spatial
-Upsampling -> Final Pass` through typed pass data: Uber `1920x1080`, EASU
-`input=1920x1080` and `output=1920x1080`, and Final
-`dynamicResIsOn=True` / `dynamicResFilter=EdgeAdaptiveScalingUpres`.
+GetTexture logs, and no WER crash. Protected gameplay proof
+`rendergraph-pass-data-gameplay-1080p-20260606-r1` then passed in the `11111`
+fixture with `321` snapshot lines, `321` `memberCount=` lines, `0`
+`data=not found`, `0` typed-read failures, `0` broad GetTexture logs, no WER
+crash, no movement keys, and save restore `ChangeCount=0`. The gameplay summary
+found `73` complete chains; `73/73` matched
+`Uber.destination == EASU.source` and `73/73` matched
+`EASU.destination == Final.source`. All complete gameplay chains reported Uber
+`1920x1080`, EASU `input=1920x1080 output=1920x1080`, and Final
+`performUpsampling=True`, `dynamicResIsOn=True`, and
+`dynamicResFilter=EdgeAdaptiveScalingUpres`.
 
 ## RenderGraph Pass-Boundary Probe
 

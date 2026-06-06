@@ -191,7 +191,7 @@ Downloaded reference snapshots:
 | `_FinalPass_b__1069_0(...)` | Current command buffer after EASU, final target write | Also generated render-func family; too late for full DLSS inputs by itself | Do not jump here yet |
 | Closed `RenderGraphPass<EASUData>.Execute(...)` | The generic pass execution layer for EASU | Static shape exists; open generic patch was rejected and closed-generic runtime stability is unproven | Static-only candidate |
 | `RenderGraph.CompileRenderGraph(int)` declarations | Safe pass order and handle declaration map | Passed menu plus protected `11111` gameplay with `GetTexture=0` | Useful observation, not evaluate |
-| `RenderGraph.CompileRenderGraph(int)` pass-data snapshot | Same safe point plus pass-data field/handle/dimension mapping | Menu-smoked at `1920x1080` Windowed with pass data readable and `GetTexture=0` | Accepted observation boundary |
+| `RenderGraph.CompileRenderGraph(int)` pass-data snapshot | Same safe point plus pass-data field/handle/dimension mapping | Passed menu plus protected `11111` gameplay with pass data readable and `GetTexture=0` | Accepted observation boundary |
 
 ## Decision
 
@@ -255,7 +255,22 @@ Implementation status:
   `inputWidth=1920 inputHeight=1080 outputWidth=1920 outputHeight=1080`, and
   Final `performUpsampling=True`, `dynamicResIsOn=True`, and
   `dynamicResFilter=EdgeAdaptiveScalingUpres`.
+- Protected gameplay proof
+  `rendergraph-pass-data-gameplay-1080p-20260606-r1` passed in the `11111`
+  fixture with `CrashEventCount=0`, analyzer `RenderGraph Pass Data=Pass`,
+  `321` snapshot lines, `321` `memberCount=` lines, `0` `data=not found`, `0`
+  typed-read failures, `0` broad GetTexture logs, no movement keys, and save
+  restore `ChangeCount=0`.
+- Gameplay chain summary found `73` complete
+  `Uber Post -> Edge Adaptive Spatial Upsampling -> Final Pass` chains; `73/73`
+  matched `Uber.destination == EASU.source`, and `73/73` matched
+  `EASU.destination == Final.source`.
+- All complete gameplay chains reported Uber `1920x1080`, EASU
+  `input=1920x1080 output=1920x1080`, `performUpsampling=True`,
+  `dynamicResIsOn=True`, and `dynamicResFilter=EdgeAdaptiveScalingUpres`.
+- See `docs/development/rendergraph-pass-data-gameplay-result-2026-06-06.md`.
 
-Only after protected pass-data proof, if needed, should an execution-boundary
-probe be considered, and it should start as read-only/no-evaluate/menu-only
-before any protected gameplay or DLSS work.
+The next probe should use this pass-data chain to design a smaller
+read-only/no-evaluate execution-boundary candidate. Do not jump directly to
+generated EASU/Final render-function patching or DLSS evaluate without a smaller
+safety proof.

@@ -420,10 +420,19 @@ As of the read-only RenderGraph pass-map runtime result:
   `Uber Post -> Edge Adaptive Spatial Upsampling -> Final Pass`; EASU reported
   `input=1920x1080 output=1920x1080`; Final reported
   `performUpsampling=True`, `dynamicResIsOn=True`, and
-  `dynamicResFilter=EdgeAdaptiveScalingUpres`. Do not jump directly to generated
-  EASU/Final render-function patching. If more runtime evidence is needed, the
-  next step is protected `11111` gameplay proof for `rendergraph-pass-data`;
-  otherwise use this chain to design the next read-only/no-evaluate
-  execution-boundary candidate.
+  `dynamicResFilter=EdgeAdaptiveScalingUpres`. Protected gameplay proof
+  `rendergraph-pass-data-gameplay-1080p-20260606-r1` then passed in the `11111`
+  fixture with Computer Use clicking Continue once and no movement keys:
+  `CrashEventCount=0`, analyzer `RenderGraph Pass Data=Pass`, `321` snapshot
+  lines, `321` `memberCount=` lines, `0` `data=not found`, `0` typed-read
+  failures, `0` broad GetTexture logs, gameplay screenshot with HUD/character/
+  minimap, cleanup restored config/ClientSettings/native state, and save restore
+  `ChangeCount=0`. Its chain summary found `73` complete chains, `73/73`
+  `Uber.destination == EASU.source`, and `73/73`
+  `EASU.destination == Final.source`. See
+  `docs/development/rendergraph-pass-data-gameplay-result-2026-06-06.md`. Do not
+  jump directly to generated EASU/Final render-function patching. The next step is
+  to use this chain to design the next read-only/no-evaluate execution-boundary
+  candidate.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.
