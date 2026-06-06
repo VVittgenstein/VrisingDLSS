@@ -1,6 +1,7 @@
 # Native RenderFunc Args Preflight Implementation - 2026-06-06
 
-Status: implemented, statically validated, and menu-runtime validated.
+Status: implemented, statically validated, menu-runtime validated, and
+protected-gameplay validated.
 
 ## Scope
 
@@ -95,9 +96,11 @@ Expected evidence:
 Menu runtime proof passed as `native-renderfunc-args-1080p-menu-20260606-r1`.
 See `docs/development/native-renderfunc-args-runtime-result-2026-06-06.md`.
 
-Protected gameplay should follow only with the existing `11111` save-protection
-protocol. Send no movement keys and restore the protected save to
-`ChangeCount=0`.
+Protected gameplay proof passed as
+`native-renderfunc-args-gameplay-1080p-20260606-r1`. It used the existing
+`11111` save-protection protocol, sent no movement keys, and restored the
+protected save to `ChangeCount=0`. See
+`docs/development/native-renderfunc-args-gameplay-result-2026-06-06.md`.
 
 ## Failure Criteria
 
@@ -110,7 +113,7 @@ protocol. Send no movement keys and restore the protected save to
 
 ## Next Boundary
 
-If this passes in menu and protected gameplay, do not jump directly to
-`DLSSPass.Render(ctx.cmd)` or a real evaluate. The next step would be a separate,
+Menu and protected gameplay both passed. Do not jump directly to
+`DLSSPass.Render(ctx.cmd)` or a real evaluate. The next step is a separate,
 default-off resource-identity preflight designed from the observed argument
 shape, still with no command-buffer access and no DLSS evaluate.

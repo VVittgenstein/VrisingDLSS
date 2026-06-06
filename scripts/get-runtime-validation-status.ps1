@@ -304,6 +304,11 @@ function Get-NextRecommendation {
     }
 
     if ($nativeRenderFuncArgs -eq "Pass") {
+        $nativeRenderFuncArgsGameplayDoc = Join-Path $Root "docs\development\native-renderfunc-args-gameplay-result-2026-06-06.md"
+        if (Test-Path -LiteralPath $nativeRenderFuncArgsGameplayDoc) {
+            return "Native render-func argument menu and protected 11111 gameplay proofs passed. Next engineering step is a separately designed, default-off resource-identity preflight from the raw argument evidence; no native-callback pointer dereference, command-buffer access, or DLSS evaluate yet."
+        }
+
         return "Native render-func argument menu preflight passed in available logs. If the protected 11111 gameplay proof is not documented yet, run native-renderfunc-args through the save-protected gameplay protocol next; only after menu and protected gameplay safety are both documented should a separate resource-identity preflight be designed. No pointer dereference, command-buffer access, or DLSS evaluate yet."
     }
 

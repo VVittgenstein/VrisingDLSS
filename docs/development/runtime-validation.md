@@ -582,10 +582,26 @@ Current Stage 8A status:
   `sampleCount=778`, and all four raw pointer categories nonzero `778/778`.
   Actual DLSS evaluate/probe/native-call patterns were absent. Cleanup restored
   loader config, release-safe native, and ClientSettings. This is menu
-  argument-shape evidence only; protected gameplay proof is still pending. See
+  argument-shape evidence only; protected gameplay proof is recorded below. See
   `docs/development/native-renderfunc-args-preflight-implementation-2026-06-06.md`.
   Runtime result:
   `docs/development/native-renderfunc-args-runtime-result-2026-06-06.md`.
+- Protected `11111` gameplay proof
+  `native-renderfunc-args-gameplay-1080p-20260606-r1` passed at true
+  `1920x1080` Windowed. Computer Use clicked the known Continue / `11111` entry
+  once and sent no movement/gameplay keys. Analyzer reported
+  `Native RenderFunc Args=Pass`; final status reached `entryCount=841`,
+  `sampleCount=841`, and all four raw pointer categories nonzero `841/841`;
+  `RenderGraph GetTexture call #=0`; `probe failed=0`; actual NGX/DLSS
+  evaluate/probe/native-call patterns `0`; `CrashEventCount=0`. Cleanup restored
+  ClientSettings/config/native state, closed all V Rising processes, archived one
+  autosave rotation, and restored the protected save to `ChangeCount=0`. This
+  proves gameplay argument-shape safety only, not pointer dereference, resource
+  identity, command-buffer, or DLSS evaluate safety. See
+  `docs/development/native-renderfunc-args-gameplay-result-2026-06-06.md`.
+  Next route: design a separate default-off resource-identity preflight from
+  this evidence, still menu-first and still no command-buffer access or DLSS
+  evaluate.
 - See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.
 
 ## Stage 8B: First Guarded DLSS Evaluate Diagnostic

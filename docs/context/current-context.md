@@ -605,6 +605,20 @@ As of the read-only RenderGraph pass-map runtime result:
   safety only, not resource identity, command-buffer access, gameplay safety, or
   DLSS evaluate safety. See
   `docs/development/native-renderfunc-args-runtime-result-2026-06-06.md`.
-  Next step: protected `11111` gameplay proof for `native-renderfunc-args`,
-  still with no pointer dereference, resource resolution, command-buffer access,
-  or DLSS evaluate.
+- Protected `11111` gameplay proof
+  `native-renderfunc-args-gameplay-1080p-20260606-r1` also passed at true
+  `1920x1080` Windowed. Computer Use selected the real `VRising` Unity window,
+  clicked the known Chinese Continue / `11111` entry once at `(205, 354)` in
+  the current `1283x751` Computer Use screenshot, and sent no movement/gameplay
+  keys. Analyzer `Native RenderFunc Args=Pass`; final status reached
+  `entryCount=841`, `sampleCount=841`, and all four raw callback argument
+  pointer categories nonzero `841/841`; `RenderGraph GetTexture call #=0`;
+  `probe failed=0`; actual NGX/DLSS evaluate/probe/native-call patterns `0`;
+  `CrashEventCount=0`. Gameplay screenshot captured HUD/character/minimap.
+  Cleanup restored loader config, release-safe native, ClientSettings, no game
+  process remained, and the protected save restored to `ChangeCount=0` after one
+  autosave rotation was archived. See
+  `docs/development/native-renderfunc-args-gameplay-result-2026-06-06.md`.
+  Next step: design a separate default-off resource-identity preflight from the
+  raw argument evidence, still no native-callback pointer dereference,
+  command-buffer access, or DLSS evaluate.

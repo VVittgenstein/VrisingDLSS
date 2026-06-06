@@ -119,8 +119,9 @@ Post-run checks confirmed:
 
 ## Next Step
 
-Run a protected `11111` gameplay proof for `native-renderfunc-args` at true
-`1920x1080` Windowed. Use the save-protection protocol, send no movement/gameplay
-keys beyond the explicit UI navigation needed to enter the fixture, preserve
-runtime artifacts, and restore release-safe config/native/settings and
-`ChangeCount=0`.
+The protected `11111` gameplay proof has since passed; see
+`docs/development/native-renderfunc-args-gameplay-result-2026-06-06.md`.
+
+The next step is a separate default-off resource-identity preflight designed from
+the raw argument evidence. It must not dereference pointers in the native
+callback, touch command buffers, or evaluate DLSS.

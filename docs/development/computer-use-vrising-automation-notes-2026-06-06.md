@@ -464,3 +464,18 @@ For future Continue activations:
 - Always run the stop-session script after classification.
 - Compare the save directory to the backup and restore it unless the test explicitly
   needs to retain the new save state.
+
+## Native RenderFunc Args Gameplay Proof Notes
+
+Run label: `native-renderfunc-args-gameplay-1080p-20260606-r1`.
+
+Result:
+
+- Computer Use selected the real `VRising` Unity window, not the BepInEx console.
+- The current Computer Use screenshot was `1283x751`; the known Chinese Continue /
+  `11111` entry was clicked once at `(205, 354)`.
+- After about `45` seconds, Computer Use observed stable gameplay with HUD,
+  character, quest text, and minimap visible.
+- No movement or gameplay keys were sent.
+- Cleanup closed the game, restored ClientSettings/config/native state, and the
+  `11111` save was restored with `ChangeCount=0`.
