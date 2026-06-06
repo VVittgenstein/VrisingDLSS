@@ -22,6 +22,7 @@ param(
         "dlss-visible-writeback",
         "render-scale-control",
         "dlss-user-rendering",
+        "dlss-user-rendering-no-evaluate",
         "dlss-evaluate",
         "dlss-persistent-evaluate",
         "dlsspass-resource"

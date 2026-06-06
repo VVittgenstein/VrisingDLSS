@@ -27,6 +27,7 @@ internal sealed class ModConfig
     internal ConfigEntry<bool> EnableDlssPassResourceProbe { get; }
     internal ConfigEntry<bool> EnableUpscalerStateProbe { get; }
     internal ConfigEntry<bool> EnableRenderScaleControlProbe { get; }
+    internal ConfigEntry<bool> EnableDlssUserRenderingNoEvaluateProbe { get; }
     internal ConfigEntry<bool> EnableHookProbe { get; }
     internal ConfigEntry<bool> EnableHarmonyCallProbe { get; }
     internal ConfigEntry<bool> EnableFrameResourceProbe { get; }
@@ -68,6 +69,7 @@ internal sealed class ModConfig
         EnableDlssPassResourceProbe = config.Bind("Diagnostics", "EnableDlssPassResourceProbe", false, "High-risk research-only patching of DLSSPass resource helper methods. Does not patch DLSSPass.Render; leave false unless deliberate Stage 8A resource testing is intentional.");
         EnableUpscalerStateProbe = config.Bind("Diagnostics", "EnableUpscalerStateProbe", false, "Patch HDRP/dynamic-resolution/DLSS setup methods and log read-only camera/upscale state snapshots. Diagnostic only; does not change render scale.");
         EnableRenderScaleControlProbe = config.Bind("Diagnostics", "EnableRenderScaleControlProbe", false, "Experimental diagnostic that requests HDRP dynamic resolution at the selected DLSS quality's render-scale percentage while avoiding Unity's internal DLSS pass. Leave false unless deliberate local/private testing is intentional.");
+        EnableDlssUserRenderingNoEvaluateProbe = config.Bind("Diagnostics", "EnableDlssUserRenderingNoEvaluateProbe", false, "Diagnostic-only control path that runs the user-rendering RenderGraph tuple discovery and Super Resolution input acceptance path but skips NGX evaluate/writeback.");
         EnableHookProbe = config.Bind("Diagnostics", "EnableHookProbe", true, "Scan loaded assemblies for candidate HDRP hook points and log the result.");
         EnableHarmonyCallProbe = config.Bind("Diagnostics", "EnableHarmonyCallProbe", false, "Patch candidate HDRP methods with read-only Harmony prefixes and log call counts. Diagnostic only.");
         EnableFrameResourceProbe = config.Bind("Diagnostics", "EnableFrameResourceProbe", false, "Patch candidate HDRP render methods with read-only Harmony prefixes and log source/destination/depth/motion native texture pointers. Diagnostic only.");

@@ -21,7 +21,7 @@ param(
     [string]$PresentMonPath = "C:\Software\PresentMon\PresentMon-2.4.1-x64.exe",
     [string]$NvidiaSmiPath = "nvidia-smi.exe",
     [switch]$SkipSystemMetrics,
-    [ValidateSet("dlss-visible-writeback", "dlss-user-rendering", "render-scale-control")]
+    [ValidateSet("dlss-visible-writeback", "dlss-user-rendering", "dlss-user-rendering-no-evaluate", "render-scale-control")]
     [string]$CandidateStage = "dlss-visible-writeback",
     $WaitForStage10A = $true,
     [int]$Stage10ATimeoutSeconds = 600,
@@ -454,16 +454,27 @@ function Wait-ForStage10AVisibleWriteback {
     }
 }
 
-function Wait-ForDlssUserRenderingSuccess {
+function Wait-ForDlssUserRenderingReady {
     param(
         [Parameter(Mandatory = $true)]
         [System.Diagnostics.Process]$Process,
 
         [Parameter(Mandatory = $true)]
-        [long]$LogStartOffset
+        [long]$LogStartOffset,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Stage
     )
 
-    Write-Host "Waiting for DLSS user-rendering evaluate success in BepInEx log."
+    if ($Stage -eq "dlss-user-rendering-no-evaluate") {
+        Write-Host "Waiting for DLSS user-rendering no-evaluate acceptance in BepInEx log."
+        $readyPattern = "DLSS user rendering no-evaluate accepted from"
+        $readyCountPattern = "acceptedFrames=\d+"
+    } else {
+        Write-Host "Waiting for DLSS user-rendering evaluate success in BepInEx log."
+        $readyPattern = "DLSS user rendering evaluate succeeded from"
+        $readyCountPattern = "sequenceSuccesses=\d+"
+    }
 
     $deadline = (Get-Date).AddSeconds($UserRenderingTimeoutSeconds)
     while ((Get-Date) -lt $deadline) {
@@ -477,7 +488,7 @@ function Wait-ForDlssUserRenderingSuccess {
         }
 
         $text = Read-LogSinceOffset -Path $logPath -Offset $LogStartOffset
-        if ($text -match "DLSS user rendering evaluate succeeded from" -and $text -match "sequenceSuccesses=\d+") {
+        if ($text -match $readyPattern -and $text -match $readyCountPattern) {
             return [pscustomobject]@{
                 Ready = $true
                 TimedOut = $false
@@ -486,7 +497,7 @@ function Wait-ForDlssUserRenderingSuccess {
             }
         }
 
-        if ($text -match "DLSS user rendering evaluate (blocked|failed|skipped) from" -or $text -match "DLSS user rendering shutdown failed:") {
+        if ($text -match "DLSS user rendering evaluate (blocked|failed|skipped) from" -or $text -match "DLSS user rendering shutdown failed:" -or ($Stage -eq "dlss-user-rendering-no-evaluate" -and $text -match "DLSS user rendering evaluate succeeded from")) {
             return [pscustomobject]@{
                 Ready = $false
                 TimedOut = $false
@@ -596,7 +607,7 @@ function Invoke-VisualRun {
     $userRenderingReadyTimedOut = $false
     $userRenderingDetectedAt = $null
     $waitedForStage10A = $waitForStage10AEnabled -and $UseSdkWrapperNative -and $Stage -eq "dlss-visible-writeback"
-    $waitedForUserRendering = $waitForUserRenderingEnabled -and $UseSdkWrapperNative -and $Stage -eq "dlss-user-rendering"
+    $waitedForUserRendering = $waitForUserRenderingEnabled -and (($UseSdkWrapperNative -and $Stage -eq "dlss-user-rendering") -or $Stage -eq "dlss-user-rendering-no-evaluate")
 
     try {
         if ($AttachExistingProcess) {
@@ -683,12 +694,12 @@ function Invoke-VisualRun {
         }
 
         if (-not $exitedBeforeCapture -and -not $captureReadyTimedOut -and $waitedForUserRendering) {
-            $userRendering = Wait-ForDlssUserRenderingSuccess -Process $process -LogStartOffset $logStartOffset
+            $userRendering = Wait-ForDlssUserRenderingReady -Process $process -LogStartOffset $logStartOffset -Stage $Stage
             $userRenderingDetectedAt = $userRendering.DetectedAt
             $userRenderingReadyTimedOut = $userRendering.TimedOut -or (-not $userRendering.Ready -and -not $userRendering.ProcessExited)
             $exitedBeforeCapture = $userRendering.ProcessExited
             if (-not $userRendering.Ready) {
-                Write-Warning "DLSS user-rendering evaluate success was not observed before capture for ${Label}; TimedOut=$($userRendering.TimedOut); ProcessExited=$($userRendering.ProcessExited)"
+                Write-Warning "DLSS user-rendering readiness was not observed before capture for ${Label}; TimedOut=$($userRendering.TimedOut); ProcessExited=$($userRendering.ProcessExited)"
             }
         }
 
@@ -807,15 +818,17 @@ if ($FsrMode -ne "Unchanged") {
     $fsrPlan = Invoke-ProjectScript -RelativePath "scripts\set-vrising-fsr-mode.ps1" -Parameters $fsrPlanParameters
 }
 
-$candidateRequiresSdkWrapper = $CandidateStage -ne "render-scale-control"
+$candidateRequiresSdkWrapper = @("render-scale-control", "dlss-user-rendering-no-evaluate") -notcontains $CandidateStage
 $candidateLabelSuffix = switch ($CandidateStage) {
     "dlss-visible-writeback" { "stage10a-visible-writeback" }
     "dlss-user-rendering" { "user-rendering" }
+    "dlss-user-rendering-no-evaluate" { "user-rendering-no-evaluate" }
     "render-scale-control" { "render-scale-control" }
 }
 $comparisonLabelSuffix = switch ($CandidateStage) {
     "dlss-visible-writeback" { "stage10a" }
     "dlss-user-rendering" { "user-rendering" }
+    "dlss-user-rendering-no-evaluate" { "user-rendering-no-evaluate" }
     "render-scale-control" { "render-scale-control" }
 }
 $baselineLabel = "$ArtifactLabel-baseline-loader"
@@ -852,8 +865,8 @@ $plan = [pscustomobject]@{
     CandidateStage = $CandidateStage
     WaitForStage10A = ($CandidateStage -eq "dlss-visible-writeback" -and $waitForStage10AEnabled)
     Stage10ATimeoutSeconds = $(if ($Mode -ne "BaselineOnly" -and $CandidateStage -eq "dlss-visible-writeback" -and $waitForStage10AEnabled) { $Stage10ATimeoutSeconds } else { 0 })
-    WaitForUserRendering = ($CandidateStage -eq "dlss-user-rendering" -and $waitForUserRenderingEnabled)
-    UserRenderingTimeoutSeconds = $(if ($Mode -ne "BaselineOnly" -and $CandidateStage -eq "dlss-user-rendering" -and $waitForUserRenderingEnabled) { $UserRenderingTimeoutSeconds } else { 0 })
+    WaitForUserRendering = (($CandidateStage -eq "dlss-user-rendering" -or $CandidateStage -eq "dlss-user-rendering-no-evaluate") -and $waitForUserRenderingEnabled)
+    UserRenderingTimeoutSeconds = $(if ($Mode -ne "BaselineOnly" -and ($CandidateStage -eq "dlss-user-rendering" -or $CandidateStage -eq "dlss-user-rendering-no-evaluate") -and $waitForUserRenderingEnabled) { $UserRenderingTimeoutSeconds } else { 0 })
     KeepCandidateWritebackRunning = $(if ($Mode -ne "BaselineOnly" -and $CandidateStage -eq "dlss-visible-writeback") { $keepCandidateWritebackRunningEnabled } else { $false })
     ArtifactLabel = $ArtifactLabel
     BaselineCapture = $(if ($Mode -ne "CandidateOnly") { $baselinePath } else { "" })

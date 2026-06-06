@@ -70,6 +70,7 @@ internal static class FrameResourceProbe
     private static int DlssSuperResolutionFrameSequenceEvaluateProbeSuccessCount;
     private static int DlssUserRenderingAttemptCount;
     private static int DlssUserRenderingSuccessCount;
+    private static int DlssUserRenderingNoEvaluateAcceptedCount;
     private static int DlssUserRenderingFailureLogCount;
     private static int DlssUserRenderingLastAttemptFrameCount = -1;
     private static long DlssUserRenderingLastAttemptTimestamp;
@@ -85,6 +86,15 @@ internal static class FrameResourceProbe
     private static readonly Dictionary<string, RenderGraphTextureCandidate> RenderGraphResourceMaterializationCandidates = new(StringComparer.OrdinalIgnoreCase);
     private static readonly Dictionary<string, RenderGraphTextureCandidate> RenderGraphGetTextureCandidates = new(StringComparer.OrdinalIgnoreCase);
     private static readonly HashSet<string> DlssSuperResolutionInputProbeAttemptKeys = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, MethodInfo?> ByRefResourceMethodCache = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, PropertyInfo?> InstancePropertyCache = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, FieldInfo?> InstanceFieldCache = new(StringComparer.Ordinal);
+    private static readonly Dictionary<Type, MethodInfo?> NativeTexturePtrMethodCache = new();
+    private static readonly Dictionary<Type, MethodInfo[]> TextureConversionMethodCache = new();
+    private static readonly Dictionary<Type, PropertyInfo[]> LikelyTexturePropertyCache = new();
+    private static readonly Dictionary<Type, FieldInfo[]> LikelyTextureFieldCache = new();
+    private static DlssUserRenderingResourceTuple? DlssUserRenderingAcceptedTuple;
+    private static int DlssUserRenderingCachedTupleUseCount;
     private static readonly string[] GlobalTextureNames =
     {
         "_CameraDepthTexture",
@@ -101,6 +111,7 @@ internal static class FrameResourceProbe
     private static bool ExistingRenderFuncProbeEnabled;
     private static bool ResourceMaterializationProbeEnabled;
     private static bool DlssPassResourceProbeEnabled;
+    private static bool RenderGraphGetTextureDiagnosticLoggingEnabled;
     private static bool DlssEvaluateInputProbeSucceeded;
     private static bool DlssEvaluateProbeEnabled;
     private static bool DlssEvaluateProbeSucceeded;
@@ -116,6 +127,7 @@ internal static class FrameResourceProbe
     private static bool DlssSuperResolutionFrameSequenceEvaluateProbeSucceeded;
     private static bool DlssSuperResolutionFrameSequenceShutdownLogged;
     private static bool DlssUserRenderingEnabled;
+    private static bool DlssUserRenderingNoEvaluateEnabled;
     private static bool DlssUserRenderingSucceeded;
     private static bool DlssUserRenderingBlocked;
     private static bool DlssUserRenderingShutdownLogged;
@@ -141,6 +153,7 @@ internal static class FrameResourceProbe
         bool enableDlssSuperResolutionFrameSequenceEvaluateProbe = false,
         bool enableDlssVisibleWritebackProbe = false,
         bool enableDlssUserRendering = false,
+        bool enableDlssUserRenderingNoEvaluate = false,
         bool keepDlssVisibleWritebackProbeRunning = false,
         DlssEvaluateProbeSettings dlssEvaluateSettings = default,
         bool enableRenderGraphDiagnosticPass = false,
@@ -151,15 +164,16 @@ internal static class FrameResourceProbe
         if (Installed)
         {
             log.LogInfo("Frame resource probe is already installed.");
-            DlssEvaluateInputProbeEnabled = DlssEvaluateInputProbeEnabled || enableDlssEvaluateInputProbe || enableDlssEvaluateProbe || enableDlssPersistentEvaluateProbe || enableDlssSuperResolutionInputProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe || enableDlssVisibleWritebackProbe || enableDlssUserRendering;
+            DlssEvaluateInputProbeEnabled = DlssEvaluateInputProbeEnabled || enableDlssEvaluateInputProbe || enableDlssEvaluateProbe || enableDlssPersistentEvaluateProbe || enableDlssSuperResolutionInputProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe || enableDlssVisibleWritebackProbe || enableDlssUserRendering || enableDlssUserRenderingNoEvaluate;
             DlssEvaluateProbeEnabled = DlssEvaluateProbeEnabled || enableDlssEvaluateProbe;
             DlssPersistentEvaluateProbeEnabled = DlssPersistentEvaluateProbeEnabled || enableDlssPersistentEvaluateProbe;
-            DlssSuperResolutionInputProbeEnabled = DlssSuperResolutionInputProbeEnabled || enableDlssSuperResolutionInputProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe || enableDlssVisibleWritebackProbe || enableDlssUserRendering;
+            DlssSuperResolutionInputProbeEnabled = DlssSuperResolutionInputProbeEnabled || enableDlssSuperResolutionInputProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe || enableDlssVisibleWritebackProbe || enableDlssUserRendering || enableDlssUserRenderingNoEvaluate;
             DlssSuperResolutionEvaluateProbeEnabled = DlssSuperResolutionEvaluateProbeEnabled || enableDlssSuperResolutionEvaluateProbe;
             DlssSuperResolutionPersistentEvaluateProbeEnabled = DlssSuperResolutionPersistentEvaluateProbeEnabled || enableDlssSuperResolutionPersistentEvaluateProbe;
             DlssSuperResolutionFrameSequenceEvaluateProbeEnabled = DlssSuperResolutionFrameSequenceEvaluateProbeEnabled || enableDlssSuperResolutionFrameSequenceEvaluateProbe;
             DlssVisibleWritebackProbeEnabled = DlssVisibleWritebackProbeEnabled || enableDlssVisibleWritebackProbe;
-            DlssUserRenderingEnabled = DlssUserRenderingEnabled || enableDlssUserRendering;
+            DlssUserRenderingEnabled = DlssUserRenderingEnabled || enableDlssUserRendering || enableDlssUserRenderingNoEvaluate;
+            DlssUserRenderingNoEvaluateEnabled = DlssUserRenderingNoEvaluateEnabled || enableDlssUserRenderingNoEvaluate;
             KeepDlssVisibleWritebackProbeRunning = KeepDlssVisibleWritebackProbeRunning || (enableDlssVisibleWritebackProbe && keepDlssVisibleWritebackProbeRunning);
             if (enableDlssEvaluateProbe || enableDlssPersistentEvaluateProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe || enableDlssVisibleWritebackProbe || enableDlssUserRendering)
             {
@@ -170,26 +184,49 @@ internal static class FrameResourceProbe
             ExistingRenderFuncProbeEnabled = ExistingRenderFuncProbeEnabled || enableExistingRenderFuncProbe;
             ResourceMaterializationProbeEnabled = ResourceMaterializationProbeEnabled || enableResourceMaterializationProbe;
             DlssPassResourceProbeEnabled = DlssPassResourceProbeEnabled || enableDlssPassResourceProbe;
+            RenderGraphGetTextureDiagnosticLoggingEnabled = RenderGraphGetTextureDiagnosticLoggingEnabled || ShouldEnableRenderGraphGetTextureDiagnosticLogging(
+                enableFrameResourceProbe,
+                enableDlssEvaluateInputProbe,
+                enableDlssEvaluateProbe,
+                enableDlssPersistentEvaluateProbe,
+                enableDlssSuperResolutionInputProbe,
+                enableDlssSuperResolutionEvaluateProbe,
+                enableDlssSuperResolutionPersistentEvaluateProbe,
+                enableDlssSuperResolutionFrameSequenceEvaluateProbe,
+                enableDlssVisibleWritebackProbe,
+                enableDlssPassResourceProbe);
             return;
         }
 
         Log = log;
         Bridge = bridge;
-        DlssEvaluateInputProbeEnabled = enableDlssEvaluateInputProbe || enableDlssEvaluateProbe || enableDlssPersistentEvaluateProbe || enableDlssSuperResolutionInputProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe || enableDlssVisibleWritebackProbe || enableDlssUserRendering;
+        DlssEvaluateInputProbeEnabled = enableDlssEvaluateInputProbe || enableDlssEvaluateProbe || enableDlssPersistentEvaluateProbe || enableDlssSuperResolutionInputProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe || enableDlssVisibleWritebackProbe || enableDlssUserRendering || enableDlssUserRenderingNoEvaluate;
         DlssEvaluateProbeEnabled = enableDlssEvaluateProbe;
         DlssPersistentEvaluateProbeEnabled = enableDlssPersistentEvaluateProbe;
-        DlssSuperResolutionInputProbeEnabled = enableDlssSuperResolutionInputProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe || enableDlssVisibleWritebackProbe || enableDlssUserRendering;
+        DlssSuperResolutionInputProbeEnabled = enableDlssSuperResolutionInputProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe || enableDlssVisibleWritebackProbe || enableDlssUserRendering || enableDlssUserRenderingNoEvaluate;
         DlssSuperResolutionEvaluateProbeEnabled = enableDlssSuperResolutionEvaluateProbe;
         DlssSuperResolutionPersistentEvaluateProbeEnabled = enableDlssSuperResolutionPersistentEvaluateProbe;
         DlssSuperResolutionFrameSequenceEvaluateProbeEnabled = enableDlssSuperResolutionFrameSequenceEvaluateProbe;
         DlssVisibleWritebackProbeEnabled = enableDlssVisibleWritebackProbe;
-        DlssUserRenderingEnabled = enableDlssUserRendering;
+        DlssUserRenderingEnabled = enableDlssUserRendering || enableDlssUserRenderingNoEvaluate;
+        DlssUserRenderingNoEvaluateEnabled = enableDlssUserRenderingNoEvaluate;
         KeepDlssVisibleWritebackProbeRunning = enableDlssVisibleWritebackProbe && keepDlssVisibleWritebackProbeRunning;
         DlssEvaluateSettings = dlssEvaluateSettings;
         RenderGraphDiagnosticPassEnabled = enableRenderGraphDiagnosticPass;
         ExistingRenderFuncProbeEnabled = enableExistingRenderFuncProbe;
         ResourceMaterializationProbeEnabled = enableResourceMaterializationProbe;
         DlssPassResourceProbeEnabled = enableDlssPassResourceProbe;
+        RenderGraphGetTextureDiagnosticLoggingEnabled = ShouldEnableRenderGraphGetTextureDiagnosticLogging(
+            enableFrameResourceProbe,
+            enableDlssEvaluateInputProbe,
+            enableDlssEvaluateProbe,
+            enableDlssPersistentEvaluateProbe,
+            enableDlssSuperResolutionInputProbe,
+            enableDlssSuperResolutionEvaluateProbe,
+            enableDlssSuperResolutionPersistentEvaluateProbe,
+            enableDlssSuperResolutionFrameSequenceEvaluateProbe,
+            enableDlssVisibleWritebackProbe,
+            enableDlssPassResourceProbe);
         DlssEvaluateInputProbeSucceeded = false;
         DlssEvaluateProbeSucceeded = false;
         DlssPersistentEvaluateProbeSucceeded = false;
@@ -239,9 +276,13 @@ internal static class FrameResourceProbe
                 log.LogWarning("DLSS visible write-back probe hold mode enabled. The probe will continue evaluating after the 30-success milestone until cleanup or the hold attempt limit.");
             }
         }
-        if (DlssUserRenderingEnabled)
+        if (DlssUserRenderingEnabled && !DlssUserRenderingNoEvaluateEnabled)
         {
             log.LogWarning("DLSS user rendering candidate enabled. This uses the Stage 10A visible-path output target with at most one DLSS evaluate per Unity frame and falls back safely when the native path is unavailable.");
+        }
+        if (DlssUserRenderingNoEvaluateEnabled)
+        {
+            log.LogWarning("DLSS user rendering no-evaluate diagnostic enabled. It accepts the same RenderGraph Super Resolution tuple but skips NGX evaluate/writeback for performance isolation.");
         }
         if (RenderGraphDiagnosticPassEnabled)
         {
@@ -504,6 +545,7 @@ internal static class FrameResourceProbe
             ExistingRenderFuncProbeEnabled = false;
             ResourceMaterializationProbeEnabled = false;
             DlssPassResourceProbeEnabled = false;
+            RenderGraphGetTextureDiagnosticLoggingEnabled = false;
             DlssEvaluateProbeEnabled = false;
             DlssPersistentEvaluateProbeEnabled = false;
             DlssSuperResolutionInputProbeEnabled = false;
@@ -511,6 +553,7 @@ internal static class FrameResourceProbe
             DlssSuperResolutionPersistentEvaluateProbeEnabled = false;
             DlssSuperResolutionFrameSequenceEvaluateProbeEnabled = false;
             DlssUserRenderingEnabled = false;
+            DlssUserRenderingNoEvaluateEnabled = false;
             DlssVisibleWritebackProbeEnabled = false;
             KeepDlssVisibleWritebackProbeRunning = false;
             DlssEvaluateInputProbeSucceeded = false;
@@ -550,12 +593,15 @@ internal static class FrameResourceProbe
                 DlssSuperResolutionFrameSequenceEvaluateProbeSuccessCount = 0;
                 DlssUserRenderingAttemptCount = 0;
                 DlssUserRenderingSuccessCount = 0;
+                DlssUserRenderingNoEvaluateAcceptedCount = 0;
                 DlssUserRenderingFailureLogCount = 0;
                 DlssUserRenderingLastAttemptFrameCount = -1;
                 DlssUserRenderingLastAttemptTimestamp = 0;
                 DlssUserRenderingBridgeEvaluateTimedCount = 0;
                 DlssUserRenderingBridgeEvaluateTotalTicks = 0;
                 DlssUserRenderingBridgeEvaluateMaxTicks = 0;
+                DlssUserRenderingAcceptedTuple = null;
+                DlssUserRenderingCachedTupleUseCount = 0;
                 DlssUserRenderingFrameThrottleFallbackLogged = false;
                 DlssVisibleWritebackProbeAttemptCount = 0;
                 DlssVisibleWritebackProbeSuccessCount = 0;
@@ -1684,14 +1730,19 @@ internal static class FrameResourceProbe
                 count = RenderGraphGetTextureCallCount;
             }
 
+            if (ShouldSkipRenderGraphGetTextureForStableUserRendering())
+            {
+                return;
+            }
+
+            var shouldLog = ShouldLogRenderGraphGetTexture(count);
             var handle = __args is { Length: > 0 } ? __args[0] : null;
-            var handleSummary = SummarizeValue(handle);
-            var resultSummary = SummarizeValue(__result);
             var resourceName = TryGetRenderGraphGetTextureResourceName(__instance, handle);
             if (__result is null)
             {
-                if (ShouldLogRenderGraphGetTexture(count))
+                if (shouldLog)
                 {
+                    var handleSummary = SummarizeValue(handle);
                     log.LogInfo($"RenderGraph GetTexture call #{count}: resourceName={resourceName ?? "unavailable"}; handle={handleSummary}; result=null; nativePtr=not found");
                 }
 
@@ -1700,8 +1751,10 @@ internal static class FrameResourceProbe
 
             if (!TryFindNativeTexturePtr(__result, out var owner, out var pointer) || pointer == IntPtr.Zero)
             {
-                if (ShouldLogRenderGraphGetTexture(count))
+                if (shouldLog)
                 {
+                    var handleSummary = SummarizeValue(handle);
+                    var resultSummary = SummarizeValue(__result);
                     log.LogInfo($"RenderGraph GetTexture call #{count}: resourceName={resourceName ?? "unavailable"}; handle={handleSummary}; result={resultSummary}; nativePtr=not found");
                 }
 
@@ -1717,7 +1770,8 @@ internal static class FrameResourceProbe
                         "RenderGraphResourceRegistry.GetTexture",
                         resourceName!,
                         pointer,
-                        $"GetTexture nativeOwner={SummarizeValue(owner ?? __result)}");
+                        $"GetTexture nativeOwner={SummarizeValue(owner ?? __result)}",
+                        TryGetUnityFrameCount(out var candidateFrame) ? candidateFrame : -1);
                     RenderGraphGetTextureCandidates[resourceName!] = candidate;
                     snapshot = RenderGraphGetTextureCandidates.Values.ToArray();
                 }
@@ -1728,13 +1782,15 @@ internal static class FrameResourceProbe
 
             TryLogDlssEvaluateOutputFollowup(log, bridge, count, resourceName, pointer);
 
-            if (!ShouldLogRenderGraphGetTexture(count))
+            if (!shouldLog)
             {
                 return;
             }
 
+            var handleSummaryForLog = SummarizeValue(handle);
+            var resultSummaryForLog = SummarizeValue(__result);
             var ownerSummary = owner is null ? "unknown" : SummarizeValue(owner);
-            log.LogInfo($"RenderGraph GetTexture call #{count}: resourceName={resourceName ?? "unavailable"}; handle={handleSummary}; result={resultSummary}; nativeOwner={ownerSummary}; nativePtr=0x{pointer.ToInt64():X}");
+            log.LogInfo($"RenderGraph GetTexture call #{count}: resourceName={resourceName ?? "unavailable"}; handle={handleSummaryForLog}; result={resultSummaryForLog}; nativeOwner={ownerSummary}; nativePtr=0x{pointer.ToInt64():X}");
             var success = bridge.ProbeD3D11Texture(pointer);
             var status = bridge.GetD3D11ProbeStatus();
             if (success)
@@ -1754,7 +1810,47 @@ internal static class FrameResourceProbe
 
     private static bool ShouldLogRenderGraphGetTexture(int count)
     {
-        return count <= MaxRenderGraphGetTextureLogs || count % 300 == 0;
+        return RenderGraphGetTextureDiagnosticLoggingEnabled && (count <= MaxRenderGraphGetTextureLogs || count % 300 == 0);
+    }
+
+    private static bool ShouldSkipRenderGraphGetTextureForStableUserRendering()
+    {
+        bool canSkip;
+        lock (Sync)
+        {
+            canSkip = DlssUserRenderingEnabled
+                && !DlssUserRenderingBlocked
+                && DlssUserRenderingAcceptedTuple.HasValue
+                && !RenderGraphGetTextureDiagnosticLoggingEnabled
+                && !DlssVisibleWritebackProbeEnabled
+                && DlssEvaluateOutputFollowupPointer == IntPtr.Zero;
+        }
+
+        return canSkip && WasDlssUserRenderingAttemptedThisFrameOrInterval();
+    }
+
+    private static bool ShouldEnableRenderGraphGetTextureDiagnosticLogging(
+        bool enableFrameResourceProbe,
+        bool enableDlssEvaluateInputProbe,
+        bool enableDlssEvaluateProbe,
+        bool enableDlssPersistentEvaluateProbe,
+        bool enableDlssSuperResolutionInputProbe,
+        bool enableDlssSuperResolutionEvaluateProbe,
+        bool enableDlssSuperResolutionPersistentEvaluateProbe,
+        bool enableDlssSuperResolutionFrameSequenceEvaluateProbe,
+        bool enableDlssVisibleWritebackProbe,
+        bool enableDlssPassResourceProbe)
+    {
+        return enableFrameResourceProbe
+            || enableDlssEvaluateInputProbe
+            || enableDlssEvaluateProbe
+            || enableDlssPersistentEvaluateProbe
+            || enableDlssSuperResolutionInputProbe
+            || enableDlssSuperResolutionEvaluateProbe
+            || enableDlssSuperResolutionPersistentEvaluateProbe
+            || enableDlssSuperResolutionFrameSequenceEvaluateProbe
+            || enableDlssVisibleWritebackProbe
+            || enableDlssPassResourceProbe;
     }
 
     private static void TryRunDlssEvaluateInputProbe(
@@ -2229,6 +2325,14 @@ internal static class FrameResourceProbe
                 }
                 else if (DlssUserRenderingEnabled)
                 {
+                    RememberDlssUserRenderingAcceptedTuple(
+                        log,
+                        "RenderGraph GetTexture",
+                        color.Value.Pointer,
+                        output.Pointer,
+                        depth.Value.Pointer,
+                        motion.Value.Pointer,
+                        output.ResourceName);
                     TryRunDlssUserRendering(
                         log,
                         bridge,
@@ -2773,7 +2877,12 @@ internal static class FrameResourceProbe
             return;
         }
 
-        var available = candidates.Where(candidate => candidate.Pointer != IntPtr.Zero).ToArray();
+        var currentFrameKnown = TryGetUnityFrameCount(out var currentFrame);
+        var available = candidates
+            .Where(candidate =>
+                candidate.Pointer != IntPtr.Zero
+                && (!currentFrameKnown || candidate.FrameCount < 0 || candidate.FrameCount == currentFrame))
+            .ToArray();
         var color = FindExistingRenderFuncCandidate(available, static candidate =>
             string.Equals(candidate.ResourceName, "CameraColor", StringComparison.Ordinal));
         var depth = FindExistingRenderFuncCandidate(available, static candidate =>
@@ -2791,6 +2900,11 @@ internal static class FrameResourceProbe
             .Where(IsLikelyRenderGraphOutput)
             .OrderByDescending(GetRenderGraphOutputPriority)
             .ToArray();
+        if (TryRunCachedDlssUserRenderingTuple(log, bridge, source, color.Value, depth.Value, motion.Value, outputs))
+        {
+            return;
+        }
+
         foreach (var output in outputs)
         {
             if (output.Pointer == IntPtr.Zero || output.Pointer == color.Value.Pointer)
@@ -2808,6 +2922,14 @@ internal static class FrameResourceProbe
                 continue;
             }
 
+            RememberDlssUserRenderingAcceptedTuple(
+                log,
+                source,
+                color.Value.Pointer,
+                output.Pointer,
+                depth.Value.Pointer,
+                motion.Value.Pointer,
+                output.ResourceName);
             TryRunDlssUserRendering(
                 log,
                 bridge,
@@ -2818,6 +2940,100 @@ internal static class FrameResourceProbe
                 motion.Value.Pointer,
                 output.ResourceName);
             return;
+        }
+    }
+
+    private static bool TryRunCachedDlssUserRenderingTuple(
+        ManualLogSource log,
+        NativeBridge bridge,
+        string source,
+        RenderGraphTextureCandidate color,
+        RenderGraphTextureCandidate depth,
+        RenderGraphTextureCandidate motion,
+        IReadOnlyList<RenderGraphTextureCandidate> outputs)
+    {
+        DlssUserRenderingResourceTuple tuple;
+        lock (Sync)
+        {
+            if (!DlssUserRenderingAcceptedTuple.HasValue)
+            {
+                return false;
+            }
+
+            tuple = DlssUserRenderingAcceptedTuple.Value;
+        }
+
+        if (color.Pointer != tuple.ColorPointer
+            || depth.Pointer != tuple.DepthPointer
+            || motion.Pointer != tuple.MotionPointer)
+        {
+            return false;
+        }
+
+        foreach (var output in outputs)
+        {
+            if (output.Pointer != tuple.OutputPointer || output.Pointer == IntPtr.Zero)
+            {
+                continue;
+            }
+
+            int useCount;
+            lock (Sync)
+            {
+                DlssUserRenderingCachedTupleUseCount++;
+                useCount = DlssUserRenderingCachedTupleUseCount;
+            }
+
+            if (useCount <= 3 || useCount % 300 == 0)
+            {
+                log.LogInfo($"DLSS user rendering reused accepted tuple from {source}: cachedFrames={useCount}; outputResourceName={output.ResourceName ?? tuple.OutputResourceName ?? "unavailable"}");
+            }
+
+            TryRunDlssUserRendering(
+                log,
+                bridge,
+                $"{source} cached tuple",
+                tuple.ColorPointer,
+                tuple.OutputPointer,
+                tuple.DepthPointer,
+                tuple.MotionPointer,
+                output.ResourceName ?? tuple.OutputResourceName);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static void RememberDlssUserRenderingAcceptedTuple(
+        ManualLogSource log,
+        string source,
+        IntPtr colorPointer,
+        IntPtr outputPointer,
+        IntPtr depthPointer,
+        IntPtr motionPointer,
+        string? outputResourceName)
+    {
+        var tuple = new DlssUserRenderingResourceTuple(
+            colorPointer,
+            outputPointer,
+            depthPointer,
+            motionPointer,
+            string.IsNullOrWhiteSpace(outputResourceName) ? null : outputResourceName);
+        var changed = false;
+        lock (Sync)
+        {
+            if (!DlssUserRenderingAcceptedTuple.HasValue || !DlssUserRenderingAcceptedTuple.Value.Equals(tuple))
+            {
+                DlssUserRenderingAcceptedTuple = tuple;
+                DlssUserRenderingCachedTupleUseCount = 0;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            log.LogInfo(
+                $"DLSS user rendering accepted tuple cached from {source}: color=0x{colorPointer.ToInt64():X}; output=0x{outputPointer.ToInt64():X}; depth=0x{depthPointer.ToInt64():X}; motion=0x{motionPointer.ToInt64():X}; outputResourceName={outputResourceName ?? "unavailable"}");
         }
     }
 
@@ -2856,6 +3072,26 @@ internal static class FrameResourceProbe
             var unityFrameLabel = unityFrameKnown ? unityFrame.ToString() : "unknown";
             log.LogInfo(
                 $"DLSS user rendering candidate #{attempt} from {source}: unityFrame={unityFrameLabel}; color=0x{colorPointer.ToInt64():X}; output=0x{outputPointer.ToInt64():X}; depth=0x{depthPointer.ToInt64():X}; motion=0x{motionPointer.ToInt64():X}; outputResourceName={outputResourceName ?? "unavailable"}; perfQuality={DlssEvaluateSettings.PerfQualityValue}; flags=0x{DlssEvaluateSettings.FeatureFlags:X}; sharpness={DlssEvaluateSettings.Sharpness}; reset={reset}");
+        }
+
+        if (DlssUserRenderingNoEvaluateEnabled)
+        {
+            int currentAcceptedCount;
+            lock (Sync)
+            {
+                DlssUserRenderingNoEvaluateAcceptedCount++;
+                currentAcceptedCount = DlssUserRenderingNoEvaluateAcceptedCount;
+                DlssUserRenderingSucceeded = true;
+            }
+
+            if (currentAcceptedCount <= 5 || currentAcceptedCount % 300 == 0)
+            {
+                var unityFrameLabel = unityFrameKnown ? unityFrame.ToString() : "unknown";
+                var inputStatus = bridge.GetDlssSuperResolutionInputStatus();
+                log.LogInfo($"DLSS user rendering no-evaluate accepted from {source}: acceptedFrames={currentAcceptedCount}; unityFrame={unityFrameLabel}; outputResourceName={outputResourceName ?? "unavailable"}; {inputStatus}");
+            }
+
+            return;
         }
 
         var evaluateStartTimestamp = Stopwatch.GetTimestamp();
@@ -3077,11 +3313,23 @@ internal static class FrameResourceProbe
             }
 
             DlssUserRenderingShutdownLogged = true;
-            bridge = Bridge;
+            if (DlssUserRenderingNoEvaluateEnabled)
+            {
+                bridge = null;
+            }
+            else
+            {
+                bridge = Bridge;
+            }
         }
 
         if (bridge is null)
         {
+            if (DlssUserRenderingNoEvaluateEnabled)
+            {
+                log.LogInfo("DLSS user rendering no-evaluate shutdown skipped: no native frame sequence was created.");
+            }
+
             return;
         }
 
@@ -4294,12 +4542,7 @@ internal static class FrameResourceProbe
     {
         try
         {
-            var method = candidate.GetType().GetMethod(
-                "GetNativeTexturePtr",
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
-                null,
-                Type.EmptyTypes,
-                null);
+            var method = FindCachedNativeTexturePtrMethod(candidate.GetType());
 
             var value = method?.Invoke(candidate, Array.Empty<object>());
             return value is IntPtr pointer ? pointer : null;
@@ -4318,19 +4561,8 @@ internal static class FrameResourceProbe
             yield break;
         }
 
-        foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static))
+        foreach (var method in GetCachedTextureConversionMethods(type))
         {
-            if (method.Name != "op_Implicit" && method.Name != "op_Explicit")
-            {
-                continue;
-            }
-
-            var parameters = method.GetParameters();
-            if (parameters.Length != 1 || parameters[0].ParameterType != type || !TypeLooksTextureLike(method.ReturnType))
-            {
-                continue;
-            }
-
             object? converted;
             try
             {
@@ -4402,22 +4634,123 @@ internal static class FrameResourceProbe
 
     private static MethodInfo? FindByRefResourceMethod(object registry, string methodName, object handle)
     {
-        var handleTypeName = handle.GetType().FullName;
-        return registry.GetType()
-            .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
-            .FirstOrDefault(candidate =>
+        var registryType = registry.GetType();
+        var handleType = handle.GetType();
+        var cacheKey = $"{registryType.AssemblyQualifiedName}|{methodName}|{handleType.AssemblyQualifiedName}";
+        lock (Sync)
+        {
+            if (ByRefResourceMethodCache.TryGetValue(cacheKey, out var cached))
             {
-                if (!string.Equals(candidate.Name, methodName, StringComparison.Ordinal))
-                {
-                    return false;
-                }
+                return cached;
+            }
+        }
 
-                var parameters = candidate.GetParameters();
-                var elementType = parameters.Length == 1 && parameters[0].ParameterType.IsByRef
-                    ? parameters[0].ParameterType.GetElementType()
-                    : null;
-                return string.Equals(elementType?.FullName, handleTypeName, StringComparison.Ordinal);
-            });
+        MethodInfo? method = null;
+        try
+        {
+            var handleTypeName = handleType.FullName;
+            method = registryType
+                .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                .FirstOrDefault(candidate =>
+                {
+                    if (!string.Equals(candidate.Name, methodName, StringComparison.Ordinal))
+                    {
+                        return false;
+                    }
+
+                    var parameters = candidate.GetParameters();
+                    var elementType = parameters.Length == 1 && parameters[0].ParameterType.IsByRef
+                        ? parameters[0].ParameterType.GetElementType()
+                        : null;
+                    return string.Equals(elementType?.FullName, handleTypeName, StringComparison.Ordinal);
+                });
+        }
+        catch
+        {
+            method = null;
+        }
+
+        lock (Sync)
+        {
+            ByRefResourceMethodCache[cacheKey] = method;
+        }
+
+        return method;
+    }
+
+    private static MethodInfo? FindCachedNativeTexturePtrMethod(Type type)
+    {
+        lock (Sync)
+        {
+            if (NativeTexturePtrMethodCache.TryGetValue(type, out var cached))
+            {
+                return cached;
+            }
+        }
+
+        MethodInfo? method = null;
+        try
+        {
+            method = type.GetMethod(
+                "GetNativeTexturePtr",
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
+                null,
+                Type.EmptyTypes,
+                null);
+        }
+        catch
+        {
+            method = null;
+        }
+
+        lock (Sync)
+        {
+            NativeTexturePtrMethodCache[type] = method;
+        }
+
+        return method;
+    }
+
+    private static MethodInfo[] GetCachedTextureConversionMethods(Type type)
+    {
+        lock (Sync)
+        {
+            if (TextureConversionMethodCache.TryGetValue(type, out var cached))
+            {
+                return cached;
+            }
+        }
+
+        MethodInfo[] methods;
+        try
+        {
+            methods = type
+                .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
+                .Where(method =>
+                {
+                    if (method.Name != "op_Implicit" && method.Name != "op_Explicit")
+                    {
+                        return false;
+                    }
+
+                    var parameters = method.GetParameters();
+                    return parameters.Length == 1
+                        && parameters[0].ParameterType == type
+                        && TypeLooksTextureLike(method.ReturnType);
+                })
+                .ToArray();
+        }
+        catch
+        {
+            methods = Array.Empty<MethodInfo>();
+        }
+
+        lock (Sync)
+        {
+            TextureConversionMethodCache[type] = methods;
+        }
+
+        return methods;
     }
 
     private static IEnumerable<RenderGraphRegistryCandidate> EnumerateRenderGraphRegistries(object renderGraph)
@@ -4608,18 +4941,8 @@ internal static class FrameResourceProbe
             }
         }
 
-        foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+        foreach (var property in GetCachedLikelyTextureProperties(type))
         {
-            if (property.GetIndexParameters().Length != 0 || property.GetMethod is null)
-            {
-                continue;
-            }
-
-            if (!NameLooksTextureLike(property.Name) && !TypeLooksTextureLike(property.PropertyType))
-            {
-                continue;
-            }
-
             object? value;
             try
             {
@@ -4636,13 +4959,8 @@ internal static class FrameResourceProbe
             }
         }
 
-        foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+        foreach (var field in GetCachedLikelyTextureFields(type))
         {
-            if (!NameLooksTextureLike(field.Name) && !TypeLooksTextureLike(field.FieldType))
-            {
-                continue;
-            }
-
             object? value;
             try
             {
@@ -4658,6 +4976,71 @@ internal static class FrameResourceProbe
                 yield return value;
             }
         }
+    }
+
+    private static PropertyInfo[] GetCachedLikelyTextureProperties(Type type)
+    {
+        lock (Sync)
+        {
+            if (LikelyTexturePropertyCache.TryGetValue(type, out var cached))
+            {
+                return cached;
+            }
+        }
+
+        PropertyInfo[] properties;
+        try
+        {
+            properties = type
+                .GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                .Where(property =>
+                    property.GetIndexParameters().Length == 0
+                    && property.GetMethod is not null
+                    && (NameLooksTextureLike(property.Name) || TypeLooksTextureLike(property.PropertyType)))
+                .ToArray();
+        }
+        catch
+        {
+            properties = Array.Empty<PropertyInfo>();
+        }
+
+        lock (Sync)
+        {
+            LikelyTexturePropertyCache[type] = properties;
+        }
+
+        return properties;
+    }
+
+    private static FieldInfo[] GetCachedLikelyTextureFields(Type type)
+    {
+        lock (Sync)
+        {
+            if (LikelyTextureFieldCache.TryGetValue(type, out var cached))
+            {
+                return cached;
+            }
+        }
+
+        FieldInfo[] fields;
+        try
+        {
+            fields = type
+                .GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                .Where(field => NameLooksTextureLike(field.Name) || TypeLooksTextureLike(field.FieldType))
+                .ToArray();
+        }
+        catch
+        {
+            fields = Array.Empty<FieldInfo>();
+        }
+
+        lock (Sync)
+        {
+            LikelyTextureFieldCache[type] = fields;
+        }
+
+        return fields;
     }
 
     private static bool NameLooksTextureLike(string name)
@@ -4902,21 +5285,49 @@ internal static class FrameResourceProbe
     {
         try
         {
-            var property = instance.GetType().GetProperty(
-                propertyName,
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            var property = FindCachedInstanceProperty(instance.GetType(), propertyName);
 
-            if (property is null || property.GetIndexParameters().Length != 0 || property.GetMethod is null)
-            {
-                return null;
-            }
-
-            return property.GetValue(instance);
+            return property?.GetValue(instance);
         }
         catch
         {
             return null;
         }
+    }
+
+    private static PropertyInfo? FindCachedInstanceProperty(Type type, string propertyName)
+    {
+        var cacheKey = $"{type.AssemblyQualifiedName}|{propertyName}";
+        lock (Sync)
+        {
+            if (InstancePropertyCache.TryGetValue(cacheKey, out var cached))
+            {
+                return cached;
+            }
+        }
+
+        PropertyInfo? property = null;
+        try
+        {
+            property = type.GetProperty(
+                propertyName,
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            if (property?.GetIndexParameters().Length != 0 || property?.GetMethod is null)
+            {
+                property = null;
+            }
+        }
+        catch
+        {
+            property = null;
+        }
+
+        lock (Sync)
+        {
+            InstancePropertyCache[cacheKey] = property;
+        }
+
+        return property;
     }
 
     private static bool TryConvertToBoolean(object? value)
@@ -5001,9 +5412,7 @@ internal static class FrameResourceProbe
     {
         try
         {
-            var field = instance.GetType().GetField(
-                fieldName,
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            var field = FindCachedInstanceField(instance.GetType(), fieldName);
 
             return field?.GetValue(instance);
         }
@@ -5011,6 +5420,37 @@ internal static class FrameResourceProbe
         {
             return null;
         }
+    }
+
+    private static FieldInfo? FindCachedInstanceField(Type type, string fieldName)
+    {
+        var cacheKey = $"{type.AssemblyQualifiedName}|{fieldName}";
+        lock (Sync)
+        {
+            if (InstanceFieldCache.TryGetValue(cacheKey, out var cached))
+            {
+                return cached;
+            }
+        }
+
+        FieldInfo? field = null;
+        try
+        {
+            field = type.GetField(
+                fieldName,
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+        }
+        catch
+        {
+            field = null;
+        }
+
+        lock (Sync)
+        {
+            InstanceFieldCache[cacheKey] = field;
+        }
+
+        return field;
     }
 
     private static string? TryReadFieldString(object instance, string fieldName)
@@ -5039,9 +5479,16 @@ internal static class FrameResourceProbe
 
     private readonly record struct NamedTextureObjectCandidate(string Label, object Value);
 
-    private readonly record struct RenderGraphTextureCandidate(string Label, string ResourceName, IntPtr Pointer, string Status);
+    private readonly record struct RenderGraphTextureCandidate(string Label, string ResourceName, IntPtr Pointer, string Status, int FrameCount = -1);
 
     private readonly record struct RenderGraphRegistryCandidate(string Label, object Instance);
+
+    private readonly record struct DlssUserRenderingResourceTuple(
+        IntPtr ColorPointer,
+        IntPtr OutputPointer,
+        IntPtr DepthPointer,
+        IntPtr MotionPointer,
+        string? OutputResourceName);
 }
 
 internal readonly record struct DlssEvaluateProbeSettings(

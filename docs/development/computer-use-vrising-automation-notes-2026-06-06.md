@@ -327,6 +327,35 @@ Result:
   (`98.222%/135.571 W -> 65.556%/95.183 W`), consistent with lower internal rendering
   cost rather than a render-scale blocker.
 
+## No-Evaluate Performance Follow-up
+
+Run labels:
+
+- `user-rendering-no-evaluate-1080p-20260606-r1`
+- `user-rendering-no-evaluate-1080p-20260606-r2`
+- `user-rendering-no-evaluate-1080p-20260606-r3`
+
+Result:
+
+- The visual-comparison helper again used the true `1920x1080` Windowed harness and
+  protected the local/private `11111` save.
+- Computer Use selected the real `VRising` window for baseline and candidate runs,
+  clicked the known Continue entry once per run at `(205, 354)` in the current
+  `1283x751` screenshot, and sent no movement/gameplay keys.
+- One r3 activation briefly surfaced another foreground window; the fix was to
+  reselect the real `VRising` process/window before clicking. Do not click when the
+  capture is ambiguous or shows the BepInEx console.
+- The visual-comparison helper removes its ready-file marker at the start of each
+  run. If using an out-of-band ready marker or manual coordination, recreate it for
+  the candidate phase instead of assuming the baseline marker persists.
+- Cleanup restored FSR mode, loader config, release-safe native DLL state, client
+  settings, and the `11111` save (`ChangeCount=0` after restore for each run).
+- Technical result: no-evaluate reproduced the FPS collapse without native DLSS
+  evaluate. Logging suppression and tuple/reflection caching improved candidate FPS
+  from roughly `97` to `112`, but did not restore the roughly `200` FPS baseline. This
+  points away from Computer Use or save/state handling and toward the hot global
+  RenderGraph hook placement.
+
 Pitfall:
 
 - When calling `scripts\protect-vrising-save.ps1` through nested PowerShell, quote

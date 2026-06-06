@@ -289,3 +289,83 @@ frame time in a controlled FSR Off comparison. Do not repeat render-scale-only a
 next primary suspect unless new evidence changes the setup; the next diagnostic should
 separate the hot RenderGraph discovery hook from native DLSS evaluate/writeback, or
 move evaluation into a real render/upscale pass boundary.
+
+## No-Evaluate Isolation
+
+Follow-up document: [../development/user-rendering-no-evaluate-performance-test-2026-06-06.md](../development/user-rendering-no-evaluate-performance-test-2026-06-06.md).
+
+The new `dlss-user-rendering-no-evaluate` stage enables the same v6 dynamic-resolution
+and RenderGraph tuple path, accepts the same DLSS input/output tuple, but deliberately
+returns before creating or evaluating a native DLSS frame sequence. This was designed
+to answer whether the severe performance regression needs NGX evaluate/writeback.
+
+Results:
+
+| Run | Baseline FPS | Candidate FPS | Baseline 1% low | Candidate 1% low | Baseline P95 | Candidate P95 | Baseline GPU | Candidate GPU | Key candidate log |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |
+| `user-rendering-no-evaluate-1080p-20260606-r1` | `202.741` | `96.867` | `152.292` | `75.677` | `5.972 ms` | `12.076 ms` | `97.889% / 136.469 W` | `34.444% / 57.632 W` | `74` accepted, `0` evaluate, `32111` GetTexture-call logs |
+| `user-rendering-no-evaluate-1080p-20260606-r2` | `200.115` | `102.505` | `153.132` | `75.922` | `6.052 ms` | `11.676 ms` | `97.889% / 134.799 W` | `36.300% / 61.256 W` | `61` accepted, `0` evaluate, `0` GetTexture-call logs |
+| `user-rendering-no-evaluate-1080p-20260606-r3` | `201.802` | `111.842` | `155.421` | `78.655` | `5.974 ms` | `10.846 ms` | `97.333% / 133.537 W` | `37.700% / 66.195 W` | `53` accepted, `0` evaluate, `57` cached-tuple reuse lines |
+
+Interpretation:
+
+- The severe regression reproduces without native DLSS evaluate/writeback. That rules
+  out direct NGX evaluate CPU time as a required cause of the FPS collapse.
+- Disabling broad `RenderGraph GetTexture call` diagnostic logging/probe helped only
+  slightly, from about `96.9` to `102.5` candidate FPS.
+- Caching reflection lookups and reusing the accepted tuple helped again, from about
+  `102.5` to `111.8` candidate FPS, but the path still remains far below the roughly
+  `200` FPS baseline.
+- The remaining primary suspect is the placement of the global
+  `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` postfix itself. It is still
+  in a very hot render-thread path even when logging and most repeated reflection work
+  are suppressed.
+
+All three runs used true `1920x1080` Windowed gameplay, the protected `11111` save was
+backed up and restored, and cleanup returned the loader config to release-safe state.
+
+## External Practice Follow-up
+
+Additional references were downloaded into
+`ref/dlss-performance-investigation-2026-06-06/` on 2026-06-06:
+
+- Unity HDRP DLSS manual.
+- Unity HDRP Dynamic Resolution manual.
+- Unity Core RenderGraph fundamentals and pipeline-writing manuals.
+- NVIDIA Streamline programming guide and DLSS-specific guide.
+- NVIDIA NGX programming guide PDF.
+- OptiScaler README and INI.
+- NVIDIA Developer Forum thread for a 2026 Unity RenderGraph DLSS integration.
+
+Useful technical convergence:
+
+- Unity HDRP DLSS is not a free-floating texture postprocess. The documented path is
+  tied to HDRP Dynamic Resolution and camera-level "Allow Dynamic Resolution" /
+  "Allow DLSS" controls. DLSS can drive the dynamic-resolution scale when "Use Optimal
+  Settings" is enabled.
+- Unity RenderGraph resources are handle-based during setup. Actual texture resources
+  are intended to be accessed in render pass execution code after explicit read/write
+  declarations. Unity's own docs emphasize per-frame graph setup/execution and resource
+  lifetime derived from declared pass usage.
+- Unity's HDRP `DLSSPass` source creates/recreates DLSS state only when the view,
+  size, quality, optimal-settings flag, or context changes. Per frame, it submits DLSS
+  from the upscale pass with explicit color, depth, motion-vector, exposure, bias-color,
+  and output resources plus jitter/reset metadata.
+- Streamline likewise frames DLSS SR as a render-thread evaluate at the upscaling
+  location, using current-frame resources. Its resource-tagging guidance is explicit
+  about frame tokens, local evaluate inputs, resource lifecycle, and avoiding
+  unnecessary volatile/`OnlyValidNow` behavior.
+- OptiScaler's public shape is also instructive: it generally replaces or intercepts an
+  existing upscaler input path rather than discovering arbitrary engine resources on
+  every texture lookup. Its pattern-search options are startup/load-time oriented, not
+  a per-`GetTexture` production path.
+- The 2026 NVIDIA forum Unity thread is useful for debugging expectations: successful
+  `NGX_D3D11_EVALUATE_DLSS_EXT` from a RenderGraph callback may not be visible in
+  RenderDoc because DLSS can use a private path. Screenshot/performance evidence is
+  more reliable than RenderDoc alone for our final correctness gate.
+
+Updated route decision: keep the current `GetTexture` tuple path as a diagnostic and
+short-term discovery aid only. The next production-oriented attempt should move tuple
+use/evaluate to a targeted render/upscale pass boundary, or patch a more specific HDRP
+resource submission point, with the accepted tuple cached by frame/view and no global
+per-texture resource-discovery work in the steady state.

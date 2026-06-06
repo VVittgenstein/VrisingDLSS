@@ -19,6 +19,7 @@ param(
         "dlss-visible-writeback",
         "render-scale-control",
         "dlss-user-rendering",
+        "dlss-user-rendering-no-evaluate",
         "dlss-evaluate",
         "dlss-persistent-evaluate",
         "dlsspass-resource"
@@ -72,6 +73,7 @@ function New-ConfigMap {
             EnableDlssPassResourceProbe = "false"
             EnableUpscalerStateProbe = "false"
             EnableRenderScaleControlProbe = "false"
+            EnableDlssUserRenderingNoEvaluateProbe = "false"
             EnableHookProbe = "true"
             EnableHarmonyCallProbe = "false"
         }
@@ -227,6 +229,14 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"
             $Config.Diagnostics.EnableRenderScaleControlProbe = "true"
             $Config.DLSS.EnableDLSS = "true"
+        }
+        "dlss-user-rendering-no-evaluate" {
+            $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
+            $Config.Diagnostics.EnableD3D11TextureProbe = "true"
+            $Config.Diagnostics.EnableResourceMaterializationProbe = "true"
+            $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+            $Config.Diagnostics.EnableRenderScaleControlProbe = "true"
+            $Config.Diagnostics.EnableDlssUserRenderingNoEvaluateProbe = "true"
         }
         "dlss-evaluate" {
             $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"

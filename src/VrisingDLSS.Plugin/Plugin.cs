@@ -36,6 +36,10 @@ public sealed class Plugin : BasePlugin
         {
             _log.LogWarning("DLSS.EnableDLSS is true. The experimental user rendering path will use the crash-safe RenderGraph resource route and at most one DLSS evaluate per Unity frame when a compatible native bridge/runtime is available.");
         }
+        if (_config.EnableDlssUserRenderingNoEvaluateProbe.Value)
+        {
+            _log.LogWarning("DLSS user-rendering no-evaluate diagnostic is true. This will exercise RenderGraph tuple discovery and Super Resolution input acceptance, but it will not call NGX evaluate or write into the output target.");
+        }
 
         if (_config.EnableHookProbe.Value)
         {
@@ -47,7 +51,7 @@ public sealed class Plugin : BasePlugin
             UpscalerStateProbe.Install(_log);
         }
 
-        if (_config.EnableRenderScaleControlProbe.Value || _config.EnableDlss.Value)
+        if (_config.EnableRenderScaleControlProbe.Value || _config.EnableDlss.Value || _config.EnableDlssUserRenderingNoEvaluateProbe.Value)
         {
             RenderScaleControlProbe.Install(_log, _config.QualityMode.Value, _config.RenderScaleOverride.Value);
         }
@@ -67,7 +71,8 @@ public sealed class Plugin : BasePlugin
             || _config.EnableDlssEvaluateProbe.Value
             || _config.EnableDlssPersistentEvaluateProbe.Value
             || _config.EnableDlssPassResourceProbe.Value
-            || _config.EnableDlss.Value)
+            || _config.EnableDlss.Value
+            || _config.EnableDlssUserRenderingNoEvaluateProbe.Value)
         {
             RunFrameResourceProbe();
         }
@@ -199,6 +204,7 @@ public sealed class Plugin : BasePlugin
             _config?.EnableDlssSuperResolutionFrameSequenceEvaluateProbe.Value ?? false,
             _config?.EnableDlssVisibleWritebackProbe.Value ?? false,
             _config?.EnableDlss.Value ?? false,
+            _config?.EnableDlssUserRenderingNoEvaluateProbe.Value ?? false,
             _config?.KeepDlssVisibleWritebackProbeRunning.Value ?? false,
             CreateDlssEvaluateProbeSettings(),
             _config?.EnableRenderGraphDiagnosticPass.Value ?? false,

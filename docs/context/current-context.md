@@ -106,6 +106,25 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
   `0` `DLSS user rendering evaluate succeeded` lines and `0` `RenderGraph GetTexture
   call` lines. Cleanup restored release-safe config, left no game process, and
   restored the `11111` save to `ChangeCount=0`.
+- No-evaluate isolation is now complete. The new `dlss-user-rendering-no-evaluate`
+  stage accepts the same RenderGraph tuple but returns before creating/evaluating a
+  native DLSS frame sequence. It reproduced the collapse without NGX evaluate:
+  r1 `202.741 -> 96.867` FPS with `32111` GetTexture-call logs, r2 `200.115 ->
+  102.505` FPS after suppressing generic GetTexture diagnostic logging/probe, and
+  r3 `201.802 -> 111.842` FPS after reflection caches and accepted-tuple reuse.
+  Candidate GPU utilization stayed low around `34-38%`, and all runs logged `0`
+  evaluate successes. Cleanup restored release-safe config and the `11111` save to
+  `ChangeCount=0`. This makes the global
+  `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` postfix/placement the
+  leading suspect, not direct NGX evaluate CPU time or render-scale-only control.
+- External research downloaded on 2026-06-06 into
+  `ref/dlss-performance-investigation-2026-06-06/` aligns with that conclusion:
+  Unity RenderGraph expects actual resources to be used inside render pass execution
+  after explicit read/write declarations; HDRP DLSS is tied to Dynamic Resolution and
+  submits from a targeted `DLSSPass`; Streamline/NGX guidance centers on feature
+  reuse, current-frame resource tagging/evaluate, and explicit resize/reset/lifecycle
+  handling; OptiScaler-style injection generally reuses existing upscaler input paths
+  instead of broad per-texture discovery.
 - Phase 1 no-DLSS automation proof has partial-control history: `scripts/run-vrising-automation-proof.ps1` can launch V Rising, detect the real `UnityWndClass` window instead of the BepInEx console, capture a nonblank screenshot, archive logs, restore settings/config, and leave no V Rising process. Earlier run `automation-proof-1920-window-v5-20260606` reported `Status=Partial` because it used `FullScreenWindow`; this was later solved for the session harness by temporarily adding `GraphicSettings.WindowMode=3`.
 - Phase 1 direct-entry search found no supported client command-line auto-continue/direct-connect route in current official Stunlock launch options or local evidence. Local `ServerHistory.json` and interop strings strongly support the in-game `Continue`/direct-connect UI route instead.
 - The target local/private game for Continue automation is likely `Name=11111`: this is present in `ServerHistory.json`, and the user recalled the local game was named with many `1` characters and should be continuable directly.
@@ -144,10 +163,11 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
 - Normal-user `dlss-user-rendering` now has gameplay screenshots and repeated evaluate
   success under V Rising FSR Off, but it fails the performance gate severely.
   Render-scale-only is no longer the primary suspect: r1 preserved average FPS around
-  baseline while proving the 0.5 scale was active and no DLSS evaluate ran. The next
-  technical blocker is to separate the hot RenderGraph tuple-discovery hook from
-  native DLSS evaluate/writeback, or to move evaluate into a real render/upscale pass
-  boundary.
+  baseline while proving the 0.5 scale was active and no DLSS evaluate ran.
+  No-evaluate isolation then reproduced the severe drop without NGX evaluate, even
+  after logging suppression and tuple/reflection caching. The next technical blocker
+  is to remove the global `GetTexture` postfix from the steady-state path and move
+  tuple use/evaluate into a targeted render/upscale pass boundary.
 - Gameplay image-correctness still needs a human review only after the severe
   performance regression is fixed; do not write a passing human review for the r2
   artifact.
@@ -175,10 +195,12 @@ Follow the new goal order:
    - the protected `1920x1080` Windowed `render-scale-control`/no-DLSS-evaluate
      comparison is now complete in `render-scale-only-1080p-20260606-r1`; it did not
      reproduce the severe FPS/GPU-utilization drop;
-   - next loop should isolate `dlss-user-rendering` itself: hot RenderGraph discovery
-     without evaluate/writeback, evaluate/writeback from a real render/upscale pass
-     boundary, or equivalent instrumentation that separates CPU hook overhead from GPU
-     submission/present behavior;
+   - `dlss-user-rendering-no-evaluate` isolation is complete in
+     `user-rendering-no-evaluate-1080p-20260606-r1/r2/r3`; it reproduced the collapse
+     without native DLSS evaluate, and caching/log suppression only partially helped;
+   - next loop should stop treating global `GetTexture` as the normal runtime path and
+     instead target a real HDRP render/upscale pass boundary, or a more specific
+     resource submission point, where current-frame resources are already valid;
    - after performance is no longer severely negative, resume visual correctness,
      resize/reset, fallback, and productionizing the guarded v6 render-scale
      intervention;
@@ -186,10 +208,10 @@ Follow the new goal order:
 
 ## Current Repository Checkpoint
 
-As of the v6 user-rendering visual/performance follow-up:
+As of the no-evaluate user-rendering performance follow-up:
 
 - Branch: `main`.
-- Latest pushed checkpoint before this update: `5d4125d Prove FSR-off post-update render scale`.
+- Latest pushed checkpoint before this update: `89c2bca Record render-scale-only performance evidence`.
 - The current working tree records the `fsr-off-render-scale-1080p-software-fallback-v5-20260606`
   failed fallback-only result, the `fsr-off-render-scale-1080p-post-update-fraction-v6-20260606`
   tuple/evaluate pass, safe cleanup, save restoration, external DLSS mod practice
@@ -198,6 +220,9 @@ As of the v6 user-rendering visual/performance follow-up:
   the `v6-user-rendering-1080p-timing-20260606-r3` timing result showing stable NGX
   evaluate CPU wall time is not the sustained performance blocker, plus the
   `render-scale-only-1080p-20260606-r1` isolation showing render-scale-only keeps
-  average FPS near baseline.
+  average FPS near baseline. Current uncommitted work adds
+  `dlss-user-rendering-no-evaluate` plus hot-path caches and records r1/r2/r3 evidence
+  that the global RenderGraph `GetTexture` postfix remains too expensive for
+  steady-state runtime placement.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.
