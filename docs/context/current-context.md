@@ -658,5 +658,24 @@ As of the read-only RenderGraph pass-map runtime result:
   `0`; `CrashEventCount=0`. Cleanup restored loader config, release-safe native,
   ClientSettings, and no game process remained. See
   `docs/development/native-renderfunc-resource-identity-runtime-result-2026-06-07.md`.
-  Next step: protected `11111` gameplay proof at true `1920x1080` Windowed with
-  save backup/restore and no movement keys.
+  Protected `11111` gameplay proof
+  `native-renderfunc-resource-identity-gameplay-1080p-20260607-r1` also passed
+  at true `1920x1080` Windowed. Computer Use selected the real Unity `VRising`
+  window, clicked the Chinese Continue / `11111` area once at `(205, 354)` in a
+  `1283x751` screenshot, and sent no movement/gameplay keys. Gameplay screenshot
+  showed quest text, character, HUD, health bar, and action bar. Analyzer
+  reported `Native RenderFunc Resource Identity=Pass`; first advanced line
+  appeared at `compile=4` with `managedPassData=0x166A6073300`,
+  `nativeLastPassData=0x166A6073300`, `passDataMatches=True`, and
+  `hasTextureIdentity=True`; final entry/argument status reached
+  `entryCount=1072`, `sampleCount=1072`, all four raw pointer categories nonzero
+  `1072/1072`; `RenderGraph GetTexture call #=0`; actual native/DLSS
+  evaluate/probe patterns `0`; `CrashEventCount=0`. Cleanup restored loader
+  config, release-safe native, ClientSettings, no game process remained, and the
+  protected save restored to `ChangeCount=0` after archiving one changed
+  post-run state. See
+  `docs/development/native-renderfunc-resource-identity-gameplay-result-2026-06-07.md`.
+  Next engineering step: decide whether this proven managed EASU pass-data /
+  TextureHandle identity can support a separate default-off official-boundary-
+  adjacent resource preflight. Still no command-buffer access or DLSS evaluate
+  without another explicit preflight.

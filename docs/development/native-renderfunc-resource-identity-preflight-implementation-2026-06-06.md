@@ -1,6 +1,7 @@
 # Native RenderFunc Resource Identity Preflight Implementation - 2026-06-06
 
-Status: implemented, statically validated, and menu-runtime validated.
+Status: implemented, statically validated, menu-runtime validated, and
+protected-gameplay validated.
 
 ## Question
 
@@ -82,10 +83,13 @@ No V Rising or Unity crash-handler process was running after validation.
 Menu runtime proof passed on 2026-06-07 as
 `native-renderfunc-resource-identity-1080p-menu-20260607-r1`; see
 `docs/development/native-renderfunc-resource-identity-runtime-result-2026-06-07.md`.
+Protected `11111` gameplay proof passed on 2026-06-07 as
+`native-renderfunc-resource-identity-gameplay-1080p-20260607-r1`; see
+`docs/development/native-renderfunc-resource-identity-gameplay-result-2026-06-07.md`.
 
-## Next Runtime Test
+## Follow-Up
 
-Protected `11111` gameplay proof is next. The menu proof command was:
+The menu proof command was:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-resource-identity -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3
@@ -93,3 +97,4 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-vrising-diagnost
 
 Cleanup after the menu proof restored loader-safe config, release-safe native
 DLL state, ClientSettings, and left no V Rising/UnityCrashHandler process.
+The protected gameplay proof then restored the save to `ChangeCount=0`.

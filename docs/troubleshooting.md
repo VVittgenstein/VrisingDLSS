@@ -505,8 +505,12 @@ Menu runtime proof
 `native-renderfunc-resource-identity-1080p-menu-20260607-r1` passed at true
 `1920x1080` Windowed; see
 `docs/development/native-renderfunc-resource-identity-runtime-result-2026-06-07.md`.
-Next proof is protected `11111` gameplay with save backup/restore and no
-movement keys.
+Protected `11111` gameplay proof
+`native-renderfunc-resource-identity-gameplay-1080p-20260607-r1` also passed
+with no movement keys and save restore `ChangeCount=0`; see
+`docs/development/native-renderfunc-resource-identity-gameplay-result-2026-06-07.md`.
+This remains resource-identity proof only; do not treat it as command-buffer,
+texture-resolution, or DLSS evaluate proof.
 
 ## RenderGraph Execute-Delegate Probe
 

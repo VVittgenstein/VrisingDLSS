@@ -306,9 +306,12 @@ function Get-NextRecommendation {
     }
 
     if ($nativeRenderFuncResourceIdentity -eq "Pass") {
-        $nativeRenderFuncResourceIdentityGameplayDoc = Join-Path $Root "docs\development\native-renderfunc-resource-identity-gameplay-result-2026-06-06.md"
-        if (Test-Path -LiteralPath $nativeRenderFuncResourceIdentityGameplayDoc) {
-            return "Native render-func resource identity menu and protected 11111 gameplay proofs passed. Next engineering step is deciding whether the proven managed EASU pass-data/TextureHandle identity can support a safe official-boundary-adjacent resource path; still do not add command-buffer access or DLSS evaluate without a separate preflight."
+        $developmentDocRoot = Join-Path $Root "docs\development"
+        $nativeRenderFuncResourceIdentityGameplayDoc = Get-ChildItem -LiteralPath $developmentDocRoot -Filter "native-renderfunc-resource-identity-gameplay-result-*.md" -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+        if ($nativeRenderFuncResourceIdentityGameplayDoc) {
+            return "Native render-func resource identity menu and protected 11111 gameplay proofs passed. Next engineering step is deciding whether the proven managed EASU pass-data/TextureHandle identity can support a safe official-boundary-adjacent resource path; still do not add command-buffer access or DLSS evaluate without a separate preflight. Latest proof: $($nativeRenderFuncResourceIdentityGameplayDoc.FullName)"
         }
 
         return "Native render-func resource identity menu preflight passed in available logs. Next step is a protected 11111 gameplay proof at 1920x1080 Windowed using scripts\start-vrising-automation-session.ps1 -Stage native-renderfunc-resource-identity; no native-callback pointer dereference, command-buffer access, or DLSS evaluate."

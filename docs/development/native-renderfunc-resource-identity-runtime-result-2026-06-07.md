@@ -1,6 +1,8 @@
 # Native RenderFunc Resource Identity Runtime Result - 2026-06-07
 
-Status: menu-only runtime proof passed.
+Status: menu-only runtime proof passed. Protected gameplay proof also passed
+later; see
+`docs/development/native-renderfunc-resource-identity-gameplay-result-2026-06-07.md`.
 
 ## Question
 
@@ -102,6 +104,5 @@ This proves menu-only resource-identity correlation for the focused native EASU
 render-func boundary. It does not prove protected gameplay safety, command
 buffer availability, actual texture/resource resolution, or DLSS evaluate safety.
 
-Next step: protected `11111` gameplay proof for
-`native-renderfunc-resource-identity` at true `1920x1080` Windowed, using the
-existing save backup/restore protocol and no movement keys.
+The protected `11111` gameplay proof has now passed. Continue from
+`docs/development/native-renderfunc-resource-identity-gameplay-result-2026-06-07.md`.

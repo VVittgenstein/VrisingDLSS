@@ -516,7 +516,7 @@ if (Test-Path -LiteralPath $reviewResolved) {
 }
 
 if (@($issues | Where-Object { $_ -like "Candidate * regressed*" -or $_ -like "Candidate P95 frame time worsened*" }).Count -gt 0) {
-    $nextRecommendation = "Cached-driver real-evaluate crashed in nvwgf2umx.dll even with GetTexture evaluate/output-follow-up at zero. The safe CompileRenderGraph map path has pass-list, declarations, pass-data, renderfunc-metadata, and compiled-pass-info proof; execute-delegate was stable but silent; native-renderfunc-entry preflight plus menu/gameplay proofs passed, native-renderfunc-args menu/gameplay proofs passed, and the resource-identity preflight is now implemented. The next narrow step is its 1920x1080 Windowed menu proof, without native-callback pointer dereference, command-buffer access, or DLSS evaluate. Do not patch generated render funcs through Harmony or rerun completed/rejected probes unchanged."
+    $nextRecommendation = "Cached-driver real-evaluate crashed in nvwgf2umx.dll even with GetTexture evaluate/output-follow-up at zero. The safe CompileRenderGraph map path has pass-list, declarations, pass-data, renderfunc-metadata, and compiled-pass-info proof; execute-delegate was stable but silent; native-renderfunc-entry preflight plus menu/gameplay proofs passed, native-renderfunc-args menu/gameplay proofs passed, and native-renderfunc-resource-identity menu/gameplay proofs passed. The next narrow step is deciding a separate default-off official-boundary-adjacent resource preflight from the proven managed EASU pass-data/TextureHandle identity, without command-buffer access or DLSS evaluate. Do not patch generated render funcs through Harmony or rerun completed/rejected probes unchanged."
 }
 
 if ($issues.Count -gt 0) {
