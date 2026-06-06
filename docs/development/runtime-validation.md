@@ -599,9 +599,32 @@ Current Stage 8A status:
   proves gameplay argument-shape safety only, not pointer dereference, resource
   identity, command-buffer, or DLSS evaluate safety. See
   `docs/development/native-renderfunc-args-gameplay-result-2026-06-06.md`.
-  Next route: design a separate default-off resource-identity preflight from
-  this evidence, still menu-first and still no command-buffer access or DLSS
-  evaluate.
+  Next route is now the separate default-off resource-identity menu proof, still
+  menu-first and still no command-buffer access or DLSS evaluate.
+- Narrow source/search refresh
+  `docs/research/hdrp-dlss-pass-boundary-narrow-refresh-2026-06-06.md`
+  reconfirmed the same official HDRP boundary:
+  `DoDLSSPass -> Deep Learning Super Sampling render func ->
+  DLSSPass.GetCameraResources -> DLSSPass.Render(ctx.cmd)`. V Rising exposes the
+  DLSS pass structure and exact generated EASU render-func method, but local
+  metadata still lacks the complete Unity NVIDIA runtime stack. No new safe
+  Harmony-equivalent boundary was found; continue with resource identity only,
+  not `GetTexture`, command buffers, or evaluate.
+- Native render-func resource identity preflight is now implemented as a
+  separate default-off stage:
+  `Diagnostics.EnableNativeRenderFuncResourceIdentityProbe=false`, helper stage
+  `native-renderfunc-resource-identity`. It reuses the proven focused EASU
+  entry/args no-op detour, correlates the latest raw native `passDataPtr` with
+  the managed EASU pass-data object observed from `CompileRenderGraph(int)`, and
+  verifies focused managed `source` / `destination` TextureHandle identity. It
+  still does not dereference native callback pointers, resolve textures, call
+  `GetTexture`, touch command buffers, patch generated render funcs through
+  Harmony, or evaluate DLSS. Static `git diff --check`, Release build, dry-run
+  config, Thunderstore package build/validation, and process-safety check
+  passed. See
+  `docs/development/native-renderfunc-resource-identity-preflight-implementation-2026-06-06.md`.
+  Next proof is a `1920x1080` Windowed menu-only run of
+  `native-renderfunc-resource-identity`.
 - See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.
 
 ## Stage 8B: First Guarded DLSS Evaluate Diagnostic

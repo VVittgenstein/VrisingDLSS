@@ -27,6 +27,7 @@ param(
         "rendergraph-execute-delegate",
         "native-renderfunc-entry",
         "native-renderfunc-args",
+        "native-renderfunc-resource-identity",
         "render-scale-control",
         "dlss-user-rendering",
         "dlss-user-rendering-cached-driver",
@@ -93,6 +94,7 @@ function New-ConfigMap {
             EnableRenderGraphExecuteDelegateProbe = "false"
             EnableNativeRenderFuncEntryProbe = "false"
             EnableNativeRenderFuncArgumentProbe = "false"
+            EnableNativeRenderFuncResourceIdentityProbe = "false"
             EnableRenderGraphGetTextureProbe = "true"
             EnableDlssPassResourceProbe = "false"
             EnableUpscalerStateProbe = "false"
@@ -309,6 +311,15 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
             $Config.Diagnostics.EnableNativeRenderFuncEntryProbe = "true"
             $Config.Diagnostics.EnableNativeRenderFuncArgumentProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
+            $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+            $Config.Diagnostics.EnableHookProbe = "false"
+        }
+        "native-renderfunc-resource-identity" {
+            $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncEntryProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncArgumentProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncResourceIdentityProbe = "true"
             $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"
             $Config.Diagnostics.EnableHookProbe = "false"

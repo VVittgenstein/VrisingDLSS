@@ -237,6 +237,12 @@ $results.Add((New-StageResult `
     -StartedPatterns @("Native render-func argument preflight enabled", "Native render-func argument status #", "Native render-func entry detour installed:")))
 
 $results.Add((New-StageResult `
+    -Stage "Native RenderFunc Resource Identity" `
+    -PassPatterns @("Native render-func resource identity advanced:") `
+    -FailPatterns @("Native render-func entry probe failed:", "Native render-func entry detour dispose failed:", "RenderGraph pass-list logging failed", "Native render-func resource identity data=not found") `
+    -StartedPatterns @("Native render-func resource identity preflight enabled", "Native render-func resource identity status #", "Native render-func entry detour installed:")))
+
+$results.Add((New-StageResult `
     -Stage "Stage 5D DLSS Runtime" `
     -PassPatterns @("DLSS runtime probe succeeded:") `
     -FailPatterns @("DLSS runtime probe failed:", "DLSS runtime probe skipped:") `

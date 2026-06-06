@@ -619,6 +619,29 @@ As of the read-only RenderGraph pass-map runtime result:
   process remained, and the protected save restored to `ChangeCount=0` after one
   autosave rotation was archived. See
   `docs/development/native-renderfunc-args-gameplay-result-2026-06-06.md`.
-  Next step: design a separate default-off resource-identity preflight from the
-  raw argument evidence, still no native-callback pointer dereference,
-  command-buffer access, or DLSS evaluate.
+  Next step is now the separate default-off resource-identity menu proof, still
+  no native-callback pointer dereference, command-buffer access, or DLSS
+  evaluate.
+- Narrow source/search refresh after the args proof is recorded in
+  `docs/research/hdrp-dlss-pass-boundary-narrow-refresh-2026-06-06.md`.
+  It reconfirms the official HDRP boundary as the `Deep Learning Super Sampling`
+  RenderGraph render function: `DoDLSSPass -> DLSSPass.GetCameraResources ->
+  DLSSPass.Render(ctx.cmd)`. V Rising interop exposes the DLSS pass structure
+  and exact generated EASU render-func method, but not the complete Unity NVIDIA
+  runtime stack. No new safe Harmony boundary was found. The next reversible
+  step is the default-off resource-identity preflight implemented below.
+- The `native-renderfunc-resource-identity` preflight is now implemented and
+  statically validated; see
+  `docs/development/native-renderfunc-resource-identity-preflight-implementation-2026-06-06.md`.
+  Config key: `Diagnostics.EnableNativeRenderFuncResourceIdentityProbe=false`.
+  Helper stage: `native-renderfunc-resource-identity`. It reuses the proven EASU
+  native entry/args no-op detour, correlates the latest raw native `passDataPtr`
+  with the managed EASU pass-data object observed from
+  `CompileRenderGraph(int)`, and verifies focused managed `source` /
+  `destination` TextureHandle identity. It still does not dereference native
+  callback pointers, resolve textures, call `GetTexture`, touch command buffers,
+  patch generated render funcs through Harmony, or evaluate DLSS. Static
+  `git diff --check`, Release build, dry-run config, Thunderstore package
+  build/validation, and process-safety check passed. Next proof is
+  `scripts\run-vrising-diagnostic.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-resource-identity -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3`
+  at true `1920x1080` Windowed menu-only.

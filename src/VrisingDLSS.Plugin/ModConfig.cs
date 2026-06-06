@@ -34,6 +34,7 @@ internal sealed class ModConfig
     internal ConfigEntry<bool> EnableRenderGraphExecuteDelegateProbe { get; }
     internal ConfigEntry<bool> EnableNativeRenderFuncEntryProbe { get; }
     internal ConfigEntry<bool> EnableNativeRenderFuncArgumentProbe { get; }
+    internal ConfigEntry<bool> EnableNativeRenderFuncResourceIdentityProbe { get; }
     internal ConfigEntry<bool> EnableRenderGraphGetTextureProbe { get; }
     internal ConfigEntry<bool> EnableDlssPassResourceProbe { get; }
     internal ConfigEntry<bool> EnableUpscalerStateProbe { get; }
@@ -88,6 +89,7 @@ internal sealed class ModConfig
         EnableRenderGraphExecuteDelegateProbe = config.Bind("Diagnostics", "EnableRenderGraphExecuteDelegateProbe", false, "Read-only RenderGraph execution-layer probe. Patches closed GetExecuteDelegate<TPassData>() methods for focused HDRP pass data only; does not resolve textures, touch command buffers, or evaluate DLSS.");
         EnableNativeRenderFuncEntryProbe = config.Bind("Diagnostics", "EnableNativeRenderFuncEntryProbe", false, "High-risk native RenderGraph render-func entry no-op probe. Targets one focused EASU method_ptr, increments a counter, then immediately calls the original trampoline; does not resolve textures, touch command buffers, or evaluate DLSS. Leave false unless menu-only local testing is intentional.");
         EnableNativeRenderFuncArgumentProbe = config.Bind("Diagnostics", "EnableNativeRenderFuncArgumentProbe", false, "High-risk native RenderGraph render-func argument preflight. Reuses the entry no-op detour to sample raw callback argument pointers only; does not dereference pointers, resolve textures, touch command buffers, or evaluate DLSS. Leave false unless menu-only local testing is intentional.");
+        EnableNativeRenderFuncResourceIdentityProbe = config.Bind("Diagnostics", "EnableNativeRenderFuncResourceIdentityProbe", false, "High-risk native RenderGraph render-func resource identity preflight. Reuses the entry/argument no-op detour and correlates the raw passData pointer with managed EASU pass data from CompileRenderGraph only; does not dereference native callback pointers, resolve textures, touch command buffers, or evaluate DLSS. Leave false unless menu-only local testing is intentional.");
         EnableRenderGraphGetTextureProbe = config.Bind("Diagnostics", "EnableRenderGraphGetTextureProbe", true, "Patch RenderGraphResourceRegistry.GetTexture(TextureHandle&) for diagnostic resource discovery. Disable only for deliberate materialization-only isolation.");
         EnableDlssPassResourceProbe = config.Bind("Diagnostics", "EnableDlssPassResourceProbe", false, "High-risk research-only patching of DLSSPass resource helper methods. Does not patch DLSSPass.Render; leave false unless deliberate Stage 8A resource testing is intentional.");
         EnableUpscalerStateProbe = config.Bind("Diagnostics", "EnableUpscalerStateProbe", false, "Patch HDRP/dynamic-resolution/DLSS setup methods and log read-only camera/upscale state snapshots. Diagnostic only; does not change render scale.");

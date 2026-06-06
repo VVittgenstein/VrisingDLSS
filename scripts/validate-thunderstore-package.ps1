@@ -311,6 +311,7 @@ try {
             "EnableRenderGraphExecuteDelegateProbe = false",
             "EnableNativeRenderFuncEntryProbe = false",
             "EnableNativeRenderFuncArgumentProbe = false",
+            "EnableNativeRenderFuncResourceIdentityProbe = false",
             "EnableRenderGraphGetTextureProbe = true",
             "EnableDlssPassResourceProbe = false",
             "EnableUpscalerStateProbe = false",

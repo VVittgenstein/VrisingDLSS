@@ -98,6 +98,7 @@ function Get-ConfiguredStage {
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassRenderFuncMetadataProbe") { return "rendergraph-renderfunc-metadata" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphCompiledPassInfoProbe") { return "rendergraph-compiled-pass-info" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphExecuteDelegateProbe") { return "rendergraph-execute-delegate" }
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncResourceIdentityProbe") { return "native-renderfunc-resource-identity" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncArgumentProbe") { return "native-renderfunc-args" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncEntryProbe") { return "native-renderfunc-entry" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssFeatureCreateProbe") { return "dlss-feature-create" }
@@ -266,6 +267,7 @@ function Get-NextRecommendation {
     $superResolutionFrameSequence = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 9A"
     $visibleWriteback = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 10A"
     $userRendering = Get-FirstStageStatus -Results $LogResults -StagePrefix "DLSS User Rendering Candidate"
+    $nativeRenderFuncResourceIdentity = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Resource Identity"
     $nativeRenderFuncArgs = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Args"
     $nativeRenderFuncEntry = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Entry"
     $currentUserRendering = Get-FirstStageStatus -Results $CurrentLogResults -StagePrefix "DLSS User Rendering Candidate"
@@ -303,9 +305,23 @@ function Get-NextRecommendation {
         return "The latest dlss-user-rendering gameplay log did not accept an FSR Off Super Resolution tuple: the main candidate stayed color=1920x1080 output=1920x1080. Before rerunning the same runtime proof, use the targeted render-scale diagnostic to check for `Render-scale control member write did not stick`, `RTHandles.SetHardwareDynamicResolutionState=true`, and whether the gameplay camera/main targets remain full-size."
     }
 
+    if ($nativeRenderFuncResourceIdentity -eq "Pass") {
+        $nativeRenderFuncResourceIdentityGameplayDoc = Join-Path $Root "docs\development\native-renderfunc-resource-identity-gameplay-result-2026-06-06.md"
+        if (Test-Path -LiteralPath $nativeRenderFuncResourceIdentityGameplayDoc) {
+            return "Native render-func resource identity menu and protected 11111 gameplay proofs passed. Next engineering step is deciding whether the proven managed EASU pass-data/TextureHandle identity can support a safe official-boundary-adjacent resource path; still do not add command-buffer access or DLSS evaluate without a separate preflight."
+        }
+
+        return "Native render-func resource identity menu preflight passed in available logs. Next step is a protected 11111 gameplay proof at 1920x1080 Windowed using scripts\start-vrising-automation-session.ps1 -Stage native-renderfunc-resource-identity; no native-callback pointer dereference, command-buffer access, or DLSS evaluate."
+    }
+
     if ($nativeRenderFuncArgs -eq "Pass") {
+        $nativeRenderFuncResourceIdentityImplementationDoc = Join-Path $Root "docs\development\native-renderfunc-resource-identity-preflight-implementation-2026-06-06.md"
         $nativeRenderFuncArgsGameplayDoc = Join-Path $Root "docs\development\native-renderfunc-args-gameplay-result-2026-06-06.md"
         if (Test-Path -LiteralPath $nativeRenderFuncArgsGameplayDoc) {
+            if (Test-Path -LiteralPath $nativeRenderFuncResourceIdentityImplementationDoc) {
+                return "Native render-func argument menu and protected 11111 gameplay proofs passed, and the default-off resource-identity preflight is implemented. Next step is scripts\run-vrising-diagnostic.ps1 -GamePath `"$($Inspect.GamePath)`" -Stage native-renderfunc-resource-identity -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 for a 1920x1080 Windowed menu-only proof; no native-callback pointer dereference, command-buffer access, or DLSS evaluate."
+            }
+
             return "Native render-func argument menu and protected 11111 gameplay proofs passed. Next engineering step is a separately designed, default-off resource-identity preflight from the raw argument evidence; no native-callback pointer dereference, command-buffer access, or DLSS evaluate yet."
         }
 

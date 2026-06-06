@@ -483,6 +483,24 @@ keys and save restore `ChangeCount=0`; see
 The next step is a separate default-off resource-identity follow-up, not a rerun
 of the same args stage.
 
+`Diagnostics.EnableNativeRenderFuncResourceIdentityProbe` is implemented
+separately and defaults to `false`. The helper stage is
+`native-renderfunc-resource-identity`; it reuses the focused EASU entry/args
+detour only to correlate the latest raw native `passDataPtr` with the managed
+EASU pass-data object observed from `CompileRenderGraph(int)` and focused
+managed `source` / `destination` TextureHandle identity. It does not dereference
+native callback pointers, resolve textures, call `GetTexture`, touch command
+buffers, patch generated render funcs through Harmony, or evaluate DLSS. The
+first runtime proof must be menu-only at true `1920x1080` Windowed:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-resource-identity -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3
+```
+
+Expected analyzer line: `Native RenderFunc Resource Identity=Pass`. Treat this
+as resource-identity correlation evidence only; it is still not command-buffer
+or evaluate proof.
+
 ## RenderGraph Execute-Delegate Probe
 
 `EnableRenderGraphExecuteDelegateProbe` is disabled by default and is read-only.
