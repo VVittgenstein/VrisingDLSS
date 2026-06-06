@@ -82,8 +82,11 @@ Recorded menu result:
 
 The protected `11111` gameplay fixture has also passed; see
 `docs/development/native-renderfunc-entry-gameplay-result-2026-06-06.md`.
-Further work should move to a separately default-off native-entry argument or
-resource preflight, still with no command-buffer access or DLSS evaluate.
+The follow-up argument-shape preflight is now implemented as
+`native-renderfunc-args`; see
+`docs/development/native-renderfunc-args-preflight-implementation-2026-06-06.md`.
+It still performs no pointer dereference, resource resolution, command-buffer
+access, or DLSS evaluate.
 
 Failure criteria:
 

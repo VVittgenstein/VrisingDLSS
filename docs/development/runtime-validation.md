@@ -567,6 +567,17 @@ Current Stage 8A status:
   This remains execution-entry ABI proof only, not resource/command-buffer/DLSS
   evaluate proof. See
   `docs/development/native-renderfunc-entry-gameplay-result-2026-06-06.md`.
+- Native render-func argument preflight is now implemented as a separate
+  default-off stage: `Diagnostics.EnableNativeRenderFuncArgumentProbe=false`,
+  helper stage `native-renderfunc-args`. It reuses the already proven EASU entry
+  detour, samples only raw callback argument pointers (`thisPtr`, `passDataPtr`,
+  `renderGraphContextPtr`, `methodInfoPtr`) with atomic counters/last-pointer
+  snapshots, then calls the original trampoline. It does not dereference
+  pointers, resolve textures, call `GetTexture`, touch command buffers, or
+  evaluate DLSS. Static build, dry-run config validation, package validation,
+  release boundary check, and status scripts passed; menu runtime proof is still
+  pending. See
+  `docs/development/native-renderfunc-args-preflight-implementation-2026-06-06.md`.
 - See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.
 
 ## Stage 8B: First Guarded DLSS Evaluate Diagnostic

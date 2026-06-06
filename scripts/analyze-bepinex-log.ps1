@@ -231,6 +231,12 @@ $results.Add((New-StageResult `
     -StartedPatterns @("Native render-func entry no-op probe enabled", "Native render-func entry candidate observed", "Native render-func entry detour installed:", "Native render-func entry status #")))
 
 $results.Add((New-StageResult `
+    -Stage "Native RenderFunc Args" `
+    -PassPatterns @("Native render-func argument sample advanced:") `
+    -FailPatterns @("Native render-func entry probe failed:", "Native render-func entry detour dispose failed:") `
+    -StartedPatterns @("Native render-func argument preflight enabled", "Native render-func argument status #", "Native render-func entry detour installed:")))
+
+$results.Add((New-StageResult `
     -Stage "Stage 5D DLSS Runtime" `
     -PassPatterns @("DLSS runtime probe succeeded:") `
     -FailPatterns @("DLSS runtime probe failed:", "DLSS runtime probe skipped:") `

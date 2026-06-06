@@ -28,6 +28,7 @@ internal static class FrameResourceProbe
     private const int MaxRenderGraphCompiledPassInfoLogs = 220;
     private const int MaxRenderGraphExecuteDelegateLogs = 180;
     private const int MaxNativeRenderFuncEntryStatusLogs = 80;
+    private const int MaxNativeRenderFuncArgumentStatusLogs = 80;
     private const int NativeRenderFuncEntryStableObservationThreshold = 3;
     private const int MaxRenderGraphExecutionScopeLogs = 80;
     private const int MaxRenderGraphScopedEvaluateAttempts = 12;
@@ -74,6 +75,12 @@ internal static class FrameResourceProbe
     private static int NativeRenderFuncEntryStatusLogCount;
     private static int NativeRenderFuncEntryObservationLogCount;
     private static int NativeRenderFuncEntryCallCount;
+    private static int NativeRenderFuncArgumentStatusLogCount;
+    private static int NativeRenderFuncArgumentSampleCount;
+    private static int NativeRenderFuncArgumentThisNonZeroCount;
+    private static int NativeRenderFuncArgumentPassDataNonZeroCount;
+    private static int NativeRenderFuncArgumentContextNonZeroCount;
+    private static int NativeRenderFuncArgumentMethodInfoNonZeroCount;
     private static int RenderGraphExecutionScopeCallCount;
     private static int RenderGraphScopedEvaluateAttemptCount;
     private static int ExistingRenderFuncCallCount;
@@ -145,9 +152,11 @@ internal static class FrameResourceProbe
     private static bool RenderGraphCompiledPassInfoProbeEnabled;
     private static bool RenderGraphExecuteDelegateProbeEnabled;
     private static bool NativeRenderFuncEntryProbeEnabled;
+    private static bool NativeRenderFuncArgumentProbeEnabled;
     private static bool NativeRenderFuncEntryInstallAttempted;
     private static bool NativeRenderFuncEntryInstalled;
     private static bool NativeRenderFuncEntryCountAdvancedLogged;
+    private static bool NativeRenderFuncArgumentSampleAdvancedLogged;
     private static bool RenderGraphGetTextureProbeEnabled;
     private static bool DlssPassResourceProbeEnabled;
     private static bool RenderGraphGetTextureDiagnosticLoggingEnabled;
@@ -177,6 +186,10 @@ internal static class FrameResourceProbe
     private static bool DlssVisibleWritebackProbeSucceeded;
     private static bool DlssVisibleWritebackShutdownLogged;
     private static DlssEvaluateProbeSettings DlssEvaluateSettings;
+    private static long NativeRenderFuncArgumentLastThisPtr;
+    private static long NativeRenderFuncArgumentLastPassDataPtr;
+    private static long NativeRenderFuncArgumentLastContextPtr;
+    private static long NativeRenderFuncArgumentLastMethodInfoPtr;
     private static IntPtr NativeRenderFuncEntryCandidatePointer;
     private static int NativeRenderFuncEntryCandidateObservationCount;
     private static string? NativeRenderFuncEntryCandidatePassName;
@@ -216,9 +229,11 @@ internal static class FrameResourceProbe
         bool enableRenderGraphCompiledPassInfoProbe = false,
         bool enableRenderGraphExecuteDelegateProbe = false,
         bool enableNativeRenderFuncEntryProbe = false,
+        bool enableNativeRenderFuncArgumentProbe = false,
         bool enableRenderGraphGetTextureProbe = true,
         bool enableDlssPassResourceProbe = false)
     {
+        var nativeRenderFuncEntryRequested = enableNativeRenderFuncEntryProbe || enableNativeRenderFuncArgumentProbe;
         if (Installed)
         {
             log.LogInfo("Frame resource probe is already installed.");
@@ -250,7 +265,8 @@ internal static class FrameResourceProbe
             RenderGraphPassRenderFuncMetadataProbeEnabled = RenderGraphPassRenderFuncMetadataProbeEnabled || enableRenderGraphPassRenderFuncMetadataProbe;
             RenderGraphCompiledPassInfoProbeEnabled = RenderGraphCompiledPassInfoProbeEnabled || enableRenderGraphCompiledPassInfoProbe;
             RenderGraphExecuteDelegateProbeEnabled = RenderGraphExecuteDelegateProbeEnabled || enableRenderGraphExecuteDelegateProbe;
-            NativeRenderFuncEntryProbeEnabled = NativeRenderFuncEntryProbeEnabled || enableNativeRenderFuncEntryProbe;
+            NativeRenderFuncEntryProbeEnabled = NativeRenderFuncEntryProbeEnabled || nativeRenderFuncEntryRequested;
+            NativeRenderFuncArgumentProbeEnabled = NativeRenderFuncArgumentProbeEnabled || enableNativeRenderFuncArgumentProbe;
             RenderGraphGetTextureProbeEnabled = RenderGraphGetTextureProbeEnabled || enableRenderGraphGetTextureProbe;
             DlssPassResourceProbeEnabled = DlssPassResourceProbeEnabled || enableDlssPassResourceProbe;
             RenderGraphGetTextureDiagnosticLoggingEnabled = RenderGraphGetTextureDiagnosticLoggingEnabled || ShouldEnableRenderGraphGetTextureDiagnosticLogging(
@@ -293,7 +309,8 @@ internal static class FrameResourceProbe
         RenderGraphPassRenderFuncMetadataProbeEnabled = enableRenderGraphPassRenderFuncMetadataProbe;
         RenderGraphCompiledPassInfoProbeEnabled = enableRenderGraphCompiledPassInfoProbe;
         RenderGraphExecuteDelegateProbeEnabled = enableRenderGraphExecuteDelegateProbe;
-        NativeRenderFuncEntryProbeEnabled = enableNativeRenderFuncEntryProbe;
+        NativeRenderFuncEntryProbeEnabled = nativeRenderFuncEntryRequested;
+        NativeRenderFuncArgumentProbeEnabled = enableNativeRenderFuncArgumentProbe;
         RenderGraphGetTextureProbeEnabled = enableRenderGraphGetTextureProbe;
         DlssPassResourceProbeEnabled = enableDlssPassResourceProbe;
         RenderGraphGetTextureDiagnosticLoggingEnabled = ShouldEnableRenderGraphGetTextureDiagnosticLogging(
@@ -415,6 +432,10 @@ internal static class FrameResourceProbe
         if (NativeRenderFuncEntryProbeEnabled)
         {
             log.LogWarning("Native render-func entry no-op probe enabled. It waits for one stable EASU method_ptr, increments a counter, and immediately calls the original trampoline; use only for menu-only local boundary testing.");
+        }
+        if (NativeRenderFuncArgumentProbeEnabled)
+        {
+            log.LogWarning("Native render-func argument preflight enabled. It reuses the entry detour to sample raw callback argument pointers only; no pointer dereference, command buffer access, resource resolution, or DLSS evaluate.");
         }
         if (DlssPassResourceProbeEnabled)
         {
@@ -724,9 +745,11 @@ internal static class FrameResourceProbe
             RenderGraphCompiledPassInfoProbeEnabled = false;
             RenderGraphExecuteDelegateProbeEnabled = false;
             NativeRenderFuncEntryProbeEnabled = false;
+            NativeRenderFuncArgumentProbeEnabled = false;
             NativeRenderFuncEntryInstallAttempted = false;
             NativeRenderFuncEntryInstalled = false;
             NativeRenderFuncEntryCountAdvancedLogged = false;
+            NativeRenderFuncArgumentSampleAdvancedLogged = false;
             RenderGraphGetTextureProbeEnabled = false;
             DlssPassResourceProbeEnabled = false;
             RenderGraphGetTextureDiagnosticLoggingEnabled = false;
@@ -771,6 +794,16 @@ internal static class FrameResourceProbe
                 NativeRenderFuncEntryStatusLogCount = 0;
                 NativeRenderFuncEntryObservationLogCount = 0;
                 NativeRenderFuncEntryCallCount = 0;
+                NativeRenderFuncArgumentStatusLogCount = 0;
+                NativeRenderFuncArgumentSampleCount = 0;
+                NativeRenderFuncArgumentThisNonZeroCount = 0;
+                NativeRenderFuncArgumentPassDataNonZeroCount = 0;
+                NativeRenderFuncArgumentContextNonZeroCount = 0;
+                NativeRenderFuncArgumentMethodInfoNonZeroCount = 0;
+                NativeRenderFuncArgumentLastThisPtr = 0;
+                NativeRenderFuncArgumentLastPassDataPtr = 0;
+                NativeRenderFuncArgumentLastContextPtr = 0;
+                NativeRenderFuncArgumentLastMethodInfoPtr = 0;
                 NativeRenderFuncEntryCandidatePointer = IntPtr.Zero;
                 NativeRenderFuncEntryCandidateObservationCount = 0;
                 NativeRenderFuncEntryCandidatePassName = null;
@@ -2466,15 +2499,16 @@ internal static class FrameResourceProbe
         var observations = 0;
         var pointer = IntPtr.Zero;
         var statusLogCount = 0;
-        string? passName;
-        string? methodSummary;
+        var skipStatusLog = false;
+        string? passName = null;
+        string? methodSummary = null;
         lock (Sync)
         {
             NativeRenderFuncEntryStatusLogCount++;
             statusLogCount = NativeRenderFuncEntryStatusLogCount;
             if (statusLogCount > MaxNativeRenderFuncEntryStatusLogs && statusLogCount % 300 != 0)
             {
-                return;
+                skipStatusLog = true;
             }
 
             installed = NativeRenderFuncEntryInstalled;
@@ -2489,10 +2523,75 @@ internal static class FrameResourceProbe
             }
         }
 
-        log.LogInfo($"Native render-func entry status #{statusLogCount}: compile={compileCount}; installed={installed}; entryCount={entryCount}; observations={observations}; candidatePointer=0x{pointer.ToInt64():X}; pass=\"{passName ?? "unknown"}\"; {methodSummary ?? "method=unknown"}");
+        if (!skipStatusLog)
+        {
+            log.LogInfo($"Native render-func entry status #{statusLogCount}: compile={compileCount}; installed={installed}; entryCount={entryCount}; observations={observations}; candidatePointer=0x{pointer.ToInt64():X}; pass=\"{passName ?? "unknown"}\"; {methodSummary ?? "method=unknown"}");
+        }
+
         if (shouldLogAdvanced)
         {
             log.LogInfo($"Native render-func entry count advanced: entryCount={entryCount}; pass=\"{passName ?? "unknown"}\"; candidatePointer=0x{pointer.ToInt64():X}");
+        }
+
+        TryLogNativeRenderFuncArgumentStatus(compileCount);
+    }
+
+    private static void TryLogNativeRenderFuncArgumentStatus(int compileCount)
+    {
+        if (!NativeRenderFuncArgumentProbeEnabled)
+        {
+            return;
+        }
+
+        var log = Log;
+        if (log is null)
+        {
+            return;
+        }
+
+        var sampleCount = Volatile.Read(ref NativeRenderFuncArgumentSampleCount);
+        var entryCount = Volatile.Read(ref NativeRenderFuncEntryCallCount);
+        var thisNonZeroCount = Volatile.Read(ref NativeRenderFuncArgumentThisNonZeroCount);
+        var passDataNonZeroCount = Volatile.Read(ref NativeRenderFuncArgumentPassDataNonZeroCount);
+        var contextNonZeroCount = Volatile.Read(ref NativeRenderFuncArgumentContextNonZeroCount);
+        var methodInfoNonZeroCount = Volatile.Read(ref NativeRenderFuncArgumentMethodInfoNonZeroCount);
+        var lastThisPtr = Volatile.Read(ref NativeRenderFuncArgumentLastThisPtr);
+        var lastPassDataPtr = Volatile.Read(ref NativeRenderFuncArgumentLastPassDataPtr);
+        var lastContextPtr = Volatile.Read(ref NativeRenderFuncArgumentLastContextPtr);
+        var lastMethodInfoPtr = Volatile.Read(ref NativeRenderFuncArgumentLastMethodInfoPtr);
+        var shouldLogAdvanced = false;
+        var statusLogCount = 0;
+        var skipStatusLog = false;
+        var installed = false;
+        var pointer = IntPtr.Zero;
+        string? passName = null;
+        lock (Sync)
+        {
+            NativeRenderFuncArgumentStatusLogCount++;
+            statusLogCount = NativeRenderFuncArgumentStatusLogCount;
+            if (statusLogCount > MaxNativeRenderFuncArgumentStatusLogs && statusLogCount % 300 != 0)
+            {
+                skipStatusLog = true;
+            }
+
+            installed = NativeRenderFuncEntryInstalled;
+            pointer = NativeRenderFuncEntryCandidatePointer;
+            passName = NativeRenderFuncEntryCandidatePassName;
+            if (sampleCount > 0 && !NativeRenderFuncArgumentSampleAdvancedLogged)
+            {
+                NativeRenderFuncArgumentSampleAdvancedLogged = true;
+                shouldLogAdvanced = true;
+            }
+        }
+
+        if (!skipStatusLog)
+        {
+            log.LogInfo($"Native render-func argument status #{statusLogCount}: compile={compileCount}; installed={installed}; entryCount={entryCount}; sampleCount={sampleCount}; nonzeroThis={thisNonZeroCount}; nonzeroPassData={passDataNonZeroCount}; nonzeroContext={contextNonZeroCount}; nonzeroMethodInfo={methodInfoNonZeroCount}; lastThis=0x{lastThisPtr:X}; lastPassData=0x{lastPassDataPtr:X}; lastContext=0x{lastContextPtr:X}; lastMethodInfo=0x{lastMethodInfoPtr:X}; candidatePointer=0x{pointer.ToInt64():X}; pass=\"{passName ?? "unknown"}\"");
+        }
+
+        if (shouldLogAdvanced)
+        {
+            log.LogInfo($"Native render-func argument sample advanced: sampleCount={sampleCount}; nonzeroThis={thisNonZeroCount}; nonzeroPassData={passDataNonZeroCount}; nonzeroContext={contextNonZeroCount}; nonzeroMethodInfo={methodInfoNonZeroCount}; lastThis=0x{lastThisPtr:X}; lastPassData=0x{lastPassDataPtr:X}; lastContext=0x{lastContextPtr:X}; lastMethodInfo=0x{lastMethodInfoPtr:X}; pass=\"{passName ?? "unknown"}\"");
         }
     }
 
@@ -2547,8 +2646,46 @@ internal static class FrameResourceProbe
         IntPtr methodInfoPtr)
     {
         Interlocked.Increment(ref NativeRenderFuncEntryCallCount);
+        if (NativeRenderFuncArgumentProbeEnabled)
+        {
+            RecordNativeRenderFuncArgumentSample(thisPtr, passDataPtr, renderGraphContextPtr, methodInfoPtr);
+        }
+
         var original = NativeRenderFuncEntryOriginalDelegate;
         original?.Invoke(thisPtr, passDataPtr, renderGraphContextPtr, methodInfoPtr);
+    }
+
+    private static void RecordNativeRenderFuncArgumentSample(
+        IntPtr thisPtr,
+        IntPtr passDataPtr,
+        IntPtr renderGraphContextPtr,
+        IntPtr methodInfoPtr)
+    {
+        Interlocked.Increment(ref NativeRenderFuncArgumentSampleCount);
+        if (thisPtr != IntPtr.Zero)
+        {
+            Interlocked.Increment(ref NativeRenderFuncArgumentThisNonZeroCount);
+        }
+
+        if (passDataPtr != IntPtr.Zero)
+        {
+            Interlocked.Increment(ref NativeRenderFuncArgumentPassDataNonZeroCount);
+        }
+
+        if (renderGraphContextPtr != IntPtr.Zero)
+        {
+            Interlocked.Increment(ref NativeRenderFuncArgumentContextNonZeroCount);
+        }
+
+        if (methodInfoPtr != IntPtr.Zero)
+        {
+            Interlocked.Increment(ref NativeRenderFuncArgumentMethodInfoNonZeroCount);
+        }
+
+        Interlocked.Exchange(ref NativeRenderFuncArgumentLastThisPtr, thisPtr.ToInt64());
+        Interlocked.Exchange(ref NativeRenderFuncArgumentLastPassDataPtr, passDataPtr.ToInt64());
+        Interlocked.Exchange(ref NativeRenderFuncArgumentLastContextPtr, renderGraphContextPtr.ToInt64());
+        Interlocked.Exchange(ref NativeRenderFuncArgumentLastMethodInfoPtr, methodInfoPtr.ToInt64());
     }
 
     private static string SummarizeNativeRenderFuncEntryMethod(object renderFunc)

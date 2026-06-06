@@ -460,6 +460,21 @@ Runtime result:
 Gameplay result:
 `docs/development/native-renderfunc-entry-gameplay-result-2026-06-06.md`.
 
+`Diagnostics.EnableNativeRenderFuncArgumentProbe` is implemented separately and
+defaults to `false`. The helper stage is `native-renderfunc-args`; it reuses the
+focused EASU entry detour only to sample raw callback argument pointer values
+(`thisPtr`, `passDataPtr`, `renderGraphContextPtr`, `methodInfoPtr`) with atomic
+counters and last-pointer snapshots. It does not dereference pointers, resolve
+textures, call `GetTexture`, touch command buffers, or evaluate DLSS. The first
+runtime proof is menu-only at true `1920x1080` Windowed:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-args -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3
+```
+
+Expected analyzer line: `Native RenderFunc Args=Pass`. Treat this as argument
+shape evidence only; it is not resource, command-buffer, or evaluate proof.
+
 ## RenderGraph Execute-Delegate Probe
 
 `EnableRenderGraphExecuteDelegateProbe` is disabled by default and is read-only.

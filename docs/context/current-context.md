@@ -570,8 +570,8 @@ As of the read-only RenderGraph pass-map runtime result:
   `CrashEventCount=0`. Cleanup restored config, ClientSettings, release-safe
   native state, no game process remained, and the protected save restored to
   `ChangeCount=0`. This proves gameplay ABI safety only. Next step is a
-  separately default-off native-entry argument/resource preflight, menu-first,
-  still no command-buffer access or DLSS evaluate. See
+  separately default-off native-entry argument preflight, menu-first, still no
+  pointer dereference, command-buffer access, or DLSS evaluate. See
   `docs/development/native-renderfunc-entry-gameplay-result-2026-06-06.md`.
 - Narrow post-entry source/search audit is recorded in
   `docs/research/hdrp-dlss-official-boundary-native-entry-audit-2026-06-06.md`.
@@ -585,3 +585,14 @@ As of the read-only RenderGraph pass-map runtime result:
   separate default-off native-entry argument preflight: sample raw arguments
   only, no dereference in callback, no command buffer, no resources, no DLSS,
   menu-first, protected gameplay only after menu proof.
+- The `native-renderfunc-args` preflight is now implemented and statically
+  validated; see
+  `docs/development/native-renderfunc-args-preflight-implementation-2026-06-06.md`.
+  Config key: `Diagnostics.EnableNativeRenderFuncArgumentProbe=false`. Helper
+  stage: `native-renderfunc-args`. It reuses the EASU entry detour, samples only
+  raw callback argument pointer values (`thisPtr`, `passDataPtr`,
+  `renderGraphContextPtr`, `methodInfoPtr`) with atomic counters/last-pointer
+  snapshots, and immediately calls the original trampoline. Build, dry-run
+  config validation, package validation, release boundary check, and status
+  scripts passed. Runtime menu proof is pending; first run should be true
+  `1920x1080` Windowed, menu-only, with `GetTexture` off and no DLSS evaluate.

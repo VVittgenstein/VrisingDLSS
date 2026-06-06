@@ -29,6 +29,7 @@ param(
         "rendergraph-compiled-pass-info",
         "rendergraph-execute-delegate",
         "native-renderfunc-entry",
+        "native-renderfunc-args",
         "render-scale-control",
         "dlss-user-rendering",
         "dlss-user-rendering-cached-driver",
