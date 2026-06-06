@@ -1,0 +1,116 @@
+# Computer Use Notes for V Rising Automation - 2026-06-06
+
+Status: active Phase 1 operating note.
+
+Purpose: preserve the working Computer Use route and the pitfalls found while using it
+to observe V Rising. This note is specifically for local V Rising gameplay-entry
+automation, not for DLSS runtime validation by itself.
+
+Product boundary: Computer Use has no relationship to the DLSS mod implementation. It
+is only a local Codex-side automation/testing tool for entering and observing the game
+during validation. It is not a mod feature, not a runtime dependency, and must not be
+included in the GitHub/Thunderstore release package.
+
+## Recommended Workflow
+
+1. Use PowerShell scripts only for non-UI setup and cleanup:
+   - `scripts\start-vrising-automation-session.ps1`
+   - `scripts\stop-vrising-automation-session.ps1`
+2. Use Computer Use for game-window observation and UI input.
+3. Always start with `list_apps` and match the process-backed app:
+   - expected id: `process:C:\Software\VRising\VRising.exe`
+   - expected display name: `VRising`
+4. Select the real game window by title:
+   - use window title `VRising`
+   - do not select `BepInEx ... - VRising`
+5. Rehydrate the selected window before observing:
+   - call `get_window` on the returned window object
+   - activate the selected game window when the proof needs foreground input
+   - call `get_window_state`
+   - carry forward the returned `state.window` for later actions
+6. For game menus, expect weak accessibility data. Use screenshots and stable
+   window-relative coordinates or simple key input, but only after a screenshot proves
+   the current state.
+7. After every observation or UI action, run the stop-session script and verify:
+   - `Status=Pass`
+   - `CrashEventCount=0`
+   - `RestoredClientSettings=true` when resolution was changed
+   - `RestoredLoaderConfig=true`
+   - `RemainingVRisingProcessCount=0`
+
+## Safety Boundary
+
+PowerShell launch/cleanup and Computer Use UI control can coexist in one proof only if
+their responsibilities stay separate:
+
+- PowerShell: install local package, write loader config, temporarily edit
+  `ClientSettings.json`, start V Rising, capture script-side logs/screenshots, stop the
+  process, restore settings/config, archive WER.
+- Computer Use: choose the visible app/window, snapshot the window, click/press keys
+  when a written protocol allows it.
+
+Do not mix PowerShell/Win32 `SendInput` and Computer Use input in the same V Rising UI
+proof. Previous Win32 input proof remains valid evidence, but future multi-step menu
+navigation should use Computer Use unless a separate protocol explicitly chooses the
+Win32 route.
+
+## Observation Proof
+
+Run label: `automation-session-continue-computeruse-20260606`.
+
+Artifacts:
+
+- Session JSON:
+  `artifacts/gameplay-automation/Session-automation-session-continue-computeruse-20260606.json`
+- Cleanup JSON:
+  `artifacts/gameplay-automation/Cleanup-automation-session-continue-computeruse-20260606.json`
+- Computer Use observation JSON:
+  `artifacts/gameplay-automation/ComputerUseObservation-automation-session-continue-computeruse-20260606.json`
+- Computer Use screenshot:
+  `artifacts/gameplay-automation/ComputerUseScreenshot-automation-session-continue-computeruse-20260606.jpg`
+
+Result:
+
+- Computer Use found exactly one V Rising app match.
+- The app exposed two windows:
+  - `VRising`
+  - `BepInEx 6.0.0-dev+... - VRising`
+- The real game window was `VRising`.
+- The captured main menu showed the Chinese Continue entry with save name `11111`.
+- Cleanup passed and left no game process.
+
+## Pitfalls Found
+
+- `Process.MainWindowHandle` and app-window lists can point at the BepInEx console.
+  Always enumerate/select the real Unity/game window, not the console.
+- V Rising may report `SetResolution 1920, 1080, fullScreenMode FullScreenWindow`
+  while the captured surface is desktop-sized. This is acceptable for menu automation
+  but does not prove true `1920x1080` windowed mode.
+- Different capture paths report different dimensions:
+  - script-side `ScreenCopy` observed `3840x2160` in the session artifact;
+  - Computer Use observed a `2560x1440` logical screenshot.
+  Treat coordinates as belonging to the current Computer Use screenshot, not to the
+  script-side PNG or physical monitor size.
+- Black/near-black startup frames are common. A visible window is not enough; wait for
+  a nonblank screenshot before assuming the UI is ready.
+- The main menu was localized in Chinese. The target Continue entry is the Chinese
+  Continue label with `11111` beneath it.
+- Do not attempt direct client command-line auto-continue guesses in this loop. The
+  stronger current path is the observed Continue menu.
+- Do not leave a `Status=Ready` session open without running the stop script. The start
+  script intentionally leaves `CleanupRequired=true`.
+
+## Next Click Protocol Notes
+
+Before the first real Continue activation:
+
+- Start a fresh session with a new artifact label.
+- Reacquire the `VRising` window through Computer Use.
+- Capture the main menu screenshot and record the screenshot dimensions.
+- Use only one intended action:
+  - preferred: click a stable point inside the visible Chinese Continue label area
+    from the current Computer Use screenshot;
+  - alternative: keyboard activation only if focus/selection evidence is clear.
+- Take one follow-up screenshot after a short wait.
+- Classify the result as loading/progress, no-op, wrong menu, crash, or cleanup failure.
+- Always run the stop-session script after classification.

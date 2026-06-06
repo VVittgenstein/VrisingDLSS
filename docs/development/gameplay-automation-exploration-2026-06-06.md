@@ -67,7 +67,11 @@ External sources checked:
 - The same server log showed successful save load and local character connection:
   - `CreateAndHostServer ... Loaded Save: AutoSave_21.save.gz`;
   - `Character: 'Helen' connected`.
-- Current tool discovery did not expose a dedicated computer-use/game-control tool. The available practical route is currently PowerShell/Win32 automation plus existing screenshots/log detectors. `node_repl` exists, but it is browser-oriented and not a native game UI control tool.
+- Computer Use is available in the Codex app and has been proven against the live
+  V Rising window. Use it for multi-step menu observation/navigation while keeping
+  PowerShell scripts responsible for launch, log capture, and cleanup. Operating notes
+  are in
+  [computer-use-vrising-automation-notes-2026-06-06.md](computer-use-vrising-automation-notes-2026-06-06.md).
 
 ## Route Matrix
 
@@ -183,15 +187,19 @@ Current judgment:
 - Computer Use is available in the Codex app and should be considered for multi-step UI
   navigation, especially because it can snapshot occluded windows and press keys against
   a selected window.
+- Observation-only Computer Use proof passed with label
+`automation-session-continue-computeruse-20260606`: it selected the real `VRising`
+window rather than the BepInEx console, captured the Chinese main menu, and showed
+  the Continue entry with save name `11111`. Cleanup then passed with `CrashEventCount=0` and no
+  remaining process.
 
 Next test:
 
-- Design the next no-DLSS UI-navigation proof toward the `Name=11111` `Continue` flow.
-  It should decide whether to use Computer Use snapshots/key presses, Win32 scripted
-  input, or a hybrid where the script handles launch/logs/cleanup and Computer Use
-  handles menu inspection/navigation.
-- Do not attempt full gameplay-entry automation until that proof defines exact UI state,
-  inputs, expected screenshot/log transitions, timeout, and cleanup.
+- Run the first bounded no-DLSS Continue activation proof toward the `Name=11111`
+  flow using the session harness plus Computer Use. Use
+  [gameplay-continue-ui-navigation-protocol-2026-06-06.md](gameplay-continue-ui-navigation-protocol-2026-06-06.md)
+  and do not attempt full gameplay-entry automation until that proof defines exact UI
+  state, input, expected screenshot/log transitions, timeout, and cleanup.
 
 ### Route 5 - Screenshot/Image-State Recognition
 

@@ -90,6 +90,10 @@ should be possible to continue directly into it. This matches the local
 `ServerHistory.json` evidence for `Name=11111` and makes the `Continue` UI path the
 preferred target after the harmless input proof.
 
+The observation-only Computer Use run
+`automation-session-continue-computeruse-20260606` confirmed this target on the live
+main menu: the Chinese Continue entry was visible with `11111` underneath.
+
 ### Interop String Scan
 
 The local interop string scan found client/UI symbols related to continuing and
@@ -154,14 +158,15 @@ auto-connect.
 
 ## Next Minimal Test Candidate
 
-Add a no-DLSS, fullscreen-window-compatible input proof:
+Run the first bounded no-DLSS Continue activation proof:
 
-- Launch with the existing `run-vrising-automation-proof.ps1` setup.
-- Wait for `VisibleGameWindow` and a nonblank screenshot.
-- Bring the `UnityWndClass` window to the foreground.
-- Send one harmless input such as `Escape`.
-- Capture before/after screenshots and archive logs.
-- Pass only if input is delivered without crash, cleanup restores settings/config, and
-  no V Rising process remains.
+- Start a fresh session with `start-vrising-automation-session.ps1`.
+- Use Computer Use to reacquire the real `VRising` window and capture the main menu.
+- Attempt exactly one activation of the visible Continue / `11111` entry.
+- Capture a follow-up screenshot and inspect logs for loading or local server progress.
+- Run `stop-vrising-automation-session.ps1` and require clean restore/no crash/no
+  remaining process.
 
-Do not attempt full menu navigation until this input proof is runtime-verified.
+Use
+[gameplay-continue-ui-navigation-protocol-2026-06-06.md](gameplay-continue-ui-navigation-protocol-2026-06-06.md)
+for pass/fail and cleanup details.

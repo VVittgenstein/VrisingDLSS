@@ -1,7 +1,7 @@
 # Gameplay Automation Proof Protocol - 2026-06-06
 
-Status: updated after five no-DLSS automation proof runs and three harmless-input
-proof runs.
+Status: updated after five no-DLSS automation proof runs, three harmless-input
+proof runs, and one observation-only Computer Use session.
 
 ## Question
 
@@ -171,3 +171,25 @@ passed: `Status=Pass`, `AutomationControlReady=true`, `InputAttempted=true`,
 `InputProofReady=true`, `CrashEventCount=0`, and `RemainingVRisingProcessCount=0`.
 The run still reported `GameReportedFullScreenMode=FullScreenWindow`, which confirms
 the input proof is robust to the fullscreen-window shape.
+
+## Session Harness And Computer Use Note
+
+The scripts `start-vrising-automation-session.ps1` and
+`stop-vrising-automation-session.ps1` now provide a bounded session harness for UI
+navigation proofs. The start script can leave V Rising open only when `Status=Ready`
+and `CleanupRequired=true`; the stop script closes the scoped game process, archives
+logs/WER, restores `ClientSettings.json`, rewrites the loader config, and records a
+cleanup JSON.
+
+The first observation-only Computer Use run,
+`automation-session-continue-computeruse-20260606`, passed. It selected the real
+`VRising` game window rather than the BepInEx console, captured the main menu, and
+showed the target Chinese Continue entry with `11111` underneath. Cleanup then passed with
+`CrashEventCount=0`, `RestoredClientSettings=true`, `RestoredLoaderConfig=true`, and
+`RemainingVRisingProcessCount=0`.
+
+Use
+[computer-use-vrising-automation-notes-2026-06-06.md](computer-use-vrising-automation-notes-2026-06-06.md)
+and
+[gameplay-continue-ui-navigation-protocol-2026-06-06.md](gameplay-continue-ui-navigation-protocol-2026-06-06.md)
+before the first real Continue activation.

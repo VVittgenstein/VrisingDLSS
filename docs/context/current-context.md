@@ -72,6 +72,8 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
 - Phase 1 direct-entry search found no supported client command-line auto-continue/direct-connect route in current official Stunlock launch options or local evidence. Local `ServerHistory.json` and interop strings strongly support the in-game `Continue`/direct-connect UI route instead.
 - The target local/private game for Continue automation is likely `Name=11111`: this is present in `ServerHistory.json`, and the user recalled the local game was named with many `1` characters and should be continuable directly.
 - Phase 1 harmless input proof passed in `automation-proof-harmless-input-escape-v3-20260606`: one `Escape` key was sent to the selected `UnityWndClass` window with `InputSendInputCount=2`, after-input screenshot was nonblank, no crash event was recorded, settings/config were restored, and no V Rising process remained. Computer Use is also available for subsequent multi-step UI navigation.
+- Phase 1 observation-only Computer Use session passed in `automation-session-continue-computeruse-20260606`: the session harness launched V Rising and left it ready; Computer Use selected the real `VRising` game window rather than the BepInEx console; the main menu screenshot showed the Chinese Continue entry with save name `11111`; the stop script then restored settings/config, archived logs, recorded `CrashEventCount=0`, and left no V Rising process.
+- Product boundary: Computer Use is only a local Codex-side automation/testing tool for entering and observing gameplay during validation. It has no relationship to the DLSS mod implementation, is not a mod feature or runtime dependency, and must not be included in release packages.
 
 ## Rejected Or Dangerous Routes
 
@@ -92,7 +94,7 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
 
 ## Current Blockers
 
-- Phase 1 is not done: automatic entry into V Rising gameplay has not been systematically explored and persisted.
+- Phase 1 is not done: automatic entry into V Rising gameplay has not been completed. The current strongest route is a bounded Computer Use activation of the visible Continue/`11111` entry.
 - True `1920x1080` windowed control is not solved on this machine because Unity/V Rising is using `FullScreenWindow` even when `Player.log` reports `SetResolution 1920, 1080`.
 - Client command-line direct entry is unproven and currently weak; do not spend the next runtime loop on blind command-line guesses.
 - If full automation fails, the semi-automatic human-Codex-game protocol still needs a durable, explicit artifact.
@@ -117,7 +119,8 @@ Follow the new goal order:
    - log/config/status detection;
    - fixed local/private test scene setup.
    First-pass local route inventory is in [../development/gameplay-automation-exploration-2026-06-06.md](../development/gameplay-automation-exploration-2026-06-06.md).
-3. Use [../development/gameplay-automation-proof-protocol-2026-06-06.md](../development/gameplay-automation-proof-protocol-2026-06-06.md) as the current proof-of-control protocol. The next Phase 1 implementation step is a no-DLSS `Continue` UI-navigation proof toward the local `Name=11111` flow, likely using the existing launch/log/cleanup script plus Computer Use or bounded Win32 input for menu navigation.
+3. Use [../development/gameplay-automation-proof-protocol-2026-06-06.md](../development/gameplay-automation-proof-protocol-2026-06-06.md) as the current proof-of-control protocol. The next Phase 1 implementation step is a no-DLSS `Continue` UI-navigation proof toward the local `Name=11111` flow, using the start/stop session harness plus Computer Use for menu navigation.
+   Computer Use-specific operating notes are in [../development/computer-use-vrising-automation-notes-2026-06-06.md](../development/computer-use-vrising-automation-notes-2026-06-06.md), and the Continue protocol is in [../development/gameplay-continue-ui-navigation-protocol-2026-06-06.md](../development/gameplay-continue-ui-navigation-protocol-2026-06-06.md).
 4. Persist the automation exploration results and either:
    - make automatic gameplay entry the default runtime-test path; or
    - document why all reasonable automation routes failed and continue with a durable semi-automatic protocol.
@@ -128,9 +131,12 @@ Follow the new goal order:
 
 ## Current Repository Checkpoint
 
-As of this reconstruction:
+As of the Phase 1 Computer Use observation update:
 
 - Branch: `main`.
-- Latest pre-reconstruction commit: `57689f2 Document DLSS MVP pause state`.
+- Latest pushed checkpoint before this update: `907abe7 Prove harmless game-window input`.
+- This checkpoint adds the start/stop automation session harness, a
+  Computer Use observation proof for the Continue / `11111` menu target, and the
+  next Continue activation protocol.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.

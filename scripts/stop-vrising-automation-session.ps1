@@ -1,0 +1,276 @@
+param(
+    [Parameter(Mandatory = $true)]
+    [string]$SessionPath,
+
+    [string]$Root,
+    [switch]$DryRun
+)
+
+$ErrorActionPreference = "Stop"
+
+if ([string]::IsNullOrWhiteSpace($Root)) {
+    $Root = Split-Path -Parent $PSScriptRoot
+}
+
+$resolvedRoot = (Resolve-Path -LiteralPath $Root).Path
+$resolvedSessionPath = (Resolve-Path -LiteralPath $SessionPath).Path
+$session = Get-Content -LiteralPath $resolvedSessionPath -Raw | ConvertFrom-Json
+
+if ([string]::IsNullOrWhiteSpace($session.GamePath)) {
+    throw "Session JSON does not contain GamePath: $resolvedSessionPath"
+}
+
+$resolvedGamePath = (Resolve-Path -LiteralPath ([string]$session.GamePath)).Path
+$artifactRoot = Split-Path -Parent $resolvedSessionPath
+$artifactLabel = [string]$session.ArtifactLabel
+if ([string]::IsNullOrWhiteSpace($artifactLabel)) {
+    $artifactLabel = [System.IO.Path]::GetFileNameWithoutExtension($resolvedSessionPath) -replace "^Session-", ""
+}
+
+$bepInExLogPath = Join-Path $resolvedGamePath "BepInEx\LogOutput.log"
+$defaultPlayerLog = Join-Path $env:USERPROFILE "AppData\LocalLow\Stunlock Studios\VRising\Player.log"
+$bepInExLogArtifact = [string]$session.BepInExLogArtifact
+if ([string]::IsNullOrWhiteSpace($bepInExLogArtifact)) {
+    $bepInExLogArtifact = Join-Path $artifactRoot "LogOutput-$artifactLabel.log"
+}
+
+$playerLogArtifact = [string]$session.PlayerLogArtifact
+if ([string]::IsNullOrWhiteSpace($playerLogArtifact)) {
+    $playerLogArtifact = Join-Path $artifactRoot "Player-$artifactLabel.log"
+}
+
+$werArtifact = Join-Path $artifactRoot "WER-$artifactLabel.txt"
+$cleanupArtifact = Join-Path $artifactRoot "Cleanup-$artifactLabel.json"
+
+function Get-ScopedVRisingProcess {
+    $names = @("VRising.exe", "VRisingServer.exe")
+    $processes = @()
+    $seen = New-Object System.Collections.Generic.HashSet[int]
+
+    foreach ($name in $names) {
+        $escapedName = $name.Replace("'", "''")
+        foreach ($cim in @(Get-CimInstance Win32_Process -Filter "Name = '$escapedName'" -ErrorAction SilentlyContinue | Where-Object {
+                    -not [string]::IsNullOrWhiteSpace($_.ExecutablePath) -and
+                    $_.ExecutablePath.StartsWith($resolvedGamePath, [StringComparison]::OrdinalIgnoreCase)
+                })) {
+            if ($seen.Add([int]$cim.ProcessId)) {
+                $process = Get-Process -Id $cim.ProcessId -ErrorAction SilentlyContinue
+                if ($process) {
+                    $processes += $process
+                }
+            }
+        }
+    }
+
+    $processes | Sort-Object Id
+}
+
+function Close-ProcessWithFallback {
+    param([System.Diagnostics.Process]$Process)
+
+    $result = [ordered]@{
+        ProcessId = $(if ($Process) { [int]$Process.Id } else { $null })
+        ProcessName = $(if ($Process) { [string]$Process.ProcessName } else { "" })
+        CloseMainWindowAttempted = $false
+        ForceStopped = $false
+        WasRunning = $false
+    }
+
+    if (-not $Process) {
+        return [pscustomobject]$result
+    }
+
+    $live = Get-Process -Id $Process.Id -ErrorAction SilentlyContinue
+    if (-not $live) {
+        return [pscustomobject]$result
+    }
+
+    $result.WasRunning = $true
+    try {
+        $result.CloseMainWindowAttempted = $true
+        [void]$live.CloseMainWindow()
+    } catch {
+        Write-Warning "CloseMainWindow failed for pid=$($Process.Id): $($_.Exception.Message)"
+    }
+
+    Start-Sleep -Seconds 8
+    $live = Get-Process -Id $Process.Id -ErrorAction SilentlyContinue
+    if ($live) {
+        Stop-Process -Id $live.Id -Force
+        $result.ForceStopped = $true
+        Start-Sleep -Seconds 2
+    }
+
+    [pscustomobject]$result
+}
+
+$runStart = Get-Date
+$sessionStart = $null
+if (-not [string]::IsNullOrWhiteSpace([string]$session.StartedAt)) {
+    try {
+        $sessionStart = [datetime]::Parse([string]$session.StartedAt)
+    } catch {
+        Write-Warning "Could not parse session StartedAt: $($session.StartedAt)"
+    }
+}
+
+$plan = [pscustomobject]@{
+    Mode = $(if ($DryRun) { "DryRun" } else { "StopSession" })
+    Question = "Can Codex cleanly end a bounded V Rising automation session and restore release-safe diagnostic state?"
+    Hypothesis = "A session artifact with pid, paths, and backups is enough to close the game, archive logs/WER, restore ClientSettings, and rewrite the loader config."
+    ExpectedEvidence = @(
+        "Cleanup JSON under artifacts/gameplay-automation",
+        "VRising process count scoped to the game path is zero",
+        "ClientSettings restored when the session changed it",
+        "Loader diagnostic config restored",
+        "BepInEx, Player, and WER artifacts captured when available"
+    )
+    PassSignal = "Status=Pass with RemainingVRisingProcessCount=0, RestoredLoaderConfig=true, and RestoredClientSettings=true when required."
+    FailSignal = "Any remaining scoped game process, restore failure, or crash event."
+    CleanupPath = "This script is the cleanup path; rerun it with the same session artifact if the first attempt fails."
+    SessionPath = $resolvedSessionPath
+    GamePath = $resolvedGamePath
+    ProcessId = $session.ProcessId
+    SetClientResolution = [bool]$session.SetClientResolution
+    ClientSettingsPath = [string]$session.ClientSettingsPath
+    ClientSettingsBackupArtifact = [string]$session.ClientSettingsBackupArtifact
+    CleanupArtifact = $cleanupArtifact
+}
+
+if ($DryRun) {
+    $plan
+    return
+}
+
+$status = "Pass"
+$failureReasons = New-Object System.Collections.Generic.List[string]
+$closedProcesses = @()
+$restoredClientSettings = -not [bool]$session.SetClientResolution
+$restoredLoaderConfig = $false
+$bepInExLogArchived = $false
+$playerLogArchived = $false
+$crashEvents = @()
+
+try {
+    $processId = 0
+    if ($session.ProcessId -and [int]::TryParse([string]$session.ProcessId, [ref]$processId)) {
+        $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
+        if ($process) {
+            $closedProcesses += Close-ProcessWithFallback -Process $process
+        }
+    }
+
+    foreach ($process in @(Get-ScopedVRisingProcess)) {
+        if (@($closedProcesses | Where-Object { $_.ProcessId -eq $process.Id }).Count -eq 0) {
+            $closedProcesses += Close-ProcessWithFallback -Process $process
+        }
+    }
+
+    try {
+        if (Test-Path -LiteralPath $bepInExLogPath) {
+            Copy-Item -LiteralPath $bepInExLogPath -Destination $bepInExLogArtifact -Force
+            $bepInExLogArchived = $true
+        }
+    } catch {
+        $failureReasons.Add("BepInEx log archive failed: $($_.Exception.Message)")
+    }
+
+    try {
+        if (-not (Test-Path -LiteralPath $playerLogArtifact) -and (Test-Path -LiteralPath $defaultPlayerLog)) {
+            Copy-Item -LiteralPath $defaultPlayerLog -Destination $playerLogArtifact -Force
+        }
+        $playerLogArchived = Test-Path -LiteralPath $playerLogArtifact
+    } catch {
+        $failureReasons.Add("Player log archive failed: $($_.Exception.Message)")
+    }
+
+    try {
+        $werStart = $(if ($sessionStart) { $sessionStart.AddSeconds(-5) } else { $runStart.AddMinutes(-10) })
+        $werEnd = (Get-Date).AddSeconds(10)
+        $crashEvents = @(Get-WinEvent -FilterHashtable @{
+                ProviderName = "Application Error"
+                StartTime = $werStart
+                EndTime = $werEnd
+            } -ErrorAction SilentlyContinue |
+            Where-Object { $_.Message -match "VRising|UnityPlayer|coreclr|VrisingDLSS" } |
+            Select-Object TimeCreated, Id, ProviderName, Message)
+
+        if ($crashEvents.Count -gt 0) {
+            $crashEvents | Format-List | Out-String -Width 220 | Set-Content -LiteralPath $werArtifact -Encoding UTF8
+            $failureReasons.Add("Windows Application Error event was recorded.")
+        }
+    } catch {
+        $failureReasons.Add("WER archive failed: $($_.Exception.Message)")
+    }
+
+    try {
+        if ([bool]$session.SetClientResolution) {
+            $clientSettingsPath = [string]$session.ClientSettingsPath
+            $clientSettingsBackupArtifact = [string]$session.ClientSettingsBackupArtifact
+            if ([string]::IsNullOrWhiteSpace($clientSettingsPath) -or [string]::IsNullOrWhiteSpace($clientSettingsBackupArtifact)) {
+                throw "Session did not contain ClientSettings restore paths."
+            }
+
+            if (-not (Test-Path -LiteralPath $clientSettingsBackupArtifact)) {
+                throw "ClientSettings backup artifact was not found: $clientSettingsBackupArtifact"
+            }
+
+            Copy-Item -LiteralPath $clientSettingsBackupArtifact -Destination $clientSettingsPath -Force
+            $restoredClientSettings = $true
+        }
+    } catch {
+        $failureReasons.Add("ClientSettings restore failed: $($_.Exception.Message)")
+    }
+
+    try {
+        & (Join-Path $resolvedRoot "scripts\write-diagnostic-config.ps1") -GamePath $resolvedGamePath -Stage loader | Out-Host
+        $restoredLoaderConfig = $true
+    } catch {
+        $failureReasons.Add("Loader config restore failed: $($_.Exception.Message)")
+    }
+} catch {
+    $failureReasons.Add("Unexpected cleanup failure: $($_.Exception.Message)")
+}
+
+$runEnd = Get-Date
+$remainingProcessCount = @(Get-ScopedVRisingProcess).Count
+if ($remainingProcessCount -gt 0) {
+    $failureReasons.Add("Scoped V Rising process remained after cleanup.")
+}
+
+if ($failureReasons.Count -gt 0 -or -not $restoredLoaderConfig -or -not $restoredClientSettings -or $remainingProcessCount -gt 0) {
+    $status = "Failed"
+}
+
+$result = [pscustomobject]@{
+    Mode = "StopSession"
+    Status = $status
+    FailureReason = ($failureReasons.ToArray() -join " ")
+    SessionPath = $resolvedSessionPath
+    GamePath = $resolvedGamePath
+    ArtifactLabel = $artifactLabel
+    StartedAt = $runStart.ToString("o")
+    EndedAt = $runEnd.ToString("o")
+    SessionStartedAt = $(if ($sessionStart) { $sessionStart.ToString("o") } else { "" })
+    ProcessId = $session.ProcessId
+    ClosedProcesses = @($closedProcesses)
+    BepInExLogArtifact = $(if (Test-Path -LiteralPath $bepInExLogArtifact) { $bepInExLogArtifact } else { "" })
+    BepInExLogArchived = $bepInExLogArchived
+    PlayerLogArtifact = $(if (Test-Path -LiteralPath $playerLogArtifact) { $playerLogArtifact } else { "" })
+    PlayerLogArchived = $playerLogArchived
+    WerArtifact = $(if (Test-Path -LiteralPath $werArtifact) { $werArtifact } else { "" })
+    CrashEventCount = $crashEvents.Count
+    SetClientResolution = [bool]$session.SetClientResolution
+    RestoredClientSettings = $restoredClientSettings
+    RestoredLoaderConfig = $restoredLoaderConfig
+    CleanupRequired = $false
+    RemainingVRisingProcessCount = $remainingProcessCount
+    LaunchesGame = $false
+}
+
+$result | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $cleanupArtifact -Encoding UTF8
+$result
+
+if ($status -ne "Pass") {
+    exit 1
+}
