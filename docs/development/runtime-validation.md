@@ -295,7 +295,7 @@ Current Stage 6 status:
 
 ## Stage 6B: DLSS Optimal-Settings Probe
 
-Implemented and build-validated as an optional SDK-wrapper research diagnostic. It has not yet been game-runtime validated.
+Implemented and game-runtime validated as an optional SDK-wrapper research diagnostic.
 
 Scope:
 
@@ -319,7 +319,11 @@ Current Stage 6B status:
 
 - C# and native bridge API version 12 are build-validated in both release-safe and SDK-wrapper native builds.
 - Release-safe builds are expected to report blocked because the NVIDIA SDK wrapper path is not enabled or packaged by default.
-- Game-runtime validation has not been run yet.
+- Local SDK-wrapper game-runtime validation passed in run `dlss-optimal-settings-20260606-115921`.
+- The run used a `1920x1080` Windowed player shape via temporary `ClientSettings.json` changes and launch arguments, then restored the user's settings afterward.
+- The optimal-settings query itself targeted `output=3840x2160` and returned `render=1920x1080`, `dynamicMax=3840x2160`, `dynamicMin=1920x1080`, and `sharpness=0.350`.
+- Cleanup passed with `CrashEventCount=0`, `ClosedByScript=True`, `RestoredLoaderConfig=True`, `RestoredReleaseSafeNative=True`, and `RestoredClientSettings=True`.
+- Protocol and evidence summary: `docs/development/dlss-optimal-settings-runtime-protocol-2026-06-06.md`.
 
 ## Stage 7: DLSS Feature Create/Release Probe
 

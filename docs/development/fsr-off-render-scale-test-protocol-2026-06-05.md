@@ -1,6 +1,7 @@
 # FSR-Off Render-Scale Test Protocol - 2026-06-05
 
-Status: not yet run after this protocol was written.
+Status: not yet run after this protocol was written. Updated on 2026-06-06 to use
+`1920x1080` Windowed as the default constructive test shape.
 
 This protocol exists to prevent blind testing. Do not launch V Rising for this step until the test question, expected evidence, pass/fail signals, and cleanup path are still accurate.
 
@@ -8,7 +9,15 @@ This protocol exists to prevent blind testing. Do not launch V Rising for this s
 
 With V Rising `FsrQualityMode=Off`, `DLSS.EnableDLSS=true`, and `DLSS.QualityMode=Performance`, does the mod-owned render-scale control produce a lower-resolution DLSS input and a full-resolution output target without relying on the game's FSR upscaler?
 
-For a 3840x2160 output target, the expected Performance-mode diagnostic tuple is approximately:
+For the default `1920x1080` Windowed constructive test target, the expected
+Performance-mode diagnostic tuple is approximately:
+
+- Render/input: `960x540`
+- Output/present target: `1920x1080`
+- Per-axis scale: `50%`
+
+For a later controlled 3840x2160 output target, the expected Performance-mode tuple is
+approximately:
 
 - Render/input: `1920x1080`
 - Output/present target: `3840x2160`
@@ -20,7 +29,9 @@ For a 3840x2160 output target, the expected Performance-mode diagnostic tuple is
 - Install the current local package into `C:\Software\VRising`.
 - Write an explicit diagnostic config instead of reusing an unknown previous config.
 - Confirm V Rising settings show `FsrQualityMode=Off`.
-- Confirm the game output target is the intended test resolution before entering a scene.
+- Confirm the game output target is `1920x1080` Windowed before entering a scene.
+- Back up the local/private `11111` save before entering gameplay, then compare and
+  restore afterward unless retaining changes is intentional.
 - Record the planned test in `docs/development/runtime-validation.md` or a dated local artifact before launch.
 
 Suggested tuple-only staging commands for a manual test where DLSS evaluate is intentionally disabled:
@@ -33,33 +44,39 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\write-diagnostic-c
 Suggested full candidate command shape when the local SDK-wrapper native DLL and a local research `nvngx_dlss.dll` are available:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-vrising-diagnostic.ps1 -GamePath 'C:\Software\VRising' -Stage dlss-user-rendering -UseSdkWrapperNative -DlssRuntimePath 'Z:\VrisingDLSS\ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll' -DurationSeconds 120
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-vrising-diagnostic.ps1 -GamePath 'C:\Software\VRising' -Stage dlss-user-rendering -UseSdkWrapperNative -DlssRuntimePath 'Z:\VrisingDLSS\ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll' -DurationSeconds 120 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3
 ```
 
 Optional pre-game API check:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-vrising-diagnostic.ps1 -GamePath 'C:\Software\VRising' -Stage dlss-optimal-settings -UseSdkWrapperNative -DlssRuntimePath 'Z:\VrisingDLSS\ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll' -DurationSeconds 60
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-vrising-diagnostic.ps1 -GamePath 'C:\Software\VRising' -Stage dlss-optimal-settings -UseSdkWrapperNative -DlssRuntimePath 'Z:\VrisingDLSS\ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll' -DurationSeconds 60 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3
 ```
 
 This API check still launches the game to acquire a Unity D3D11 device, but it does not create a DLSS feature or evaluate a gameplay frame.
+The 2026-06-06 actual run `dlss-optimal-settings-20260606-115921` passed in this
+`1920x1080` Windowed launch shape.
 
 ## Evidence To Capture
 
 - `BepInEx\LogOutput.log` lines showing render-scale control is enabled, `forceResolution=true`, and the forced percentage is `50`.
 - Log lines from the texture/resource probe showing a candidate where output dimensions are larger than input dimensions.
 - A DLSS evaluate path that accepts the same tuple at most once per Unity frame.
-- A screenshot or capture note confirming the game is rendering at the intended output resolution.
+- A screenshot or capture note confirming the game is rendering at `1920x1080` Windowed.
 - FPS, CPU, and GPU capture only after the tuple is proven correct.
 - Cleanup note confirming `VRising.exe` was closed and the config was restored to a safe loader/default state.
 
 ## Pass Signals
 
 - V Rising FSR remains Off for the test.
-- The accepted candidate tuple is approximately `1920x1080 -> 3840x2160` for a 4K output target, or an equivalent 50 percent Performance tuple for the confirmed output target.
+- The accepted candidate tuple is approximately `960x540 -> 1920x1080` for the default
+  1080P Windowed constructive target, or an equivalent 50 percent Performance tuple
+  for the confirmed output target.
 - DLSS evaluates successfully without repeated per-present over-evaluation.
 - The game remains stable long enough to capture a steady-state performance sample.
-- Candidate FPS is meaningfully higher than native 4K FSR Off baseline in the same scene, with no obvious image corruption from human review.
+- Candidate FPS moves in the expected direction for the same 1080P scene, with no
+  obvious image corruption from human review. This is constructive evidence only;
+  final product-value proof still requires the later controlled GPU-bound matrix.
 
 ## Fail Signals
 

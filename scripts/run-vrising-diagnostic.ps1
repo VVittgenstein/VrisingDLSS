@@ -35,6 +35,12 @@ param(
     [string]$DlssApplicationId = "0",
     [switch]$UseSdkWrapperNative,
     [string]$SdkWrapperNativePath,
+    [int]$Width = 1920,
+    [int]$Height = 1080,
+    [switch]$SetClientResolution,
+    [switch]$SetClientWindowMode,
+    [ValidateRange(0, 3)]
+    [int]$ClientWindowMode = 3,
     [switch]$SkipInstall,
     [switch]$DryRun
 )
@@ -43,6 +49,10 @@ $ErrorActionPreference = "Stop"
 
 if ($DurationSeconds -lt 5) {
     throw "DurationSeconds must be at least 5."
+}
+
+if ($Width -lt 640 -or $Height -lt 480) {
+    throw "Width/Height are too small for a useful diagnostic run."
 }
 
 if ([string]::IsNullOrWhiteSpace($Root)) {
@@ -56,6 +66,7 @@ $logPath = Join-Path $resolvedGamePath "BepInEx\LogOutput.log"
 $pluginPath = Join-Path $resolvedGamePath "BepInEx\plugins\VrisingDLSS"
 $nativeTargetPath = Join-Path $pluginPath "VrisingDLSS.Native.dll"
 $artifactRoot = Join-Path $resolvedRoot "artifacts\runtime-logs"
+$clientSettingsPath = Join-Path $env:USERPROFILE "AppData\LocalLow\Stunlock Studios\VRising\Settings\v4\ClientSettings.json"
 $safeStage = $Stage -replace "[^A-Za-z0-9_.-]", "-"
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 
@@ -89,9 +100,51 @@ function Get-VRisingProcess {
     Get-Process VRising -ErrorAction SilentlyContinue
 }
 
+function Get-PlayerLogResolutionInfo {
+    param([string]$Path)
+
+    $info = [ordered]@{
+        Width = $null
+        Height = $null
+        FullScreenMode = ""
+        SetResolutionLine = ""
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path -LiteralPath $Path)) {
+        return [pscustomobject]$info
+    }
+
+    foreach ($line in Get-Content -LiteralPath $Path) {
+        if ($line -match "SetResolution\s+(\d+),\s*(\d+),\s*fullScreenMode\s+(\S+)") {
+            $info.Width = [int]$Matches[1]
+            $info.Height = [int]$Matches[2]
+            $info.FullScreenMode = [string]$Matches[3]
+            $info.SetResolutionLine = [string]$line
+        }
+    }
+
+    [pscustomobject]$info
+}
+
 $existingProcess = Get-VRisingProcess | Select-Object -First 1
 if ($existingProcess) {
     throw "VRising is already running (pid=$($existingProcess.Id)). Close it before running a scripted diagnostic."
+}
+
+$clientSettingsChanged = [bool]($SetClientResolution -or $SetClientWindowMode)
+$clientSettingsBackupArtifact = Join-Path $artifactRoot "ClientSettings-$ArtifactLabel.before.json"
+$playerLogArtifact = Join-Path $artifactRoot "Player-$ArtifactLabel.log"
+$launchArgs = @()
+if ($clientSettingsChanged) {
+    $launchArgs = @(
+        "-windowed",
+        "-screen-width", "$Width",
+        "-screen-height", "$Height",
+        "-screen-fullscreen", "0",
+        "-force-d3d11",
+        "-single-instance",
+        "-logFile", $playerLogArtifact
+    )
 }
 
 $plan = [pscustomobject]@{
@@ -106,8 +159,16 @@ $plan = [pscustomobject]@{
     LogArtifact = (Join-Path $artifactRoot "LogOutput-$ArtifactLabel.log")
     AnalysisArtifact = (Join-Path $artifactRoot "Analysis-$ArtifactLabel.txt")
     WerArtifact = (Join-Path $artifactRoot "WER-$ArtifactLabel.txt")
+    PlayerLogArtifact = $playerLogArtifact
+    LaunchArgs = $launchArgs
+    SetClientResolution = [bool]$SetClientResolution
+    SetClientWindowMode = [bool]$SetClientWindowMode
+    ClientWindowMode = $(if ($SetClientWindowMode) { $ClientWindowMode } else { $null })
+    ClientSettingsPath = $clientSettingsPath
+    ClientSettingsBackupArtifact = $(if ($clientSettingsChanged) { $clientSettingsBackupArtifact } else { "" })
     RestoresLoaderConfig = $true
     RestoresReleaseSafeNative = [bool]$UseSdkWrapperNative
+    RestoresClientSettings = $clientSettingsChanged
     LaunchesGame = -not [bool]$DryRun
 }
 
@@ -125,6 +186,8 @@ $exitBeforeWindow = $false
 $crashEvents = @()
 $restoredLoaderConfig = $false
 $restoredReleaseSafeNative = -not [bool]$UseSdkWrapperNative
+$restoredClientSettings = -not $clientSettingsChanged
+$playerLogResolutionInfo = $null
 
 try {
     if (-not $SkipInstall) {
@@ -144,11 +207,47 @@ try {
         -DlssApplicationId $DlssApplicationId |
         Out-Host
 
+    if ($clientSettingsChanged) {
+        if (-not (Test-Path -LiteralPath $clientSettingsPath)) {
+            throw "ClientSettings.json was not found: $clientSettingsPath"
+        }
+
+        Copy-Item -LiteralPath $clientSettingsPath -Destination $clientSettingsBackupArtifact -Force
+        $settings = Get-Content -LiteralPath $clientSettingsPath -Raw | ConvertFrom-Json
+        if (-not $settings.GraphicSettings) {
+            throw "ClientSettings.json does not contain GraphicSettings."
+        }
+
+        if ($SetClientResolution) {
+            if (-not $settings.GraphicSettings.Resolution) {
+                throw "ClientSettings.json does not contain GraphicSettings.Resolution."
+            }
+
+            $settings.GraphicSettings.Resolution.x = $Width
+            $settings.GraphicSettings.Resolution.y = $Height
+            Write-Host "Temporarily set ClientSettings GraphicSettings.Resolution to ${Width}x${Height}."
+        }
+
+        if ($SetClientWindowMode) {
+            $windowModeProperty = $settings.GraphicSettings.PSObject.Properties["WindowMode"]
+            if ($windowModeProperty) {
+                $windowModeProperty.Value = $ClientWindowMode
+            } else {
+                $settings.GraphicSettings | Add-Member -NotePropertyName "WindowMode" -NotePropertyValue $ClientWindowMode
+            }
+
+            Write-Host "Temporarily set ClientSettings GraphicSettings.WindowMode to $ClientWindowMode."
+        }
+
+        $settings | ConvertTo-Json -Depth 32 | Set-Content -LiteralPath $clientSettingsPath -Encoding UTF8
+        $restoredClientSettings = $false
+    }
+
     Write-Host "DiagnosticRunStart=$($runStart.ToString('o'))"
     Write-Host "DiagnosticStage=$Stage"
     Write-Host "ArtifactLabel=$ArtifactLabel"
 
-    $process = Start-Process -FilePath $exePath -WorkingDirectory $resolvedGamePath -PassThru
+    $process = Start-Process -FilePath $exePath -WorkingDirectory $resolvedGamePath -ArgumentList $launchArgs -PassThru
     Write-Host "Started VRising pid=$($process.Id)"
 
     $deadline = (Get-Date).AddSeconds($DurationSeconds)
@@ -212,6 +311,19 @@ try {
     }
 
     try {
+        if (-not (Test-Path -LiteralPath $playerLogArtifact)) {
+            $defaultPlayerLog = Join-Path $env:USERPROFILE "AppData\LocalLow\Stunlock Studios\VRising\Player.log"
+            if (Test-Path -LiteralPath $defaultPlayerLog) {
+                Copy-Item -LiteralPath $defaultPlayerLog -Destination $playerLogArtifact -Force
+            }
+        }
+
+        $playerLogResolutionInfo = Get-PlayerLogResolutionInfo -Path $playerLogArtifact
+    } catch {
+        Write-Warning "Player log archive/parse failed: $($_.Exception.Message)"
+    }
+
+    try {
         if (Test-Path -LiteralPath $logPath) {
             Copy-Item -LiteralPath $logPath -Destination $plan.LogArtifact -Force
             & (Join-Path $resolvedRoot "scripts\analyze-bepinex-log.ps1") -LogPath $plan.LogArtifact |
@@ -244,6 +356,11 @@ try {
             $restoredReleaseSafeNative = $true
         }
 
+        if ($clientSettingsChanged -and (Test-Path -LiteralPath $clientSettingsBackupArtifact)) {
+            Copy-Item -LiteralPath $clientSettingsBackupArtifact -Destination $clientSettingsPath -Force
+            $restoredClientSettings = $true
+        }
+
         & (Join-Path $resolvedRoot "scripts\write-diagnostic-config.ps1") -GamePath $resolvedGamePath -Stage loader | Out-Host
         $restoredLoaderConfig = $true
     } catch {
@@ -260,10 +377,21 @@ try {
     LogArtifact = $(if (Test-Path -LiteralPath $plan.LogArtifact) { $plan.LogArtifact } else { "" })
     AnalysisArtifact = $(if (Test-Path -LiteralPath $plan.AnalysisArtifact) { $plan.AnalysisArtifact } else { "" })
     WerArtifact = $(if (Test-Path -LiteralPath $plan.WerArtifact) { $plan.WerArtifact } else { "" })
+    PlayerLogArtifact = $(if (Test-Path -LiteralPath $playerLogArtifact) { $playerLogArtifact } else { "" })
+    LaunchArgs = $launchArgs
     CrashEventCount = $crashEvents.Count
     ExitedBeforeWindow = $exitBeforeWindow
     ClosedByScript = $closedByScript
     RestoredLoaderConfig = $restoredLoaderConfig
     RestoredReleaseSafeNative = $restoredReleaseSafeNative
+    SetClientResolution = [bool]$SetClientResolution
+    SetClientWindowMode = [bool]$SetClientWindowMode
+    ClientWindowMode = $(if ($SetClientWindowMode) { $ClientWindowMode } else { $null })
+    RestoredClientSettings = $restoredClientSettings
+    ClientSettingsBackupArtifact = $(if (Test-Path -LiteralPath $clientSettingsBackupArtifact) { $clientSettingsBackupArtifact } else { "" })
+    GameReportedWidth = $(if ($playerLogResolutionInfo) { $playerLogResolutionInfo.Width } else { $null })
+    GameReportedHeight = $(if ($playerLogResolutionInfo) { $playerLogResolutionInfo.Height } else { $null })
+    GameReportedFullScreenMode = $(if ($playerLogResolutionInfo) { $playerLogResolutionInfo.FullScreenMode } else { "" })
+    GameReportedSetResolutionLine = $(if ($playerLogResolutionInfo) { $playerLogResolutionInfo.SetResolutionLine } else { "" })
     LaunchesGame = $true
 }
