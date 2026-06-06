@@ -2570,6 +2570,12 @@ internal static class FrameResourceProbe
                         depth.Value.Pointer,
                         motion.Value.Pointer,
                         output.ResourceName);
+                    if (ShouldDeferDlssUserRenderingEvaluateToCachedTupleDriver())
+                    {
+                        LogDlssCachedTupleDriverArmed(log, source, output.ResourceName);
+                        return;
+                    }
+
                     TryRunDlssUserRendering(
                         log,
                         bridge,
@@ -3173,6 +3179,12 @@ internal static class FrameResourceProbe
                 return;
             }
 
+            if (ShouldDeferDlssUserRenderingEvaluateToCachedTupleDriver())
+            {
+                LogDlssCachedTupleDriverArmed(log, source, output.ResourceName);
+                return;
+            }
+
             TryRunDlssUserRendering(
                 log,
                 bridge,
@@ -3288,6 +3300,11 @@ internal static class FrameResourceProbe
                 log.LogInfo($"DLSS user rendering reused accepted tuple from {source}: cachedFrames={useCount}; outputResourceName={output.ResourceName ?? tuple.OutputResourceName ?? "unavailable"}");
             }
 
+            if (ShouldDeferDlssUserRenderingEvaluateToCachedTupleDriver())
+            {
+                return true;
+            }
+
             TryRunDlssUserRendering(
                 log,
                 bridge,
@@ -3302,6 +3319,19 @@ internal static class FrameResourceProbe
         }
 
         return false;
+    }
+
+    private static bool ShouldDeferDlssUserRenderingEvaluateToCachedTupleDriver()
+    {
+        return DlssCachedTupleDriverProbeEnabled && !DlssUserRenderingNoEvaluateEnabled;
+    }
+
+    private static void LogDlssCachedTupleDriverArmed(
+        ManualLogSource log,
+        string source,
+        string? outputResourceName)
+    {
+        log.LogInfo($"DLSS cached tuple driver armed from {source}: outputResourceName={outputResourceName ?? "unavailable"}; evaluate deferred to DynamicResolutionHandler.Update driver.");
     }
 
     private static void RememberDlssUserRenderingAcceptedTuple(
