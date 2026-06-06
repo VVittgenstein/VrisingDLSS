@@ -516,7 +516,7 @@ if (Test-Path -LiteralPath $reviewResolved) {
 }
 
 if (@($issues | Where-Object { $_ -like "Candidate * regressed*" -or $_ -like "Candidate P95 frame time worsened*" }).Count -gt 0) {
-    $nextRecommendation = "Cached-driver real-evaluate crashed in nvwgf2umx.dll even with GetTexture evaluate/output-follow-up at zero, rendergraph-pass-map patched safely but emitted zero pass lines, and rendergraph-pass-list menu smoke safely mapped Uber Post -> Edge Adaptive Spatial Upsampling -> Final Pass. Do not rerun those routes unchanged; next run should be protected 11111 gameplay rendergraph-pass-list with save backup/restore before a focused resource-declaration snapshot."
+    $nextRecommendation = "Cached-driver real-evaluate crashed in nvwgf2umx.dll even with GetTexture evaluate/output-follow-up at zero, rendergraph-pass-map patched safely but emitted zero pass lines, and rendergraph-pass-list safely mapped Uber Post -> Edge Adaptive Spatial Upsampling -> Final Pass in both menu and protected 11111 gameplay with GetTexture disabled. Do not rerun those routes unchanged; next implementation should be a default-off focused resource-declaration-only snapshot for those compile-time passes before any new evaluate attempt."
 }
 
 if ($issues.Count -gt 0) {

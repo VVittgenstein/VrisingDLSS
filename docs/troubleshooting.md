@@ -272,13 +272,16 @@ focused `entry #` lines with categories such as `upscale`, `postprocess`, `final
 or `dlss`. Treat zero pass-list signal or any WER/IL2CPP/coreclr crash as a failed
 route and preserve the archived log.
 
-Current menu evidence: `rendergraph-pass-list-1080p-menu-20260606-r2` patched
-cleanly at true `1920x1080` Windowed with no WER crash. It produced analyzer
-`RenderGraph Pass List=Pass`, `90` compile summary lines, `357` entry lines, and
-focused categories including `upscale`, `postprocess`, `final`, and `temporal`.
-It repeatedly observed `Uber Post -> Edge Adaptive Spatial Upsampling -> Final
-Pass`. Gameplay proof is still required before using it for the next focused
-resource-declaration experiment.
+Current evidence: `rendergraph-pass-list-1080p-menu-20260606-r2` and
+`rendergraph-pass-list-gameplay-1080p-20260606-r1` both patched cleanly at true
+`1920x1080` Windowed with no WER crash. The gameplay proof used the protected
+`11111` save, sent no movement keys, restored the save to `ChangeCount=0`, and
+logged analyzer `RenderGraph Pass List=Pass`, `143` compile summary lines, `540`
+entry lines, `0` `RenderGraph GetTexture call #` lines, and focused categories
+including `upscale`, `postprocess`, `final`, and `temporal`. It repeatedly observed
+`Uber Post -> Edge Adaptive Spatial Upsampling -> Final Pass`. Do not rerun this
+stage unchanged; the next experiment should be a focused resource-declaration-only
+snapshot for those passes.
 
 ## RenderGraph Pass-Boundary Probe
 

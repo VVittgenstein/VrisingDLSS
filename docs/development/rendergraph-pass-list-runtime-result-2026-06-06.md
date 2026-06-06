@@ -64,10 +64,40 @@ better signal than `OnPassAdded(RenderGraphPass)`.
   - `Edge Adaptive Spatial Upsampling`
   - `Final Pass`
 
+### `rendergraph-pass-list-gameplay-1080p-20260606-r1`
+
+- Shape: protected `11111` gameplay proof, `1920x1080` Windowed.
+- Save protection: backed up `12` files before launch.
+- UI route: Computer Use selected the real `VRising` Unity window, clicked the
+  visible Chinese Continue entry exactly once at `(205, 354)` in the current
+  `1283x751` screenshot, and sent no movement/gameplay keys.
+- Gameplay evidence: follow-up Computer Use screenshot showed stable gameplay with
+  character, HUD/hotbar, quest text, and minimap.
+- Player log: `SetResolution 1920, 1080, fullScreenMode Windowed`, then local
+  connect flow to `SteamIPv4://127.0.0.1:9876`.
+- Stop-session cleanup: `Status=Pass`, `CrashEventCount=0`,
+  `RestoredClientSettings=true`, `RestoredLoaderConfig=true`,
+  `RestoredReleaseSafeNative=true`, `RemainingVRisingProcessCount=0`.
+- Save restore: gameplay changed `3` files before restore; the changed state was
+  archived and after-restore comparison reported `ChangeCount=0`.
+- Analyzer: `RenderGraph Pass List=Pass`.
+- Log counts: enabled `1`, patched `1`, compile lines `143`, entry lines `540`,
+  failures `0`, target-missing `0`, `RenderGraph GetTexture call #` lines `0`.
+- Category counts: upscale `16`, postprocess `80`, final `29`, dlss `0`,
+  temporal `193`.
+- Key pass order observed repeatedly:
+  - `Objects Motion Vectors Rendering`
+  - `Camera Motion Vectors Rendering`
+  - `Motion Blur`
+  - `Uber Post`
+  - `Edge Adaptive Spatial Upsampling`
+  - `Final Pass`
+
 ## Interpretation
 
 `CompileRenderGraph(int)` is a useful read-only pass-list observation boundary in
-the main menu. It is safer and more informative than the rejected
+both the main menu and the protected `11111` gameplay fixture. It is safer and more
+informative than the rejected
 `PreRenderPassExecute(...)` route and the safe-but-silent `OnPassAdded(...)` route.
 It is not an evaluate boundary by itself: it does not provide live command-buffer
 ordering or resolved textures. It does, however, identify the existing HDRP
@@ -81,8 +111,8 @@ already uses.
 
 ## Next Step
 
-Run `rendergraph-pass-list` once in the protected `11111` gameplay fixture using
-the standard save backup/restore flow. If gameplay confirms the same focused pass
-sequence without crashes, the next implementation candidate is a default-off,
-resource-declaration-only snapshot for the focused compile-time passes, still with
-`GetTexture` disabled and no DLSS evaluate.
+Do not rerun `rendergraph-pass-list` unchanged. The next implementation candidate is
+a default-off, resource-declaration-only snapshot for the focused compile-time passes,
+still with `GetTexture` disabled and no DLSS evaluate. The useful target set is the
+observed gameplay sequence around motion vectors, `Uber Post`,
+`Edge Adaptive Spatial Upsampling`, and `Final Pass`.

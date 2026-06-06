@@ -363,8 +363,14 @@ As of the read-only RenderGraph pass-map runtime result:
   `rendergraph-pass-list-1080p-menu-20260606-r2` passed at true `1920x1080`
   Windowed with `CrashEventCount=0`, analyzer `RenderGraph Pass List=Pass`, `90`
   compile lines, `357` entry lines, and repeated `Uber Post -> Edge Adaptive
-  Spatial Upsampling -> Final Pass` entries. The next proof should run this stage
-  once in protected `11111` gameplay with save backup/restore before extending it
-  to focused resource-declaration snapshots.
+  Spatial Upsampling -> Final Pass` entries. Gameplay proof
+  `rendergraph-pass-list-gameplay-1080p-20260606-r1` also passed in the protected
+  `11111` fixture with `CrashEventCount=0`, analyzer `RenderGraph Pass List=Pass`,
+  `143` compile lines, `540` entry lines, `0` broad GetTexture logs, focused
+  categories `upscale=16`, `postprocess=80`, `final=29`, `temporal=193`, and save
+  restore `ChangeCount=0`. Do not rerun pass-list unchanged; the next route is a
+  default-off resource-declaration-only snapshot for focused compile-time passes
+  around motion vectors, `Uber Post`, `Edge Adaptive Spatial Upsampling`, and
+  `Final Pass`.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.

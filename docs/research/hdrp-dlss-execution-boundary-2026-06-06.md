@@ -433,9 +433,12 @@ names/categories from `m_RenderPasses`, disables `GetTexture`, and does not
 touch resources or evaluate. Runtime follow-up
 `rendergraph-pass-list-1080p-menu-20260606-r2` passed in a true `1920x1080`
 Windowed menu smoke with no WER crash and logged the focused sequence
-`Uber Post -> Edge Adaptive Spatial Upsampling -> Final Pass`. This proves a
-safe pass-list observation point for menu rendering; gameplay still needs the
-protected `11111` save backup/restore proof before using it as the next route.
+`Uber Post -> Edge Adaptive Spatial Upsampling -> Final Pass`. Gameplay follow-up
+`rendergraph-pass-list-gameplay-1080p-20260606-r1` also passed in the protected
+`11111` fixture: no WER crash, `GetTexture` disabled, analyzer `RenderGraph Pass
+List=Pass`, save restored to `ChangeCount=0`, and the same focused sequence
+appeared repeatedly. This proves a safe pass-list observation point for current
+V Rising gameplay, but still not an evaluate boundary.
 
 Implementation update:
 
