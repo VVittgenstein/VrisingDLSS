@@ -392,6 +392,30 @@ Result:
 - Save protection still worked: the changed post-run state was archived and the
   `11111` save restored with `ChangeCount=0`.
 
+## Cached-Driver No-Evaluate Follow-up
+
+Run label: `cached-driver-no-evaluate-1080p-20260606-r1`.
+
+Result:
+
+- The paired visual helper again required two separate Computer Use Continue
+  activations: one for baseline and one for candidate.
+- After baseline closed, the candidate process reused the same app identity but a
+  new `VRising` window id. The safe pattern was to call `list_apps`, choose the
+  real `VRising` window, refresh `get_window_state`, and verify the screenshot
+  showed the main menu before clicking.
+- Computer Use clicked the known Continue point once per run and sent no movement or
+  gameplay keys.
+- The candidate reached gameplay, the ready file was recreated for the candidate
+  phase, and the helper detected no-evaluate readiness immediately after the ready
+  marker.
+- Cleanup restored FSR mode, client settings, loader config, release-safe native DLL,
+  and the `11111` save with `ChangeCount=0`.
+- Technical result: cached-driver no-evaluate recovered performance to
+  `204.201 -> 198.079` FPS while logging `82` cached-driver invocations and `0`
+  native evaluate results. This confirms the UI automation path was stable enough
+  for the performance diagnosis.
+
 ## Next Click Protocol Notes
 
 For future Continue activations:

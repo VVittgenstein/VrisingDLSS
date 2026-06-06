@@ -400,3 +400,16 @@ Implementation update:
   production evaluate placement. It is the next minimal performance isolation to
   test whether the remaining no-evaluate collapse was mostly steady-state
   `GetTexture` postfix overhead.
+
+Runtime update:
+
+- `cached-driver-no-evaluate-1080p-20260606-r1` passed that isolation. The paired
+  true-1080p run measured `204.201 -> 198.079` average FPS, with candidate GPU
+  utilization/power dropping to `64.556%`/`86.590 W`, `82` cached-driver
+  invocations, `84` no-evaluate acceptances, `0` native evaluate results, and `0`
+  broad `RenderGraph GetTexture call #` logs.
+- This confirms the hot global `GetTexture` placement, not NGX evaluate and not
+  render-scale-only, caused most of the previous no-evaluate collapse.
+- The practical next boundary remains the stable `DynamicResolutionHandler.Update`
+  cached-driver route for now. The official HDRP pass boundary is still the design
+  map, but not yet a safe Harmony hook point in this IL2CPP build.

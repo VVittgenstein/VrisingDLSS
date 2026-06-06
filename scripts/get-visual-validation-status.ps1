@@ -516,7 +516,7 @@ if (Test-Path -LiteralPath $reviewResolved) {
 }
 
 if (@($issues | Where-Object { $_ -like "Candidate * regressed*" -or $_ -like "Candidate P95 frame time worsened*" }).Count -gt 0) {
-    $nextRecommendation = "Run the dlss-user-rendering-cached-driver-no-evaluate isolation at 1920x1080 Windowed with V Rising FSR Off to verify whether fast-skipping steady-state GetTexture removes the user-rendering performance regression. Resume paired DLSS visual/performance review only after the regression is no longer severe."
+    $nextRecommendation = "Move the real dlss-user-rendering SDK-wrapper evaluate path onto the cached-tuple driver model proven by dlss-user-rendering-cached-driver-no-evaluate, then rerun the paired 1920x1080 Windowed FSR Off DLSS visual/performance comparison. Resume human image review only after the regression is no longer severe."
 }
 
 if ($issues.Count -gt 0) {

@@ -171,7 +171,7 @@ Implemented after the narrow HDRP DLSS boundary review:
   stages: no SDK wrapper/runtime is required, and readiness waits for
   `DLSS user rendering no-evaluate accepted from`.
 
-Verification completed for the implementation only:
+Initial verification completed for the implementation:
 
 - `dotnet build` Release: passed with `0` warnings and `0` errors.
 - `write-diagnostic-config.ps1 -Stage dlss-user-rendering-cached-driver-no-evaluate
@@ -183,8 +183,78 @@ Verification completed for the implementation only:
 - `get-release-readiness-status.ps1 -Json`: remained
   `DiagnosticPackageReady_MvpBlocked`, as expected.
 
-No gameplay runtime test was run for this cached-driver stage yet. The next runtime
-experiment should use true `1920x1080` Windowed gameplay, V Rising
-`FsrQualityMode=Off`, protected `11111` save backup/restore, and compare the cached
-driver no-evaluate stage against the prior r4 no-evaluate and render-scale-only
-results.
+Runtime result: `cached-driver-no-evaluate-1080p-20260606-r1`.
+
+Conditions:
+
+- True `1920x1080` Windowed.
+- V Rising `FsrQualityMode=Off`.
+- Paired baseline loader versus `dlss-user-rendering-cached-driver-no-evaluate`.
+- Protected local/private `11111` save.
+- Computer Use clicked the known Continue / `11111` entry once per run and sent no
+  movement/gameplay keys.
+- Release-safe native only; no `nvngx_dlss.dll`; no native DLSS evaluate/writeback.
+
+Performance:
+
+| Metric | Baseline | Cached-driver no-evaluate | Delta |
+| --- | ---: | ---: | ---: |
+| Average FPS | `204.201` | `198.079` | `-3.0%` |
+| 1% low FPS | `150.395` | `123.506` | `-17.9%` |
+| P95 frame time | `5.963 ms` | `6.408 ms` | `+7.5%` |
+| P99 frame time | `6.649 ms` | `8.097 ms` | `+21.8%` |
+| Average GPU utilization | `98.111%` | `64.556%` | `-33.555 points` |
+| Average GPU power | `137.733 W` | `86.590 W` | `-51.143 W` |
+
+Log proof:
+
+- `DLSS cached tuple driver invoked from`: `82`.
+- `DLSS user rendering no-evaluate accepted from`: `84`.
+- `DLSS user rendering evaluate succeeded from`: `0`.
+- `DLSS user rendering evaluate failed/blocked from`: `0`.
+- `RenderGraph GetTexture call #`: `0`.
+- Candidate analysis passed Stage 8A, Stage 8E, and `DLSS User Rendering Candidate`
+  through no-evaluate acceptance.
+
+Artifacts:
+
+- Baseline screenshot:
+  `artifacts/visual-validation/cached-driver-no-evaluate-1080p-20260606-r1-baseline-loader.png`
+- Candidate screenshot:
+  `artifacts/visual-validation/cached-driver-no-evaluate-1080p-20260606-r1-user-rendering-cached-driver-no-evaluate.png`
+- Comparison:
+  `artifacts/visual-validation/cached-driver-no-evaluate-1080p-20260606-r1-baseline-vs-user-rendering-cached-driver-no-evaluate.txt`
+- Baseline FPS summary:
+  `artifacts/fps-validation/cached-driver-no-evaluate-1080p-20260606-r1-baseline-loader.txt`
+- Candidate FPS summary:
+  `artifacts/fps-validation/cached-driver-no-evaluate-1080p-20260606-r1-user-rendering-cached-driver-no-evaluate.txt`
+- Candidate log:
+  `artifacts/runtime-logs/LogOutput-cached-driver-no-evaluate-1080p-20260606-r1-user-rendering-cached-driver-no-evaluate.log`
+- Save restore comparison:
+  `artifacts/gameplay-automation/SaveCompareAfterRestore-cached-driver-no-evaluate-1080p-20260606-r1.json`
+
+Cleanup:
+
+- Helper restored loader config, release-safe native DLL, FSR mode, and
+  `ClientSettings.json`.
+- No `VRising` or `VRisingServer` process remained.
+- Current loader config has `EnableDLSS=false`,
+  `EnableDlssUserRenderingNoEvaluateProbe=false`, and
+  `EnableDlssCachedTupleDriverProbe=false`.
+- Gameplay entry changed the protected `11111` save by `4` manifest differences
+  before restore; the after-restore comparison reports `ChangeCount=0`.
+
+Conclusion:
+
+This is the strongest isolation result so far. Moving steady-state no-evaluate work
+off the global `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` postfix
+almost eliminates the severe FPS collapse: r4 was `194.424 -> 119.573`, while the
+cached-driver run is `204.201 -> 198.079`. The lower GPU utilization and power now
+match the expected render-scale-only shape instead of an integration stall.
+
+The next implementation step should move the actual SDK-wrapper
+`dlss-user-rendering` evaluate path onto the same cached-tuple driver model: use
+`GetTexture` only as the first tuple oracle, fast-skip it after acceptance, then
+evaluate from the stable `DynamicResolutionHandler.Update(...)` driver. That must
+be tested separately with `nvngx_dlss.dll` and image/performance evidence before it
+can unblock MVP.

@@ -399,11 +399,22 @@ Local Unity source and V Rising interop show the official DLSS boundary is the
 `Deep Learning Super Sampling` RenderGraph pass execution window:
 `RenderPostProcess -> DoDLSSPasses -> DoDLSSPass -> DLSSPass.GetCameraResources -> DLSSPass.Render/ExecuteDLSS`.
 Because local `PreRenderPassExecute` testing rejected the ref-`CompiledPassInfo`
-executor wrapper family, the next near-term isolation is the default-off
+executor wrapper family, the next near-term isolation was the default-off
 `dlss-user-rendering-cached-driver-no-evaluate` stage: use `GetTexture` only as a
 temporary tuple oracle, then drive the cached no-evaluate tuple from
 `DynamicResolutionHandler.Update(...)` while fast-skipping steady-state `GetTexture`
 postfix work.
+
+Runtime result `cached-driver-no-evaluate-1080p-20260606-r1` confirmed this is the
+right diagnosis. Under true `1920x1080` Windowed gameplay with V Rising FSR Off,
+baseline/candidate average FPS was `204.201 -> 198.079`, compared with r4's
+`194.424 -> 119.573` on the still-hot no-evaluate route. Candidate logs showed `82`
+cached-driver invocations, `84` no-evaluate acceptances, no native evaluate
+success/failure/block, and no broad `RenderGraph GetTexture call #` logging. The
+steady-state global `GetTexture` postfix/placement is therefore the primary
+performance poison. The next implementation should put real SDK-wrapper
+`dlss-user-rendering` evaluate on the same cached-driver path before returning to
+image/performance MVP validation.
 
 ## Theoretical Performance Follow-up
 

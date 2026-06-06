@@ -154,13 +154,20 @@ Current Stage 2C status:
   `docs/development/v6-user-rendering-visual-test-2026-06-06.md`, plus
   `docs/development/v6-user-rendering-timing-test-2026-06-06.md` and
   `docs/development/render-scale-only-performance-test-2026-06-06.md`.
-- Current next isolation stage:
+- Cached-driver no-evaluate isolation:
   `dlss-user-rendering-cached-driver-no-evaluate`. It is default-off via
   `Diagnostics.EnableDlssCachedTupleDriverProbe=false`, uses the existing
   `GetTexture` oracle only until one SR tuple is accepted, then drives the cached
   no-evaluate tuple from `DynamicResolutionHandler.Update(...)` while fast-skipping
-  steady-state `GetTexture` postfix work. It has build/package/dry-run validation
-  only; no gameplay result exists yet.
+  steady-state `GetTexture` postfix work. Runtime run
+  `cached-driver-no-evaluate-1080p-20260606-r1` passed the performance isolation:
+  baseline/candidate FPS was `204.201 -> 198.079`, P95 was
+  `5.963 ms -> 6.408 ms`, GPU utilization/power dropped to
+  `64.556%`/`86.590 W`, logs had `82` cached-driver invocations, `84`
+  no-evaluate acceptances, `0` native evaluate attempts, and cleanup restored
+  release-safe state and the protected `11111` save to `ChangeCount=0`.
+  Next step: move the real SDK-wrapper `dlss-user-rendering` evaluate path to this
+  cached-driver model and retest with the DLSS runtime.
 
 ## Stage 3: Read-Only Harmony Probe
 
