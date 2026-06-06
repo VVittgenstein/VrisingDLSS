@@ -111,7 +111,9 @@ The safest next path is:
 
 1. Do not rerun `rendergraph-compiled-pass-info` unchanged unless a Unity/V
    Rising update or code regression changes the map.
-2. If approaching the true execution boundary, first design a separate
-   `native-renderfunc-entry` no-op method-pointer probe. It must count entry only,
-   resolve no textures, touch no command buffer, run no DLSS, start menu-only, and
-   be treated as a new risk class rather than ordinary Harmony patching.
+2. The `native-renderfunc-entry` preflight now exists and passed as
+   design-only evidence. If approaching the true execution boundary, implement a
+   separate default-off no-op method-pointer probe. It must count entry only,
+   immediately call the original trampoline, resolve no textures, touch no
+   command buffer, run no DLSS, start menu-only, and be treated as a new risk
+   class rather than ordinary Harmony patching.

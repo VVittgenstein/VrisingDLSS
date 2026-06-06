@@ -425,6 +425,27 @@ Current status: menu runtime-validated. Run
 this stage unchanged unless a Unity/V Rising update or code regression changes
 the RenderGraph map.
 
+## Native RenderFunc Entry Preflight
+
+`scripts\get-native-renderfunc-entry-preflight.ps1` is a static/log preflight
+for the possible future `native-renderfunc-entry` no-op probe. It does not start
+V Rising, install a native detour, resolve RenderGraph resources, touch command
+buffers, or evaluate DLSS.
+
+Use it only after a valid `rendergraph-renderfunc-metadata` proof exists:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\get-native-renderfunc-entry-preflight.ps1 -DeepInspect -Json
+```
+
+Current status: `PreflightPass_DesignOnly`. The protected gameplay metadata log
+showed stable focused `method_ptr` values for `Uber Post`, `Edge Adaptive
+Spatial Upsampling`, and `Final Pass`, and deep inspection confirmed local
+`NativeDetour(IntPtr, IntPtr)`, Il2Cpp `MethodPointer`, and Harmony IL2CPP
+MethodPointer detour/`OriginalTrampoline` evidence. This is not runtime hook
+proof; the next runtime step must be a separate default-off menu-only no-op
+probe that increments counters and immediately calls the original trampoline.
+
 ## RenderGraph Execute-Delegate Probe
 
 `EnableRenderGraphExecuteDelegateProbe` is disabled by default and is read-only.

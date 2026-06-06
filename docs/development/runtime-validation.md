@@ -528,6 +528,18 @@ Current Stage 8A status:
   loader/native/settings. The focused menu chain showed `Uber Post`,
   `Edge Adaptive Spatial Upsampling`, and `Final Pass` all `culled=False`.
   Treat this as read-only map evidence only, not an evaluate boundary.
+- Native render-func entry preflight was added as
+  `scripts\get-native-renderfunc-entry-preflight.ps1`. It does not start V
+  Rising or install a detour. With `-DeepInspect`, it parsed the protected
+  gameplay renderfunc-metadata proof and returned
+  `Status=PreflightPass_DesignOnly`: Uber/EASU/Final method pointers were stable,
+  `invoke_impl == method_ptr`, `NativeDetour(IntPtr, IntPtr)` exists locally,
+  Il2Cpp method metadata exposes `MethodPointer`, and Harmony's IL2CPP backend
+  detours that MethodPointer while preserving `OriginalTrampoline`. This makes a
+  future `native-renderfunc-entry` no-op probe technically plausible, but it does
+  not prove ABI safety, install a hook, resolve resources, touch command buffers,
+  or evaluate DLSS. See
+  `docs/development/native-renderfunc-entry-preflight-2026-06-06.md`.
 - See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.
 
 ## Stage 8B: First Guarded DLSS Evaluate Diagnostic

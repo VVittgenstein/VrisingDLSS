@@ -533,3 +533,21 @@ As of the read-only RenderGraph pass-map runtime result:
   `docs/development/rendergraph-compiled-pass-info-runtime-result-2026-06-06.md`.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.
+- Native render-func entry preflight is recorded in
+  `docs/development/native-renderfunc-entry-preflight-2026-06-06.md` and
+  implemented as `scripts/get-native-renderfunc-entry-preflight.ps1`. It does
+  not launch V Rising or install a detour. It parsed the protected gameplay
+  renderfunc-metadata proof and found stable focused entries:
+  `Uber Post` `<UberPass>b__1060_0` token `100664386`
+  `method_ptr=0x7FF8E91BC9F0`, EASU
+  `<EdgeAdaptiveSpatialUpsampling>b__1066_0` token `100664389`
+  `method_ptr=0x7FF8E91BE1C0`, and `Final Pass`
+  `<FinalPass>b__1069_0` token `100664390`
+  `method_ptr=0x7FF8E91BE7F0`; all had `invoke_impl == method_ptr`. Deep
+  inspection confirmed local `NativeDetour(IntPtr, IntPtr)`,
+  Il2Cpp `MethodPointer`, and Harmony IL2CPP backend MethodPointer detour /
+  `OriginalTrampoline` evidence. This is still design evidence only. The next
+  implementation step may be a separate default-off `native-renderfunc-entry`
+  no-op probe that increments counters and immediately calls the original
+  trampoline; it must start menu-only and must not resolve resources, touch
+  command buffers, or evaluate DLSS.
