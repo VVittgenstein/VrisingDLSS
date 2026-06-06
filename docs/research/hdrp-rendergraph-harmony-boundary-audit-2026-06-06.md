@@ -132,6 +132,9 @@ Downloaded reference additions:
 - `ref/hdrp-rendergraph-boundary-2026-06-06/OptiScaler.ini`
 - `ref/hdrp-rendergraph-boundary-2026-06-06/Unity-RenderGraph-Fundamentals.html`
 - `ref/hdrp-rendergraph-boundary-2026-06-06/Unity-RenderGraph-Writing-A-Render-Pipeline.html`
+- `ref/hdrp-rendergraph-boundary-2026-06-06/Unity-HDRP-DLSS-16.0.html`
+- `ref/hdrp-rendergraph-boundary-2026-06-06/Unity-HDRP-Dynamic-Resolution-13.1.html`
+- `ref/hdrp-rendergraph-boundary-2026-06-06/BepInEx-Runtime-Patching.html`
 
 ## Decision
 

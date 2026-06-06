@@ -503,6 +503,16 @@ As of the read-only RenderGraph pass-map runtime result:
   from `CompileRenderGraph(int)`. If approaching the real execution boundary,
   first design a separate `native-renderfunc-entry` no-op method-pointer probe;
   this is a new risk class, not ordinary Harmony patching.
+- Narrow search refresh is recorded in
+  `docs/research/hdrp-rendergraph-boundary-refresh-2026-06-06.md`. It added
+  local snapshots of Unity HDRP DLSS, Unity HDRP Dynamic Resolution, and BepInEx
+  runtime patching docs under `ref/hdrp-rendergraph-boundary-2026-06-06/`. The
+  refresh did not find a new safe Harmony boundary. The official source answer
+  remains `RenderPostProcess -> DoDLSSPasses -> DoDLSSPass -> Deep Learning Super
+  Sampling render func -> DLSSPass.GetCameraResources -> DLSSPass.Render/ExecuteDLSS`;
+  the next practical branch is either the already planned read-only
+  `rendergraph-compiled-pass-info` menu proof, or a separately designed
+  `native-renderfunc-entry` no-op method-pointer probe.
 - Implementation follow-up added the default-off
   `Diagnostics.EnableRenderGraphCompiledPassInfoProbe=false` and helper stage
   `rendergraph-compiled-pass-info`. It reuses the proven
