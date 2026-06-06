@@ -261,6 +261,11 @@ internal static class RenderScaleControlProbe
                 }
             }
 
+            if (methodName == "Update" && phase == "postfix")
+            {
+                FrameResourceProbe.TryRunCachedDlssUserRenderingDriver("DynamicResolutionHandler.Update postfix");
+            }
+
             if (changes.Count == 0)
             {
                 return;

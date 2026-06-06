@@ -306,6 +306,8 @@ try {
             "EnableDlssPassResourceProbe = false",
             "EnableUpscalerStateProbe = false",
             "EnableRenderScaleControlProbe = false",
+            "EnableDlssUserRenderingNoEvaluateProbe = false",
+            "EnableDlssCachedTupleDriverProbe = false",
             "EnableHookProbe = true"
         )) {
             if (-not (Test-TextContains -Text $configText -Needle $requiredConfigLine)) {

@@ -154,6 +154,13 @@ Current Stage 2C status:
   `docs/development/v6-user-rendering-visual-test-2026-06-06.md`, plus
   `docs/development/v6-user-rendering-timing-test-2026-06-06.md` and
   `docs/development/render-scale-only-performance-test-2026-06-06.md`.
+- Current next isolation stage:
+  `dlss-user-rendering-cached-driver-no-evaluate`. It is default-off via
+  `Diagnostics.EnableDlssCachedTupleDriverProbe=false`, uses the existing
+  `GetTexture` oracle only until one SR tuple is accepted, then drives the cached
+  no-evaluate tuple from `DynamicResolutionHandler.Update(...)` while fast-skipping
+  steady-state `GetTexture` postfix work. It has build/package/dry-run validation
+  only; no gameplay result exists yet.
 
 ## Stage 3: Read-Only Harmony Probe
 

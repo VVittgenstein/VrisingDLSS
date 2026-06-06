@@ -149,3 +149,42 @@ Conclusion: the patch is a real hot-path improvement, but it is not enough to ma
 the current route viable. The remaining steady-state path should stop relying on the
 global `GetTexture` postfix and move to a targeted render/upscale pass boundary or
 another specific resource submission point.
+
+## Cached Tuple Driver Implementation Follow-Up
+
+Implemented after the narrow HDRP DLSS boundary review:
+
+- Added `Diagnostics.EnableDlssCachedTupleDriverProbe=false` by default.
+- Added helper stage `dlss-user-rendering-cached-driver-no-evaluate`.
+- The stage keeps `EnableDlssUserRenderingNoEvaluateProbe=true` and
+  `EnableRenderGraphGetTextureProbe=true` long enough to discover and accept the
+  first valid Super Resolution tuple.
+- After a tuple is accepted, the `RenderGraph GetTexture` postfix now has a
+  top-of-method fast return when cached-driver no-evaluate is active, diagnostic
+  GetTexture logging is inactive, visible write-back is inactive, and no evaluate
+  output-follow-up pointer is pending.
+- `DynamicResolutionHandler.Update(...)` postfix now calls a cached tuple driver
+  once per frame/interval through the existing render-scale-control probe. The
+  driver reuses the accepted color/output/depth/motion pointers and still returns
+  before native DLSS evaluate/writeback.
+- The visual comparison helper treats the new stage like the other no-evaluate
+  stages: no SDK wrapper/runtime is required, and readiness waits for
+  `DLSS user rendering no-evaluate accepted from`.
+
+Verification completed for the implementation only:
+
+- `dotnet build` Release: passed with `0` warnings and `0` errors.
+- `write-diagnostic-config.ps1 -Stage dlss-user-rendering-cached-driver-no-evaluate
+  -DryRun`: generated the expected no-evaluate cached-driver config.
+- `run-vrising-visual-comparison.ps1 -CandidateStage
+  dlss-user-rendering-cached-driver-no-evaluate -DryRun`: planned
+  `CandidateRequiresSdkWrapper=False` and `WaitForUserRendering=True`.
+- `package-thunderstore.ps1`: release boundary and package validation passed.
+- `get-release-readiness-status.ps1 -Json`: remained
+  `DiagnosticPackageReady_MvpBlocked`, as expected.
+
+No gameplay runtime test was run for this cached-driver stage yet. The next runtime
+experiment should use true `1920x1080` Windowed gameplay, V Rising
+`FsrQualityMode=Off`, protected `11111` save backup/restore, and compare the cached
+driver no-evaluate stage against the prior r4 no-evaluate and render-scale-only
+results.

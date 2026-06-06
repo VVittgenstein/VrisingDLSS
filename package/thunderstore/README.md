@@ -33,6 +33,7 @@ This package template is not ready for public gameplay use yet. The current sour
 - Optionally runs an SDK-wrapper DLSS feature create/release diagnostic in local research builds; release-safe builds are expected to report blocked.
 - Optionally validates real-frame color/output/depth/motion D3D11 inputs for the future DLSS evaluate path.
 - Optionally validates a Super Resolution-sized real-frame tuple where color/depth/motion render inputs are smaller than the selected output target.
+- Optionally runs local/private no-evaluate user-rendering diagnostics, including a cached-tuple driver that stops steady-state RenderGraph `GetTexture` resource discovery after the first accepted tuple; release-safe packaged defaults keep this disabled.
 - Optionally queries DLSS optimal render size in local SDK-wrapper research builds; release-safe builds are expected to report blocked and the packaged config keeps this disabled.
 - Optionally runs a guarded Super Resolution-sized DLSS evaluate diagnostic in local SDK-wrapper research builds; release-safe builds are expected to report blocked and the packaged config keeps this disabled.
 - Optionally runs a guarded Super Resolution-sized persistent DLSS evaluate diagnostic in local SDK-wrapper research builds; release-safe builds are expected to report blocked and the packaged config keeps this disabled.

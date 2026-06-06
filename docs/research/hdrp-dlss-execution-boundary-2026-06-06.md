@@ -386,3 +386,17 @@ The most conservative path is:
 4. Separately, if pass-name evidence is needed, test `RenderGraph.OnPassAdded` as
    a read-only recording-stage probe. Treat it as a map/diagnostic only, because it
    does not provide live resources or an evaluate-safe command-buffer boundary.
+
+Implementation update:
+
+- Added `Diagnostics.EnableDlssCachedTupleDriverProbe=false` and helper stage
+  `dlss-user-rendering-cached-driver-no-evaluate`.
+- The new path keeps `GetTexture` as a temporary tuple oracle until first SR tuple
+  acceptance, then fast-skips the hot `GetTexture` postfix in no-evaluate cached
+  driver mode.
+- The cached tuple is driven from the already stable
+  `DynamicResolutionHandler.Update(...)` postfix via the render-scale-control probe.
+- This is not the official HDRP DLSS boundary and it still does not prove a
+  production evaluate placement. It is the next minimal performance isolation to
+  test whether the remaining no-evaluate collapse was mostly steady-state
+  `GetTexture` postfix overhead.

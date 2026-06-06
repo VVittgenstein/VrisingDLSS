@@ -128,6 +128,15 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
   input candidates, and `0` no-evaluate acceptances before the candidate was
   stopped. Cleanup restored release-safe config, left no V Rising process, and
   restored the protected `11111` save to `ChangeCount=0`.
+- Cached-driver no-evaluate implementation is now available for the next runtime
+  isolation. The new default-off
+  `Diagnostics.EnableDlssCachedTupleDriverProbe` and helper stage
+  `dlss-user-rendering-cached-driver-no-evaluate` use `GetTexture` only until the
+  first SR tuple is accepted, then fast-return the `GetTexture` postfix and drive
+  the cached tuple from `DynamicResolutionHandler.Update(...)` through the existing
+  render-scale-control probe. This has passed Release build, diagnostic-config
+  dry-run, visual-comparison dry-run, Thunderstore package validation, and readiness
+  checks, but it has not yet been runtime-tested in gameplay.
 - External research downloaded on 2026-06-06 into
   `ref/dlss-performance-investigation-2026-06-06/` aligns with that conclusion:
   Unity RenderGraph expects actual resources to be used inside render pass execution
@@ -251,12 +260,12 @@ Follow the new goal order:
      protected `11111` save with `ChangeCount=0`;
    - next loop must not rerun `rendergraph-pass-boundary` as a normal diagnostic.
      It should avoid Harmony patching ref-`CompiledPassInfo` RenderGraph executor
-     wrappers. Prefer the cached-tuple-driver isolation first: use `GetTexture` only
-     to learn the first accepted SR tuple, then drive no-evaluate/evaluate attempts
-     from stable render-scale-control callbacks and force the `GetTexture` postfix
-     into an extremely early return after acceptance. Use `RenderGraph.OnPassAdded`
-     only as an optional read-only pass-name map, not as an evaluate/resource
-     boundary;
+     wrappers. The cached-tuple-driver isolation is now implemented and should be
+     runtime-tested next: use `GetTexture` only to learn the first accepted SR tuple,
+     then drive no-evaluate attempts from stable render-scale-control callbacks and
+     force the `GetTexture` postfix into an extremely early return after acceptance.
+     Use `RenderGraph.OnPassAdded` only as an optional read-only pass-name map, not
+     as an evaluate/resource boundary;
    - use `docs/research/dlss-theoretical-performance-model-2026-06-06.md` to
      interpret performance: 1080p is a constructive correctness/stall test, while
      final DLSS value requires a GPU-bound 4K/high-load matrix;
@@ -267,10 +276,10 @@ Follow the new goal order:
 
 ## Current Repository Checkpoint
 
-As of the HDRP DLSS execution-boundary follow-up:
+As of the cached tuple driver implementation follow-up:
 
 - Branch: `main`.
-- Latest pushed checkpoint before this update: `e854a05 Locate HDRP DLSS pass boundary`.
+- Latest pushed checkpoint before this update: `32fc1c0 Narrow HDRP DLSS boundary route`.
 - The current working tree records the `fsr-off-render-scale-1080p-software-fallback-v5-20260606`
   failed fallback-only result, the `fsr-off-render-scale-1080p-post-update-fraction-v6-20260606`
   tuple/evaluate pass, safe cleanup, save restoration, external DLSS mod practice
@@ -292,6 +301,9 @@ As of the HDRP DLSS execution-boundary follow-up:
   boundary search, and the downloaded Unity Core RenderGraph reference files. This
   update also adds and runtime-rejects a default-off `rendergraph-pass-boundary`
   diagnostic stage: `PreRenderPassExecute` patching is now high-risk
-  crash-recovery-only evidence, not the next normal route.
+  crash-recovery-only evidence, not the next normal route. The current working tree
+  additionally adds the default-off `dlss-user-rendering-cached-driver-no-evaluate`
+  stage and `EnableDlssCachedTupleDriverProbe` config, with build/package/dry-run
+  validation complete and gameplay runtime validation still pending.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.

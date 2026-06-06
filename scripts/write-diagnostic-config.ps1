@@ -22,6 +22,7 @@ param(
         "dlss-user-rendering",
         "dlss-user-rendering-no-evaluate",
         "dlss-user-rendering-materialization-no-evaluate",
+        "dlss-user-rendering-cached-driver-no-evaluate",
         "dlss-evaluate",
         "dlss-persistent-evaluate",
         "dlsspass-resource"
@@ -78,6 +79,7 @@ function New-ConfigMap {
             EnableUpscalerStateProbe = "false"
             EnableRenderScaleControlProbe = "false"
             EnableDlssUserRenderingNoEvaluateProbe = "false"
+            EnableDlssCachedTupleDriverProbe = "false"
             EnableHookProbe = "true"
             EnableHarmonyCallProbe = "false"
         }
@@ -257,6 +259,15 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"
             $Config.Diagnostics.EnableRenderScaleControlProbe = "true"
             $Config.Diagnostics.EnableDlssUserRenderingNoEvaluateProbe = "true"
+        }
+        "dlss-user-rendering-cached-driver-no-evaluate" {
+            $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
+            $Config.Diagnostics.EnableD3D11TextureProbe = "true"
+            $Config.Diagnostics.EnableResourceMaterializationProbe = "true"
+            $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+            $Config.Diagnostics.EnableRenderScaleControlProbe = "true"
+            $Config.Diagnostics.EnableDlssUserRenderingNoEvaluateProbe = "true"
+            $Config.Diagnostics.EnableDlssCachedTupleDriverProbe = "true"
         }
         "dlss-evaluate" {
             $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"

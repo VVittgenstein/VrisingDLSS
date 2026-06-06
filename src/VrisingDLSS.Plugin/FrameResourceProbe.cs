@@ -97,6 +97,7 @@ internal static class FrameResourceProbe
     private static readonly Dictionary<Type, FieldInfo[]> LikelyTextureFieldCache = new();
     private static DlssUserRenderingResourceTuple? DlssUserRenderingAcceptedTuple;
     private static int DlssUserRenderingCachedTupleUseCount;
+    private static volatile bool DlssUserRenderingHasAcceptedTuple;
     private static readonly string[] GlobalTextureNames =
     {
         "_CameraDepthTexture",
@@ -136,6 +137,7 @@ internal static class FrameResourceProbe
     private static bool DlssUserRenderingBlocked;
     private static bool DlssUserRenderingShutdownLogged;
     private static bool DlssUserRenderingFrameThrottleFallbackLogged;
+    private static bool DlssCachedTupleDriverProbeEnabled;
     private static bool DlssVisibleWritebackProbeEnabled;
     private static bool KeepDlssVisibleWritebackProbeRunning;
     private static bool DlssVisibleWritebackProbeSucceeded;
@@ -158,6 +160,7 @@ internal static class FrameResourceProbe
         bool enableDlssVisibleWritebackProbe = false,
         bool enableDlssUserRendering = false,
         bool enableDlssUserRenderingNoEvaluate = false,
+        bool enableDlssCachedTupleDriverProbe = false,
         bool keepDlssVisibleWritebackProbeRunning = false,
         DlssEvaluateProbeSettings dlssEvaluateSettings = default,
         bool enableRenderGraphDiagnosticPass = false,
@@ -180,8 +183,9 @@ internal static class FrameResourceProbe
             DlssVisibleWritebackProbeEnabled = DlssVisibleWritebackProbeEnabled || enableDlssVisibleWritebackProbe;
             DlssUserRenderingEnabled = DlssUserRenderingEnabled || enableDlssUserRendering || enableDlssUserRenderingNoEvaluate;
             DlssUserRenderingNoEvaluateEnabled = DlssUserRenderingNoEvaluateEnabled || enableDlssUserRenderingNoEvaluate;
+            DlssCachedTupleDriverProbeEnabled = DlssCachedTupleDriverProbeEnabled || enableDlssCachedTupleDriverProbe;
             KeepDlssVisibleWritebackProbeRunning = KeepDlssVisibleWritebackProbeRunning || (enableDlssVisibleWritebackProbe && keepDlssVisibleWritebackProbeRunning);
-            if (enableDlssEvaluateProbe || enableDlssPersistentEvaluateProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe || enableDlssVisibleWritebackProbe || enableDlssUserRendering)
+            if (enableDlssEvaluateProbe || enableDlssPersistentEvaluateProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe || enableDlssVisibleWritebackProbe || enableDlssUserRendering || enableDlssUserRenderingNoEvaluate || enableDlssCachedTupleDriverProbe)
             {
                 DlssEvaluateSettings = dlssEvaluateSettings;
             }
@@ -218,6 +222,7 @@ internal static class FrameResourceProbe
         DlssVisibleWritebackProbeEnabled = enableDlssVisibleWritebackProbe;
         DlssUserRenderingEnabled = enableDlssUserRendering || enableDlssUserRenderingNoEvaluate;
         DlssUserRenderingNoEvaluateEnabled = enableDlssUserRenderingNoEvaluate;
+        DlssCachedTupleDriverProbeEnabled = enableDlssCachedTupleDriverProbe;
         KeepDlssVisibleWritebackProbeRunning = enableDlssVisibleWritebackProbe && keepDlssVisibleWritebackProbeRunning;
         DlssEvaluateSettings = dlssEvaluateSettings;
         RenderGraphDiagnosticPassEnabled = enableRenderGraphDiagnosticPass;
@@ -293,6 +298,10 @@ internal static class FrameResourceProbe
         if (DlssUserRenderingNoEvaluateEnabled)
         {
             log.LogWarning("DLSS user rendering no-evaluate diagnostic enabled. It accepts the same RenderGraph Super Resolution tuple but skips NGX evaluate/writeback for performance isolation.");
+        }
+        if (DlssCachedTupleDriverProbeEnabled)
+        {
+            log.LogWarning("DLSS cached tuple driver no-evaluate diagnostic enabled. It discovers one RenderGraph tuple, then drives the cached tuple from DynamicResolutionHandler.Update while skipping NGX evaluate/writeback.");
         }
         if (RenderGraphDiagnosticPassEnabled)
         {
@@ -586,6 +595,7 @@ internal static class FrameResourceProbe
             DlssSuperResolutionFrameSequenceEvaluateProbeEnabled = false;
             DlssUserRenderingEnabled = false;
             DlssUserRenderingNoEvaluateEnabled = false;
+            DlssCachedTupleDriverProbeEnabled = false;
             DlssVisibleWritebackProbeEnabled = false;
             KeepDlssVisibleWritebackProbeRunning = false;
             DlssEvaluateInputProbeSucceeded = false;
@@ -635,6 +645,7 @@ internal static class FrameResourceProbe
                 DlssUserRenderingBridgeEvaluateMaxTicks = 0;
                 DlssUserRenderingAcceptedTuple = null;
                 DlssUserRenderingCachedTupleUseCount = 0;
+                DlssUserRenderingHasAcceptedTuple = false;
                 DlssUserRenderingFrameThrottleFallbackLogged = false;
                 DlssVisibleWritebackProbeAttemptCount = 0;
                 DlssVisibleWritebackProbeSuccessCount = 0;
@@ -1899,6 +1910,11 @@ internal static class FrameResourceProbe
     {
         try
         {
+            if (ShouldFastSkipRenderGraphGetTextureForCachedTupleDriver())
+            {
+                return;
+            }
+
             var log = Log;
             var bridge = Bridge;
             if (log is null || bridge is null)
@@ -2000,6 +2016,24 @@ internal static class FrameResourceProbe
     private static bool ShouldLogRenderGraphGetTexture(int count)
     {
         return RenderGraphGetTextureDiagnosticLoggingEnabled && (count <= MaxRenderGraphGetTextureLogs || count % 300 == 0);
+    }
+
+    private static bool ShouldFastSkipRenderGraphGetTextureForCachedTupleDriver()
+    {
+        if (!DlssCachedTupleDriverProbeEnabled || !DlssUserRenderingNoEvaluateEnabled || !DlssUserRenderingHasAcceptedTuple)
+        {
+            return false;
+        }
+
+        lock (Sync)
+        {
+            return DlssUserRenderingEnabled
+                && !DlssUserRenderingBlocked
+                && DlssUserRenderingAcceptedTuple.HasValue
+                && !RenderGraphGetTextureDiagnosticLoggingEnabled
+                && !DlssVisibleWritebackProbeEnabled
+                && DlssEvaluateOutputFollowupPointer == IntPtr.Zero;
+        }
     }
 
     private static bool ShouldSkipRenderGraphGetTextureForStableUserRendering()
@@ -3146,6 +3180,62 @@ internal static class FrameResourceProbe
         }
     }
 
+    internal static void TryRunCachedDlssUserRenderingDriver(string source)
+    {
+        try
+        {
+            if (!DlssCachedTupleDriverProbeEnabled
+                || !DlssUserRenderingNoEvaluateEnabled
+                || !DlssUserRenderingEnabled
+                || DlssUserRenderingBlocked
+                || WasDlssUserRenderingAttemptedThisFrameOrInterval())
+            {
+                return;
+            }
+
+            var log = Log;
+            var bridge = Bridge;
+            if (log is null || bridge is null)
+            {
+                return;
+            }
+
+            DlssUserRenderingResourceTuple tuple;
+            int useCount;
+            lock (Sync)
+            {
+                if (!DlssUserRenderingAcceptedTuple.HasValue)
+                {
+                    return;
+                }
+
+                tuple = DlssUserRenderingAcceptedTuple.Value;
+                DlssUserRenderingCachedTupleUseCount++;
+                useCount = DlssUserRenderingCachedTupleUseCount;
+            }
+
+            if (useCount <= 3 || useCount % 300 == 0)
+            {
+                log.LogInfo($"DLSS cached tuple driver invoked from {source}: driverCalls={useCount}; outputResourceName={tuple.OutputResourceName ?? "unavailable"}");
+            }
+
+            TryRunDlssUserRendering(
+                log,
+                bridge,
+                $"{source} cached tuple driver",
+                tuple.ColorPointer,
+                tuple.OutputPointer,
+                tuple.DepthPointer,
+                tuple.MotionPointer,
+                tuple.OutputResourceName,
+                "cached tuple driver; input probe not repeated for this frame");
+        }
+        catch (Exception ex)
+        {
+            Log?.LogWarning($"DLSS cached tuple driver failed from {source}: {GetExceptionMessage(ex)}");
+        }
+    }
+
     private static bool TryRunCachedDlssUserRenderingTuple(
         ManualLogSource log,
         NativeBridge bridge,
@@ -3232,6 +3322,8 @@ internal static class FrameResourceProbe
                 DlssUserRenderingCachedTupleUseCount = 0;
                 changed = true;
             }
+
+            DlssUserRenderingHasAcceptedTuple = true;
         }
 
         if (changed)

@@ -516,7 +516,7 @@ if (Test-Path -LiteralPath $reviewResolved) {
 }
 
 if (@($issues | Where-Object { $_ -like "Candidate * regressed*" -or $_ -like "Candidate P95 frame time worsened*" }).Count -gt 0) {
-    $nextRecommendation = "Fix the dlss-user-rendering render-scale/evaluate performance regression, then rerun the paired gameplay visual/performance comparison with V Rising FSR Off and mod-owned render-scale control. Create the matching human review file only if performance and image quality are acceptable."
+    $nextRecommendation = "Run the dlss-user-rendering-cached-driver-no-evaluate isolation at 1920x1080 Windowed with V Rising FSR Off to verify whether fast-skipping steady-state GetTexture removes the user-rendering performance regression. Resume paired DLSS visual/performance review only after the regression is no longer severe."
 }
 
 if ($issues.Count -gt 0) {

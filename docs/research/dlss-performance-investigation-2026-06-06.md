@@ -398,8 +398,12 @@ Narrow HDRP source follow-up: see
 Local Unity source and V Rising interop show the official DLSS boundary is the
 `Deep Learning Super Sampling` RenderGraph pass execution window:
 `RenderPostProcess -> DoDLSSPasses -> DoDLSSPass -> DLSSPass.GetCameraResources -> DLSSPass.Render/ExecuteDLSS`.
-The next production-oriented route should prove a narrowly filtered RenderGraph
-pass-execution hook, then resolve/evaluate resources only inside that pass window.
+Because local `PreRenderPassExecute` testing rejected the ref-`CompiledPassInfo`
+executor wrapper family, the next near-term isolation is the default-off
+`dlss-user-rendering-cached-driver-no-evaluate` stage: use `GetTexture` only as a
+temporary tuple oracle, then drive the cached no-evaluate tuple from
+`DynamicResolutionHandler.Update(...)` while fast-skipping steady-state `GetTexture`
+postfix work.
 
 ## Theoretical Performance Follow-up
 

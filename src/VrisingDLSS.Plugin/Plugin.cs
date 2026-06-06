@@ -40,6 +40,10 @@ public sealed class Plugin : BasePlugin
         {
             _log.LogWarning("DLSS user-rendering no-evaluate diagnostic is true. This will exercise RenderGraph tuple discovery and Super Resolution input acceptance, but it will not call NGX evaluate or write into the output target.");
         }
+        if (_config.EnableDlssCachedTupleDriverProbe.Value)
+        {
+            _log.LogWarning("DLSS cached tuple driver diagnostic is true. This no-evaluate probe will stop using GetTexture after the first accepted tuple and drive the cached tuple from DynamicResolutionHandler.Update.");
+        }
 
         if (_config.EnableHookProbe.Value)
         {
@@ -51,7 +55,7 @@ public sealed class Plugin : BasePlugin
             UpscalerStateProbe.Install(_log);
         }
 
-        if (_config.EnableRenderScaleControlProbe.Value || _config.EnableDlss.Value || _config.EnableDlssUserRenderingNoEvaluateProbe.Value)
+        if (_config.EnableRenderScaleControlProbe.Value || _config.EnableDlss.Value || _config.EnableDlssUserRenderingNoEvaluateProbe.Value || _config.EnableDlssCachedTupleDriverProbe.Value)
         {
             RenderScaleControlProbe.Install(_log, _config.QualityMode.Value, _config.RenderScaleOverride.Value);
         }
@@ -73,7 +77,8 @@ public sealed class Plugin : BasePlugin
             || _config.EnableDlssPassResourceProbe.Value
             || _config.EnableRenderGraphPassBoundaryProbe.Value
             || _config.EnableDlss.Value
-            || _config.EnableDlssUserRenderingNoEvaluateProbe.Value)
+            || _config.EnableDlssUserRenderingNoEvaluateProbe.Value
+            || _config.EnableDlssCachedTupleDriverProbe.Value)
         {
             RunFrameResourceProbe();
         }
@@ -206,6 +211,7 @@ public sealed class Plugin : BasePlugin
             _config?.EnableDlssVisibleWritebackProbe.Value ?? false,
             _config?.EnableDlss.Value ?? false,
             _config?.EnableDlssUserRenderingNoEvaluateProbe.Value ?? false,
+            _config?.EnableDlssCachedTupleDriverProbe.Value ?? false,
             _config?.KeepDlssVisibleWritebackProbeRunning.Value ?? false,
             CreateDlssEvaluateProbeSettings(),
             _config?.EnableRenderGraphDiagnosticPass.Value ?? false,
