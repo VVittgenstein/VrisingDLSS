@@ -307,6 +307,34 @@ Result:
   time was about `0.08-0.11 ms`, so the ongoing FPS regression is not explained by the
   direct NGX evaluate call itself.
 
+## Render-Scale-Only Performance Follow-up
+
+Run label: `render-scale-only-1080p-20260606-r1`.
+
+Result:
+
+- The same Computer Use route selected the real `VRising` window for both baseline and
+  candidate, clicked the known `11111` Continue entry once per run at `(205, 354)` in
+  the current `1283x751` screenshot, and sent no movement/gameplay keys.
+- Both runs reached stable gameplay and produced valid `1920x1080` script-side
+  screenshots.
+- Candidate stage was `render-scale-control`, so no SDK-wrapper native DLL or
+  `nvngx_dlss.dll` was required.
+- Cleanup restored FSR mode, loader config, release-safe native DLL, client settings,
+  and the `11111` save (`ChangeCount=0` after restore).
+- Technical result: render-scale-only did not reproduce the FPS collapse. Average FPS
+  stayed essentially flat (`204.419 -> 205.410`) while GPU utilization/power dropped
+  (`98.222%/135.571 W -> 65.556%/95.183 W`), consistent with lower internal rendering
+  cost rather than a render-scale blocker.
+
+Pitfall:
+
+- When calling `scripts\protect-vrising-save.ps1` through nested PowerShell, quote
+  `C:\Users\Administrator\AppData\LocalLow\Stunlock Studios\...` paths. An unquoted
+  `Stunlock Studios` segment is split and causes `Resolve-Path` to fail before the
+  restore does any work. The corrected recovery command used `-ExecutionPolicy Bypass`
+  plus single-quoted `-SaveDir` and `-ReferenceDir` values.
+
 ## Next Click Protocol Notes
 
 For future Continue activations:

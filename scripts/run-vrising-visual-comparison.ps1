@@ -21,7 +21,7 @@ param(
     [string]$PresentMonPath = "C:\Software\PresentMon\PresentMon-2.4.1-x64.exe",
     [string]$NvidiaSmiPath = "nvidia-smi.exe",
     [switch]$SkipSystemMetrics,
-    [ValidateSet("dlss-visible-writeback", "dlss-user-rendering")]
+    [ValidateSet("dlss-visible-writeback", "dlss-user-rendering", "render-scale-control")]
     [string]$CandidateStage = "dlss-visible-writeback",
     $WaitForStage10A = $true,
     [int]$Stage10ATimeoutSeconds = 600,
@@ -807,8 +807,17 @@ if ($FsrMode -ne "Unchanged") {
     $fsrPlan = Invoke-ProjectScript -RelativePath "scripts\set-vrising-fsr-mode.ps1" -Parameters $fsrPlanParameters
 }
 
-$candidateLabelSuffix = if ($CandidateStage -eq "dlss-visible-writeback") { "stage10a-visible-writeback" } else { "user-rendering" }
-$comparisonLabelSuffix = if ($CandidateStage -eq "dlss-visible-writeback") { "stage10a" } else { "user-rendering" }
+$candidateRequiresSdkWrapper = $CandidateStage -ne "render-scale-control"
+$candidateLabelSuffix = switch ($CandidateStage) {
+    "dlss-visible-writeback" { "stage10a-visible-writeback" }
+    "dlss-user-rendering" { "user-rendering" }
+    "render-scale-control" { "render-scale-control" }
+}
+$comparisonLabelSuffix = switch ($CandidateStage) {
+    "dlss-visible-writeback" { "stage10a" }
+    "dlss-user-rendering" { "user-rendering" }
+    "render-scale-control" { "render-scale-control" }
+}
 $baselineLabel = "$ArtifactLabel-baseline-loader"
 $candidateLabel = "$ArtifactLabel-$candidateLabelSuffix"
 $comparisonLabel = "$ArtifactLabel-baseline-vs-$comparisonLabelSuffix"
@@ -851,7 +860,8 @@ $plan = [pscustomobject]@{
     CandidateCapture = $(if ($Mode -ne "BaselineOnly") { $candidatePath } else { "" })
     ComparisonArtifact = $(if ($Mode -eq "Paired") { $comparisonPath } else { "" })
     DlssRuntimePath = $DlssRuntimePath
-    SdkWrapperNativePath = $(if ($Mode -ne "BaselineOnly") { $sdkWrapperNativeResolved } else { "" })
+    CandidateRequiresSdkWrapper = $candidateRequiresSdkWrapper
+    SdkWrapperNativePath = $(if ($Mode -ne "BaselineOnly" -and $candidateRequiresSdkWrapper) { $sdkWrapperNativeResolved } else { "" })
     FsrMode = $FsrMode
     FsrSettingsPath = $(if ($fsrPlan) { $fsrPlan.SettingsPath } elseif (-not [string]::IsNullOrWhiteSpace($FsrSettingsPath)) { [System.IO.Path]::GetFullPath($FsrSettingsPath) } else { "" })
     PreviousFsrMode = $(if ($fsrPlan) { $fsrPlan.PreviousFsrQualityName } else { "" })
@@ -941,7 +951,7 @@ try {
     }
 
     if ($Mode -ne "BaselineOnly") {
-        $results.Add((Invoke-VisualRun -Stage $CandidateStage -Label $candidateLabel -UseSdkWrapperNative $true))
+        $results.Add((Invoke-VisualRun -Stage $CandidateStage -Label $candidateLabel -UseSdkWrapperNative $candidateRequiresSdkWrapper))
     }
 
     if ($Mode -eq "Paired") {

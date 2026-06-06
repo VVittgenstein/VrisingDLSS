@@ -198,9 +198,94 @@ remaining likely sources are the v6 render-scale/software-fallback path, the ver
 RenderGraph resource-discovery hook, HDRP's own upscale path, or GPU submission/present
 behavior not captured by CPU-side timing.
 
+## External Practice Check
+
+Searched on 2026-06-06 after the repeated "DLSS succeeds but performance is wrong"
+signature appeared locally.
+
+Primary references:
+
+- NVIDIA DLSS developer page:
+  `https://developer.nvidia.com/rtx/dlss`
+- NVIDIA NGX programming guide:
+  `https://docs.nvidia.com/ngx/latest/programming-guide/`
+- Unity HDRP DLSS manual:
+  `https://docs.unity.cn/Packages/com.unity.render-pipelines.high-definition%4012.0/manual/deep-learning-super-sampling-in-hdrp.html`
+- Unity HDRP Dynamic Resolution manual:
+  `https://docs.unity.cn/Packages/com.unity.render-pipelines.high-definition%4013.0/manual/Dynamic-Resolution.html`
+- Unity HDRP Camera manual:
+  `https://docs.unity.cn/Packages/com.unity.render-pipelines.high-definition%4017.0/manual/HDRP-Camera.html`
+- Unity DynamicResolutionSample:
+  `https://github.com/Unity-Technologies/DynamicResolutionSample`
+
+Useful implications:
+
+- NVIDIA describes DLSS Super Resolution as outputting a higher-resolution frame from
+  lower-resolution inputs, using motion data and prior-frame feedback. A correctly
+  placed SR integration should normally reduce heavy rendering work before adding
+  reconstruction cost.
+- Unity's HDRP DLSS path is explicitly tied to Dynamic Resolution: enable dynamic
+  resolution in the HDRP asset, allow it per camera, then allow DLSS per camera.
+- HDRP Dynamic Resolution lowers the main render targets and upscales to the
+  back-buffer resolution. Unity notes HDRP does not automatically choose the scale
+  unless an integration/policy drives the handler.
+- Unity's dynamic-resolution sample warns that only one scaling/timing controller
+  should run; collecting timing data multiple times per frame wastes work. This is a
+  useful reminder for our hot-hook route, even though our current issue is much larger
+  than a normal timing-query cost.
+- Community reports of "DLSS on but FPS worse / low GPU utilization" are common, but
+  anecdotal. They are useful as symptom matches only. The recurring credible pattern is
+  that low GPU utilization plus worse FPS points to a CPU/render-thread, frame-limiter,
+  or integration-placement bottleneck rather than useful GPU-bound DLSS work.
+
+The external references strengthen the local expectation: Performance-mode DLSS should
+not cut FPS in half when the scene is GPU-bound. A successful evaluate status is only
+one integration signal; performance validation must prove that the engine is actually
+submitting the cheaper render workload and presenting without a synchronization trap.
+
+## Render-Scale-Only Isolation
+
+Run label: `render-scale-only-1080p-20260606-r1`.
+
+This run used V Rising `FsrQualityMode=Off`, true `1920x1080` Windowed,
+`CandidateStage=render-scale-control`, and no SDK-wrapper native/DLSS runtime. The
+candidate did not call DLSS evaluate.
+
+Performance:
+
+- Baseline average FPS: `204.419`.
+- Candidate average FPS: `205.410`.
+- Baseline 1% low FPS: `154.841`.
+- Candidate 1% low FPS: `140.222`.
+- Baseline P95 frame time: `5.929 ms`.
+- Candidate P95 frame time: `6.188 ms`.
+- Baseline average GPU utilization/power: `98.222%`, `135.571 W`.
+- Candidate average GPU utilization/power: `65.556%`, `95.183 W`.
+
+Candidate log checks:
+
+- `GetCurrentScale=0.5`: `31`.
+- `GetResolvedScale=(0.50, 0.50)`: `31`.
+- `DLSS user rendering evaluate succeeded`: `0`.
+- `RenderGraph GetTexture call`: `0`.
+
+Cleanup passed: helper cleanup restored release-safe state, no V Rising process
+remained, loader config returned to `EnableDLSS=false` with empty `DlssRuntimePath`,
+and the `11111` save restored with `ChangeCount=0`.
+
+Updated interpretation: the v6 render-scale/HDRP dynamic-resolution intervention is
+not the source of the severe FPS drop. Lower GPU utilization with unchanged average
+FPS is the expected shape for reduced internal resolution in this low-cost 1080p
+fixture. The remaining blocker is inside the `dlss-user-rendering` path: hot
+RenderGraph tuple discovery, the DLSS evaluate/writeback placement, GPU
+submission/present behavior, or some combination of those.
+
 ## Route Decision
 
 Do not treat `DLSS user rendering evaluate succeeded` as a performance pass. The
 current route proves the tuple and SDK wrapper can evaluate. MVP readiness still
 requires a rendering placement that improves or at least does not severely regress
-frame time in a controlled FSR Off comparison.
+frame time in a controlled FSR Off comparison. Do not repeat render-scale-only as the
+next primary suspect unless new evidence changes the setup; the next diagnostic should
+separate the hot RenderGraph discovery hook from native DLSS evaluate/writeback, or
+move evaluation into a real render/upscale pass boundary.

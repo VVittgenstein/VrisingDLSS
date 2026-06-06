@@ -105,8 +105,18 @@ GetTexture` postfix placement is forcing a stall.
 Timing follow-up `v6-user-rendering-1080p-timing-20260606-r3` answered that the stable
 native evaluate CPU wall time is not the sustained frame-time source: at
 `sequenceSuccesses=12000`, bridge `lastMs=0.092`, native `total=0.085 ms`, and native
-`evaluate=0.083 ms`, while average FPS still regressed `205.255 -> 86.761`. The next
-measurement should isolate the `render-scale-control` path without DLSS evaluate.
+`evaluate=0.083 ms`, while average FPS still regressed `205.255 -> 86.761`. This
+motivated a `render-scale-control` isolation without DLSS evaluate.
+
+Render-scale-only follow-up `render-scale-only-1080p-20260606-r1` completed that
+isolation. With V Rising FSR Off at true `1920x1080` Windowed, candidate
+`render-scale-control` kept average FPS at `205.410` versus baseline `204.419` while
+logging active `0.5` scale and zero DLSS evaluates. GPU utilization/power dropped
+from `98.222%`/`135.571 W` to `65.556%`/`95.183 W`, which is consistent with reduced
+internal render workload rather than the bad `dlss-user-rendering` signature. The
+next measurement should separate the `dlss-user-rendering` hot RenderGraph discovery
+hook from native DLSS evaluate/writeback, or validate evaluate/writeback from a real
+render/upscale pass boundary.
 
 Use `scripts/set-vrising-fsr-mode.ps1` for local test setup when changing V Rising's built-in FSR mode. It backs up `ClientSettings.json` under ignored local artifacts before writing and does not launch the game. The visual comparison helper can do this automatically with `-FsrMode Off` for the final MVP comparison, or `-FsrMode Performance` for explicitly labeled transition diagnostics; it restores the previous value during cleanup.
 

@@ -137,12 +137,23 @@ Current Stage 2C status:
   `153.451 -> 67.061`, P95 frame time was `5.896 ms -> 13.642 ms`, and average GPU
   utilization was `98.111% -> 40.889%`. The first session create cost about
   `604.85 ms`, but a stable sample at `sequenceSuccesses=12000` reported bridge
-  `lastMs=0.092`, native `total=0.085 ms`, and native `evaluate=0.083 ms`. The next
-  isolation target is a no-DLSS-evaluate `render-scale-control` comparison.
+  `lastMs=0.092`, native `total=0.085 ms`, and native `evaluate=0.083 ms`. This
+  motivated a no-DLSS-evaluate `render-scale-control` comparison.
+- Render-scale-only comparison `render-scale-only-1080p-20260606-r1` completed that
+  isolation and did not reproduce the FPS collapse. Baseline/candidate average FPS was
+  `204.419 -> 205.410`, 1% low was `154.841 -> 140.222`, P95 frame time was
+  `5.929 ms -> 6.188 ms`, and GPU utilization/power dropped to
+  `65.556%`/`95.183 W` from `98.222%`/`135.571 W`. Candidate logs proved
+  `GetCurrentScale=0.5` / `GetResolvedScale=(0.50, 0.50)` while recording zero
+  `DLSS user rendering evaluate succeeded` lines. Treat render-scale-only as cleared
+  unless new evidence changes the fixture; the next blocker is inside
+  `dlss-user-rendering` placement, hot RenderGraph discovery, or GPU
+  submission/present behavior.
 - Latest result summaries: `docs/development/handler-request-runtime-test-2026-06-06.md`,
   `docs/development/post-update-fraction-runtime-result-2026-06-06.md`, and
   `docs/development/v6-user-rendering-visual-test-2026-06-06.md`, plus
-  `docs/development/v6-user-rendering-timing-test-2026-06-06.md`.
+  `docs/development/v6-user-rendering-timing-test-2026-06-06.md` and
+  `docs/development/render-scale-only-performance-test-2026-06-06.md`.
 
 ## Stage 3: Read-Only Harmony Probe
 
@@ -805,4 +816,9 @@ Current helper smoke status:
   `DLSS user rendering evaluate succeeded` is not enough and also showed the stable
   native evaluate CPU call is not the sustained 11 ms frame-time source. The next
   rendering step is to isolate the v6 render-scale/HDRP path without DLSS evaluate.
+- The render-scale-only comparison `render-scale-only-1080p-20260606-r1` completed
+  that isolation: active `0.5` scale without DLSS evaluate kept average FPS near
+  baseline. The next rendering step is to isolate the `dlss-user-rendering` hot
+  RenderGraph discovery hook from native evaluate/writeback, or move evaluation into a
+  real render/upscale pass boundary.
 - Current route decision: DLSS itself does not depend on FSR. The final MVP validation must keep V Rising `FsrQualityMode=Off` for baseline and candidate, while the mod controls render scale/upscale through HDRP dynamic-resolution/DLSS-path integration. The next gate is no longer tuple existence; it is visual correctness, performance, resize/reset, fallback behavior, and release-boundary validation.
