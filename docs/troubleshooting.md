@@ -397,6 +397,31 @@ Do not patch those generated methods or use this as evaluate-boundary evidence.
 Do not rerun this stage unchanged; use it only as a pass-name/method-identity map
 for a later source-backed execution-boundary design.
 
+## RenderGraph Compiled Pass Info Probe
+
+`EnableRenderGraphCompiledPassInfoProbe` is disabled by default and is
+read-only. It reuses the safe `CompileRenderGraph(int)` observation point and
+logs focused `CompiledPassInfo` state for postprocess/upscale/final candidates:
+culling flags, side-effect/ref-count/sync state, and resource create/release
+list counts.
+
+It does not resolve resources, does not call `GetTexture`, does not inspect
+native texture pointers, does not touch command buffers, does not patch render
+functions, and does not evaluate DLSS.
+
+Use it only when the next question is whether the focused pass chain survives
+compile/culling and where its resource lifetime lists sit:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\path\to\VRising" -Stage rendergraph-compiled-pass-info -DurationSeconds 120 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080
+```
+
+Current status: implemented and build-validated, not yet runtime-tested. First
+runtime test must be menu-only at true `1920x1080` Windowed. Do not run
+protected `11111` gameplay until menu proof has focused
+`RenderGraph compiled-pass-info #` lines, `RenderGraph GetTexture call #=0`, and
+no crash.
+
 ## RenderGraph Execute-Delegate Probe
 
 `EnableRenderGraphExecuteDelegateProbe` is disabled by default and is read-only.

@@ -23,6 +23,7 @@ internal static class FrameResourceProbe
     private const int MaxRenderGraphPassDeclarationLogs = 260;
     private const int MaxRenderGraphPassDataSnapshotLogs = 220;
     private const int MaxRenderGraphPassRenderFuncMetadataLogs = 220;
+    private const int MaxRenderGraphCompiledPassInfoLogs = 220;
     private const int MaxRenderGraphExecuteDelegateLogs = 180;
     private const int MaxRenderGraphExecutionScopeLogs = 80;
     private const int MaxRenderGraphScopedEvaluateAttempts = 12;
@@ -64,6 +65,7 @@ internal static class FrameResourceProbe
     private static int RenderGraphPassDeclarationLogCount;
     private static int RenderGraphPassDataSnapshotLogCount;
     private static int RenderGraphPassRenderFuncMetadataLogCount;
+    private static int RenderGraphCompiledPassInfoLogCount;
     private static int RenderGraphExecuteDelegateLogCount;
     private static int RenderGraphExecutionScopeCallCount;
     private static int RenderGraphScopedEvaluateAttemptCount;
@@ -133,6 +135,7 @@ internal static class FrameResourceProbe
     private static bool RenderGraphPassResourceDeclarationProbeEnabled;
     private static bool RenderGraphPassDataSnapshotProbeEnabled;
     private static bool RenderGraphPassRenderFuncMetadataProbeEnabled;
+    private static bool RenderGraphCompiledPassInfoProbeEnabled;
     private static bool RenderGraphExecuteDelegateProbeEnabled;
     private static bool RenderGraphGetTextureProbeEnabled;
     private static bool DlssPassResourceProbeEnabled;
@@ -192,6 +195,7 @@ internal static class FrameResourceProbe
         bool enableRenderGraphPassResourceDeclarationProbe = false,
         bool enableRenderGraphPassDataSnapshotProbe = false,
         bool enableRenderGraphPassRenderFuncMetadataProbe = false,
+        bool enableRenderGraphCompiledPassInfoProbe = false,
         bool enableRenderGraphExecuteDelegateProbe = false,
         bool enableRenderGraphGetTextureProbe = true,
         bool enableDlssPassResourceProbe = false)
@@ -225,6 +229,7 @@ internal static class FrameResourceProbe
             RenderGraphPassResourceDeclarationProbeEnabled = RenderGraphPassResourceDeclarationProbeEnabled || enableRenderGraphPassResourceDeclarationProbe;
             RenderGraphPassDataSnapshotProbeEnabled = RenderGraphPassDataSnapshotProbeEnabled || enableRenderGraphPassDataSnapshotProbe;
             RenderGraphPassRenderFuncMetadataProbeEnabled = RenderGraphPassRenderFuncMetadataProbeEnabled || enableRenderGraphPassRenderFuncMetadataProbe;
+            RenderGraphCompiledPassInfoProbeEnabled = RenderGraphCompiledPassInfoProbeEnabled || enableRenderGraphCompiledPassInfoProbe;
             RenderGraphExecuteDelegateProbeEnabled = RenderGraphExecuteDelegateProbeEnabled || enableRenderGraphExecuteDelegateProbe;
             RenderGraphGetTextureProbeEnabled = RenderGraphGetTextureProbeEnabled || enableRenderGraphGetTextureProbe;
             DlssPassResourceProbeEnabled = DlssPassResourceProbeEnabled || enableDlssPassResourceProbe;
@@ -266,6 +271,7 @@ internal static class FrameResourceProbe
         RenderGraphPassResourceDeclarationProbeEnabled = enableRenderGraphPassResourceDeclarationProbe;
         RenderGraphPassDataSnapshotProbeEnabled = enableRenderGraphPassDataSnapshotProbe;
         RenderGraphPassRenderFuncMetadataProbeEnabled = enableRenderGraphPassRenderFuncMetadataProbe;
+        RenderGraphCompiledPassInfoProbeEnabled = enableRenderGraphCompiledPassInfoProbe;
         RenderGraphExecuteDelegateProbeEnabled = enableRenderGraphExecuteDelegateProbe;
         RenderGraphGetTextureProbeEnabled = enableRenderGraphGetTextureProbe;
         DlssPassResourceProbeEnabled = enableDlssPassResourceProbe;
@@ -376,6 +382,10 @@ internal static class FrameResourceProbe
         if (RenderGraphPassRenderFuncMetadataProbeEnabled)
         {
             log.LogInfo("RenderGraph pass render-func metadata probe enabled. It patches CompileRenderGraph(int) to read focused pass renderFunc delegate metadata only and does not call or patch render functions.");
+        }
+        if (RenderGraphCompiledPassInfoProbeEnabled)
+        {
+            log.LogInfo("RenderGraph compiled-pass-info probe enabled. It patches CompileRenderGraph(int) for read-only focused pass culling/sync/lifetime snapshots and does not resolve textures, touch command buffers, or evaluate DLSS.");
         }
         if (RenderGraphExecuteDelegateProbeEnabled)
         {
@@ -586,7 +596,7 @@ internal static class FrameResourceProbe
             patched++;
         }
 
-        if ((RenderGraphPassListProbeEnabled || RenderGraphPassResourceDeclarationProbeEnabled || RenderGraphPassDataSnapshotProbeEnabled || RenderGraphPassRenderFuncMetadataProbeEnabled)
+        if ((RenderGraphPassListProbeEnabled || RenderGraphPassResourceDeclarationProbeEnabled || RenderGraphPassDataSnapshotProbeEnabled || RenderGraphPassRenderFuncMetadataProbeEnabled || RenderGraphCompiledPassInfoProbeEnabled)
             && TryPatchRenderGraphPassListMethod(
                 log,
                 assemblies,
@@ -684,6 +694,7 @@ internal static class FrameResourceProbe
             RenderGraphPassResourceDeclarationProbeEnabled = false;
             RenderGraphPassDataSnapshotProbeEnabled = false;
             RenderGraphPassRenderFuncMetadataProbeEnabled = false;
+            RenderGraphCompiledPassInfoProbeEnabled = false;
             RenderGraphExecuteDelegateProbeEnabled = false;
             RenderGraphGetTextureProbeEnabled = false;
             DlssPassResourceProbeEnabled = false;
@@ -724,6 +735,7 @@ internal static class FrameResourceProbe
                 RenderGraphPassDeclarationLogCount = 0;
                 RenderGraphPassDataSnapshotLogCount = 0;
                 RenderGraphPassRenderFuncMetadataLogCount = 0;
+                RenderGraphCompiledPassInfoLogCount = 0;
                 RenderGraphExecuteDelegateLogCount = 0;
                 RenderGraphExecutionScopeCallCount = 0;
                 RenderGraphScopedEvaluateAttemptCount = 0;
@@ -1873,7 +1885,8 @@ internal static class FrameResourceProbe
             if (!RenderGraphPassListProbeEnabled
                 && !RenderGraphPassResourceDeclarationProbeEnabled
                 && !RenderGraphPassDataSnapshotProbeEnabled
-                && !RenderGraphPassRenderFuncMetadataProbeEnabled)
+                && !RenderGraphPassRenderFuncMetadataProbeEnabled
+                && !RenderGraphCompiledPassInfoProbeEnabled)
             {
                 return;
             }
@@ -1963,6 +1976,7 @@ internal static class FrameResourceProbe
             TryLogRenderGraphPassResourceDeclarations(compileCount, passSummaries);
             TryLogRenderGraphPassDataSnapshots(compileCount, passSummaries);
             TryLogRenderGraphPassRenderFuncMetadata(compileCount, passSummaries);
+            TryLogRenderGraphCompiledPassInfos(compileCount, __instance, passSummaries);
         }
         catch (Exception ex)
         {
@@ -2176,6 +2190,85 @@ internal static class FrameResourceProbe
         }
     }
 
+    private static void TryLogRenderGraphCompiledPassInfos(
+        int compileCount,
+        object renderGraph,
+        IReadOnlyList<(int Ordinal, object Pass, string Name, string TypeName, string Category)> passSummaries)
+    {
+        if (!RenderGraphCompiledPassInfoProbeEnabled)
+        {
+            return;
+        }
+
+        var log = Log;
+        if (log is null)
+        {
+            return;
+        }
+
+        var compiledPassInfos = TryReadPropertyObject(renderGraph, "m_CompiledPassInfos")
+            ?? TryReadFieldObject(renderGraph, "m_CompiledPassInfos");
+        if (compiledPassInfos is null)
+        {
+            log.LogInfo($"RenderGraph compiled-pass-info compile #{compileCount}: compiledPassInfos=not found");
+            return;
+        }
+
+        var compiledInfos = EnumerateRuntimeSequence(compiledPassInfos)
+            .Where(info => info is not null)
+            .Cast<object>()
+            .ToArray();
+        var declaredCount = TryReadInt(compiledPassInfos, "size", out var size)
+            ? size.ToString(CultureInfo.InvariantCulture)
+            : "unknown";
+        var focusCount = compiledInfos.Count(info =>
+        {
+            var name = FirstLine(TryReadPropertyString(info, "name") ?? TryReadFieldString(info, "name") ?? string.Empty);
+            var index = TryReadInt(info, "index", out var passIndex) ? passIndex : -1;
+            var fallback = passSummaries.FirstOrDefault(summary => summary.Ordinal == index);
+            var category = ClassifyRenderGraphPassBoundary(
+                string.IsNullOrWhiteSpace(name) ? fallback.Name : name,
+                fallback.TypeName ?? info.GetType().FullName ?? info.GetType().Name);
+            return !string.Equals(category, "other", StringComparison.Ordinal);
+        });
+
+        if (compileCount <= MaxRenderGraphPassListCompileLogs || compileCount % 300 == 0)
+        {
+            log.LogInfo($"RenderGraph compiled-pass-info compile #{compileCount}: compiledCount={declaredCount}; enumerated={compiledInfos.Length}; focusCount={focusCount}");
+        }
+
+        foreach (var compiledInfo in compiledInfos)
+        {
+            var compiledName = FirstLine(TryReadPropertyString(compiledInfo, "name") ?? TryReadFieldString(compiledInfo, "name") ?? string.Empty);
+            var compiledIndex = TryReadInt(compiledInfo, "index", out var index) ? index : -1;
+            var fallback = passSummaries.FirstOrDefault(summary => summary.Ordinal == compiledIndex);
+            var passName = string.IsNullOrWhiteSpace(compiledName) ? fallback.Name : compiledName;
+            var passType = fallback.TypeName ?? compiledInfo.GetType().FullName ?? compiledInfo.GetType().Name;
+            var category = ClassifyRenderGraphPassBoundary(passName, passType);
+            if (string.Equals(category, "other", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            int infoLogCount;
+            lock (Sync)
+            {
+                RenderGraphCompiledPassInfoLogCount++;
+                infoLogCount = RenderGraphCompiledPassInfoLogCount;
+            }
+
+            if (infoLogCount > MaxRenderGraphCompiledPassInfoLogs && infoLogCount % 500 != 0)
+            {
+                continue;
+            }
+
+            var state = DescribeRenderGraphCompiledPassInfo(compiledInfo, fallback.Pass);
+            var resourceCreateSummary = SummarizeRenderGraphResourceLifetimeLists(TryReadPropertyObject(compiledInfo, "resourceCreateList") ?? TryReadFieldObject(compiledInfo, "resourceCreateList"));
+            var resourceReleaseSummary = SummarizeRenderGraphResourceLifetimeLists(TryReadPropertyObject(compiledInfo, "resourceReleaseList") ?? TryReadFieldObject(compiledInfo, "resourceReleaseList"));
+            log.LogInfo($"RenderGraph compiled-pass-info #{infoLogCount}: compile={compileCount}; ordinal={compiledIndex}; pass=\"{passName}\"; category={category}; passType={passType}{state}; resourceCreateList={resourceCreateSummary}; resourceReleaseList={resourceReleaseSummary}");
+        }
+    }
+
     private static void TryLogRenderGraphPassBoundary(MethodBase originalMethod, object?[]? args)
     {
         try
@@ -2220,12 +2313,17 @@ internal static class FrameResourceProbe
         }
     }
 
-    private static string DescribeRenderGraphCompiledPassInfo(object? passInfo, object pass)
+    private static string DescribeRenderGraphCompiledPassInfo(object? passInfo, object? pass)
     {
         var parts = new List<string>();
-        AddSimpleMemberSummary(parts, "passIndex", pass, "index");
+        if (pass is not null)
+        {
+            AddSimpleMemberSummary(parts, "passIndex", pass, "index");
+        }
+
         if (passInfo is not null)
         {
+            AddSimpleMemberSummary(parts, "compiledIndex", passInfo, "index");
             AddSimpleMemberSummary(parts, "culled", passInfo, "culled");
             AddSimpleMemberSummary(parts, "culledByRendererList", passInfo, "culledByRendererList");
             AddSimpleMemberSummary(parts, "hasSideEffect", passInfo, "hasSideEffect");
@@ -2237,6 +2335,38 @@ internal static class FrameResourceProbe
         }
 
         return parts.Count == 0 ? string.Empty : $"; info={string.Join(",", parts)}";
+    }
+
+    private static string SummarizeRenderGraphResourceLifetimeLists(object? lifetimeLists)
+    {
+        if (lifetimeLists is null)
+        {
+            return "not found";
+        }
+
+        var counts = EnumerateRuntimeSequence(lifetimeLists)
+            .Select(CountRuntimeSequenceItems)
+            .ToArray();
+        if (counts.Length == 0)
+        {
+            return "empty";
+        }
+
+        var total = counts.Sum();
+        var formattedCounts = string.Join(",", counts.Take(8).Select(count => count.ToString(CultureInfo.InvariantCulture)));
+        var truncated = counts.Length > 8 ? $",truncated={counts.Length - 8}" : string.Empty;
+        return $"groups={counts.Length},total={total},counts=[{formattedCounts}{truncated}]";
+    }
+
+    private static int CountRuntimeSequenceItems(object? sequence)
+    {
+        var count = 0;
+        foreach (var _ in EnumerateRuntimeSequence(sequence))
+        {
+            count++;
+        }
+
+        return count;
     }
 
     private static string DescribeRenderGraphPassListEntry(object pass)
@@ -5667,6 +5797,32 @@ internal static class FrameResourceProbe
             yield break;
         }
 
+        if (TypeNameContains(sequence.GetType(), "DynamicArray")
+            && TryReadInt(sequence, "size", out var dynamicArraySize))
+        {
+            var backingArray = TryReadPropertyObject(sequence, "m_Array")
+                ?? TryReadFieldObject(sequence, "m_Array");
+            if (backingArray is IEnumerable dynamicArrayEnumerable)
+            {
+                var emitted = 0;
+                foreach (var item in dynamicArrayEnumerable)
+                {
+                    if (emitted >= dynamicArraySize)
+                    {
+                        yield break;
+                    }
+
+                    emitted++;
+                    if (item is not null)
+                    {
+                        yield return item;
+                    }
+                }
+
+                yield break;
+            }
+        }
+
         if (sequence is IEnumerable enumerable)
         {
             foreach (var item in enumerable)
@@ -5720,7 +5876,10 @@ internal static class FrameResourceProbe
     private static bool TryReadInt(object instance, string propertyName, out int value)
     {
         value = 0;
-        var raw = TryReadPropertyObject(instance, propertyName);
+        var raw = TryReadPropertyObject(instance, propertyName)
+            ?? TryReadFieldObject(instance, propertyName)
+            ?? TryReadFieldObject(instance, $"_{propertyName}_k__BackingField")
+            ?? TryReadFieldObject(instance, $"<{propertyName}>k__BackingField");
         if (raw is int intValue)
         {
             value = intValue;

@@ -405,7 +405,7 @@ $summary = [pscustomobject]@{
     NextRecommendation = if ($mvpReady) {
         "MVP evidence is complete. Prepare a final release review."
     } elseif ([string]::IsNullOrWhiteSpace($GamePath)) {
-        "Pass -GamePath to include local runtime evidence. Current MVP next step is a targeted placement route after the HDRP RenderGraph boundary audit: no safe Harmony-equivalent DLSS execution boundary is proven; keep CompileRenderGraph probes read-only and next design either compiled-pass-info mapping or a separate native-renderfunc-entry no-op method-pointer probe."
+        "Pass -GamePath to include local runtime evidence. Current MVP next step is menu-only runtime proof for the new default-off rendergraph-compiled-pass-info stage at true 1920x1080 Windowed with GetTexture disabled and no crash; do not proceed to protected gameplay until that signal exists."
     } elseif ($visualStatus.Status -ne "Pass" -and $visualStatus.HumanReviewStatus -eq "Pending") {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
@@ -467,7 +467,7 @@ $summary = [pscustomobject]@{
             "Run scripts\run-vrising-diagnostic.ps1 -Stage dlss-visible-writeback with a local SDK-wrapper native build, DLSS runtime path, and DLSS disabled by default."
         }
     } elseif (@($items | Where-Object { $_.Requirement -like "Experimental EnableDLSS user-rendering*" -and $_.Status -ne "Pass" }).Count -gt 0) {
-        "Do not rerun rejected RenderGraph wrapper stages unchanged. The official HDRP DLSS boundary is the Deep Learning Super Sampling render func, but V Rising has no proven safe Harmony-equivalent boundary. Keep CompileRenderGraph probes read-only; next design either compiled-pass-info mapping or a separate native-renderfunc-entry no-op method-pointer probe before moving tuple use/evaluate out of the global GetTexture postfix."
+        "Do not rerun rejected RenderGraph wrapper stages unchanged. The official HDRP DLSS boundary is the Deep Learning Super Sampling render func, but V Rising has no proven safe Harmony-equivalent boundary. The next narrow step is menu-only runtime proof for rendergraph-compiled-pass-info with GetTexture disabled; after that, decide whether compiled lifetime data is enough or whether to design a separate native-renderfunc-entry no-op method-pointer probe."
     } elseif (@($items | Where-Object { $_.Requirement -like "Normal-user dlss-user-rendering gameplay visual/performance comparison*" -and $_.Status -ne "Pass" }).Count -gt 0) {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation

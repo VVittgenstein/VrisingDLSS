@@ -307,6 +307,7 @@ try {
             "EnableRenderGraphPassResourceDeclarationProbe = false",
             "EnableRenderGraphPassDataSnapshotProbe = false",
             "EnableRenderGraphPassRenderFuncMetadataProbe = false",
+            "EnableRenderGraphCompiledPassInfoProbe = false",
             "EnableRenderGraphExecuteDelegateProbe = false",
             "EnableRenderGraphGetTextureProbe = true",
             "EnableDlssPassResourceProbe = false",

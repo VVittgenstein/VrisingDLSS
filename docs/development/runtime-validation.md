@@ -512,6 +512,17 @@ Current Stage 8A status:
   the same safe compile postfix, or first design a separate
   `native-renderfunc-entry` no-op method-pointer probe. Do not treat native
   method-pointer detouring as ordinary Harmony patching.
+- Implementation follow-up added
+  `Diagnostics.EnableRenderGraphCompiledPassInfoProbe=false` and helper stage
+  `rendergraph-compiled-pass-info`. It reuses only the safe
+  `CompileRenderGraph(int)` postfix and reads focused `CompiledPassInfo`
+  culling/sync/refCount/resource lifetime counts from `m_CompiledPassInfos`.
+  It does not resolve textures, call `GetTexture`, inspect native pointers,
+  touch command buffers, call render funcs, or evaluate DLSS. Build and dry-run
+  config validation passed. Runtime status is pending; first proof must be a
+  true `1920x1080` Windowed menu run with analyzer
+  `RenderGraph Compiled Pass Info=Pass`, focused compiled-pass-info lines,
+  `RenderGraph GetTexture call #=0`, and `CrashEventCount=0`.
 - See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.
 
 ## Stage 8B: First Guarded DLSS Evaluate Diagnostic

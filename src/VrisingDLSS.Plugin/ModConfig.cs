@@ -30,6 +30,7 @@ internal sealed class ModConfig
     internal ConfigEntry<bool> EnableRenderGraphPassResourceDeclarationProbe { get; }
     internal ConfigEntry<bool> EnableRenderGraphPassDataSnapshotProbe { get; }
     internal ConfigEntry<bool> EnableRenderGraphPassRenderFuncMetadataProbe { get; }
+    internal ConfigEntry<bool> EnableRenderGraphCompiledPassInfoProbe { get; }
     internal ConfigEntry<bool> EnableRenderGraphExecuteDelegateProbe { get; }
     internal ConfigEntry<bool> EnableRenderGraphGetTextureProbe { get; }
     internal ConfigEntry<bool> EnableDlssPassResourceProbe { get; }
@@ -81,6 +82,7 @@ internal sealed class ModConfig
         EnableRenderGraphPassResourceDeclarationProbe = config.Bind("Diagnostics", "EnableRenderGraphPassResourceDeclarationProbe", false, "Read-only RenderGraph pass resource declaration probe. Patches CompileRenderGraph(int) to snapshot focused pass read/write handle declarations only; does not resolve textures or evaluate DLSS.");
         EnableRenderGraphPassDataSnapshotProbe = config.Bind("Diagnostics", "EnableRenderGraphPassDataSnapshotProbe", false, "Read-only RenderGraph pass data snapshot probe. Patches CompileRenderGraph(int) to log focused pass data fields and TextureHandle declarations only; does not resolve textures or evaluate DLSS.");
         EnableRenderGraphPassRenderFuncMetadataProbe = config.Bind("Diagnostics", "EnableRenderGraphPassRenderFuncMetadataProbe", false, "Read-only RenderGraph render-func metadata probe. Patches CompileRenderGraph(int) to log focused pass renderFunc delegate metadata only; does not call or patch render functions.");
+        EnableRenderGraphCompiledPassInfoProbe = config.Bind("Diagnostics", "EnableRenderGraphCompiledPassInfoProbe", false, "Read-only RenderGraph compiled-pass-info probe. Patches CompileRenderGraph(int) to log focused pass culling/sync/lifetime metadata only; does not resolve textures, touch command buffers, or evaluate DLSS.");
         EnableRenderGraphExecuteDelegateProbe = config.Bind("Diagnostics", "EnableRenderGraphExecuteDelegateProbe", false, "Read-only RenderGraph execution-layer probe. Patches closed GetExecuteDelegate<TPassData>() methods for focused HDRP pass data only; does not resolve textures, touch command buffers, or evaluate DLSS.");
         EnableRenderGraphGetTextureProbe = config.Bind("Diagnostics", "EnableRenderGraphGetTextureProbe", true, "Patch RenderGraphResourceRegistry.GetTexture(TextureHandle&) for diagnostic resource discovery. Disable only for deliberate materialization-only isolation.");
         EnableDlssPassResourceProbe = config.Bind("Diagnostics", "EnableDlssPassResourceProbe", false, "High-risk research-only patching of DLSSPass resource helper methods. Does not patch DLSSPass.Render; leave false unless deliberate Stage 8A resource testing is intentional.");
