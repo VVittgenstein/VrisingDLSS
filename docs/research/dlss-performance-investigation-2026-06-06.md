@@ -306,6 +306,7 @@ Results:
 | `user-rendering-no-evaluate-1080p-20260606-r1` | `202.741` | `96.867` | `152.292` | `75.677` | `5.972 ms` | `12.076 ms` | `97.889% / 136.469 W` | `34.444% / 57.632 W` | `74` accepted, `0` evaluate, `32111` GetTexture-call logs |
 | `user-rendering-no-evaluate-1080p-20260606-r2` | `200.115` | `102.505` | `153.132` | `75.922` | `6.052 ms` | `11.676 ms` | `97.889% / 134.799 W` | `36.300% / 61.256 W` | `61` accepted, `0` evaluate, `0` GetTexture-call logs |
 | `user-rendering-no-evaluate-1080p-20260606-r3` | `201.802` | `111.842` | `155.421` | `78.655` | `5.974 ms` | `10.846 ms` | `97.333% / 133.537 W` | `37.700% / 66.195 W` | `53` accepted, `0` evaluate, `57` cached-tuple reuse lines |
+| `user-rendering-no-evaluate-1080p-20260606-r4` | `194.424` | `119.573` | `138.013` | `73.957` | `6.453 ms` | `10.826 ms` | `97.375% / 133.344 W` | `41.250% / 71.701 W` | `88` accepted, `0` evaluate, `92` cached-tuple reuse lines, `0` GetTexture-call logs |
 
 Interpretation:
 
@@ -316,12 +317,15 @@ Interpretation:
 - Caching reflection lookups and reusing the accepted tuple helped again, from about
   `102.5` to `111.8` candidate FPS, but the path still remains far below the roughly
   `200` FPS baseline.
+- Resource-name-first filtering before native pointer/owner reflection helped again,
+  from `111.842` to `119.573` candidate FPS. The paired baseline still remained
+  `194.424` FPS, so native pointer/owner reflection was not the whole blocker.
 - The remaining primary suspect is the placement of the global
   `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` postfix itself. It is still
   in a very hot render-thread path even when logging and most repeated reflection work
   are suppressed.
 
-All three runs used true `1920x1080` Windowed gameplay, the protected `11111` save was
+All four runs used true `1920x1080` Windowed gameplay, the protected `11111` save was
 backed up and restored, and cleanup returned the loader config to release-safe state.
 
 ## External Practice Follow-up
@@ -370,12 +374,13 @@ use/evaluate to a targeted render/upscale pass boundary, or patch a more specifi
 resource submission point, with the accepted tuple cached by frame/view and no global
 per-texture resource-discovery work in the steady state.
 
-Implementation follow-up: the `GetTexture` postfix now filters by RenderGraph resource
-name before resolving native texture pointers whenever raw GetTexture logging and
-output-followup are inactive. This should reduce diagnostic overhead for
-`dlss-user-rendering` and `dlss-user-rendering-no-evaluate`, but it still leaves a
-global postfix on a very hot method. It needs an r4 no-evaluate performance run before
-being treated as useful runtime evidence.
+Implementation follow-up result: the `GetTexture` postfix now filters by RenderGraph
+resource name before resolving native texture pointers whenever raw GetTexture logging
+and output-followup are inactive. The r4 no-evaluate run confirmed that this is useful
+but insufficient runtime evidence: paired FPS improved to `194.424 -> 119.573`, with
+`0` native evaluate/dispatch successes and `0` broad `RenderGraph GetTexture call`
+logs, but the candidate still ran with only `41.250%` average GPU utilization. Keep
+this as a diagnostic optimization, not as the production steady-state route.
 
 ## Theoretical Performance Follow-up
 
@@ -391,7 +396,7 @@ The source-backed model makes the current failure sharper rather than softer:
 - It does mean that render-scale-only at 1080p is expected to show lower GPU
   utilization/power even if FPS stays flat, which matches
   `render-scale-only-1080p-20260606-r1`.
-- A path that collapses from roughly 200 FPS to roughly 80-112 FPS while GPU
+- A path that collapses from roughly 200 FPS to roughly 80-120 FPS while GPU
   utilization is low, and while native DLSS evaluate is disabled or only costs about
   0.1 ms CPU wall time, is not a normal DLSS Performance-mode result. It is
   consistent with a stall, hot hook, synchronization/copy issue, or bad render-stage

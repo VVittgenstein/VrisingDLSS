@@ -111,10 +111,11 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
   native DLSS frame sequence. It reproduced the collapse without NGX evaluate:
   r1 `202.741 -> 96.867` FPS with `32111` GetTexture-call logs, r2 `200.115 ->
   102.505` FPS after suppressing generic GetTexture diagnostic logging/probe, and
-  r3 `201.802 -> 111.842` FPS after reflection caches and accepted-tuple reuse.
-  Candidate GPU utilization stayed low around `34-38%`, and all runs logged `0`
-  evaluate successes. Cleanup restored release-safe config and the `11111` save to
-  `ChangeCount=0`. This makes the global
+  r3 `201.802 -> 111.842` FPS after reflection caches and accepted-tuple reuse. R4
+  `194.424 -> 119.573` FPS after resource-name-first filtering before native
+  pointer/owner reflection. Candidate GPU utilization stayed low around `34-41%`, and
+  all runs logged `0` evaluate successes. Cleanup restored release-safe config and
+  the `11111` save to `ChangeCount=0`. This makes the global
   `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` postfix/placement the
   leading suspect, not direct NGX evaluate CPU time or render-scale-only control.
 - External research downloaded on 2026-06-06 into
@@ -203,8 +204,9 @@ Follow the new goal order:
      comparison is now complete in `render-scale-only-1080p-20260606-r1`; it did not
      reproduce the severe FPS/GPU-utilization drop;
    - `dlss-user-rendering-no-evaluate` isolation is complete in
-     `user-rendering-no-evaluate-1080p-20260606-r1/r2/r3`; it reproduced the collapse
-     without native DLSS evaluate, and caching/log suppression only partially helped;
+     `user-rendering-no-evaluate-1080p-20260606-r1/r2/r3/r4`; it reproduced the
+     collapse without native DLSS evaluate, and caching/log suppression/resource-name
+     filtering only partially helped;
    - next loop should stop treating global `GetTexture` as the normal runtime path and
      instead target a real HDRP render/upscale pass boundary, or a more specific
      resource submission point, where current-frame resources are already valid;
@@ -221,7 +223,7 @@ Follow the new goal order:
 As of the no-evaluate user-rendering performance follow-up:
 
 - Branch: `main`.
-- Latest pushed checkpoint before this update: `72de4b7 Isolate user-rendering GetTexture overhead`.
+- Latest pushed checkpoint before this update: `521952b Narrow GetTexture path and model DLSS gains`.
 - The current working tree records the `fsr-off-render-scale-1080p-software-fallback-v5-20260606`
   failed fallback-only result, the `fsr-off-render-scale-1080p-post-update-fraction-v6-20260606`
   tuple/evaluate pass, safe cleanup, save restoration, external DLSS mod practice
@@ -230,14 +232,14 @@ As of the no-evaluate user-rendering performance follow-up:
   the `v6-user-rendering-1080p-timing-20260606-r3` timing result showing stable NGX
   evaluate CPU wall time is not the sustained performance blocker, plus the
   `render-scale-only-1080p-20260606-r1` isolation showing render-scale-only keeps
-  average FPS near baseline, plus `dlss-user-rendering-no-evaluate` r1/r2/r3 evidence
-  that the global RenderGraph `GetTexture` postfix remains too expensive for
-  steady-state runtime placement. Latest follow-up narrows the `GetTexture` postfix
-  so non-candidate resource names return before native pointer/owner reflection, and
-  fixes cached-tuple no-evaluate logging so stale native input-probe status is not
-  reported as fresh evidence. This needs an r4 `dlss-user-rendering-no-evaluate`
-  paired performance run before it counts as runtime evidence. The working tree also
-  adds the source-backed theoretical DLSS SR performance model used to separate
-  low-resolution constructive validation from the final GPU-bound performance matrix.
+  average FPS near baseline, plus `dlss-user-rendering-no-evaluate` r1/r2/r3/r4
+  evidence that the global RenderGraph `GetTexture` postfix remains too expensive for
+  steady-state runtime placement. The latest r4 follow-up tested the narrowed
+  `GetTexture` path where non-candidate resource names return before native
+  pointer/owner reflection: candidate FPS improved to `119.573`, but the paired
+  baseline was still `194.424` FPS and candidate GPU utilization remained low at
+  `41.250%`. The working tree also records the source-backed theoretical DLSS SR
+  performance model used to separate low-resolution constructive validation from the
+  final GPU-bound performance matrix.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.

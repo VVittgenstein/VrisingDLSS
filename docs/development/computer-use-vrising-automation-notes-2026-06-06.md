@@ -334,6 +334,7 @@ Run labels:
 - `user-rendering-no-evaluate-1080p-20260606-r1`
 - `user-rendering-no-evaluate-1080p-20260606-r2`
 - `user-rendering-no-evaluate-1080p-20260606-r3`
+- `user-rendering-no-evaluate-1080p-20260606-r4`
 
 Result:
 
@@ -345,16 +346,25 @@ Result:
 - One r3 activation briefly surfaced another foreground window; the fix was to
   reselect the real `VRising` process/window before clicking. Do not click when the
   capture is ambiguous or shows the BepInEx console.
+- One r4 baseline `get_window_state` returned a selected `VRising` target while the
+  screenshot still showed the Codex/browser surface. The safe fix was to cross-check
+  with the script-side visibility probe/screenshot before sending input. Treat
+  Computer Use window selection as untrusted until the current screenshot itself shows
+  the intended game window.
+- During the r4 candidate phase, a coordinate click returned `window changed; call
+  get_window_state before issuing coordinate input`. Reacquiring `VRising` and
+  refreshing `get_window_state` produced the correct menu screenshot, then the single
+  Continue click was safe.
 - The visual-comparison helper removes its ready-file marker at the start of each
   run. If using an out-of-band ready marker or manual coordination, recreate it for
   the candidate phase instead of assuming the baseline marker persists.
 - Cleanup restored FSR mode, loader config, release-safe native DLL state, client
   settings, and the `11111` save (`ChangeCount=0` after restore for each run).
 - Technical result: no-evaluate reproduced the FPS collapse without native DLSS
-  evaluate. Logging suppression and tuple/reflection caching improved candidate FPS
-  from roughly `97` to `112`, but did not restore the roughly `200` FPS baseline. This
-  points away from Computer Use or save/state handling and toward the hot global
-  RenderGraph hook placement.
+  evaluate. Logging suppression, tuple/reflection caching, and resource-name-first
+  filtering improved candidate FPS from roughly `97` to `120`, but did not restore the
+  roughly `194-203` FPS baseline. This points away from Computer Use or save/state
+  handling and toward the hot global RenderGraph hook placement.
 
 Pitfall:
 
