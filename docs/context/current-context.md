@@ -177,11 +177,14 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
   `PreRenderPassExecute` rejection, there is no proven safe BepInEx/Harmony hook
   that is exactly equivalent to the official evaluate boundary. Avoid the
   ref-`CompiledPassInfo` RenderGraph executor wrapper family as the next normal
-  route. `RenderGraph.OnPassAdded(RenderGraphPass)` is only a possible read-only
-  pass-name/recording probe, not an evaluate boundary. The cached-driver
-  no-evaluate result may still be used as diagnosis, but the real-evaluate follow-up
-  rejects `DynamicResolutionHandler.Update(...)` as a production evaluate boundary.
-  The next technical route should move back toward an official HDRP/RenderGraph
+  route. `RenderGraph.OnPassAdded(RenderGraphPass)` was implemented as the
+  default-off `rendergraph-pass-map` read-only stage and runtime-tested in
+  main-menu plus gameplay. It patched safely and produced no WER crash, but emitted
+  `0` pass-map lines, so it is rejected as useful pass-name evidence in the current
+  V Rising runtime. The cached-driver no-evaluate result may still be used as
+  diagnosis, but the real-evaluate follow-up rejects
+  `DynamicResolutionHandler.Update(...)` as a production evaluate boundary. The
+  next technical route should move back toward an official HDRP/RenderGraph
   upscale-pass-equivalent boundary with current-frame resources and command-buffer
   ordering comparable to `DoDLSSPass -> DLSSPass.Render/ExecuteDLSS`.
 - `docs/research/dlss-theoretical-performance-model-2026-06-06.md` records the
@@ -293,8 +296,10 @@ Follow the new goal order:
      real-evaluate unchanged. It should avoid Harmony patching ref-`CompiledPassInfo`
      RenderGraph executor wrappers, and instead search for a narrower official
      HDRP/RenderGraph upscaler-pass-equivalent boundary or supporting pass map.
-     Use `RenderGraph.OnPassAdded` only as an optional read-only pass-name map, not
-     as an evaluate/resource boundary;
+     `rendergraph-pass-map` was runtime-tested and produced zero pass lines, so do
+     not rerun it unchanged. Static inspection now points to a default-off
+     `CompileRenderGraph(int)` postfix that snapshots `m_RenderPasses` names/types
+     before `ClearRenderPasses()` as the next pass-list observation candidate;
    - use `docs/research/dlss-theoretical-performance-model-2026-06-06.md` to
      interpret performance: 1080p is a constructive correctness/stall test, while
      final DLSS value requires a GPU-bound 4K/high-load matrix;
@@ -305,10 +310,10 @@ Follow the new goal order:
 
 ## Current Repository Checkpoint
 
-As of the cached tuple driver real-evaluate rejection:
+As of the read-only RenderGraph pass-map runtime result:
 
 - Branch: `main`.
-- Latest pushed code checkpoint before this documentation update: `6ac5212 Defer cached tuple first evaluate out of GetTexture`.
+- Latest pushed checkpoint before this update: `b97b228 Record cached tuple evaluate boundary rejection`.
 - The current working tree records the `fsr-off-render-scale-1080p-software-fallback-v5-20260606`
   failed fallback-only result, the `fsr-off-render-scale-1080p-post-update-fraction-v6-20260606`
   tuple/evaluate pass, safe cleanup, save restoration, external DLSS mod practice
@@ -342,6 +347,17 @@ As of the cached tuple driver real-evaluate rejection:
   `sequenceSuccesses=600`, but crashed in `nvwgf2umx.dll` before capture. This
   rejects `DynamicResolutionHandler.Update(...)` as the next real evaluate boundary
   and moves the investigation back toward a safe official HDRP upscaler-pass
-  equivalent.
+  equivalent. This update adds and tests the default-off `rendergraph-pass-map`
+  stage, which patches `RenderGraph.OnPassAdded(RenderGraphPass)` for read-only
+  pass name/type/category logging, disables `GetTexture`, and does not resolve
+  resources or evaluate DLSS. Build, dry-run, main-menu smoke, and gameplay smoke
+  passed without a WER crash, but both runtime runs emitted `0` pass-map lines.
+  The gameplay run restored the protected `11111` save with `ChangeCount=0`.
+  `OnPassAdded` is therefore safe but not useful as the next evidence source in
+  this runtime. Static follow-up found that V Rising interop exposes
+  `RenderGraph.m_RenderPasses`, `GetCompiledPassInfos()`, `CompileRenderGraph(int)`,
+  `ClearRenderPasses()`, and `RenderGraphPass.name/index`; the next candidate is a
+  default-off `CompileRenderGraph(int)` postfix that logs only pass names/categories,
+  with `GetTexture` disabled and no evaluate.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.

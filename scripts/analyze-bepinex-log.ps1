@@ -183,6 +183,12 @@ $results.Add((New-StageResult `
     -StartedPatterns @("RenderGraph pass-boundary probe enabled", "Frame resource RenderGraph execution scope patched")))
 
 $results.Add((New-StageResult `
+    -Stage "RenderGraph Pass Map" `
+    -PassPatterns @("RenderGraph pass map #") `
+    -FailPatterns @("RenderGraph pass-map logging failed", "RenderGraph pass-map failed to patch") `
+    -StartedPatterns @("RenderGraph pass-map probe enabled", "RenderGraph pass-map patched")))
+
+$results.Add((New-StageResult `
     -Stage "Stage 5D DLSS Runtime" `
     -PassPatterns @("DLSS runtime probe succeeded:") `
     -FailPatterns @("DLSS runtime probe failed:", "DLSS runtime probe skipped:") `

@@ -76,6 +76,7 @@ public sealed class Plugin : BasePlugin
             || _config.EnableDlssPersistentEvaluateProbe.Value
             || _config.EnableDlssPassResourceProbe.Value
             || _config.EnableRenderGraphPassBoundaryProbe.Value
+            || _config.EnableRenderGraphPassMapProbe.Value
             || _config.EnableDlss.Value
             || _config.EnableDlssUserRenderingNoEvaluateProbe.Value
             || _config.EnableDlssCachedTupleDriverProbe.Value)
@@ -218,6 +219,7 @@ public sealed class Plugin : BasePlugin
             _config?.EnableExistingRenderFuncProbe.Value ?? false,
             _config?.EnableResourceMaterializationProbe.Value ?? false,
             _config?.EnableRenderGraphPassBoundaryProbe.Value ?? false,
+            _config?.EnableRenderGraphPassMapProbe.Value ?? false,
             _config?.EnableRenderGraphGetTextureProbe.Value ?? true,
             _config?.EnableDlssPassResourceProbe.Value ?? false);
     }

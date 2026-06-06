@@ -226,6 +226,31 @@ Check:
 
 If this stage passes but the image looks wrong, preserve screenshots and the archived BepInEx log. Stage 10A proves the guarded visible-path candidate ran; it does not by itself prove image correctness, jitter correctness, resize/reset behavior, or final normal-user fallback behavior.
 
+## RenderGraph Pass-Map Probe
+
+`EnableRenderGraphPassMapProbe` is disabled by default and is read-only. It patches
+only `RenderGraph.OnPassAdded(RenderGraphPass)` and logs capped `RenderGraph pass map
+#` lines with pass name, pass type, and a coarse category. It does not resolve
+textures, does not call `GetTexture`, does not inject a pass, does not load DLSS, and
+does not evaluate a frame.
+
+Use this before any further RenderGraph boundary experiment when you need pass-name
+evidence for a narrower official-upscaler-equivalent route:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\path\to\VRising" -Stage rendergraph-pass-map -DurationSeconds 240 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080
+```
+
+This is still a local/private diagnostic. A useful run should produce
+`RenderGraph pass map #` lines for postprocess/upscale/final candidates without a
+matching Windows crash event. It is not an evaluate/resource boundary by itself.
+
+Current V Rising evidence: `rendergraph-pass-map-1080p-menu-20260606-r1` and
+`rendergraph-pass-map-gameplay-1080p-20260606-r1` patched safely and did not crash,
+but produced `0` pass-map lines. Do not rerun this stage unchanged for the current
+game build; it is retained only as a default-off, low-risk probe for other Unity
+runtime shapes.
+
 ## RenderGraph Pass-Boundary Probe
 
 `EnableRenderGraphPassBoundaryProbe` is disabled by default and is high-risk research-only. It patches only `RenderGraph.PreRenderPassExecute(...)` and logs capped pass metadata: pass name, pass type, a coarse category, and safe `CompiledPassInfo` fields. In the standalone helper stage it does not resolve textures, does not call `GetTexture`, does not load DLSS, and does not evaluate a frame.

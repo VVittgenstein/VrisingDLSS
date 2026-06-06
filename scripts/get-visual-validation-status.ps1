@@ -516,7 +516,7 @@ if (Test-Path -LiteralPath $reviewResolved) {
 }
 
 if (@($issues | Where-Object { $_ -like "Candidate * regressed*" -or $_ -like "Candidate P95 frame time worsened*" }).Count -gt 0) {
-    $nextRecommendation = "Cached-driver real-evaluate was tested after the GetTexture performance isolation and crashed in nvwgf2umx.dll even with GetTexture evaluate/output-follow-up at zero. Do not rerun that route unchanged; find a narrower HDRP/RenderGraph upscaler-pass-equivalent evaluate boundary before returning to paired 1920x1080 Windowed FSR Off visual/performance comparison."
+    $nextRecommendation = "Cached-driver real-evaluate crashed in nvwgf2umx.dll even with GetTexture evaluate/output-follow-up at zero, and rendergraph-pass-map patched safely but emitted zero pass lines. Do not rerun either route unchanged; the next candidate is a default-off CompileRenderGraph(int) postfix that only snapshots m_RenderPasses names/categories with GetTexture disabled before returning to paired 1920x1080 Windowed FSR Off visual/performance comparison."
 }
 
 if ($issues.Count -gt 0) {

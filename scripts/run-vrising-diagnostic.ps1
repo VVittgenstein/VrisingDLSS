@@ -21,6 +21,7 @@ param(
         "dlss-super-resolution-frame-sequence",
         "dlss-visible-writeback",
         "rendergraph-pass-boundary",
+        "rendergraph-pass-map",
         "render-scale-control",
         "dlss-user-rendering",
         "dlss-user-rendering-cached-driver",

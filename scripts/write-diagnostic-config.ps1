@@ -18,6 +18,7 @@ param(
         "dlss-super-resolution-frame-sequence",
         "dlss-visible-writeback",
         "rendergraph-pass-boundary",
+        "rendergraph-pass-map",
         "render-scale-control",
         "dlss-user-rendering",
         "dlss-user-rendering-cached-driver",
@@ -75,6 +76,7 @@ function New-ConfigMap {
             EnableExistingRenderFuncProbe = "false"
             EnableResourceMaterializationProbe = "false"
             EnableRenderGraphPassBoundaryProbe = "false"
+            EnableRenderGraphPassMapProbe = "false"
             EnableRenderGraphGetTextureProbe = "true"
             EnableDlssPassResourceProbe = "false"
             EnableUpscalerStateProbe = "false"
@@ -227,6 +229,13 @@ function Set-SwitchesForStage {
         "rendergraph-pass-boundary" {
             $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
             $Config.Diagnostics.EnableRenderGraphPassBoundaryProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
+            $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+            $Config.Diagnostics.EnableHookProbe = "false"
+        }
+        "rendergraph-pass-map" {
+            $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
+            $Config.Diagnostics.EnableRenderGraphPassMapProbe = "true"
             $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"
             $Config.Diagnostics.EnableHookProbe = "false"

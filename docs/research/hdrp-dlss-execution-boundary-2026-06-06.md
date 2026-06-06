@@ -189,48 +189,40 @@ The official boundary to imitate is:
 
 `RenderPostProcess -> DoDLSSPasses -> DoDLSSPass -> Deep Learning Super Sampling render func -> DLSSPass.GetCameraResources -> DLSSPass.Render/ExecuteDLSS`.
 
-The safest next mod-accessible equivalent is not another global texture lookup.
-It is a narrowly filtered pass-execution boundary:
+The safest next mod-accessible equivalent is still not another global texture
+lookup, but the first two managed pass-boundary attempts are now rejected:
+`PreRenderPassExecute(...)` crashed, and `OnPassAdded(RenderGraphPass)` patched
+safely but emitted zero pass records. The next useful step is local/static
+inspection of RenderGraph recording and compiled-pass storage for a non-ref,
+read-only pass-list observation point. Only after that static pass-shape evidence
+exists should a new runtime probe be introduced.
 
-1. First prove, read-only, whether `RenderGraph.PreRenderPassExecute` or nearby
-   non-generic RenderGraph execution methods are called during real gameplay in
-   this IL2CPP build.
-2. If callable, log only pass names and types at first. Filter for HDRP upscale
-   and postprocess passes, especially `Deep Learning Super Sampling` if the
-   official path can be enabled, or the existing visible upscaler/final passes
-   such as `Edge Adaptive Spatial Upsampling`, `Final Pass`, and related postprocess
-   output passes.
-3. Only after a pass-name proof, use that pass execution window to resolve already
-   declared resources for the specific pass. Avoid global per-`GetTexture` steady
-   state work.
-4. Keep the current `GetTexture` postfix as a diagnostic fallback and tuple oracle,
-   not the production frame path.
-
-If `PreRenderPassExecute` still does not fire in gameplay, the next narrow option
-is a deliberately isolated `DLSSPass.GetCameraResources` gameplay test under a
-configuration that attempts to make HDRP construct the official DLSS pass. That is
-not a production route yet because direct `DLSSPass.Render` is rejected and V Rising
-does not ship the full NVIDIA module/runtime.
+Keep the current `GetTexture` postfix as a diagnostic fallback and tuple oracle,
+not the production frame path. Avoid direct `DLSSPass.Render`, generated render
+func wrappers, ref-`CompiledPassInfo` executor wrappers, new pass injection, and
+builder-declaration patches unless a later local source/interop audit identifies a
+more specific safe shape.
 
 ## Next Minimal Experiment
 
-Build a read-only `rendergraph-pass-boundary` diagnostic stage:
+Static follow-up found a better candidate than `OnPassAdded`: a postfix on
+`RenderGraph.CompileRenderGraph(int)` followed by a read-only snapshot of
+`RenderGraph.m_RenderPasses` / `RenderGraphPass.name`. This is not the
+ref-`CompiledPassInfo` executor family, does not execute or wrap pass render funcs,
+and happens before `ClearRenderPasses()` releases the pass list.
 
-- Patch only `RenderGraph.PreRenderPassExecute(...)` or, if that wrapper is dead
-  in gameplay, one adjacent non-generic execution method such as
-  `ExecuteCompiledPass(ref CompiledPassInfo, int)`.
-- Do not patch compiler-generated render delegates.
-- Do not call `GetTexture` from the prefix.
-- Log capped pass names, pass indices, culled state, async state, and whether the
-  pass name matches DLSS/upscale/final-postprocess candidates.
-- Run at true `1920x1080` Windowed against the protected `11111` save.
-- Pass if gameplay logs a stable pass sequence including the current upscaler/final
-  boundary without crash.
-- Fail if no pass-execution calls appear, or if any crash/IL2CPP trampoline error
-  occurs.
+Do not run another V Rising gameplay probe until that candidate is implemented as
+a default-off no-resource/no-evaluate stage with a clear hypothesis:
 
-Only after that proof should the mod attempt resource resolution/evaluate inside a
-targeted pass boundary.
+- Prefer `CompileRenderGraph(int)` postfix plus `m_RenderPasses` names/types as a
+  pass-list snapshot.
+- Use `GetCompiledPassInfos()` only if needed for culled/async state and only after
+  proving the pass-list snapshot itself is safe.
+- Avoid `PreRenderPassExecute`, `ExecuteCompiledPass`, `PostRenderPassExecute`,
+  compiler-generated render funcs, `DLSSPass.Render`, and pass injection.
+- The next runtime stage should have a concrete pass/fail hypothesis before
+  launch: it should log postprocess/upscale/final pass names in gameplay at true
+  `1920x1080` Windowed, with no `GetTexture` calls and no evaluate.
 
 ## Implementation Follow-Up
 
@@ -361,7 +353,7 @@ Narrow network checks did not change the route:
 | `RenderGraphResourceRegistry.GetTexture(ref TextureHandle)` postfix | Engine-owned valid-scope real `RTHandle` discovery | Proved tuples and evaluates, but no-evaluate tests show severe steady-state FPS collapse | Diagnostic oracle only |
 | `RenderGraphResourceRegistry.CreateTextureCallback(...)` | Resource creation callback | Patch-stable, but materialization-only gameplay saw zero useful callbacks/candidates | Rejected as replacement boundary |
 | `DLSSPass.GetViewResources` / `GetCameraResources` | Closest official handle-to-texture conversion helper | Exists and short main-menu patch did not crash, but no calls observed; likely only useful if official DLSS pass executes | Research-only candidate |
-| `RenderGraph.OnPassAdded(RenderGraphPass)` | Pass-recording/name proof without ref executor wrapper | Exists in V Rising interop; not yet tested | Possible narrow read-only pass-name probe, not an evaluate boundary |
+| `RenderGraph.OnPassAdded(RenderGraphPass)` | Pass-recording/name proof without ref executor wrapper | Exists in V Rising interop; default-off read-only `rendergraph-pass-map` patched safely in main-menu and gameplay, but emitted `0` pass-map lines | Rejected as useful in current V Rising runtime; keep default-off only as a low-risk probe for other builds |
 | Existing safe dynamic-resolution/camera callbacks such as `DynamicResolutionHandler.Update(...)` | Stable per-frame-ish local driver point | No-evaluate cached tuple driver passed; real cached evaluate crashed in `nvwgf2umx.dll` | Useful diagnosis/performance driver only; rejected as real DLSS evaluate boundary |
 
 Current conclusion after cached real-evaluate follow-up:
@@ -385,11 +377,62 @@ The cached-driver follow-up separated two problems:
 
 The next implementation loop should therefore avoid both rejected shapes: do not
 repeat ref-`CompiledPassInfo` executor patches as normal diagnostics, and do not
-rerun cached-driver real-evaluate unchanged. If pass-name evidence is needed, test
-`RenderGraph.OnPassAdded` as a read-only recording-stage probe only. The real
-evaluate route needs a narrower official HDRP/RenderGraph upscaler-pass-equivalent
-execution window with current-frame resources and command-buffer ordering comparable
-to `DoDLSSPass -> DLSSPass.Render/ExecuteDLSS`.
+rerun cached-driver real-evaluate unchanged. The `rendergraph-pass-map` follow-up
+also should not be rerun unchanged in the current V Rising runtime: it patched
+`OnPassAdded` safely, but produced no pass-name signal. The real evaluate route
+needs a narrower official HDRP/RenderGraph upscaler-pass-equivalent execution
+window with current-frame resources and command-buffer ordering comparable to
+`DoDLSSPass -> DLSSPass.Render/ExecuteDLSS`.
+
+Pass-map implementation update:
+
+- Added `Diagnostics.EnableRenderGraphPassMapProbe=false`.
+- Added helper stage `rendergraph-pass-map`.
+- The stage patches only `RenderGraph.OnPassAdded(RenderGraphPass)`.
+- It logs capped `RenderGraph pass map #` lines with pass name, pass type, and a
+  coarse category (`dlss`, `upscale`, `final`, `postprocess`, `temporal`, or
+  `other`).
+- It disables `RenderGraphResourceRegistry.GetTexture` and does not resolve
+  resources, create/inject passes, or evaluate DLSS.
+- Release build and dry-run config validation passed.
+- Runtime result: `rendergraph-pass-map-1080p-menu-20260606-r1` and
+  `rendergraph-pass-map-gameplay-1080p-20260606-r1` both patched
+  `RenderGraph.OnPassAdded(RenderGraphPass)` without a WER crash. The gameplay
+  run was true `1920x1080` Windowed, used Computer Use only to click Continue, and
+  restored the protected `11111` save with `ChangeCount=0`.
+- Both runtime runs emitted `0` `RenderGraph pass map #` lines, with no
+  `RenderGraph pass-map logging failed` lines. Unity 2022.3 source explains why:
+  `OnPassAdded` only executes work in immediate mode, while normal graph execution
+  uses `AddRenderPass -> CompileRenderGraph -> ExecuteCompiledPass`.
+
+Conclusion: `OnPassAdded` is safe in this runtime but not useful for pass-name
+evidence. Do not rerun `rendergraph-pass-map` unchanged. Next inspect local/upstream
+RenderGraph recording and compiled-pass storage for a non-ref, read-only observation
+point that can identify the `Deep Learning Super Sampling`, EASU/upscale, or final
+postprocess pass without touching executor wrappers or generated render funcs.
+
+Static pass-list follow-up:
+
+- Unity source: `AddRenderPass(...)` initializes a `RenderGraphPass` and appends it
+  to `m_RenderPasses` at lines 613-623.
+- Unity source: `InitializeCompilationData()` resizes `m_CompiledPassInfos` to
+  `m_RenderPasses.Count` and resets each entry from `m_RenderPasses[i]` at lines
+  837-845.
+- Unity source: `CompileRenderGraph()` performs reference counting, culling,
+  renderer-list creation, resource allocation/synchronization, and render-list
+  logging at lines 1373-1395.
+- Unity source: `ClearRenderPasses()` releases then clears `m_RenderPasses` at
+  lines 1625-1630, so a compile-time postfix can observe the list before cleanup.
+- V Rising interop exposes `RenderGraph.m_RenderPasses`,
+  `GetCompiledPassInfos()`, `CompileRenderGraph(int)`, `ClearRenderPasses()`, and
+  `RenderGraphPass.name/index/customSampler`.
+
+Next candidate: implement a default-off `rendergraph-compile-pass-list` style
+stage that patches only `CompileRenderGraph(int)` with a postfix, logs capped
+pass names/categories from `m_RenderPasses`, disables `GetTexture`, and does not
+touch resources or evaluate. Pass if true `1920x1080` Windowed gameplay logs
+postprocess/upscale/final pass names without a WER crash; fail if no pass-list
+lines appear or any IL2CPP/crash signature appears.
 
 Implementation update:
 
