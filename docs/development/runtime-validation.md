@@ -123,7 +123,17 @@ Current Stage 2C status:
 - Software-fallback run `fsr-off-render-scale-1080p-software-fallback-v5-20260606` reached stable gameplay through Computer Use at `1920x1080` Windowed and cleaned up safely, but still failed the MVP tuple proof. It proved `ForceSoftwareFallback()`/fallback state was active (`HardwareDynamicResIsEnabled=False`, `SoftwareDynamicResIsEnabled=True` after handler enablement), while `GetCurrentScale=1` and `GetResolvedScale=(1.00, 1.00)` kept the main camera/resources full-size. `CameraColor_960` count was `0`, `CameraColor_1920` count was `752`, and the `11111` save was restored to `ChangeCount=0`.
 - Post-update fraction run `fsr-off-render-scale-1080p-post-update-fraction-v6-20260606` passed the FSR Off render-scale proof. The `DynamicResolutionHandler.Update(...)` postfix forced the active handler fraction/state to Performance scale; `GetCurrentScale=0.5`, `GetResolvedScale=(0.50, 0.50)`, and `SoftwareDynamicResIsEnabled=True` appeared repeatedly. `CameraColor_960` count was `504`, `CameraColor_1920` count was `0`, `HDCamera` switched to `actualWidth=960,actualHeight=540`, and Stage 8E accepted `CameraColor/CameraDepthStencil/Motion Vectors=960x540` with output `Edge Adaptive Spatial Upsampling=1920x1080`.
 - The same v6 run passed the SDK-wrapper `DLSS.EnableDLSS=true` user-rendering smoke proof under V Rising FSR Off. `DLSS user rendering evaluate succeeded` reached `sequenceSuccesses=9000`, `sequenceCreates=1`, `render=960x540`, `target=1920x1080`, and `evaluateSuccesses=9000`; there were no user-rendering blocked/failed lines. Cleanup restored `ClientSettings.json`, loader config, the release-safe native DLL, and the `11111` save to `ChangeCount=0`.
-- Latest result summaries: `docs/development/handler-request-runtime-test-2026-06-06.md` and `docs/development/post-update-fraction-runtime-result-2026-06-06.md`.
+- The first controlled v6 `dlss-user-rendering` visual/performance run,
+  `v6-user-rendering-1080p-auto-visual-20260606-r2`, proved the route is visually
+  captureable and reaches repeated SDK-wrapper evaluate success under V Rising FSR
+  Off, but it failed the MVP performance gate. Baseline was `203.617` average FPS
+  and `156.078` 1% low FPS; candidate was `80.242` average FPS and `58.688` 1% low
+  FPS. Candidate P95 frame time worsened from `5.947 ms` to `14.775 ms`, while
+  average GPU utilization dropped from `97.5%` to `43.444%`. Treat this as a
+  render-thread/synchronization investigation, not a tuple/evaluate failure.
+- Latest result summaries: `docs/development/handler-request-runtime-test-2026-06-06.md`,
+  `docs/development/post-update-fraction-runtime-result-2026-06-06.md`, and
+  `docs/development/v6-user-rendering-visual-test-2026-06-06.md`.
 
 ## Stage 3: Read-Only Harmony Probe
 
@@ -702,6 +712,10 @@ Scope:
 - Stage 10A candidate visual runs default to `KeepDlssVisibleWritebackProbeRunning=true` and `WaitForStage10A=true`, so screenshots wait for the `sequenceSuccesses=30/30` milestone while the visible write-back candidate keeps evaluating until cleanup. Normal-user candidate visual runs can use `-CandidateStage dlss-user-rendering`; screenshots wait for a successful user-rendering evaluate when `WaitForUserRendering=true`.
 - Performance capture is enabled by default when `C:\Software\PresentMon\PresentMon-2.4.1-x64.exe` is available. Each baseline/candidate run writes PresentMon frame CSV, CPU/GPU metrics CSV, and a readable FPS/CPU/GPU summary under `artifacts\fps-validation`.
 - `-AttachExistingBaseline` can attach to a V Rising process that the tester already launched for the baseline run. This is read-only before capture and is useful when the tester has already entered the target scene manually.
+- For the preferred constructive shape, use `-SetClientResolution
+  -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080`. The helper
+  temporarily writes `ClientSettings.json`, launches with matching screen arguments,
+  and restores the original settings during cleanup.
 
 Example dry run:
 
@@ -718,7 +732,7 @@ powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.p
 Example manual-ready paired gameplay run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\Software\VRising" -CandidateStage dlss-user-rendering -FsrMode Off -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -CapturePerformance:$true -WaitForUserRendering:$true -DlssRuntimePath "Z:\VrisingDLSS\ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll"
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\Software\VRising" -CandidateStage dlss-user-rendering -FsrMode Off -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -CapturePerformance:$true -WaitForUserRendering:$true -DlssRuntimePath "Z:\VrisingDLSS\ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll" -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080
 ```
 
 Use `-FsrMode Performance` only for explicitly labeled transition diagnostics. Those runs can prove the DLSS evaluate path against an HDRP Super Resolution tuple, but they cannot satisfy the MVP product-value comparison because V Rising's built-in FSR is participating in the render-scale change.
@@ -771,4 +785,15 @@ Current helper smoke status:
 - The first `dlss-user-rendering` release-safe smoke run on 2026-06-05 proved `DLSS.EnableDLSS=true` installs the crash-safe RenderGraph route and starts the user-rendering candidate. With V Rising's built-in FSR Off, the run had no crash event and restored loader config, but no Super Resolution tuple was accepted because `CameraColor` and output were both `3840x2160`.
 - A follow-up `dlss-user-rendering` release-safe smoke run temporarily set V Rising's built-in `FsrQualityMode=Performance`, accepted a `1920x1080 -> 3840x2160` tuple, attempted the user-rendering evaluate once, received the expected release-safe native response `blocked: native bridge was built without NVIDIA SDK wrapper integration`, disabled the candidate for the session, reported no matching Windows crash event, restored loader config, and restored `FsrQualityMode=Off`.
 - The v6 `fsr-off-render-scale-1080p-post-update-fraction-v6-20260606` run passed this route under V Rising `FsrQualityMode=Off`: the mod-owned dynamic-resolution handler intervention produced `CameraColor/Depth/Motion=960x540`, output `1920x1080`, and repeated SDK-wrapper `DLSS user rendering evaluate succeeded` lines with `sequenceCreates=1`.
+- The first 1080p Windowed v6 visual/performance comparison,
+  `v6-user-rendering-1080p-auto-visual-20260606-r2`, then produced valid baseline and
+  candidate gameplay captures at `1920x1080`, waited for user-rendering evaluate
+  success, and compared matching screenshots. It failed readiness because candidate
+  performance regressed severely: average FPS `203.617 -> 80.242`, 1% low FPS
+  `156.078 -> 58.688`, P95 frame time `5.947 ms -> 14.775 ms`, and average GPU
+  utilization `97.5% -> 43.444%`.
+- This result proves `DLSS user rendering evaluate succeeded` is not enough. The next
+  rendering step is to instrument C# and native evaluate timing, then move evaluation
+  out of the passive `RenderGraph GetTexture` resource-discovery postfix if timing
+  confirms a stall.
 - Current route decision: DLSS itself does not depend on FSR. The final MVP validation must keep V Rising `FsrQualityMode=Off` for baseline and candidate, while the mod controls render scale/upscale through HDRP dynamic-resolution/DLSS-path integration. The next gate is no longer tuple existence; it is visual correctness, performance, resize/reset, fallback behavior, and release-boundary validation.

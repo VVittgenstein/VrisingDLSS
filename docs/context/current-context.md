@@ -77,6 +77,14 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
 - Software-fallback gameplay run `fsr-off-render-scale-1080p-software-fallback-v5-20260606` reached stable `11111` gameplay at `1920x1080` Windowed and cleaned up safely, but still failed the tuple proof. It proved fallback state could be forced while `GetCurrentScale=1` and `GetResolvedScale=(1.00, 1.00)` kept the main gameplay targets full-size. The `11111` save was restored to `ChangeCount=0`.
 - Post-update fraction gameplay run `fsr-off-render-scale-1080p-post-update-fraction-v6-20260606` passed the FSR Off render-scale proof. The `DynamicResolutionHandler.Update(...)` postfix forced the active handler to the Performance fraction; logs repeatedly showed `m_CurrentFraction=0.5`, `GetCurrentScale=0.5`, `GetResolvedScale=(0.50, 0.50)`, and `SoftwareDynamicResIsEnabled=True`. Stage 8E accepted `CameraColor/CameraDepthStencil/Motion Vectors=960x540` with output `Edge Adaptive Spatial Upsampling=1920x1080`.
 - The same v6 run passed the local SDK-wrapper `dlss-user-rendering` smoke proof under V Rising FSR Off: `DLSS user rendering evaluate succeeded` reached `sequenceSuccesses=9000`, `sequenceCreates=1`, `render=960x540`, `target=1920x1080`, and `evaluateSuccesses=9000`, with no blocked/failed user-rendering lines. Cleanup restored `ClientSettings.json`, loader config, the release-safe native DLL, no remaining game process, and the `11111` save to `ChangeCount=0`.
+- The first controlled v6 `dlss-user-rendering` visual/performance comparison,
+  `v6-user-rendering-1080p-auto-visual-20260606-r2`, reached the same FSR Off
+  `960x540 -> 1920x1080` evaluate route and produced valid baseline/candidate
+  gameplay screenshots at true `1920x1080` Windowed. It is blocked on performance:
+  average FPS regressed `203.617 -> 80.242`, 1% low regressed `156.078 -> 58.688`,
+  P95 frame time worsened `5.947 ms -> 14.775 ms`, and average GPU utilization
+  dropped `97.5% -> 43.444%`. This suggests a render-thread/synchronization or
+  evaluate-placement problem, not a missing DLSS tuple.
 - Phase 1 no-DLSS automation proof has partial-control history: `scripts/run-vrising-automation-proof.ps1` can launch V Rising, detect the real `UnityWndClass` window instead of the BepInEx console, capture a nonblank screenshot, archive logs, restore settings/config, and leave no V Rising process. Earlier run `automation-proof-1920-window-v5-20260606` reported `Status=Partial` because it used `FullScreenWindow`; this was later solved for the session harness by temporarily adding `GraphicSettings.WindowMode=3`.
 - Phase 1 direct-entry search found no supported client command-line auto-continue/direct-connect route in current official Stunlock launch options or local evidence. Local `ServerHistory.json` and interop strings strongly support the in-game `Continue`/direct-connect UI route instead.
 - The target local/private game for Continue automation is likely `Name=11111`: this is present in `ServerHistory.json`, and the user recalled the local game was named with many `1` characters and should be continuable directly.
@@ -112,7 +120,14 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
 - If full automation fails, the semi-automatic human-Codex-game protocol still needs a durable, explicit artifact.
 - `dlss-optimal-settings` actual game-runtime validation is complete for the local SDK-wrapper research route; use it only as an optional pre-game API sanity check.
 - FSR Off render-scale control has one passing constructive proof: v6 forced the active dynamic-resolution handler fraction to `0.5`, produced the expected `960x540 -> 1920x1080` tuple, and ran repeated SDK-wrapper `dlss-user-rendering` evaluates under V Rising FSR Off. Earlier v1-v5 failures remain useful negative evidence and should not be repeated unchanged.
-- Normal-user `dlss-user-rendering` now needs gameplay image-correctness and performance proof with V Rising FSR Off, plus production-quality resize/reset/fallback behavior.
+- Normal-user `dlss-user-rendering` now has gameplay screenshots and repeated evaluate
+  success under V Rising FSR Off, but it fails the performance gate severely. The next
+  technical blocker is to identify whether synchronous NGX evaluate from
+  `RenderGraph GetTexture` is stalling the render thread and to move evaluation toward
+  a proper render/upscale pass if confirmed.
+- Gameplay image-correctness still needs a human review only after the severe
+  performance regression is fixed; do not write a passing human review for the r2
+  artifact.
 - Output selection, jitter, exposure/pre-exposure, mip bias, resize/reset, fallback, and cleanup remain incomplete for playable MVP.
 - Runtime distribution strategy remains unresolved for a drag-in user package that should not require users to manually fetch an arbitrary DLL.
 - Real-world E2E from a clean or near-clean `C:\Software\VRising` install is not complete.
@@ -130,19 +145,28 @@ Follow the new goal order:
 5. Resume the technical path from `docs/development/post-update-fraction-runtime-result-2026-06-06.md`:
    - `dlss-optimal-settings` actual runtime validation is passed;
    - the FSR Off `1920x1080` constructive tuple/evaluate proof is passed in v6;
+   - `docs/development/v6-user-rendering-visual-test-2026-06-06.md` records the first
+     `1920x1080` Windowed visual/performance result: screenshots and evaluate passed,
+     performance blocked;
    - do not repeat `fsr-off-render-scale-1080p-v1-20260606`, `fsr-off-render-scale-1080p-hwdrs-v2-20260606`, `fsr-off-render-scale-1080p-handler-request-v3-20260606`, `fsr-off-render-scale-1080p-handler-request-v4-20260606`, or `fsr-off-render-scale-1080p-software-fallback-v5-20260606` unchanged;
-   - next loops should test visual correctness, performance value, resize/reset, fallback, and productionizing the guarded v6 render-scale intervention;
+   - next loop should add bounded C#/native timing around user-rendering evaluate and
+     decide whether the call must move out of the passive `RenderGraph GetTexture`
+     resource-discovery postfix;
+   - after performance is no longer severely negative, resume visual correctness,
+     resize/reset, fallback, and productionizing the guarded v6 render-scale
+     intervention;
    - reserve 4K/native-output performance comparison for the later controlled final validation matrix.
 
 ## Current Repository Checkpoint
 
-As of the post-update fraction render-scale follow-up:
+As of the v6 user-rendering visual/performance follow-up:
 
 - Branch: `main`.
-- Latest pushed checkpoint before this update: `9598225 Add software fallback render-scale diagnostic`.
+- Latest pushed checkpoint before this update: `5d4125d Prove FSR-off post-update render scale`.
 - The current working tree records the `fsr-off-render-scale-1080p-software-fallback-v5-20260606`
   failed fallback-only result, the `fsr-off-render-scale-1080p-post-update-fraction-v6-20260606`
-  tuple/evaluate pass, safe cleanup, save restoration, and external DLSS mod practice
-  research.
+  tuple/evaluate pass, safe cleanup, save restoration, external DLSS mod practice
+  research, the `v6-user-rendering-1080p-auto-visual-20260606-r2` blocked
+  visual/performance result, and the initial DLSS performance-placement investigation.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.

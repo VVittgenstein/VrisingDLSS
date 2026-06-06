@@ -270,6 +270,27 @@ Result:
   switched to `960x540`, Stage 8E accepted `960x540 -> 1920x1080`, and
   `DLSS user rendering evaluate succeeded` reached repeated SDK-wrapper successes.
 
+## V6 Visual/Performance Follow-up
+
+Run label: `v6-user-rendering-1080p-auto-visual-20260606-r2`.
+
+Result:
+
+- The visual helper temporarily forced `GraphicSettings.WindowMode=3` and
+  `1920x1080`, then restored `ClientSettings.json` during cleanup.
+- Computer Use selected the real `VRising` window for both baseline and candidate,
+  clicked the known `11111` Continue entry once per run at `(205, 354)` in the current
+  `1283x751` screenshot, and sent no movement/gameplay keys.
+- The baseline and candidate both reached stable gameplay and produced valid
+  `1920x1080` screenshots.
+- The candidate reached repeated `DLSS user rendering evaluate succeeded` lines.
+- Cleanup restored FSR mode, loader config, release-safe native DLL, client settings,
+  and the `11111` save (`ChangeCount=0` after restore).
+- Technical result: visual capture/evaluate succeeded, but performance failed badly.
+  The candidate regressed from `203.617` to `80.242` average FPS and GPU utilization
+  dropped from `97.5%` to `43.444%`. Treat this as a DLSS placement/timing blocker,
+  not an automation failure.
+
 ## Next Click Protocol Notes
 
 For future Continue activations:

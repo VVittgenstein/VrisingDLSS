@@ -91,6 +91,17 @@ The render-scale parameter for the default MVP test is source-backed: NVIDIA's U
 
 The final product-value comparison must use V Rising `FsrQualityMode=Off` for both sides: native 4K with `DLSS.EnableDLSS=false` versus mod-owned `DLSS.EnableDLSS=true` with the plugin controlling render scale/upscale. Existing negative-control evidence showed that with FSR Off and no effective mod-owned render-scale control, the candidate saw `CameraColor` and output both at `3840x2160`. The v6 constructive proof fixed that for a `1920x1080` Windowed target by producing `960x540 -> 1920x1080`; the final matrix still needs the same idea validated in a controlled visual/performance comparison.
 
+The first controlled v6 `dlss-user-rendering` gameplay comparison at `1920x1080`
+Windowed proved the candidate is captureable and can evaluate repeatedly, but it
+failed the performance gate. Run `v6-user-rendering-1080p-auto-visual-20260606-r2`
+recorded baseline `AverageFps=203.617`, candidate `AverageFps=80.242`, baseline
+`OnePercentLowFps=156.078`, candidate `OnePercentLowFps=58.688`, baseline
+`P95FrameMs=5.947`, candidate `P95FrameMs=14.775`, and candidate GPU utilization
+dropped to `43.444%` from `97.5%`. Treat this as evidence that DLSS evaluate success
+does not yet mean DLSS performance success. The next technical question is where the
+render-thread/native evaluate time is spent and whether the current `RenderGraph
+GetTexture` postfix placement is forcing a stall.
+
 Use `scripts/set-vrising-fsr-mode.ps1` for local test setup when changing V Rising's built-in FSR mode. It backs up `ClientSettings.json` under ignored local artifacts before writing and does not launch the game. The visual comparison helper can do this automatically with `-FsrMode Off` for the final MVP comparison, or `-FsrMode Performance` for explicitly labeled transition diagnostics; it restores the previous value during cleanup.
 
 When `KeepDlssVisibleWritebackProbeRunning=true` is used, candidate performance captures measure diagnostic hold-mode overhead. A large negative FPS delta under that mode means the proof loop is too expensive, not that the normal-user DLSS path is necessarily slow. Use `-CandidateStage dlss-user-rendering` for the MVP performance question: one persistent feature, at most one evaluate per Unity frame, no repeated proof loop, and explicit cleanup on resize/settings changes.
@@ -98,7 +109,7 @@ When `KeepDlssVisibleWritebackProbeRunning=true` is used, candidate performance 
 Recommended MVP command shape, after the candidate owns render-scale/upscale while V Rising FSR remains Off:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\path\to\VRising" -CandidateStage dlss-user-rendering -FsrMode Off -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -CapturePerformance:$true -WaitForUserRendering:$true -DlssRuntimePath "C:\path\to\nvngx_dlss.dll"
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\path\to\VRising" -CandidateStage dlss-user-rendering -FsrMode Off -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -CapturePerformance:$true -WaitForUserRendering:$true -DlssRuntimePath "C:\path\to\nvngx_dlss.dll" -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080
 ```
 
 If a test still requires `-FsrMode Performance`, label it as transition evidence. It can prove DLSS evaluate behavior on an HDRP Super Resolution tuple, but it cannot prove that the mod delivers normal-user value over native 4K with the game's FSR setting disabled.

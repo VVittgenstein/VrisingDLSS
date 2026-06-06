@@ -36,6 +36,12 @@ param(
     [string]$FsrSettingsPath,
     [switch]$NoFsrBackup,
     [switch]$SkipInstall,
+    [int]$Width = 1920,
+    [int]$Height = 1080,
+    [switch]$SetClientResolution,
+    [switch]$SetClientWindowMode,
+    [ValidateRange(0, 3)]
+    [int]$ClientWindowMode = 3,
     [switch]$DryRun
 )
 
@@ -117,6 +123,10 @@ if ($UserRenderingTimeoutSeconds -lt 30) {
     throw "UserRenderingTimeoutSeconds must be at least 30."
 }
 
+if ($Width -lt 640 -or $Height -lt 480) {
+    throw "Width/Height are too small for a useful V Rising visual comparison."
+}
+
 if ([string]::IsNullOrWhiteSpace($Root)) {
     $Root = Split-Path -Parent $PSScriptRoot
 }
@@ -130,6 +140,7 @@ $logPath = Join-Path $resolvedGamePath "BepInEx\LogOutput.log"
 $runtimeLogRoot = Join-Path $resolvedRoot "artifacts\runtime-logs"
 $visualRoot = Join-Path $resolvedRoot "artifacts\visual-validation"
 $fpsRoot = Join-Path $resolvedRoot "artifacts\fps-validation"
+$clientSettingsPath = Join-Path $env:USERPROFILE "AppData\LocalLow\Stunlock Studios\VRising\Settings\v4\ClientSettings.json"
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 
 if ([string]::IsNullOrWhiteSpace($ArtifactLabel)) {
@@ -145,6 +156,19 @@ if ([string]::IsNullOrWhiteSpace($ReadyFile)) {
 }
 
 $readyFileResolved = [System.IO.Path]::GetFullPath($ReadyFile)
+$clientSettingsChanged = [bool]($SetClientResolution -or $SetClientWindowMode)
+$clientSettingsBackupArtifact = Join-Path $visualRoot "ClientSettings-$ArtifactLabel.before.json"
+$launchArgs = @()
+if ($clientSettingsChanged) {
+    $launchArgs = @(
+        "-windowed",
+        "-screen-width", "$Width",
+        "-screen-height", "$Height",
+        "-screen-fullscreen", "0",
+        "-force-d3d11",
+        "-single-instance"
+    )
+}
 
 if ([string]::IsNullOrWhiteSpace($SdkWrapperNativePath)) {
     $SdkWrapperNativePath = Join-Path $resolvedRoot "artifacts\native-build-msvc-wrapper\Release\VrisingDLSS.Native.dll"
@@ -626,7 +650,11 @@ function Invoke-VisualRun {
 
         $logStartOffset = if (Test-Path -LiteralPath $logPath) { (Get-Item -LiteralPath $logPath).Length } else { 0L }
         if (-not $AttachExistingProcess) {
-            $process = Start-Process -FilePath $exePath -WorkingDirectory $resolvedGamePath -PassThru
+            if ($launchArgs.Count -gt 0) {
+                $process = Start-Process -FilePath $exePath -WorkingDirectory $resolvedGamePath -ArgumentList $launchArgs -PassThru
+            } else {
+                $process = Start-Process -FilePath $exePath -WorkingDirectory $resolvedGamePath -PassThru
+            }
             Write-Host "Started VRising pid=$($process.Id)"
         }
 
@@ -798,6 +826,14 @@ $plan = [pscustomobject]@{
     ReadyFile = $(if ($ManualCapture) { $readyFileResolved } else { "" })
     ReadyTimeoutSeconds = $(if ($ManualCapture) { $ReadyTimeoutSeconds } else { 0 })
     AttachExistingBaseline = [bool]$AttachExistingBaseline
+    SetClientResolution = [bool]$SetClientResolution
+    SetClientWindowMode = [bool]$SetClientWindowMode
+    Width = $(if ($SetClientResolution) { $Width } else { 0 })
+    Height = $(if ($SetClientResolution) { $Height } else { 0 })
+    ClientWindowMode = $(if ($SetClientWindowMode) { $ClientWindowMode } else { $null })
+    ClientSettingsPath = $(if ($clientSettingsChanged) { $clientSettingsPath } else { "" })
+    ClientSettingsBackupArtifact = $(if ($clientSettingsChanged) { $clientSettingsBackupArtifact } else { "" })
+    LaunchArgs = $launchArgs
     CapturePerformance = $capturePerformanceEnabled
     PerformanceSeconds = $(if ($capturePerformanceEnabled) { $PerformanceSeconds } else { 0 })
     PerformanceDelaySeconds = $(if ($capturePerformanceEnabled) { $PerformanceDelaySeconds } else { 0 })
@@ -821,6 +857,7 @@ $plan = [pscustomobject]@{
     PreviousFsrMode = $(if ($fsrPlan) { $fsrPlan.PreviousFsrQualityName } else { "" })
     RestoresFsrMode = ($FsrMode -ne "Unchanged")
     FsrBackupPath = $(if ($fsrPlan) { $fsrPlan.BackupPath } else { "" })
+    RestoresClientSettings = $clientSettingsChanged
     RestoresReleaseSafeState = $true
     LaunchesGame = (-not [bool]$DryRun) -and (($Mode -ne "BaselineOnly") -or (-not [bool]$AttachExistingBaseline))
 }
@@ -834,11 +871,52 @@ $results = New-Object System.Collections.Generic.List[object]
 $comparison = $null
 $fsrChange = $null
 $restoredFsrMode = ($FsrMode -eq "Unchanged")
+$restoredClientSettings = -not $clientSettingsChanged
 $previousFsrMode = ""
 $fsrBackupPath = ""
 
 try {
     New-Item -ItemType Directory -Force -Path $runtimeLogRoot, $visualRoot, $fpsRoot | Out-Null
+
+    if ($clientSettingsChanged) {
+        if ($AttachExistingBaseline) {
+            throw "SetClientResolution/SetClientWindowMode cannot be used with AttachExistingBaseline."
+        }
+
+        if (-not (Test-Path -LiteralPath $clientSettingsPath)) {
+            throw "ClientSettings.json was not found: $clientSettingsPath"
+        }
+
+        Copy-Item -LiteralPath $clientSettingsPath -Destination $clientSettingsBackupArtifact -Force
+        $settings = Get-Content -LiteralPath $clientSettingsPath -Raw | ConvertFrom-Json
+        if (-not $settings.GraphicSettings) {
+            throw "ClientSettings.json does not contain GraphicSettings."
+        }
+
+        if ($SetClientResolution) {
+            if (-not $settings.GraphicSettings.Resolution) {
+                throw "ClientSettings.json does not contain GraphicSettings.Resolution."
+            }
+
+            $settings.GraphicSettings.Resolution.x = $Width
+            $settings.GraphicSettings.Resolution.y = $Height
+            Write-Host "Temporarily set ClientSettings GraphicSettings.Resolution to ${Width}x${Height}."
+        }
+
+        if ($SetClientWindowMode) {
+            $windowModeProperty = $settings.GraphicSettings.PSObject.Properties["WindowMode"]
+            if ($windowModeProperty) {
+                $windowModeProperty.Value = $ClientWindowMode
+            } else {
+                $settings.GraphicSettings | Add-Member -NotePropertyName "WindowMode" -NotePropertyValue $ClientWindowMode
+            }
+
+            Write-Host "Temporarily set ClientSettings GraphicSettings.WindowMode to $ClientWindowMode."
+        }
+
+        $settings | ConvertTo-Json -Depth 32 | Set-Content -LiteralPath $clientSettingsPath -Encoding UTF8
+        $restoredClientSettings = $false
+    }
 
     if ($FsrMode -ne "Unchanged") {
         $fsrParameters = @{
@@ -905,6 +983,15 @@ try {
             Write-Warning "FSR mode restore failed: $($_.Exception.Message)"
         }
     }
+
+    if ($clientSettingsChanged -and (Test-Path -LiteralPath $clientSettingsBackupArtifact)) {
+        try {
+            Copy-Item -LiteralPath $clientSettingsBackupArtifact -Destination $clientSettingsPath -Force
+            $restoredClientSettings = $true
+        } catch {
+            Write-Warning "ClientSettings restore failed: $($_.Exception.Message)"
+        }
+    }
 }
 
 [pscustomobject]@{
@@ -923,6 +1010,13 @@ try {
     PreviousFsrMode = $previousFsrMode
     RestoredFsrMode = $restoredFsrMode
     FsrBackupPath = $fsrBackupPath
+    SetClientResolution = [bool]$SetClientResolution
+    SetClientWindowMode = [bool]$SetClientWindowMode
+    Width = $(if ($SetClientResolution) { $Width } else { 0 })
+    Height = $(if ($SetClientResolution) { $Height } else { 0 })
+    ClientWindowMode = $(if ($SetClientWindowMode) { $ClientWindowMode } else { $null })
+    RestoredClientSettings = $restoredClientSettings
+    ClientSettingsBackupArtifact = $(if (Test-Path -LiteralPath $clientSettingsBackupArtifact) { $clientSettingsBackupArtifact } else { "" })
     ProcessStillRunning = [bool](Get-VRisingProcess)
     RestoredReleaseSafeState = $true
     LaunchesGame = ($Mode -ne "BaselineOnly") -or (-not [bool]$AttachExistingBaseline)
