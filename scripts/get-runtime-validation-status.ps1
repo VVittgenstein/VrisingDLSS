@@ -265,6 +265,7 @@ function Get-NextRecommendation {
     $superResolutionFrameSequence = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 9A"
     $visibleWriteback = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 10A"
     $userRendering = Get-FirstStageStatus -Results $LogResults -StagePrefix "DLSS User Rendering Candidate"
+    $nativeRenderFuncEntry = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Entry"
     $currentUserRendering = Get-FirstStageStatus -Results $CurrentLogResults -StagePrefix "DLSS User Rendering Candidate"
     if ($currentUserRendering -eq "Partial" -and
         $CurrentLogText.IndexOf("DLSS super-resolution input probe not accepted", [StringComparison]::OrdinalIgnoreCase) -ge 0 -and
@@ -298,6 +299,10 @@ function Get-NextRecommendation {
         }
 
         return "The latest dlss-user-rendering gameplay log did not accept an FSR Off Super Resolution tuple: the main candidate stayed color=1920x1080 output=1920x1080. Before rerunning the same runtime proof, use the targeted render-scale diagnostic to check for `Render-scale control member write did not stick`, `RTHandles.SetHardwareDynamicResolutionState=true`, and whether the gameplay camera/main targets remain full-size."
+    }
+
+    if ($nativeRenderFuncEntry -eq "Pass") {
+        return "Native render-func entry menu proof passed. Next engineering step is the protected 11111 gameplay fixture at true 1920x1080 Windowed with native-renderfunc-entry only, no resource resolution, no command-buffer access, and no DLSS evaluate."
     }
 
     if ($userRendering -eq "Pass") {

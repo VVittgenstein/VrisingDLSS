@@ -1,6 +1,6 @@
 # Native RenderFunc Entry Probe Implementation - 2026-06-06
 
-Status: implemented and statically validated. Runtime proof has not been run.
+Status: implemented, statically validated, and menu-runtime validated.
 
 ## Scope
 
@@ -58,7 +58,7 @@ Result: `LaunchesGame=False`; the stage enables
 
 ## Runtime Protocol
 
-Do not use this as a production path yet. First proof must be menu-only:
+Do not use this as a production path yet. The first menu proof has passed:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-entry -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3
@@ -67,7 +67,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-vrising-diagnost
 Use true `1920x1080` Windowed. Do not enter gameplay and do not touch the
 protected `11111` save unless a later protocol explicitly requires it.
 
-Pass criteria:
+Menu pass criteria:
 
 - no WER crash;
 - analyzer reports `Native RenderFunc Entry=Pass`;
@@ -75,6 +75,14 @@ Pass criteria:
 - log contains `Native render-func entry count advanced:`;
 - `RenderGraph GetTexture call #=0`;
 - release-safe config/settings restored afterward.
+
+Recorded menu result:
+
+`docs/development/native-renderfunc-entry-runtime-result-2026-06-06.md`
+
+Next proof must be the protected `11111` gameplay fixture at true `1920x1080`
+Windowed, still with no resource resolution, command-buffer access, or DLSS
+evaluate.
 
 Failure criteria:
 

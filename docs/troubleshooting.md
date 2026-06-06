@@ -449,9 +449,12 @@ proof.
 defaults to `false`. The helper stage is `native-renderfunc-entry`; it targets
 only the EASU render-function `method_ptr`, waits for three stable observations,
 installs an Il2CppInterop native detour, increments one counter, and immediately
-calls the original trampoline. It must be tested menu-only at true `1920x1080`
-Windowed before any gameplay use. See
+calls the original trampoline. Menu runtime proof passed at true `1920x1080`
+Windowed with `Native RenderFunc Entry=Pass`, no crash, no `GetTexture`, and
+counter advancement. This is still not gameplay/resource/evaluate proof. See
 `docs/development/native-renderfunc-entry-probe-implementation-2026-06-06.md`.
+Runtime result:
+`docs/development/native-renderfunc-entry-runtime-result-2026-06-06.md`.
 
 ## RenderGraph Execute-Delegate Probe
 

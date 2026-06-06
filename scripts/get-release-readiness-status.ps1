@@ -405,7 +405,7 @@ $summary = [pscustomobject]@{
     NextRecommendation = if ($mvpReady) {
         "MVP evidence is complete. Prepare a final release review."
     } elseif ([string]::IsNullOrWhiteSpace($GamePath)) {
-        "Pass -GamePath to include local runtime evidence. Current MVP next step is not another broad DLSS search or unchanged RenderGraph map run: the native-renderfunc-entry preflight passed and the default-off probe is implemented. Run a menu-only true 1920x1080 Windowed native-renderfunc-entry proof; it must increment counters and immediately call the original trampoline without resolving resources, touching command buffers, or evaluating DLSS."
+        "Pass -GamePath to include local runtime evidence. Current MVP next step is not another broad DLSS search or unchanged RenderGraph map run: the native-renderfunc-entry preflight and menu proof passed. Run the protected 11111 gameplay fixture at true 1920x1080 Windowed with native-renderfunc-entry only; it must increment counters and immediately call the original trampoline without resolving resources, touching command buffers, or evaluating DLSS."
     } elseif ($visualStatus.Status -ne "Pass" -and $visualStatus.HumanReviewStatus -eq "Pending") {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
@@ -467,7 +467,7 @@ $summary = [pscustomobject]@{
             "Run scripts\run-vrising-diagnostic.ps1 -Stage dlss-visible-writeback with a local SDK-wrapper native build, DLSS runtime path, and DLSS disabled by default."
         }
     } elseif (@($items | Where-Object { $_.Requirement -like "Experimental EnableDLSS user-rendering*" -and $_.Status -ne "Pass" }).Count -gt 0) {
-        "Do not rerun rejected RenderGraph wrapper stages unchanged. The official HDRP DLSS boundary is the Deep Learning Super Sampling render func, but V Rising has no proven safe Harmony-equivalent boundary. The rendergraph-compiled-pass-info proof and native-renderfunc-entry preflight passed; the default-off no-op method-pointer probe is implemented. Next narrow step is a menu-only true 1920x1080 Windowed native-renderfunc-entry proof with counter advance and immediate original-trampoline return, without resolving resources, touching command buffers, or evaluating DLSS."
+        "Do not rerun rejected RenderGraph wrapper stages unchanged. The official HDRP DLSS boundary is the Deep Learning Super Sampling render func, but V Rising has no proven safe Harmony-equivalent boundary. The rendergraph-compiled-pass-info proof plus native-renderfunc-entry preflight/menu proof passed. Next narrow step is the protected 11111 gameplay fixture at true 1920x1080 Windowed with counter advance and immediate original-trampoline return, without resolving resources, touching command buffers, or evaluating DLSS."
     } elseif (@($items | Where-Object { $_.Requirement -like "Normal-user dlss-user-rendering gameplay visual/performance comparison*" -and $_.Status -ne "Pass" }).Count -gt 0) {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation

@@ -545,10 +545,16 @@ Current Stage 8A status:
   `native-renderfunc-entry`. It reuses `CompileRenderGraph(int)` only to observe
   the EASU `method_ptr`, waits for three stable observations, installs an
   Il2CppInterop native detour, increments a counter, and immediately calls the
-  original trampoline. Static build and dry-run config validation passed; no
-  game runtime proof has been run yet. First proof must be menu-only at true
-  `1920x1080` Windowed. See
+  original trampoline. Static build and dry-run config validation passed.
+  Menu runtime proof
+  `native-renderfunc-entry-1080p-menu-20260606-r1` also passed at true
+  `1920x1080` Windowed with analyzer `Native RenderFunc Entry=Pass`,
+  `CrashEventCount=0`, `RenderGraph GetTexture call #=0`, one detour install,
+  and counter advancement on the next compile. This proves menu ABI safety only,
+  not gameplay/resource/evaluate safety. See
   `docs/development/native-renderfunc-entry-probe-implementation-2026-06-06.md`.
+  Runtime result:
+  `docs/development/native-renderfunc-entry-runtime-result-2026-06-06.md`.
 - See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.
 
 ## Stage 8B: First Guarded DLSS Evaluate Diagnostic

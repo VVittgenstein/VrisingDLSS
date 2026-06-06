@@ -554,6 +554,11 @@ As of the read-only RenderGraph pass-map runtime result:
   stage: `native-renderfunc-entry`. It observes only the EASU `method_ptr` from
   `CompileRenderGraph(int)`, waits for three stable observations, installs an
   Il2CppInterop native detour, increments one counter, and immediately calls the
-  original trampoline. It must start with a menu-only true `1920x1080` Windowed
-  runtime proof and must not resolve resources, touch command buffers, or
-  evaluate DLSS.
+  original trampoline. Menu runtime proof
+  `native-renderfunc-entry-1080p-menu-20260606-r1` passed at true `1920x1080`
+  Windowed: analyzer `Native RenderFunc Entry=Pass`, `CrashEventCount=0`,
+  `RenderGraph GetTexture call #=0`, one install, and counter advancement from
+  compile 4 onward. This is still menu ABI proof only. Next proof should be the
+  protected `11111` gameplay fixture, still no resources/command buffers/DLSS
+  evaluate. See
+  `docs/development/native-renderfunc-entry-runtime-result-2026-06-06.md`.
