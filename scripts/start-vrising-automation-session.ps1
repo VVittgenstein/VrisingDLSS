@@ -23,6 +23,7 @@ param(
         "rendergraph-pass-boundary",
         "rendergraph-pass-map",
         "rendergraph-pass-list",
+        "rendergraph-pass-declarations",
         "render-scale-control",
         "dlss-user-rendering",
         "dlss-user-rendering-cached-driver",

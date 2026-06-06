@@ -371,6 +371,33 @@ As of the read-only RenderGraph pass-map runtime result:
   restore `ChangeCount=0`. Do not rerun pass-list unchanged; the next route is a
   default-off resource-declaration-only snapshot for focused compile-time passes
   around motion vectors, `Uber Post`, `Edge Adaptive Spatial Upsampling`, and
-  `Final Pass`.
+  `Final Pass`. That candidate has now been implemented as
+  `Diagnostics.EnableRenderGraphPassResourceDeclarationProbe=false` / stage
+  `rendergraph-pass-declarations`; it reuses the safe `CompileRenderGraph(int)`
+  postfix, logs pass-local handle declarations only, disables `GetTexture`, and
+  does not resolve resources or evaluate. Menu smoke
+  `rendergraph-pass-declarations-1080p-menu-20260606-r1` passed at true
+  `1920x1080` Windowed with `CrashEventCount=0`, analyzer `RenderGraph Pass
+  Declarations=Pass`, `297` declaration lines, `0` broad GetTexture logs, and
+  focused declarations for motion vectors, `Uber Post`, `Edge Adaptive Spatial
+  Upsampling`, and `Final Pass`. A later startup/window-only session with the
+  gameplay label also emitted declaration signal (`399` declaration lines,
+  `0` broad GetTexture logs, `CrashEventCount=0`) and restored the save with
+  `ChangeCount=0`, but it did not click Continue or enter protected gameplay and
+  must not be counted as the gameplay proof. Protected gameplay proof
+  `rendergraph-pass-declarations-gameplay-1080p-20260606-r2` then passed in the
+  `11111` fixture: Computer Use clicked Continue once and sent no movement keys,
+  stable gameplay was captured, analyzer `RenderGraph Pass Declarations=Pass`,
+  `529` declaration lines, `0` broad GetTexture logs, failures `0`,
+  `CrashEventCount=0`, stop-session cleanup restored ClientSettings/config/native
+  state, and save restore ended with `ChangeCount=0`. Do not rerun
+  pass-declarations unchanged; inspect the declaration summaries before designing
+  any new current-frame command-buffer/evaluate boundary. The narrow source/search follow-up is
+  recorded in `docs/research/hdrp-dlss-rendergraph-safe-boundary-followup-2026-06-06.md`:
+  the official HDRP DLSS boundary is the `Deep Learning Super Sampling`
+  RenderGraph render function calling `DLSSPass.GetCameraResources` and then
+  `DLSSPass.Render/ExecuteDLSS`; V Rising has no proven safe Harmony-equivalent
+  evaluate boundary yet, so the current safe point remains compile-time
+  pass/declaration observation.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.

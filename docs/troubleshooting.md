@@ -283,6 +283,41 @@ including `upscale`, `postprocess`, `final`, and `temporal`. It repeatedly obser
 stage unchanged; the next experiment should be a focused resource-declaration-only
 snapshot for those passes.
 
+## RenderGraph Pass-Declarations Probe
+
+`EnableRenderGraphPassResourceDeclarationProbe` is disabled by default and is
+read-only. It reuses the safe `CompileRenderGraph(int)` observation point and logs
+capped `RenderGraph pass declaration #` lines for focused passes only. It summarizes
+pass-local `colorBuffers`, `depthBuffer`, `resourceReadLists`, and
+`resourceWriteLists` handle declarations.
+
+It does not call `GetTexture`, does not call `GetTextureResource`, does not resolve
+resource names, does not resolve native texture pointers, does not inject a pass,
+does not load DLSS, and does not evaluate a frame.
+
+Use it after pass-list proof when the next question is the declaration shape around
+motion vectors, `Uber Post`, `Edge Adaptive Spatial Upsampling`, and `Final Pass`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\path\to\VRising" -Stage rendergraph-pass-declarations -DurationSeconds 120 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080
+```
+
+A useful run should produce `RenderGraph pass declaration #` lines and `0` broad
+`RenderGraph GetTexture call #` lines. Treat no declaration lines, any
+`RenderGraph pass-list logging failed`, or any WER/IL2CPP/coreclr crash as a failed
+route.
+
+Current evidence: menu smoke `rendergraph-pass-declarations-1080p-menu-20260606-r1`
+passed at true `1920x1080` Windowed with `297` declaration lines, `0` broad
+GetTexture logs, and no WER crash. A later startup/window-only session also
+emitted declaration signal (`399` lines, `0` broad GetTexture logs) and restored
+the protected save with `ChangeCount=0`, but it did not enter gameplay. Protected
+gameplay proof `rendergraph-pass-declarations-gameplay-1080p-20260606-r2` then
+passed in the `11111` fixture with `529` declaration lines, `0` broad GetTexture
+logs, no WER crash, no movement keys, and save restore `ChangeCount=0`. Do not
+rerun this stage unchanged; the next useful work is declaration-summary analysis
+for a safer current-frame upscaler pass boundary.
+
 ## RenderGraph Pass-Boundary Probe
 
 `EnableRenderGraphPassBoundaryProbe` is disabled by default and is high-risk research-only. It patches only `RenderGraph.PreRenderPassExecute(...)` and logs capped pass metadata: pass name, pass type, a coarse category, and safe `CompiledPassInfo` fields. In the standalone helper stage it does not resolve textures, does not call `GetTexture`, does not load DLSS, and does not evaluate a frame.

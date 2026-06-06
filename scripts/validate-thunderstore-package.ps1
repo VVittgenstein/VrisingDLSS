@@ -304,6 +304,7 @@ try {
             "EnableRenderGraphPassBoundaryProbe = false",
             "EnableRenderGraphPassMapProbe = false",
             "EnableRenderGraphPassListProbe = false",
+            "EnableRenderGraphPassResourceDeclarationProbe = false",
             "EnableRenderGraphGetTextureProbe = true",
             "EnableDlssPassResourceProbe = false",
             "EnableUpscalerStateProbe = false",

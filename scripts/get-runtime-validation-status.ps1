@@ -93,6 +93,7 @@ function Get-ConfiguredStage {
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassBoundaryProbe") { return "rendergraph-pass-boundary" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassMapProbe") { return "rendergraph-pass-map" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassListProbe") { return "rendergraph-pass-list" }
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassResourceDeclarationProbe") { return "rendergraph-pass-declarations" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssFeatureCreateProbe") { return "dlss-feature-create" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssOptimalSettingsProbe") { return "dlss-optimal-settings" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssInitQueryProbe") { return "dlss-init-query" }

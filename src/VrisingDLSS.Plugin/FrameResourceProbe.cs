@@ -20,6 +20,7 @@ internal static class FrameResourceProbe
     private const int MaxRenderGraphPassMapLogs = 240;
     private const int MaxRenderGraphPassListCompileLogs = 80;
     private const int MaxRenderGraphPassListEntryLogs = 320;
+    private const int MaxRenderGraphPassDeclarationLogs = 260;
     private const int MaxRenderGraphExecutionScopeLogs = 80;
     private const int MaxRenderGraphScopedEvaluateAttempts = 12;
     private const int MaxExistingRenderFuncLogs = 80;
@@ -57,6 +58,7 @@ internal static class FrameResourceProbe
     private static int RenderGraphPassMapCallCount;
     private static int RenderGraphPassListCompileCallCount;
     private static int RenderGraphPassListEntryLogCount;
+    private static int RenderGraphPassDeclarationLogCount;
     private static int RenderGraphExecutionScopeCallCount;
     private static int RenderGraphScopedEvaluateAttemptCount;
     private static int ExistingRenderFuncCallCount;
@@ -122,6 +124,7 @@ internal static class FrameResourceProbe
     private static bool RenderGraphPassBoundaryProbeEnabled;
     private static bool RenderGraphPassMapProbeEnabled;
     private static bool RenderGraphPassListProbeEnabled;
+    private static bool RenderGraphPassResourceDeclarationProbeEnabled;
     private static bool RenderGraphGetTextureProbeEnabled;
     private static bool DlssPassResourceProbeEnabled;
     private static bool RenderGraphGetTextureDiagnosticLoggingEnabled;
@@ -177,6 +180,7 @@ internal static class FrameResourceProbe
         bool enableRenderGraphPassBoundaryProbe = false,
         bool enableRenderGraphPassMapProbe = false,
         bool enableRenderGraphPassListProbe = false,
+        bool enableRenderGraphPassResourceDeclarationProbe = false,
         bool enableRenderGraphGetTextureProbe = true,
         bool enableDlssPassResourceProbe = false)
     {
@@ -206,6 +210,7 @@ internal static class FrameResourceProbe
             RenderGraphPassBoundaryProbeEnabled = RenderGraphPassBoundaryProbeEnabled || enableRenderGraphPassBoundaryProbe;
             RenderGraphPassMapProbeEnabled = RenderGraphPassMapProbeEnabled || enableRenderGraphPassMapProbe;
             RenderGraphPassListProbeEnabled = RenderGraphPassListProbeEnabled || enableRenderGraphPassListProbe;
+            RenderGraphPassResourceDeclarationProbeEnabled = RenderGraphPassResourceDeclarationProbeEnabled || enableRenderGraphPassResourceDeclarationProbe;
             RenderGraphGetTextureProbeEnabled = RenderGraphGetTextureProbeEnabled || enableRenderGraphGetTextureProbe;
             DlssPassResourceProbeEnabled = DlssPassResourceProbeEnabled || enableDlssPassResourceProbe;
             RenderGraphGetTextureDiagnosticLoggingEnabled = RenderGraphGetTextureDiagnosticLoggingEnabled || ShouldEnableRenderGraphGetTextureDiagnosticLogging(
@@ -243,6 +248,7 @@ internal static class FrameResourceProbe
         RenderGraphPassBoundaryProbeEnabled = enableRenderGraphPassBoundaryProbe;
         RenderGraphPassMapProbeEnabled = enableRenderGraphPassMapProbe;
         RenderGraphPassListProbeEnabled = enableRenderGraphPassListProbe;
+        RenderGraphPassResourceDeclarationProbeEnabled = enableRenderGraphPassResourceDeclarationProbe;
         RenderGraphGetTextureProbeEnabled = enableRenderGraphGetTextureProbe;
         DlssPassResourceProbeEnabled = enableDlssPassResourceProbe;
         RenderGraphGetTextureDiagnosticLoggingEnabled = ShouldEnableRenderGraphGetTextureDiagnosticLogging(
@@ -340,6 +346,10 @@ internal static class FrameResourceProbe
         if (RenderGraphPassListProbeEnabled)
         {
             log.LogInfo("RenderGraph pass-list probe enabled. It patches CompileRenderGraph(int) for read-only m_RenderPasses name/category snapshots and does not resolve textures or evaluate DLSS.");
+        }
+        if (RenderGraphPassResourceDeclarationProbeEnabled)
+        {
+            log.LogInfo("RenderGraph pass resource-declaration probe enabled. It patches CompileRenderGraph(int) for focused read/write handle declarations only and does not resolve textures or evaluate DLSS.");
         }
         if (DlssPassResourceProbeEnabled)
         {
@@ -546,7 +556,7 @@ internal static class FrameResourceProbe
             patched++;
         }
 
-        if (RenderGraphPassListProbeEnabled
+        if ((RenderGraphPassListProbeEnabled || RenderGraphPassResourceDeclarationProbeEnabled)
             && TryPatchRenderGraphPassListMethod(
                 log,
                 assemblies,
@@ -630,6 +640,7 @@ internal static class FrameResourceProbe
             RenderGraphPassBoundaryProbeEnabled = false;
             RenderGraphPassMapProbeEnabled = false;
             RenderGraphPassListProbeEnabled = false;
+            RenderGraphPassResourceDeclarationProbeEnabled = false;
             RenderGraphGetTextureProbeEnabled = false;
             DlssPassResourceProbeEnabled = false;
             RenderGraphGetTextureDiagnosticLoggingEnabled = false;
@@ -666,6 +677,7 @@ internal static class FrameResourceProbe
                 RenderGraphPassMapCallCount = 0;
                 RenderGraphPassListCompileCallCount = 0;
                 RenderGraphPassListEntryLogCount = 0;
+                RenderGraphPassDeclarationLogCount = 0;
                 RenderGraphExecutionScopeCallCount = 0;
                 RenderGraphScopedEvaluateAttemptCount = 0;
                 ExistingRenderFuncCallCount = 0;
@@ -1742,7 +1754,7 @@ internal static class FrameResourceProbe
     {
         try
         {
-            if (!RenderGraphPassListProbeEnabled)
+            if (!RenderGraphPassListProbeEnabled && !RenderGraphPassResourceDeclarationProbeEnabled)
             {
                 return;
             }
@@ -1764,7 +1776,8 @@ internal static class FrameResourceProbe
                 ?? TryReadFieldObject(__instance, "m_RenderPasses");
             if (passesObject is null)
             {
-                if (compileCount <= MaxRenderGraphPassListCompileLogs || compileCount % 300 == 0)
+                if (RenderGraphPassListProbeEnabled
+                    && (compileCount <= MaxRenderGraphPassListCompileLogs || compileCount % 300 == 0))
                 {
                     log.LogInfo($"RenderGraph pass-list compile #{compileCount}: method={HookTargetCatalog.FormatMethod(__originalMethod)}; m_RenderPasses=not found; args=[{SummarizeArguments(__args)}]");
                 }
@@ -1795,38 +1808,88 @@ internal static class FrameResourceProbe
                 passSummaries.Add((index, pass, passName, passType, category));
             }
 
-            if (compileCount <= MaxRenderGraphPassListCompileLogs || compileCount % 300 == 0)
+            if (RenderGraphPassListProbeEnabled
+                && (compileCount <= MaxRenderGraphPassListCompileLogs || compileCount % 300 == 0))
             {
                 log.LogInfo($"RenderGraph pass-list compile #{compileCount}: method={HookTargetCatalog.FormatMethod(__originalMethod)}; passCount={declaredCount}; enumerated={passes.Length}; focusCount={focusCount}; args=[{SummarizeArguments(__args)}]");
             }
 
-            var logAllEntriesForCompile = compileCount <= 3;
-            foreach (var summary in passSummaries)
+            if (RenderGraphPassListProbeEnabled)
             {
-                if (!logAllEntriesForCompile && string.Equals(summary.Category, "other", StringComparison.Ordinal))
+                var logAllEntriesForCompile = compileCount <= 3;
+                foreach (var summary in passSummaries)
                 {
-                    continue;
-                }
+                    if (!logAllEntriesForCompile && string.Equals(summary.Category, "other", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
 
-                int entryCount;
-                lock (Sync)
-                {
-                    RenderGraphPassListEntryLogCount++;
-                    entryCount = RenderGraphPassListEntryLogCount;
-                }
+                    int entryCount;
+                    lock (Sync)
+                    {
+                        RenderGraphPassListEntryLogCount++;
+                        entryCount = RenderGraphPassListEntryLogCount;
+                    }
 
-                if (entryCount > MaxRenderGraphPassListEntryLogs && entryCount % 500 != 0)
-                {
-                    continue;
-                }
+                    if (entryCount > MaxRenderGraphPassListEntryLogs && entryCount % 500 != 0)
+                    {
+                        continue;
+                    }
 
-                var info = DescribeRenderGraphPassListEntry(summary.Pass);
-                log.LogInfo($"RenderGraph pass-list entry #{entryCount}: compile={compileCount}; ordinal={summary.Ordinal}; pass=\"{summary.Name}\"; category={summary.Category}; passType={summary.TypeName}{info}");
+                    var info = DescribeRenderGraphPassListEntry(summary.Pass);
+                    log.LogInfo($"RenderGraph pass-list entry #{entryCount}: compile={compileCount}; ordinal={summary.Ordinal}; pass=\"{summary.Name}\"; category={summary.Category}; passType={summary.TypeName}{info}");
+                }
             }
+
+            TryLogRenderGraphPassResourceDeclarations(compileCount, passSummaries);
         }
         catch (Exception ex)
         {
             Log?.LogWarning($"RenderGraph pass-list logging failed: {GetExceptionMessage(ex)}");
+        }
+    }
+
+    private static void TryLogRenderGraphPassResourceDeclarations(
+        int compileCount,
+        IEnumerable<(int Ordinal, object Pass, string Name, string TypeName, string Category)> passSummaries)
+    {
+        if (!RenderGraphPassResourceDeclarationProbeEnabled)
+        {
+            return;
+        }
+
+        var log = Log;
+        if (log is null)
+        {
+            return;
+        }
+
+        foreach (var summary in passSummaries)
+        {
+            if (!IsFocusedRenderGraphPassDeclarationTarget(summary.Name, summary.Category))
+            {
+                continue;
+            }
+
+            int declarationLogCount;
+            lock (Sync)
+            {
+                RenderGraphPassDeclarationLogCount++;
+                declarationLogCount = RenderGraphPassDeclarationLogCount;
+            }
+
+            if (declarationLogCount > MaxRenderGraphPassDeclarationLogs && declarationLogCount % 500 != 0)
+            {
+                continue;
+            }
+
+            var declarations = CollectRenderGraphPassResourceDeclarations(summary.Pass);
+            var formattedDeclarations = declarations.Count == 0
+                ? "none"
+                : string.Join("; ", declarations.Take(48).Select(FormatRenderGraphPassResourceDeclaration));
+            var truncated = declarations.Count > 48 ? $"; truncated={declarations.Count - 48}" : string.Empty;
+
+            log.LogInfo($"RenderGraph pass declaration #{declarationLogCount}: compile={compileCount}; ordinal={summary.Ordinal}; pass=\"{summary.Name}\"; category={summary.Category}; declarationCount={declarations.Count}; declarations=[{formattedDeclarations}]{truncated}");
         }
     }
 
@@ -1901,6 +1964,126 @@ internal static class FrameResourceProbe
         AddSimpleMemberSummary(parts, "allowPassCulling", pass, "allowPassCulling");
         AddSimpleMemberSummary(parts, "enableAsyncCompute", pass, "enableAsyncCompute");
         return parts.Count == 0 ? string.Empty : $"; info={string.Join(",", parts)}";
+    }
+
+    private static bool IsFocusedRenderGraphPassDeclarationTarget(string passName, string category)
+    {
+        if (string.Equals(category, "upscale", StringComparison.Ordinal)
+            || string.Equals(category, "postprocess", StringComparison.Ordinal)
+            || string.Equals(category, "final", StringComparison.Ordinal)
+            || string.Equals(category, "dlss", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return passName.IndexOf("Motion Vector", StringComparison.OrdinalIgnoreCase) >= 0
+            || passName.IndexOf("MotionVectors", StringComparison.OrdinalIgnoreCase) >= 0
+            || passName.IndexOf("Motion Blur", StringComparison.OrdinalIgnoreCase) >= 0
+            || passName.IndexOf("Temporal Anti", StringComparison.OrdinalIgnoreCase) >= 0
+            || passName.IndexOf("TAA", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static IReadOnlyList<RenderGraphPassResourceDeclaration> CollectRenderGraphPassResourceDeclarations(object pass)
+    {
+        var declarations = new List<RenderGraphPassResourceDeclaration>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        var colorBuffers = TryReadPropertyObject(pass, "colorBuffers")
+            ?? TryReadFieldObject(pass, "_colorBuffers_k__BackingField");
+        var colorIndex = 0;
+        foreach (var colorBuffer in EnumerateRuntimeSequence(colorBuffers))
+        {
+            AddTextureHandleDeclaration($"color[{colorIndex}]", colorBuffer, declarations, seen);
+            colorIndex++;
+        }
+
+        var depthBuffer = TryReadPropertyObject(pass, "depthBuffer")
+            ?? TryReadFieldObject(pass, "_depthBuffer_k__BackingField");
+        AddTextureHandleDeclaration("depth", depthBuffer, declarations, seen);
+
+        var resourceReadLists = TryReadPropertyObject(pass, "resourceReadLists")
+            ?? TryReadFieldObject(pass, "resourceReadLists");
+        AddResourceListDeclarations("read", resourceReadLists, declarations, seen);
+
+        var resourceWriteLists = TryReadPropertyObject(pass, "resourceWriteLists")
+            ?? TryReadFieldObject(pass, "resourceWriteLists");
+        AddResourceListDeclarations("write", resourceWriteLists, declarations, seen);
+
+        return declarations;
+    }
+
+    private static void AddResourceListDeclarations(
+        string labelPrefix,
+        object? resourceLists,
+        ICollection<RenderGraphPassResourceDeclaration> declarations,
+        ISet<string> seen)
+    {
+        var listIndex = 0;
+        foreach (var resourceList in EnumerateRuntimeSequence(resourceLists))
+        {
+            var itemIndex = 0;
+            foreach (var resourceHandle in EnumerateRuntimeSequence(resourceList))
+            {
+                AddResourceHandleDeclaration($"{labelPrefix}[{listIndex}:{itemIndex}]", resourceHandle, declarations, seen);
+                itemIndex++;
+            }
+
+            listIndex++;
+        }
+    }
+
+    private static void AddTextureHandleDeclaration(
+        string label,
+        object? textureHandle,
+        ICollection<RenderGraphPassResourceDeclaration> declarations,
+        ISet<string> seen)
+    {
+        if (textureHandle is null || !TypeNameContains(textureHandle.GetType(), "TextureHandle"))
+        {
+            return;
+        }
+
+        var resourceHandle = TryGetResourceHandleFromTextureHandle(textureHandle);
+        var summary = resourceHandle is null
+            ? FirstLine(SummarizeValue(textureHandle))
+            : FirstLine(SummarizeValue(resourceHandle));
+        AddRenderGraphPassResourceDeclaration(label, "texture", summary, declarations, seen);
+    }
+
+    private static void AddResourceHandleDeclaration(
+        string label,
+        object? resourceHandle,
+        ICollection<RenderGraphPassResourceDeclaration> declarations,
+        ISet<string> seen)
+    {
+        if (resourceHandle is null || !TypeNameContains(resourceHandle.GetType(), "ResourceHandle"))
+        {
+            return;
+        }
+
+        var kind = IsTextureResourceHandle(resourceHandle) ? "texture-resource" : "resource";
+        AddRenderGraphPassResourceDeclaration(label, kind, FirstLine(SummarizeValue(resourceHandle)), declarations, seen);
+    }
+
+    private static void AddRenderGraphPassResourceDeclaration(
+        string label,
+        string kind,
+        string summary,
+        ICollection<RenderGraphPassResourceDeclaration> declarations,
+        ISet<string> seen)
+    {
+        var key = $"{label}:{kind}:{summary}";
+        if (!seen.Add(key))
+        {
+            return;
+        }
+
+        declarations.Add(new RenderGraphPassResourceDeclaration(label, kind, summary));
+    }
+
+    private static string FormatRenderGraphPassResourceDeclaration(RenderGraphPassResourceDeclaration declaration)
+    {
+        return $"{declaration.Label}:{declaration.Kind}:{declaration.Summary}";
     }
 
     private static void AddSimpleMemberSummary(ICollection<string> parts, string label, object instance, string memberName)
@@ -6131,6 +6314,8 @@ internal static class FrameResourceProbe
     private readonly record struct NamedTextureObjectCandidate(string Label, object Value);
 
     private readonly record struct RenderGraphTextureCandidate(string Label, string ResourceName, IntPtr Pointer, string Status, int FrameCount = -1);
+
+    private readonly record struct RenderGraphPassResourceDeclaration(string Label, string Kind, string Summary);
 
     private readonly record struct RenderGraphRegistryCandidate(string Label, object Instance);
 
