@@ -110,6 +110,7 @@ Follow the new goal order:
    - image recognition or screenshot-driven state detection;
    - log/config/status detection;
    - fixed local/private test scene setup.
+   First-pass local route inventory is in [../development/gameplay-automation-exploration-2026-06-06.md](../development/gameplay-automation-exploration-2026-06-06.md).
 3. Persist the automation exploration results and either:
    - make automatic gameplay entry the default runtime-test path; or
    - document why all reasonable automation routes failed and continue with a durable semi-automatic protocol.
