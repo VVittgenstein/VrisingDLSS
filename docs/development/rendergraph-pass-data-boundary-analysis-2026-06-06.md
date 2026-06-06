@@ -273,6 +273,7 @@ Implementation status:
 Follow-up implemented the smaller read-only/no-evaluate execution-boundary
 candidate as `rendergraph-execute-delegate`, a default-off stage that patches
 only closed `RenderGraphPass.GetExecuteDelegate<TPassData>()` methods for
-focused HDRP pass data. Do not jump directly to generated EASU/Final
-render-function patching or DLSS evaluate without proving this execution-layer
-candidate first.
+focused HDRP pass data. Its first menu runtime result patched safely but emitted
+zero focused callback lines, so it is not proven as an execution-layer boundary.
+Do not jump directly to generated EASU/Final render-function patching or DLSS
+evaluate without proving a smaller execution-layer candidate first.

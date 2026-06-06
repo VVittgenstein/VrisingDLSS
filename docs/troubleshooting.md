@@ -380,12 +380,13 @@ same focused pass chain reaches execution-layer code:
 powershell -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\path\to\VRising" -Stage rendergraph-execute-delegate -DurationSeconds 120 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080
 ```
 
-The first runtime validation must be menu-only at `1920x1080 Windowed`. A useful
-run should produce `RenderGraph execute-delegate #` lines with `memberCount=`
-for focused pass data while keeping `RenderGraph GetTexture call #` at `0`.
-Treat patch failures, `data=not found`, zero focused execute-delegate lines, any
-`RenderGraph GetTexture call #`, or any WER/IL2CPP/coreclr crash as a failed
-route. Only attempt protected `11111` gameplay proof after a clean menu result.
+The first runtime validation was menu-only at `1920x1080 Windowed`. It patched
+four closed generic methods and ran for the full diagnostic window with
+`CrashEventCount=0`, restored settings, and `RenderGraph GetTexture call #=0`,
+but emitted zero focused `RenderGraph execute-delegate #` lines. Treat that as
+patch-stability evidence only. Do not rerun this stage unchanged, and do not
+attempt protected `11111` gameplay proof unless a later implementation first
+produces focused menu execute-delegate lines with `memberCount=`.
 
 ## RenderGraph Pass-Boundary Probe
 

@@ -445,10 +445,19 @@ As of the read-only RenderGraph pass-map runtime result:
   evaluate authority. Implementation follow-up added the default-off
   `Diagnostics.EnableRenderGraphExecuteDelegateProbe=false` config key, helper
   stage `rendergraph-execute-delegate`, analyzer support, and package default.
-  Build/package validation passed, but no runtime proof has been collected yet.
-  The next action is a menu-only `1920x1080 Windowed` run of
-  `rendergraph-execute-delegate`; protected gameplay proof can only follow after a
-  clean menu result. Do not patch generated render funcs or
+  Build/package validation passed. Menu runtime follow-up
+  `rendergraph-execute-delegate-1080p-menu-20260606-r1` then ran for 120 seconds
+  at true `1920x1080` Windowed, patched all four closed generic methods, produced
+  `CrashEventCount=0`, restored loader config and ClientSettings, and kept
+  `RenderGraph GetTexture call #=0`, but produced `0` focused
+  `RenderGraph execute-delegate #` lines. Analyzer reported
+  `RenderGraph Execute Delegate=Partial`. Treat this as patch-stability evidence
+  only, not menu proof. Do not run protected gameplay for this stage unchanged.
+  Local decompile follow-up explains why this is plausible: the V Rising
+  `RenderGraphPass<T>.Execute(RenderGraphContext)` interop method is a native
+  `runtime_invoke` wrapper, and the patched `GetExecuteDelegate<TPassData>()`
+  wrapper reports `CallerCount(0)`. Next inspect/design a new local
+  interop/IL2CPP execution-path candidate; do not patch generated render funcs or
   `RenderGraphPass<T>.Execute` as the next normal route.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.

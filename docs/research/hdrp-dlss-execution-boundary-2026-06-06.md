@@ -454,7 +454,11 @@ Pass-data / execution-delegate follow-up:
   `RenderGraphPass.GetExecuteDelegate<TPassData>()` methods for focused HDRP pass
   data, records pass-data summaries, and does not wrap render functions, receive
   `RenderGraphContext`, resolve resources, touch command buffers, or evaluate
-  DLSS. It still needs a menu-only `1920x1080 Windowed` runtime proof.
+  DLSS. Menu runtime follow-up patched all four closed generic methods safely at
+  `1920x1080 Windowed`, with `CrashEventCount=0` and `GetTexture=0`, but emitted
+  zero focused callback lines. Treat it as patch-stability evidence only; the next
+  step is local interop/IL2CPP execution-path inspection, not rerunning the stage
+  unchanged or advancing to gameplay.
 
 Implementation update:
 

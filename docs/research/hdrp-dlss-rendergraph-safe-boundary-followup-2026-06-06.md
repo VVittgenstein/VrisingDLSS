@@ -265,8 +265,11 @@ candidate is a default-off menu-first probe for closed
 
 Implementation follow-up: this candidate is now wired as
 `Diagnostics.EnableRenderGraphExecuteDelegateProbe=false` and helper stage
-`rendergraph-execute-delegate`, with analyzer/package support. It is not
-runtime-proven yet; the first proof must be menu-only at `1920x1080 Windowed`.
+`rendergraph-execute-delegate`, with analyzer/package support. Menu runtime
+follow-up patched all four closed generic methods safely at `1920x1080 Windowed`
+with no crash and no `GetTexture` activity, but emitted zero focused callback
+lines. Treat it as patch-stability evidence only; do not rerun unchanged or
+advance it to gameplay proof.
 
 This candidate only proves that a focused pass reached the execution layer. It
 does not provide `RenderGraphContext`, command buffers, native textures, or DLSS

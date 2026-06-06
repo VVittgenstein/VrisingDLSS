@@ -1,7 +1,8 @@
 # RenderGraph Execute Delegate Candidate - 2026-06-06
 
-Status: implemented as a default-off read-only diagnostic probe. Not
-runtime-proven yet. Do not treat as a DLSS evaluate boundary.
+Status: implemented as a default-off read-only diagnostic probe. Menu runtime
+result is patch-stable but no-signal. Do not treat as a proven execution
+boundary or DLSS evaluate boundary.
 
 ## Question
 
@@ -137,26 +138,36 @@ The implementation patches only closed generic
 the pass name/category/type, reads focused pass-data summaries, caps logs, and
 does not alter or wrap the returned delegate.
 
-No runtime proof has been collected yet. The next validation must be menu-only
-at `1920x1080 Windowed`; gameplay validation can only follow after a clean menu
-proof.
+Menu runtime follow-up `rendergraph-execute-delegate-1080p-menu-20260606-r1`
+patched all four closed generic methods and ran for 120 seconds at
+`1920x1080 Windowed` with `CrashEventCount=0`, `RenderGraph GetTexture call #=0`,
+and cleanup restored, but produced `0` focused `RenderGraph execute-delegate #`
+lines. See
+`docs/development/rendergraph-execute-delegate-menu-result-2026-06-06.md`.
+Local decompile follow-up explains the no-signal result: the V Rising
+Il2CppInterop `RenderGraphPass<TPassData>.Execute(RenderGraphContext)` wrapper is
+itself a native `runtime_invoke` wrapper, while the patched
+`GetExecuteDelegate<TPassData>()` wrapper reports `CallerCount(0)`. The IL2CPP
+runtime path does not have to traverse the managed wrapper patched here.
 
 ## Probe Protocol
 
-This route is implemented, but still needs runtime proof before it can guide the
-next boundary decision.
+This route is implemented, but the first menu runtime result was no-signal. It
+must not guide gameplay proof or evaluate work unchanged.
 
 - Config key: `Diagnostics.EnableRenderGraphExecuteDelegateProbe=false`.
 - Helper stage: `rendergraph-execute-delegate`.
 - First runtime scope: menu-only, `1920x1080 Windowed`.
-- Gameplay scope only after menu proof is clean; use protected `11111`
-  backup/restore and no movement keys.
+- Gameplay scope only after menu proof emits focused execution-layer lines; use
+  protected `11111` backup/restore and no movement keys.
 - Log capped lines such as:
   `RenderGraph execute-delegate #N: ... pass="Edge Adaptive Spatial Upsampling"; dataType=EASUData; memberCount=...`
 - Use typed `TryCast<RenderGraphPass<TPassData>>()` and read scalar/handle
   summaries only.
 - Fail if patching throws, typed cast fails repeatedly, the stage logs no focused
-  execute-delegate lines, `GetTexture` appears, or any crash event appears.
+  execute-delegate lines, `GetTexture` appears, or any crash event appears. The
+  first menu run failed this proof criterion by logging zero focused
+  execute-delegate lines.
 - Analyzer must require at least one focused execution-layer line for pass.
 
 ## Decision
@@ -166,7 +177,6 @@ The narrow search did find a better next boundary candidate:
 `RenderGraphPass.GetExecuteDelegate<TPassData>()` closed over `DLSSData`,
 `EASUData`, `FinalPassData`, and optionally `UberPostPassData`.
 
-This is not ready for evaluate, but it is the cleanest next read-only proof:
-one step later than `CompileRenderGraph(int)` pass-data snapshots, one step
-earlier than generated render-func invocation, and still outside resource
-resolution/native/DLSS work.
+This is not ready for evaluate. It remains patch-stable but no-signal in the
+main menu; the next step is a new local interop/IL2CPP execution-path candidate,
+not rerunning this stage unchanged or jumping to generated render-func invocation.
