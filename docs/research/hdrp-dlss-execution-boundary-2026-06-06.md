@@ -427,12 +427,15 @@ Static pass-list follow-up:
   `GetCompiledPassInfos()`, `CompileRenderGraph(int)`, `ClearRenderPasses()`, and
   `RenderGraphPass.name/index/customSampler`.
 
-Next candidate: implement a default-off `rendergraph-compile-pass-list` style
-stage that patches only `CompileRenderGraph(int)` with a postfix, logs capped
-pass names/categories from `m_RenderPasses`, disables `GetTexture`, and does not
-touch resources or evaluate. Pass if true `1920x1080` Windowed gameplay logs
-postprocess/upscale/final pass names without a WER crash; fail if no pass-list
-lines appear or any IL2CPP/crash signature appears.
+Implementation follow-up: added the default-off `rendergraph-pass-list` stage.
+It patches only `CompileRenderGraph(int)` with a postfix, logs capped pass
+names/categories from `m_RenderPasses`, disables `GetTexture`, and does not
+touch resources or evaluate. Runtime follow-up
+`rendergraph-pass-list-1080p-menu-20260606-r2` passed in a true `1920x1080`
+Windowed menu smoke with no WER crash and logged the focused sequence
+`Uber Post -> Edge Adaptive Spatial Upsampling -> Final Pass`. This proves a
+safe pass-list observation point for menu rendering; gameplay still needs the
+protected `11111` save backup/restore proof before using it as the next route.
 
 Implementation update:
 

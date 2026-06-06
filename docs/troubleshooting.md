@@ -251,6 +251,35 @@ but produced `0` pass-map lines. Do not rerun this stage unchanged for the curre
 game build; it is retained only as a default-off, low-risk probe for other Unity
 runtime shapes.
 
+## RenderGraph Pass-List Probe
+
+`EnableRenderGraphPassListProbe` is disabled by default and is read-only. It
+patches only `RenderGraph.CompileRenderGraph(int)` and logs capped
+`RenderGraph pass-list compile #` / `RenderGraph pass-list entry #` lines from
+`m_RenderPasses`. It does not resolve textures, does not call `GetTexture`, does
+not inject a pass, does not load DLSS, and does not evaluate a frame.
+
+Use this when `rendergraph-pass-map` produces no pass names and the next question
+is whether compile-time `m_RenderPasses` can reveal postprocess/upscale/final pass
+names before `ClearRenderPasses()`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\path\to\VRising" -Stage rendergraph-pass-list -DurationSeconds 120 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080
+```
+
+A useful run should produce `RenderGraph pass-list compile #` lines and, ideally,
+focused `entry #` lines with categories such as `upscale`, `postprocess`, `final`,
+or `dlss`. Treat zero pass-list signal or any WER/IL2CPP/coreclr crash as a failed
+route and preserve the archived log.
+
+Current menu evidence: `rendergraph-pass-list-1080p-menu-20260606-r2` patched
+cleanly at true `1920x1080` Windowed with no WER crash. It produced analyzer
+`RenderGraph Pass List=Pass`, `90` compile summary lines, `357` entry lines, and
+focused categories including `upscale`, `postprocess`, `final`, and `temporal`.
+It repeatedly observed `Uber Post -> Edge Adaptive Spatial Upsampling -> Final
+Pass`. Gameplay proof is still required before using it for the next focused
+resource-declaration experiment.
+
 ## RenderGraph Pass-Boundary Probe
 
 `EnableRenderGraphPassBoundaryProbe` is disabled by default and is high-risk research-only. It patches only `RenderGraph.PreRenderPassExecute(...)` and logs capped pass metadata: pass name, pass type, a coarse category, and safe `CompiledPassInfo` fields. In the standalone helper stage it does not resolve textures, does not call `GetTexture`, does not load DLSS, and does not evaluate a frame.

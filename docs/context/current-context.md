@@ -356,8 +356,15 @@ As of the read-only RenderGraph pass-map runtime result:
   `OnPassAdded` is therefore safe but not useful as the next evidence source in
   this runtime. Static follow-up found that V Rising interop exposes
   `RenderGraph.m_RenderPasses`, `GetCompiledPassInfos()`, `CompileRenderGraph(int)`,
-  `ClearRenderPasses()`, and `RenderGraphPass.name/index`; the next candidate is a
-  default-off `CompileRenderGraph(int)` postfix that logs only pass names/categories,
-  with `GetTexture` disabled and no evaluate.
+  `ClearRenderPasses()`, and `RenderGraphPass.name/index`; the next candidate has
+  now been implemented as the default-off `rendergraph-pass-list` stage. It patches
+  only `CompileRenderGraph(int)`, logs pass names/categories from `m_RenderPasses`,
+  disables `GetTexture`, and does not resolve resources or evaluate. The menu smoke
+  `rendergraph-pass-list-1080p-menu-20260606-r2` passed at true `1920x1080`
+  Windowed with `CrashEventCount=0`, analyzer `RenderGraph Pass List=Pass`, `90`
+  compile lines, `357` entry lines, and repeated `Uber Post -> Edge Adaptive
+  Spatial Upsampling -> Final Pass` entries. The next proof should run this stage
+  once in protected `11111` gameplay with save backup/restore before extending it
+  to focused resource-declaration snapshots.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.
