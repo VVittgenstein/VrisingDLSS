@@ -369,3 +369,30 @@ short-term discovery aid only. The next production-oriented attempt should move 
 use/evaluate to a targeted render/upscale pass boundary, or patch a more specific HDRP
 resource submission point, with the accepted tuple cached by frame/view and no global
 per-texture resource-discovery work in the steady state.
+
+Implementation follow-up: the `GetTexture` postfix now filters by RenderGraph resource
+name before resolving native texture pointers whenever raw GetTexture logging and
+output-followup are inactive. This should reduce diagnostic overhead for
+`dlss-user-rendering` and `dlss-user-rendering-no-evaluate`, but it still leaves a
+global postfix on a very hot method. It needs an r4 no-evaluate performance run before
+being treated as useful runtime evidence.
+
+## Theoretical Performance Follow-up
+
+See [dlss-theoretical-performance-model-2026-06-06.md](dlss-theoretical-performance-model-2026-06-06.md).
+
+The source-backed model makes the current failure sharper rather than softer:
+
+- Performance-mode DLSS commonly uses about 50% input resolution per axis, so the
+  1080p constructive fixture should be about `960x540 -> 1920x1080`, or 25% of
+  native pixel count.
+- That does not promise a 4x FPS gain, because CPU, present, driver, UI, and other
+  fixed costs can dominate low-resolution/high-FPS tests.
+- It does mean that render-scale-only at 1080p is expected to show lower GPU
+  utilization/power even if FPS stays flat, which matches
+  `render-scale-only-1080p-20260606-r1`.
+- A path that collapses from roughly 200 FPS to roughly 80-112 FPS while GPU
+  utilization is low, and while native DLSS evaluate is disabled or only costs about
+  0.1 ms CPU wall time, is not a normal DLSS Performance-mode result. It is
+  consistent with a stall, hot hook, synchronization/copy issue, or bad render-stage
+  placement.

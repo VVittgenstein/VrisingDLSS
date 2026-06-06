@@ -1738,6 +1738,12 @@ internal static class FrameResourceProbe
             var shouldLog = ShouldLogRenderGraphGetTexture(count);
             var handle = __args is { Length: > 0 } ? __args[0] : null;
             var resourceName = TryGetRenderGraphGetTextureResourceName(__instance, handle);
+            var isCandidateResource = IsRenderGraphGetTextureCandidateResource(resourceName);
+            if (!ShouldInspectRenderGraphGetTextureNativePointer(isCandidateResource, shouldLog))
+            {
+                return;
+            }
+
             if (__result is null)
             {
                 if (shouldLog)
@@ -1761,7 +1767,7 @@ internal static class FrameResourceProbe
                 return;
             }
 
-            if (IsRenderGraphGetTextureCandidateResource(resourceName))
+            if (isCandidateResource)
             {
                 IReadOnlyList<RenderGraphTextureCandidate> snapshot;
                 lock (Sync)
@@ -1827,6 +1833,19 @@ internal static class FrameResourceProbe
         }
 
         return canSkip && WasDlssUserRenderingAttemptedThisFrameOrInterval();
+    }
+
+    private static bool ShouldInspectRenderGraphGetTextureNativePointer(bool isCandidateResource, bool shouldLog)
+    {
+        if (isCandidateResource || shouldLog)
+        {
+            return true;
+        }
+
+        lock (Sync)
+        {
+            return DlssEvaluateOutputFollowupPointer != IntPtr.Zero;
+        }
     }
 
     private static bool ShouldEnableRenderGraphGetTextureDiagnosticLogging(
@@ -2997,7 +3016,8 @@ internal static class FrameResourceProbe
                 tuple.OutputPointer,
                 tuple.DepthPointer,
                 tuple.MotionPointer,
-                output.ResourceName ?? tuple.OutputResourceName);
+                output.ResourceName ?? tuple.OutputResourceName,
+                "cached tuple reused; input probe not repeated for this frame");
             return true;
         }
 
@@ -3045,7 +3065,8 @@ internal static class FrameResourceProbe
         IntPtr outputPointer,
         IntPtr depthPointer,
         IntPtr motionPointer,
-        string? outputResourceName)
+        string? outputResourceName,
+        string? noEvaluateStatusOverride = null)
     {
         if (!DlssUserRenderingEnabled || DlssUserRenderingBlocked)
         {
@@ -3087,7 +3108,7 @@ internal static class FrameResourceProbe
             if (currentAcceptedCount <= 5 || currentAcceptedCount % 300 == 0)
             {
                 var unityFrameLabel = unityFrameKnown ? unityFrame.ToString() : "unknown";
-                var inputStatus = bridge.GetDlssSuperResolutionInputStatus();
+                var inputStatus = noEvaluateStatusOverride ?? bridge.GetDlssSuperResolutionInputStatus();
                 log.LogInfo($"DLSS user rendering no-evaluate accepted from {source}: acceptedFrames={currentAcceptedCount}; unityFrame={unityFrameLabel}; outputResourceName={outputResourceName ?? "unavailable"}; {inputStatus}");
             }
 

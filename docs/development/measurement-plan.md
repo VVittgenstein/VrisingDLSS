@@ -30,6 +30,12 @@ Useful implications for this project:
 - HDRP motion vectors can be camera-only or object+camera depending on frame settings and renderer settings; transparent motion vectors are a special case.
 - Unity resolution scaling renders at a lower resolution and then upscales. In Unity's current documentation, HDRP DLSS is an upscaler that uses multiple input textures, while FSR 1 uses only the frame buffer.
 - Performance should be measured with frame-time data, not only an on-screen FPS counter. PresentMon/FrameView-style metrics such as average FPS, low-percentile FPS, frame-time percentiles, GPU utilization, power, and CPU utilization are appropriate.
+- The current theoretical performance model is recorded in
+  [../research/dlss-theoretical-performance-model-2026-06-06.md](../research/dlss-theoretical-performance-model-2026-06-06.md).
+  In short: Performance-mode DLSS at `1920x1080` commonly means roughly
+  `960x540 -> 1920x1080`, or 25% pixel count, but that is a pixel-work upper bound,
+  not an FPS promise. At 1080p, flat FPS with lower GPU utilization can be normal;
+  severe FPS regression with low GPU utilization remains a fail signal.
 
 ## Evidence Gates
 

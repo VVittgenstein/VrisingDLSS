@@ -73,3 +73,27 @@ Keep the global `GetTexture` hook as a diagnostic discovery aid only. The produc
 path should move toward a targeted render/upscale pass boundary where the relevant
 resources are already declared and valid, then evaluate or copy from that boundary
 without broad per-texture resource discovery in steady state.
+
+## Follow-up Patch
+
+After r3, the `GetTexture` postfix was narrowed so it reads the RenderGraph resource
+name first and skips native pointer/owner reflection for non-candidate resources when
+diagnostic GetTexture logging and output-followup are inactive. This is a hot-path
+cost reduction only; it does not change the route decision above.
+
+The same patch also changes cached-tuple no-evaluate logging to say that the input
+probe was not repeated for that frame. This avoids reporting stale
+`GetDlssSuperResolutionInputStatus()` text as if it were fresh evidence.
+
+Needed r4 test:
+
+- Stage: `dlss-user-rendering-no-evaluate`.
+- Conditions: true `1920x1080` Windowed, V Rising `FsrQualityMode=Off`, protected
+  local/private `11111` save.
+- Question: does resource-name-first filtering significantly improve candidate FPS
+  over r3's `111.842` average FPS?
+- Pass signal for this patch: candidate FPS moves materially toward baseline while
+  still logging no native evaluate.
+- Fail signal: candidate remains around r3 (`~110 FPS`), meaning the global postfix
+  call volume itself remains too expensive even after avoiding most native pointer
+  reflection.

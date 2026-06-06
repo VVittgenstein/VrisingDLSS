@@ -125,6 +125,13 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
   reuse, current-frame resource tagging/evaluate, and explicit resize/reset/lifecycle
   handling; OptiScaler-style injection generally reuses existing upscaler input paths
   instead of broad per-texture discovery.
+- `docs/research/dlss-theoretical-performance-model-2026-06-06.md` records the
+  expected DLSS SR performance shape. For 1920x1080 Performance-mode constructive
+  tests, the working model is 960x540 input to 1920x1080 output, or 25% pixel count.
+  This is only a pixel-work upper bound, not an FPS promise. At 1080p, flat FPS with
+  lower GPU utilization/power can be normal; severe FPS regression with low GPU
+  utilization is a likely integration stall/hot-hook signal. Final product-value
+  proof still needs a 4K/high-load/GPU-bound FSR Off baseline vs DLSS On matrix.
 - Phase 1 no-DLSS automation proof has partial-control history: `scripts/run-vrising-automation-proof.ps1` can launch V Rising, detect the real `UnityWndClass` window instead of the BepInEx console, capture a nonblank screenshot, archive logs, restore settings/config, and leave no V Rising process. Earlier run `automation-proof-1920-window-v5-20260606` reported `Status=Partial` because it used `FullScreenWindow`; this was later solved for the session harness by temporarily adding `GraphicSettings.WindowMode=3`.
 - Phase 1 direct-entry search found no supported client command-line auto-continue/direct-connect route in current official Stunlock launch options or local evidence. Local `ServerHistory.json` and interop strings strongly support the in-game `Continue`/direct-connect UI route instead.
 - The target local/private game for Continue automation is likely `Name=11111`: this is present in `ServerHistory.json`, and the user recalled the local game was named with many `1` characters and should be continuable directly.
@@ -201,6 +208,9 @@ Follow the new goal order:
    - next loop should stop treating global `GetTexture` as the normal runtime path and
      instead target a real HDRP render/upscale pass boundary, or a more specific
      resource submission point, where current-frame resources are already valid;
+   - use `docs/research/dlss-theoretical-performance-model-2026-06-06.md` to
+     interpret performance: 1080p is a constructive correctness/stall test, while
+     final DLSS value requires a GPU-bound 4K/high-load matrix;
    - after performance is no longer severely negative, resume visual correctness,
      resize/reset, fallback, and productionizing the guarded v6 render-scale
      intervention;
@@ -211,7 +221,7 @@ Follow the new goal order:
 As of the no-evaluate user-rendering performance follow-up:
 
 - Branch: `main`.
-- Latest pushed checkpoint before this update: `89c2bca Record render-scale-only performance evidence`.
+- Latest pushed checkpoint before this update: `72de4b7 Isolate user-rendering GetTexture overhead`.
 - The current working tree records the `fsr-off-render-scale-1080p-software-fallback-v5-20260606`
   failed fallback-only result, the `fsr-off-render-scale-1080p-post-update-fraction-v6-20260606`
   tuple/evaluate pass, safe cleanup, save restoration, external DLSS mod practice
@@ -220,9 +230,14 @@ As of the no-evaluate user-rendering performance follow-up:
   the `v6-user-rendering-1080p-timing-20260606-r3` timing result showing stable NGX
   evaluate CPU wall time is not the sustained performance blocker, plus the
   `render-scale-only-1080p-20260606-r1` isolation showing render-scale-only keeps
-  average FPS near baseline. Current uncommitted work adds
-  `dlss-user-rendering-no-evaluate` plus hot-path caches and records r1/r2/r3 evidence
+  average FPS near baseline, plus `dlss-user-rendering-no-evaluate` r1/r2/r3 evidence
   that the global RenderGraph `GetTexture` postfix remains too expensive for
-  steady-state runtime placement.
+  steady-state runtime placement. Latest follow-up narrows the `GetTexture` postfix
+  so non-candidate resource names return before native pointer/owner reflection, and
+  fixes cached-tuple no-evaluate logging so stale native input-probe status is not
+  reported as fresh evidence. This needs an r4 `dlss-user-rendering-no-evaluate`
+  paired performance run before it counts as runtime evidence. The working tree also
+  adds the source-backed theoretical DLSS SR performance model used to separate
+  low-resolution constructive validation from the final GPU-bound performance matrix.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.

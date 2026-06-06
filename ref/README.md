@@ -18,7 +18,10 @@ This directory contains third-party reference material collected for static rese
 - `dlss-performance-investigation-2026-06-06/` - local copies of official Unity
   HDRP/Dynamic Resolution/RenderGraph docs, NVIDIA Streamline/NGX references, and
   OptiScaler/forum research used to diagnose the "DLSS succeeds but FPS is worse /
-  GPU utilization is low" path.
+  GPU utilization is low" path. It also includes NVIDIA DLSS official pages/blog
+  posts used by the 2026-06-06 theoretical performance model:
+  `nvidia-dlss-developer-page.html`, `nvidia-dlss-2-ai-rendering.html`,
+  `nvidia-dlss-ue4-plugin-tips.html`, and `nvidia-dlss-faq-gpu-bound.html`.
 
 ## Rules
 
