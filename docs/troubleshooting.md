@@ -474,6 +474,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-vrising-diagnost
 
 Expected analyzer line: `Native RenderFunc Args=Pass`. Treat this as argument
 shape evidence only; it is not resource, command-buffer, or evaluate proof.
+Menu runtime proof `native-renderfunc-args-1080p-menu-20260606-r1` passed; see
+`docs/development/native-renderfunc-args-runtime-result-2026-06-06.md`.
+Protected `11111` gameplay proof is still required before designing any
+resource-identity follow-up.
 
 ## RenderGraph Execute-Delegate Probe
 

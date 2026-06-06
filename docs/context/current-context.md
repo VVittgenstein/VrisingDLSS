@@ -594,5 +594,17 @@ As of the read-only RenderGraph pass-map runtime result:
   `renderGraphContextPtr`, `methodInfoPtr`) with atomic counters/last-pointer
   snapshots, and immediately calls the original trampoline. Build, dry-run
   config validation, package validation, release boundary check, and status
-  scripts passed. Runtime menu proof is pending; first run should be true
-  `1920x1080` Windowed, menu-only, with `GetTexture` off and no DLSS evaluate.
+  scripts passed. Menu runtime proof
+  `native-renderfunc-args-1080p-menu-20260606-r1` also passed at true
+  `1920x1080` Windowed: analyzer `Native RenderFunc Args=Pass`,
+  `CrashEventCount=0`, `RenderGraph GetTexture call #=0`, one detour install,
+  `entryCount=778`, `sampleCount=778`, and all four raw callback argument
+  pointer categories nonzero `778/778`. No actual DLSS evaluate/probe/native-call
+  patterns were present. Cleanup restored loader config, release-safe native,
+  ClientSettings, and no game process remained. This proves menu argument-shape
+  safety only, not resource identity, command-buffer access, gameplay safety, or
+  DLSS evaluate safety. See
+  `docs/development/native-renderfunc-args-runtime-result-2026-06-06.md`.
+  Next step: protected `11111` gameplay proof for `native-renderfunc-args`,
+  still with no pointer dereference, resource resolution, command-buffer access,
+  or DLSS evaluate.

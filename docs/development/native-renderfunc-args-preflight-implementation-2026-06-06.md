@@ -1,6 +1,6 @@
 # Native RenderFunc Args Preflight Implementation - 2026-06-06
 
-Status: implemented and statically validated; runtime proof not yet run.
+Status: implemented, statically validated, and menu-runtime validated.
 
 ## Scope
 
@@ -92,9 +92,12 @@ Expected evidence:
 - no crash or black screen;
 - release-safe config/settings restored afterward.
 
-Protected gameplay should only follow after the menu proof passes. Use the
-existing `11111` save-protection protocol, send no movement keys, and restore the
-protected save to `ChangeCount=0`.
+Menu runtime proof passed as `native-renderfunc-args-1080p-menu-20260606-r1`.
+See `docs/development/native-renderfunc-args-runtime-result-2026-06-06.md`.
+
+Protected gameplay should follow only with the existing `11111` save-protection
+protocol. Send no movement keys and restore the protected save to
+`ChangeCount=0`.
 
 ## Failure Criteria
 

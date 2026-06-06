@@ -575,9 +575,17 @@ Current Stage 8A status:
   snapshots, then calls the original trampoline. It does not dereference
   pointers, resolve textures, call `GetTexture`, touch command buffers, or
   evaluate DLSS. Static build, dry-run config validation, package validation,
-  release boundary check, and status scripts passed; menu runtime proof is still
-  pending. See
+  release boundary check, and status scripts passed. Menu runtime proof
+  `native-renderfunc-args-1080p-menu-20260606-r1` passed at true `1920x1080`
+  Windowed with analyzer `Native RenderFunc Args=Pass`, `CrashEventCount=0`,
+  `RenderGraph GetTexture call #=0`, final `entryCount=778`, final
+  `sampleCount=778`, and all four raw pointer categories nonzero `778/778`.
+  Actual DLSS evaluate/probe/native-call patterns were absent. Cleanup restored
+  loader config, release-safe native, and ClientSettings. This is menu
+  argument-shape evidence only; protected gameplay proof is still pending. See
   `docs/development/native-renderfunc-args-preflight-implementation-2026-06-06.md`.
+  Runtime result:
+  `docs/development/native-renderfunc-args-runtime-result-2026-06-06.md`.
 - See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.
 
 ## Stage 8B: First Guarded DLSS Evaluate Diagnostic
