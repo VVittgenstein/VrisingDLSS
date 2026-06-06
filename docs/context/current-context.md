@@ -558,7 +558,18 @@ As of the read-only RenderGraph pass-map runtime result:
   `native-renderfunc-entry-1080p-menu-20260606-r1` passed at true `1920x1080`
   Windowed: analyzer `Native RenderFunc Entry=Pass`, `CrashEventCount=0`,
   `RenderGraph GetTexture call #=0`, one install, and counter advancement from
-  compile 4 onward. This is still menu ABI proof only. Next proof should be the
-  protected `11111` gameplay fixture, still no resources/command buffers/DLSS
-  evaluate. See
+  compile 4 onward. This was menu ABI proof only, still with no
+  resources/command buffers/DLSS evaluate. See
   `docs/development/native-renderfunc-entry-runtime-result-2026-06-06.md`.
+- Protected `11111` gameplay proof
+  `native-renderfunc-entry-gameplay-1080p-20260606-r1` passed at true
+  `1920x1080` Windowed. Computer Use clicked Continue once and sent no movement
+  keys. Analyzer `Native RenderFunc Entry=Pass`; final native status reached
+  `entryCount=776`, `observations=778`, candidate pointer
+  `0x7FF8973EE1C0`; `RenderGraph GetTexture call #=0`; `probe failed=0`;
+  `CrashEventCount=0`. Cleanup restored config, ClientSettings, release-safe
+  native state, no game process remained, and the protected save restored to
+  `ChangeCount=0`. This proves gameplay ABI safety only. Next step is a
+  separately default-off native-entry argument/resource preflight, menu-first,
+  still no command-buffer access or DLSS evaluate. See
+  `docs/development/native-renderfunc-entry-gameplay-result-2026-06-06.md`.

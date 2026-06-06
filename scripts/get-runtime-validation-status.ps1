@@ -302,7 +302,7 @@ function Get-NextRecommendation {
     }
 
     if ($nativeRenderFuncEntry -eq "Pass") {
-        return "Native render-func entry menu proof passed. Next engineering step is the protected 11111 gameplay fixture at true 1920x1080 Windowed with native-renderfunc-entry only, no resource resolution, no command-buffer access, and no DLSS evaluate."
+        return "Native render-func entry menu and protected 11111 gameplay proofs passed. Next engineering step is a separately default-off native-entry argument/resource preflight, menu-first, with no command-buffer access and no DLSS evaluate."
     }
 
     if ($userRendering -eq "Pass") {

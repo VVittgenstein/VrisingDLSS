@@ -80,9 +80,10 @@ Recorded menu result:
 
 `docs/development/native-renderfunc-entry-runtime-result-2026-06-06.md`
 
-Next proof must be the protected `11111` gameplay fixture at true `1920x1080`
-Windowed, still with no resource resolution, command-buffer access, or DLSS
-evaluate.
+The protected `11111` gameplay fixture has also passed; see
+`docs/development/native-renderfunc-entry-gameplay-result-2026-06-06.md`.
+Further work should move to a separately default-off native-entry argument or
+resource preflight, still with no command-buffer access or DLSS evaluate.
 
 Failure criteria:
 

@@ -555,6 +555,18 @@ Current Stage 8A status:
   `docs/development/native-renderfunc-entry-probe-implementation-2026-06-06.md`.
   Runtime result:
   `docs/development/native-renderfunc-entry-runtime-result-2026-06-06.md`.
+- Protected `11111` gameplay proof
+  `native-renderfunc-entry-gameplay-1080p-20260606-r1` passed at true
+  `1920x1080` Windowed. Computer Use clicked the known Continue / `11111` entry
+  once and sent no movement keys. Analyzer reported
+  `Native RenderFunc Entry=Pass`; the log had one detour install, counter
+  advancement, final `entryCount=776`, `RenderGraph GetTexture call #=0`,
+  `probe failed=0`, and `CrashEventCount=0`. Cleanup restored
+  ClientSettings/config/native state, closed all V Rising processes, archived
+  the autosave rotation, and restored the protected save to `ChangeCount=0`.
+  This remains execution-entry ABI proof only, not resource/command-buffer/DLSS
+  evaluate proof. See
+  `docs/development/native-renderfunc-entry-gameplay-result-2026-06-06.md`.
 - See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.
 
 ## Stage 8B: First Guarded DLSS Evaluate Diagnostic
