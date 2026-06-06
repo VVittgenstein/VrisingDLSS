@@ -158,6 +158,28 @@ Result:
   was restored from the pre-proof backup; future tests need the same backup/restore
   discipline.
 
+## HWDRS Render-Scale Follow-up
+
+Run label: `fsr-off-render-scale-1080p-hwdrs-v2-20260606`.
+
+Result:
+
+- The session harness again started V Rising with `Stage=dlss-user-rendering`,
+  SDK-wrapper native DLL, `GraphicSettings.WindowMode=3`, and `1920x1080`.
+- Computer Use selected the real `VRising` game window, clicked the visible Chinese
+  Continue label once at `(205, 354)` in the `1283x751` screenshot, observed loading
+  after 20 seconds, and observed stable gameplay after about 65 seconds.
+- No movement or gameplay keys were sent.
+- Stop-session cleanup passed with `CrashEventCount=0`,
+  `RestoredClientSettings=true`, `RestoredLoaderConfig=true`,
+  `RestoredReleaseSafeNative=true`, and `RemainingVRisingProcessCount=0`.
+- The technical DLSS result still failed the MVP tuple proof: the targeted diagnostic
+  logged `RTHandles.SetHardwareDynamicResolutionState=true`, but
+  `UnityEngine.Camera.allowDynamicResolution` writes did not stick and main candidates
+  remained `1920x1080 -> 1920x1080`.
+- The `11111` save changed during gameplay entry, was archived, and was restored from
+  backup; corrected comparison reports `Status=Restored` and `ChangeCount=0`.
+
 ## Next Click Protocol Notes
 
 For future Continue activations:

@@ -117,8 +117,8 @@ Current Stage 2C status:
 - `fsr-off-render-scale-1080p-v1-20260606` proved the hook can mutate HDRP dynamic-resolution settings under V Rising FSR Off in a `1920x1080` Windowed gameplay run: logs included `forceResolution=True` and `forcedPercentage=50`.
 - The same run did not pass the MVP render-scale proof. The main DLSS candidate stayed same-sized: `color=1920x1080 output=1920x1080`, and the super-resolution input probe repeatedly reported `output was not larger than render input`.
 - The blocker signature is that the gameplay camera still reported `allowDynamicResolution=False` and `IsDLSSEnabled=False`, while only non-primary intermediate resources such as `BloomMipDown_960x540` and `AO Packed data_960x540` showed 50 percent dimensions.
-- Follow-up diagnostic code now verifies reflected member writes by reading back the value, logs capped `Render-scale control member write did not stick` warnings, and requests `RTHandles.SetHardwareDynamicResolutionState(true)`. The next run should confirm whether those logs appear and whether the main candidate changes from same-sized to a smaller render input.
-- Result summary: `docs/development/fsr-off-render-scale-runtime-result-2026-06-06.md`.
+- Follow-up run `fsr-off-render-scale-1080p-hwdrs-v2-20260606` confirmed the targeted diagnostic but still failed the MVP tuple proof: `RTHandles.SetHardwareDynamicResolutionState=true` was logged 16 times with no request failures, `UnityEngine.Camera.allowDynamicResolution` writeback failed 20 capped times, and the main SR candidates stayed `color=1920x1080 output=1920x1080`.
+- Latest result summary: `docs/development/fsr-off-render-scale-hwdrs-runtime-result-2026-06-06.md`.
 
 ## Stage 3: Read-Only Harmony Probe
 

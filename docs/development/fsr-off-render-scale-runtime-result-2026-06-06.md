@@ -151,3 +151,9 @@ deciding whether the main camera/main targets still ignore FSR Off dynamic resol
 Local verification: `C:\Software\dotnet\dotnet.exe build
 src\VrisingDLSS.Plugin\VrisingDLSS.Plugin.csproj -c Release --no-restore` passed with
 0 warnings and 0 errors.
+
+Follow-up executed: `fsr-off-render-scale-1080p-hwdrs-v2-20260606` confirmed that
+`RTHandles.SetHardwareDynamicResolutionState(true)` is requested successfully, but the
+actual gameplay `UnityEngine.Camera.allowDynamicResolution` write still does not stick
+and main SR candidates remain full-size. See
+`docs/development/fsr-off-render-scale-hwdrs-runtime-result-2026-06-06.md`.

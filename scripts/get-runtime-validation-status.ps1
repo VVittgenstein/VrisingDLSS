@@ -260,6 +260,11 @@ function Get-NextRecommendation {
     if ($currentUserRendering -eq "Partial" -and
         $CurrentLogText.IndexOf("DLSS super-resolution input probe not accepted", [StringComparison]::OrdinalIgnoreCase) -ge 0 -and
         $CurrentLogText.IndexOf("color=1920x1080 output=1920x1080", [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+        if ($CurrentLogText.IndexOf("Render-scale control member write did not stick", [StringComparison]::OrdinalIgnoreCase) -ge 0 -and
+            $CurrentLogText.IndexOf("RTHandles.SetHardwareDynamicResolutionState=true", [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+            return "The latest targeted dlss-user-rendering gameplay log still did not accept an FSR Off Super Resolution tuple after RTHandles.SetHardwareDynamicResolutionState=true. The blocker is now sharper: UnityEngine.Camera.allowDynamicResolution writes do not stick and HDCamera/main targets remain full-size. Investigate a different camera dynamic-resolution route before rerunning this proof."
+        }
+
         return "The latest dlss-user-rendering gameplay log did not accept an FSR Off Super Resolution tuple: the main candidate stayed color=1920x1080 output=1920x1080. Before rerunning the same runtime proof, use the targeted render-scale diagnostic to check for `Render-scale control member write did not stick`, `RTHandles.SetHardwareDynamicResolutionState=true`, and whether the gameplay camera/main targets remain full-size."
     }
 

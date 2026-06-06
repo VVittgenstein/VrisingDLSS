@@ -118,8 +118,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\write-diagnostic-c
 Do not start a follow-up run until the previous result has been summarized in a durable local record.
 
 Current follow-up rule: do not launch the same `dlss-user-rendering` runtime test
-unchanged. The next run must use a targeted diagnostic build that can distinguish an
-immediate reflected-write failure (`Render-scale control member write did not stick`)
-from missing hardware dynamic-resolution activation
-(`RTHandles.SetHardwareDynamicResolutionState=true` without a smaller main render
-input).
+unchanged. Run `fsr-off-render-scale-1080p-hwdrs-v2-20260606` already confirmed that
+`RTHandles.SetHardwareDynamicResolutionState=true` is requested successfully while
+`UnityEngine.Camera.allowDynamicResolution` refuses the `true` write and the main
+candidate remains full-size. The next launch must follow a new targeted camera
+dynamic-resolution route rather than only repeating the RTHandles/member-readback
+diagnostic.
