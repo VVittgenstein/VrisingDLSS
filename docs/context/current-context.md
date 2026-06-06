@@ -69,6 +69,7 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
 - Stage 10A proved guarded visible-path diagnostic write-back to the selected SR output target.
 - `dlss-user-rendering` exists as an experimental one-evaluate-per-Unity-frame candidate, but it still needs the correct FSR Off render-scale proof and visual/performance validation.
 - Phase 1 no-DLSS automation proof has partial control evidence: `scripts/run-vrising-automation-proof.ps1` can launch V Rising, detect the real `UnityWndClass` window instead of the BepInEx console, capture a nonblank screenshot, archive logs, restore settings/config, and leave no V Rising process. The latest local run `automation-proof-1920-window-v5-20260606` reported `Status=Partial`, `AutomationControlReady=true`, `GameResolutionMatchesRequested=true`, and `GameReportedFullScreenMode=FullScreenWindow`; screenshot capture still saw a `3840x2160` client area, so true `1920x1080` windowed mode is not proven.
+- Phase 1 direct-entry search found no supported client command-line auto-continue/direct-connect route in current official Stunlock launch options or local evidence. Local `ServerHistory.json` and interop strings strongly support the in-game `Continue`/direct-connect UI route instead.
 
 ## Rejected Or Dangerous Routes
 
@@ -91,6 +92,7 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
 
 - Phase 1 is not done: automatic entry into V Rising gameplay has not been systematically explored and persisted.
 - True `1920x1080` windowed control is not solved on this machine because Unity/V Rising is using `FullScreenWindow` even when `Player.log` reports `SetResolution 1920, 1080`.
+- Client command-line direct entry is unproven and currently weak; do not spend the next runtime loop on blind command-line guesses.
 - If full automation fails, the semi-automatic human-Codex-game protocol still needs a durable, explicit artifact.
 - `dlss-optimal-settings` needs actual game-runtime validation.
 - FSR Off render-scale control needs runtime proof.
@@ -113,7 +115,7 @@ Follow the new goal order:
    - log/config/status detection;
    - fixed local/private test scene setup.
    First-pass local route inventory is in [../development/gameplay-automation-exploration-2026-06-06.md](../development/gameplay-automation-exploration-2026-06-06.md).
-3. Use [../development/gameplay-automation-proof-protocol-2026-06-06.md](../development/gameplay-automation-proof-protocol-2026-06-06.md) as the current proof-of-control protocol. The next Phase 1 decision is whether to investigate a true windowed-mode settings route or make the next harmless input proof robust to `FullScreenWindow`.
+3. Use [../development/gameplay-automation-proof-protocol-2026-06-06.md](../development/gameplay-automation-proof-protocol-2026-06-06.md) as the current proof-of-control protocol. The next Phase 1 implementation step is a no-DLSS harmless input proof robust to `FullScreenWindow`, then screenshot/log-driven navigation toward the local `Continue` flow.
 4. Persist the automation exploration results and either:
    - make automatic gameplay entry the default runtime-test path; or
    - document why all reasonable automation routes failed and continue with a durable semi-automatic protocol.

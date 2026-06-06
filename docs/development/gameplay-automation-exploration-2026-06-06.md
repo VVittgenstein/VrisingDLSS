@@ -15,6 +15,7 @@ Local evidence:
 - `C:\Software\VRising`.
 - `%USERPROFILE%\AppData\LocalLow\Stunlock Studios\VRising`.
 - Existing `Player.log`, `Player-server.log`, `ClientSettings.json`, and cloud-save folders.
+- [Gameplay direct-entry route search](gameplay-direct-entry-route-search-2026-06-06.md).
 
 External sources checked:
 
@@ -42,6 +43,11 @@ External sources checked:
   - `GraphicSettings.FPSLimitValue = 300`;
   - `GraphicSettings.GameFPSCapMode = 0`;
   - the simple excerpt did not expose a VSync field, so VSync state needs a separate verification path before final performance tests.
+- `ClientSettings.json` does not expose a visible `WindowMode` field, but `Player.log`
+  dumps `"WindowMode": 1` and the game reports `fullScreenMode FullScreenWindow`.
+- `ServerHistory.json` contains a continue-able local/private entry for `Name=11111`,
+  `SessionGUID=25fe20c1-44bb-4fe8-bca7-1bc7cb322429`, and
+  `ConnectAddress=SteamIPv4://192.168.1.7:9876`.
 - Local save exists:
   - Steam/user folder: `76561198564171843`;
   - save UUID: `f0e07524-03f4-4ef4-945c-b1f7e982071b`;
@@ -96,15 +102,27 @@ Evidence so far:
 - Official Stunlock launch option list did not show an auto-continue or direct-connect client flag.
 - Current `Player.log` for normal launches showed no such client arguments.
 - Web search found discussion claiming no automatic client connection option, but this is not authoritative and should not close the route by itself.
+- Follow-up official/local search on 2026-06-06 still found no supported client
+  command-line auto-continue or direct-connect flag. The route note is
+  [gameplay-direct-entry-route-search-2026-06-06.md](gameplay-direct-entry-route-search-2026-06-06.md).
+- Local interop strings expose UI and internal symbols such as `ContinueLatestHost`,
+  `ContinueLatestJoin`, `PlayContinueMenuView`, `ContinueButton_OnClick`,
+  `OnButtonClick_DirectConnect`, `JoinGame`, `LaunchGameHelper`, and
+  `TryConnectToServerIpv4`, but this is not proof of a supported external launch
+  interface.
 
 Current judgment:
 
-- Unproven and likely weak, but not fully rejected.
+- Weak as a command-line route. Keep it open only for future source/metadata evidence.
+- Stronger as a UI automation route because the local `ServerHistory.json` entry gives
+  the in-game Continue flow enough persisted state.
 
 Next investigation:
 
-- Search local binaries/interops/configs for likely client parameters such as `connect`, `continue`, `server`, `ip`, `join`, `saveName`, and `direct`.
-- Search official/current sources for client console/direct-connect options.
+- Do not spend the next runtime loop on blind command-line guesses.
+- If revisiting this route, use a dedicated metadata reader or purpose-built tooling;
+  plain PowerShell `Assembly.LoadFrom` reflection against IL2CPP interop assemblies
+  caused a `StackOverflowException` in the child shell.
 
 ### Route 3 - Dedicated/Local Server First, Then Client Connect
 
@@ -120,6 +138,8 @@ Current judgment:
 
 - Good candidate for a stable backend, but it still needs a client connection route.
 - It may be useful if UI automation can reliably direct-connect to localhost or if a client command/console route is found.
+- Official docs support server-side save startup with `-saveName` and
+  `-persistentDataPath`, but they do not solve client auto-connect.
 
 Next test:
 
@@ -152,8 +172,10 @@ Current judgment:
 
 Next test:
 
-- Re-run the no-DLSS helper with the revised `Pass`/`Partial` gates so the artifact records game-reported resolution separately from capture client size.
-- Then either investigate a true windowed-mode settings field or proceed to a separate harmless input proof that is robust to fullscreen-window capture.
+- Add a no-DLSS, fullscreen-window-compatible harmless input proof. It should reuse the
+  visible-window/nonblank-screenshot/cleanup path, bring the `UnityWndClass` window to
+  foreground, send exactly one harmless input, capture before/after screenshots, and
+  report `Pass`/`Partial`/`Failed`.
 - Do not proceed to menu navigation until the proof-of-control artifact is clear.
 
 ### Route 5 - Screenshot/Image-State Recognition
@@ -248,13 +270,14 @@ Minimum durable protocol must define:
 
 ## Immediate Next Action
 
-Do not run DLSS probes yet. The next small reversible step is to re-run
-`scripts/run-vrising-automation-proof.ps1`, governed by
-`docs/development/gameplay-automation-proof-protocol-2026-06-06.md`, after its revised
-fullscreen-window-aware gates:
+Do not run DLSS probes yet. Direct client command-line entry is not strong enough for
+the next runtime bet. The next small reversible step is a no-DLSS harmless input proof
+that is robust to `FullScreenWindow`:
 
-1. Define exact launch command for 1920x1080 D3D11 with temporary resolution override.
-2. Capture/verify the visible game window and parse `Player.log` `SetResolution`.
-3. Archive screenshots/logs and restore the process.
-4. Classify the result as `Pass`, `Partial`, or `Failed`.
-5. Only after that is clear, design a separate controlled keyboard/mouse input proof.
+1. Reuse the exact launch/config/screenshot/cleanup path from
+   `scripts/run-vrising-automation-proof.ps1`.
+2. Capture a before screenshot after `VisibleGameWindow`.
+3. Bring the `UnityWndClass` window foreground and send one harmless input.
+4. Capture an after screenshot and archive logs.
+5. Classify the result as `Pass`, `Partial`, or `Failed`; only after that, attempt
+   multi-step menu navigation toward `Continue`.
