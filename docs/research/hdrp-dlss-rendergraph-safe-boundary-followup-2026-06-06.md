@@ -284,5 +284,9 @@ metadata without calling or patching those delegates. Menu proof
 `1920x1080` Windowed with no crash, `GetTexture=0`, and `248` metadata lines. It
 mapped `Uber Post` to `<UberPass>b__1060_0`, `Edge Adaptive Spatial Upsampling`
 to `<EdgeAdaptiveSpatialUpsampling>b__1066_0`, and `Final Pass` to
-`<FinalPass>b__1069_0`. This is still metadata evidence only, not an
+`<FinalPass>b__1069_0`. Protected gameplay proof
+`rendergraph-renderfunc-metadata-gameplay-1080p-20260606-r1` then passed in the
+`11111` fixture with `300` metadata lines, `0` `renderFunc=not found`, `0`
+metadata failures, `0` broad GetTexture logs, no crash, no movement keys, and
+save restore `ChangeCount=0`. This is still metadata evidence only, not an
 execution/evaluate boundary.

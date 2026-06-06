@@ -1,8 +1,8 @@
 # RenderGraph RenderFunc Metadata Result - 2026-06-06
 
-Status: menu proof passed. This is read-only metadata evidence, not an
-execution-layer hook, not a generated render-function patch, and not a DLSS
-evaluate boundary.
+Status: menu proof and protected `11111` gameplay proof passed. This is
+read-only metadata evidence, not an execution-layer hook, not a generated
+render-function patch, and not a DLSS evaluate boundary.
 
 ## Question
 
@@ -115,19 +115,49 @@ Unique focused methods:
 The repeated delegate metadata had stable `method_ptr`, `invoke_impl`, and
 method-token identity during the menu run.
 
+## Gameplay Proof
+
+Follow-up protected gameplay proof
+`rendergraph-renderfunc-metadata-gameplay-1080p-20260606-r1` passed in the
+known local/private `11111` fixture.
+
+Key evidence:
+
+- V Rising started at true `1920x1080` Windowed.
+- Computer Use selected the real `VRising` game window, clicked Continue once at
+  the known Chinese menu entry, and sent no movement or gameplay keys.
+- Stable gameplay was captured at
+  `artifacts/gameplay-automation/GameplayScreenshot-rendergraph-renderfunc-metadata-gameplay-1080p-20260606-r1.png`.
+- Stop-session cleanup reported `Status=Pass`, `CrashEventCount=0`,
+  `RestoredClientSettings=True`, `RestoredLoaderConfig=True`, and
+  `RemainingVRisingProcessCount=0`.
+- Save restore archived the changed autosave state and ended with
+  `CompareStatus=Restored` and `ChangeCount=0`.
+
+Gameplay log counts:
+
+- `RenderGraph pass render-func metadata #`: `300`.
+- `renderFunc=not found`: `0`.
+- metadata typed-read/logging failures: `0`.
+- `RenderGraph GetTexture call #`: `0`.
+- `<UberPass>b__1060_0`: `76`.
+- `<EdgeAdaptiveSpatialUpsampling>b__1066_0`: `75`.
+- `<FinalPass>b__1069_0`: `149`.
+
+Full record:
+`docs/development/rendergraph-renderfunc-metadata-gameplay-result-2026-06-06.md`.
+
 ## Decision
 
-Accept `rendergraph-renderfunc-metadata` as a proven menu-safe read-only metadata
-probe in this local V Rising build.
+Accept `rendergraph-renderfunc-metadata` as a proven menu-safe and
+protected-gameplay-safe read-only metadata probe in this local V Rising build.
 
 This does not prove an execution-time hook and does not make generated
 render-function patching safe. It does give a source-backed and runtime-backed
 map from focused RenderGraph pass names and pass-data types to their generated
 render function methods without invoking those methods.
 
-Next action: run a protected `11111` gameplay proof for
-`rendergraph-renderfunc-metadata` before relying on these method identities for a
-later boundary decision. The gameplay proof must keep `GetTexture=0`, send no
-movement keys, restore the save to `ChangeCount=0`, and treat any WER/coreclr/
-IL2CPP crash as route failure. Do not patch generated render functions or
-evaluate DLSS from this evidence alone.
+Do not rerun this stage unchanged. The next action is a local source/interop
+design step for a safer equivalent to the official HDRP execution boundary, using
+these method identities and the earlier pass declaration/data chain as maps. Do
+not patch generated render functions or evaluate DLSS from this evidence alone.

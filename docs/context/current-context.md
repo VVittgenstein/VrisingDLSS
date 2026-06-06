@@ -473,9 +473,16 @@ As of the read-only RenderGraph pass-map runtime result:
   cleanup restored loader config and ClientSettings. It mapped `Uber Post` to
   `<UberPass>b__1060_0` (`100664386`), `Edge Adaptive Spatial Upsampling` to
   `<EdgeAdaptiveSpatialUpsampling>b__1066_0` (`100664389`), and `Final Pass` to
-  `<FinalPass>b__1069_0` (`100664390`). This is menu-safe metadata evidence, not
-  an execution/evaluate boundary. Next action is protected `11111` gameplay proof
-  for this stage with `GetTexture=0`, no movement keys, and save restore before
-  relying on these method identities.
+  `<FinalPass>b__1069_0` (`100664390`). Protected gameplay proof
+  `rendergraph-renderfunc-metadata-gameplay-1080p-20260606-r1` then passed in
+  the `11111` fixture: Computer Use clicked Continue once and sent no movement
+  keys, Player log reported `SetResolution 1920, 1080, fullScreenMode Windowed`,
+  stable gameplay was captured, analyzer `RenderGraph RenderFunc Metadata=Pass`,
+  `300` metadata lines, `0` `renderFunc=not found`, `0` metadata failures, `0`
+  broad GetTexture logs, `CrashEventCount=0`, cleanup restored config/settings,
+  and save restore ended with `ChangeCount=0`. This is gameplay-safe metadata
+  evidence, not an execution/evaluate boundary. Do not rerun this stage
+  unchanged; next action is local source/interop design for a safer equivalent to
+  the official HDRP execution boundary.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.

@@ -385,9 +385,17 @@ restored settings. It mapped `Uber Post` to `<UberPass>b__1060_0`, `Edge
 Adaptive Spatial Upsampling` to `<EdgeAdaptiveSpatialUpsampling>b__1066_0`, and
 `Final Pass` to `<FinalPass>b__1069_0`.
 
-Do not patch those generated methods or use this as evaluate-boundary evidence
-yet. The next validation is protected `11111` gameplay proof with `GetTexture=0`,
-no movement keys, and save restore.
+Protected gameplay proof
+`rendergraph-renderfunc-metadata-gameplay-1080p-20260606-r1` then passed in the
+`11111` fixture with one Computer Use Continue click, no movement keys,
+`1920x1080` Windowed gameplay, analyzer `RenderGraph RenderFunc Metadata=Pass`,
+`300` metadata lines, `0` `renderFunc=not found`, `0` metadata failures, `0`
+broad GetTexture logs, no WER crash, cleanup restore, and save restore
+`ChangeCount=0`.
+
+Do not patch those generated methods or use this as evaluate-boundary evidence.
+Do not rerun this stage unchanged; use it only as a pass-name/method-identity map
+for a later source-backed execution-boundary design.
 
 ## RenderGraph Execute-Delegate Probe
 

@@ -466,8 +466,12 @@ Pass-data / execution-delegate follow-up:
   metadata lines, `GetTexture=0`, and no crash. It mapped `Uber Post` to
   `<UberPass>b__1060_0`, `Edge Adaptive Spatial Upsampling` to
   `<EdgeAdaptiveSpatialUpsampling>b__1066_0`, and `Final Pass` to
-  `<FinalPass>b__1069_0`. This is metadata evidence only, not an
-  execution/evaluate boundary.
+  `<FinalPass>b__1069_0`. Protected gameplay proof
+  `rendergraph-renderfunc-metadata-gameplay-1080p-20260606-r1` then passed in
+  the `11111` fixture with one Computer Use Continue click, no movement keys,
+  `300` metadata lines, `0` `renderFunc=not found`, `0` metadata failures, `0`
+  broad GetTexture logs, no crash, and save restore `ChangeCount=0`. This is
+  metadata evidence only, not an execution/evaluate boundary.
 
 Implementation update:
 
