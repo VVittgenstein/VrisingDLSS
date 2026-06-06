@@ -45,6 +45,7 @@ Latest local validation: the C# plugin and native bridge build successfully, the
 - [Troubleshooting](docs/troubleshooting.md)
 - [Operating principles](docs/development/operating-principles.md)
 - [Gameplay automation exploration](docs/development/gameplay-automation-exploration-2026-06-06.md)
+- [Gameplay automation proof protocol](docs/development/gameplay-automation-proof-protocol-2026-06-06.md)
 - [Runtime validation plan](docs/development/runtime-validation.md)
 - [NGX/DLSS API notes](docs/development/ngx-api-notes.md)
 - [FSR-off render-scale test protocol](docs/development/fsr-off-render-scale-test-protocol-2026-06-05.md)

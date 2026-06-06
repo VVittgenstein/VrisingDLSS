@@ -8,6 +8,78 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+Add-Type @"
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Text;
+
+public sealed class VrisingDlssVisibilityWindowInfo
+{
+    public IntPtr Handle { get; set; }
+    public string Title { get; set; }
+    public string ClassName { get; set; }
+    public bool Visible { get; set; }
+}
+
+public static class VrisingDlssVisibilityNative
+{
+    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    public static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int GetWindowTextLength(IntPtr hWnd);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+    public static VrisingDlssVisibilityWindowInfo[] GetTopLevelWindowsForProcess(int processId)
+    {
+        List<VrisingDlssVisibilityWindowInfo> windows = new List<VrisingDlssVisibilityWindowInfo>();
+
+        EnumWindows(delegate(IntPtr hWnd, IntPtr lParam)
+        {
+            uint ownerProcessId;
+            GetWindowThreadProcessId(hWnd, out ownerProcessId);
+            if (ownerProcessId != (uint)processId)
+            {
+                return true;
+            }
+
+            int titleLength = GetWindowTextLength(hWnd);
+            StringBuilder title = new StringBuilder(Math.Max(titleLength + 1, 256));
+            GetWindowText(hWnd, title, title.Capacity);
+
+            StringBuilder className = new StringBuilder(256);
+            GetClassName(hWnd, className, className.Capacity);
+
+            windows.Add(new VrisingDlssVisibilityWindowInfo
+            {
+                Handle = hWnd,
+                Title = title.ToString(),
+                ClassName = className.ToString(),
+                Visible = IsWindowVisible(hWnd)
+            });
+
+            return true;
+        }, IntPtr.Zero);
+
+        return windows.ToArray();
+    }
+}
+"@
+
 $resolvedGamePath = ""
 $expectedExePath = ""
 if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
@@ -85,6 +157,37 @@ function Convert-ProcessInfo {
     $titleMatches = -not [string]::IsNullOrWhiteSpace($WindowTitlePattern) -and $mainWindowTitle -match $WindowTitlePattern
     $looksLikeGameWindow = $hasMainWindow -and -not $isConsoleLike -and ($titleMatches -or -not [string]::IsNullOrWhiteSpace($mainWindowTitle))
 
+    $windows = @()
+    foreach ($window in [VrisingDlssVisibilityNative]::GetTopLevelWindowsForProcess($Process.Id)) {
+        $handle = 0L
+        try {
+            $handle = $window.Handle.ToInt64()
+        } catch {
+        }
+
+        $windowIsConsole = $window.ClassName -eq "ConsoleWindowClass" -or $window.Title -match "BepInEx|console"
+        $windowTitleMatches = -not [string]::IsNullOrWhiteSpace($WindowTitlePattern) -and $window.Title -match $WindowTitlePattern
+        $windowLooksLikeGame = [bool]$window.Visible -and -not $windowIsConsole -and (
+            $window.ClassName -match "Unity" -or
+            $windowTitleMatches -or
+            $window.Title -match "^V Rising$|VRising"
+        )
+
+        if ($windowLooksLikeGame) {
+            $looksLikeGameWindow = $true
+        }
+
+        $windows += [pscustomobject]@{
+            Handle = ("0x{0:X}" -f $handle)
+            Title = [string]$window.Title
+            ClassName = [string]$window.ClassName
+            Visible = [bool]$window.Visible
+            IsConsoleLikeWindow = $windowIsConsole
+            MatchesTitlePattern = $windowTitleMatches
+            LooksLikeGameWindow = $windowLooksLikeGame
+        }
+    }
+
     [pscustomobject]@{
         Id = $Process.Id
         ProcessName = $Process.ProcessName
@@ -97,6 +200,7 @@ function Convert-ProcessInfo {
         IsConsoleLikeWindow = $isConsoleLike
         MatchesTitlePattern = $titleMatches
         LooksLikeGameWindow = $looksLikeGameWindow
+        TopLevelWindows = @($windows)
     }
 }
 
@@ -108,6 +212,16 @@ foreach ($process in @(Get-CandidateProcesses)) {
 $selected = $processInfos |
     Where-Object { $_.LooksLikeGameWindow } |
     Select-Object -First 1
+
+$selectedWindow = $null
+if ($selected) {
+    $selectedWindow = @($selected.TopLevelWindows | Where-Object { $_.LooksLikeGameWindow } | Select-Object -First 1)
+    if ($selectedWindow.Count -gt 0) {
+        $selectedWindow = $selectedWindow[0]
+    } else {
+        $selectedWindow = $null
+    }
+}
 
 $issues = New-Object System.Collections.Generic.List[string]
 $status = "Missing"
@@ -133,6 +247,7 @@ $result = [pscustomobject]@{
     ProcessCount = $processInfos.Count
     Processes = @($processInfos)
     SelectedProcess = $(if ($selected) { $selected } else { $null })
+    SelectedWindow = $(if ($selectedWindow) { $selectedWindow } else { $null })
     Issues = $issues.ToArray()
     LaunchesGame = $false
 }

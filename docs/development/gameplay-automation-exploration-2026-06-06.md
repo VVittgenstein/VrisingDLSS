@@ -1,6 +1,7 @@
 # Gameplay Automation Exploration - 2026-06-06
 
-Status: Phase 1 in progress. This first pass did not launch V Rising.
+Status: Phase 1 in progress. The no-DLSS proof-of-control route has launched V Rising
+several times and now distinguishes automation control from true windowed-mode control.
 
 Goal: determine whether Codex can automatically enter a stable local/private V Rising
 gameplay scene for runtime validation. Do not fall back to semi-automatic testing until
@@ -74,11 +75,15 @@ Current judgment:
 
 - Good foundation for constructive tests.
 - Does not by itself enter gameplay.
+- On this local machine, launch options plus `ClientSettings.json` resolution override
+  can make `Player.log` report `SetResolution 1920, 1080`, but Unity may still present
+  `fullScreenMode FullScreenWindow` with a desktop-sized capture client area.
 
 Next test:
 
 - Launch with `-windowed -screen-width 1920 -screen-height 1080 -screen-fullscreen 0 -force-d3d11 -single-instance -logFile <artifact log>`.
-- Pass if the visible game window is detected at the expected size and logs are written to the requested path.
+- Record both the captured client size and the game-reported `SetResolution` line.
+- Pass only if the visible game window is detected, the screenshot is nonblank, cleanup succeeds, and the capture shape is truly windowed. Treat `FullScreenWindow` with requested game resolution as partial, not a hard failure.
 - Cleanup: close/kill `VRising.exe`, restore loader config, archive log/screenshot.
 
 ### Route 2 - Client Command-Line Auto-Continue or Auto-Connect
@@ -131,15 +136,24 @@ Evidence so far:
 - Existing scripts can start V Rising, detect a real game window, bring it forward for capture, and capture screenshots.
 - PowerShell can use `Add-Type`; existing screenshot code already calls Win32 APIs such as `SetForegroundWindow`.
 - No repository script currently sends keyboard/mouse input to the game.
+- First no-DLSS automation run on 2026-06-06 launched a visible `1920x1080` Unity window and cleaned up, but the screenshot was still a blank black frame. This rejects "visible window only" as proof-of-control; screenshot acceptance now requires a nonblank image.
+- Second no-DLSS automation run showed `Process.MainWindowHandle` can point at the BepInEx console while the Unity window is a separate top-level window. Visibility detection now enumerates all process windows and chooses a visible non-console Unity/game window.
+- Third no-DLSS automation run got a nonblank game screenshot and cleaned up, but V Rising changed back to `3840x2160` despite `-screen-width 1920 -screen-height 1080`. Launch options alone are therefore insufficient for the standard constructive test shape on this local setup; temporary `ClientSettings.json` resolution override is now part of the next proof attempt.
+- Fourth no-DLSS automation run with `-SetClientResolution` got a nonblank game screenshot, archived logs, restored settings/config, and left no V Rising process. `Player.log` reported `SetResolution 1920, 1080, fullScreenMode FullScreenWindow`, while screenshot capture saw a `3840x2160` client area. This is likely fullscreen-window behavior rather than a failure to set the internal resolution.
+- Fifth no-DLSS automation run used revised gates and correctly returned `Status=Partial`: `AutomationControlReady=true`, `GameResolutionMatchesRequested=true`, `GameReportedFullScreenMode=FullScreenWindow`, and `WindowedModeReady=false`.
 
 Current judgment:
 
 - Most likely first automation implementation route.
 - Needs a conservative proof-of-control test before attempting full gameplay entry.
+- Proof-of-control is now partially established: automatic launch, game-window selection,
+  nonblank screenshot capture, log archival, and cleanup work. True `1920x1080` windowed
+  mode is still unproven because V Rising/Unity is choosing `FullScreenWindow`.
 
 Next test:
 
-- Add or prototype a no-DLSS automation helper that launches the game in `1920x1080` windowed mode, waits for a visible game window, captures a screenshot, sends one harmless input, and records before/after screenshots/logs.
+- Re-run the no-DLSS helper with the revised `Pass`/`Partial` gates so the artifact records game-reported resolution separately from capture client size.
+- Then either investigate a true windowed-mode settings field or proceed to a separate harmless input proof that is robust to fullscreen-window capture.
 - Do not proceed to menu navigation until the proof-of-control artifact is clear.
 
 ### Route 5 - Screenshot/Image-State Recognition
@@ -234,10 +248,13 @@ Minimum durable protocol must define:
 
 ## Immediate Next Action
 
-Do not run DLSS probes yet. The next small reversible step should be a no-DLSS automation
-proof-of-control plan or script dry-run:
+Do not run DLSS probes yet. The next small reversible step is to re-run
+`scripts/run-vrising-automation-proof.ps1`, governed by
+`docs/development/gameplay-automation-proof-protocol-2026-06-06.md`, after its revised
+fullscreen-window-aware gates:
 
-1. Define exact launch command for 1920x1080 windowed D3D11.
-2. Capture/verify the visible game window.
-3. Test whether a controlled Win32 input action reaches the game.
-4. Archive screenshots/logs and restore the process.
+1. Define exact launch command for 1920x1080 D3D11 with temporary resolution override.
+2. Capture/verify the visible game window and parse `Player.log` `SetResolution`.
+3. Archive screenshots/logs and restore the process.
+4. Classify the result as `Pass`, `Partial`, or `Failed`.
+5. Only after that is clear, design a separate controlled keyboard/mouse input proof.
