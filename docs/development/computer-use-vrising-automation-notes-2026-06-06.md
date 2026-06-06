@@ -374,6 +374,24 @@ Pitfall:
   restore does any work. The corrected recovery command used `-ExecutionPolicy Bypass`
   plus single-quoted `-SaveDir` and `-ReferenceDir` values.
 
+## Materialization-Only No-Evaluate Follow-up
+
+Run label: `materialization-only-no-evaluate-1080p-20260606-r1`.
+
+Result:
+
+- The same `1920x1080` Windowed harness and Computer Use Continue route worked for
+  the baseline and candidate.
+- Computer Use selected the real `VRising` window, clicked the known `11111`
+  Continue entry once per run, and sent no movement/gameplay keys.
+- The candidate disabled the global RenderGraph GetTexture probe and waited for a
+  materialization-only no-evaluate acceptance, but no materialization tuple appeared.
+- Because candidate readiness never arrived, the safe cleanup action was to stop the
+  candidate V Rising process and let the harness restore FSR mode, client settings,
+  loader config, and release-safe state.
+- Save protection still worked: the changed post-run state was archived and the
+  `11111` save restored with `ChangeCount=0`.
+
 ## Next Click Protocol Notes
 
 For future Continue activations:

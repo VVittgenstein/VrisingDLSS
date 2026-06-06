@@ -210,6 +210,7 @@ public sealed class Plugin : BasePlugin
             _config?.EnableRenderGraphDiagnosticPass.Value ?? false,
             _config?.EnableExistingRenderFuncProbe.Value ?? false,
             _config?.EnableResourceMaterializationProbe.Value ?? false,
+            _config?.EnableRenderGraphGetTextureProbe.Value ?? true,
             _config?.EnableDlssPassResourceProbe.Value ?? false);
     }
 

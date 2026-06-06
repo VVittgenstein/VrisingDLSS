@@ -405,7 +405,7 @@ $summary = [pscustomobject]@{
     NextRecommendation = if ($mvpReady) {
         "MVP evidence is complete. Prepare a final release review."
     } elseif ([string]::IsNullOrWhiteSpace($GamePath)) {
-        "Pass -GamePath to include local runtime evidence. Current MVP next step is mod-owned render-scale control with V Rising FSR Off, then normal-user dlss-user-rendering visual/performance evidence and matching human review."
+        "Pass -GamePath to include local runtime evidence. Current MVP next step is a read-only RenderGraph pass-boundary proof that avoids the hot global GetTexture steady-state path."
     } elseif ($visualStatus.Status -ne "Pass" -and $visualStatus.HumanReviewStatus -eq "Pending") {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
@@ -467,12 +467,12 @@ $summary = [pscustomobject]@{
             "Run scripts\run-vrising-diagnostic.ps1 -Stage dlss-visible-writeback with a local SDK-wrapper native build, DLSS runtime path, and DLSS disabled by default."
         }
     } elseif (@($items | Where-Object { $_.Requirement -like "Experimental EnableDLSS user-rendering*" -and $_.Status -ne "Pass" }).Count -gt 0) {
-        "Implement or validate mod-owned render-scale control with V Rising FSR Off, then run scripts\run-vrising-diagnostic.ps1 -Stage dlss-user-rendering -UseSdkWrapperNative with a local DLSS runtime path."
+        "Implement a read-only RenderGraph pass-boundary diagnostic, prove the targeted upscale/final pass boundary in gameplay, then move tuple use/evaluate out of the global GetTexture postfix."
     } elseif (@($items | Where-Object { $_.Requirement -like "Normal-user dlss-user-rendering gameplay visual/performance comparison*" -and $_.Status -ne "Pass" }).Count -gt 0) {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
         } else {
-            "After mod-owned render-scale control is active with V Rising FSR Off, run a paired dlss-user-rendering gameplay visual comparison, capture performance, and add a matching human review file."
+            "After the pass-boundary route replaces the hot global GetTexture steady-state path, rerun paired dlss-user-rendering gameplay visual/performance comparison and add a matching human review file."
         }
     } else {
         "Validate image correctness, output selection, resize/reset handling, and fallback behavior before public release."

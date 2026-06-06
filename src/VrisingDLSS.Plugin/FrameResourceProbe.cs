@@ -110,6 +110,7 @@ internal static class FrameResourceProbe
     private static bool RenderGraphDiagnosticPassEnabled;
     private static bool ExistingRenderFuncProbeEnabled;
     private static bool ResourceMaterializationProbeEnabled;
+    private static bool RenderGraphGetTextureProbeEnabled;
     private static bool DlssPassResourceProbeEnabled;
     private static bool RenderGraphGetTextureDiagnosticLoggingEnabled;
     private static bool DlssEvaluateInputProbeSucceeded;
@@ -159,6 +160,7 @@ internal static class FrameResourceProbe
         bool enableRenderGraphDiagnosticPass = false,
         bool enableExistingRenderFuncProbe = false,
         bool enableResourceMaterializationProbe = false,
+        bool enableRenderGraphGetTextureProbe = true,
         bool enableDlssPassResourceProbe = false)
     {
         if (Installed)
@@ -183,6 +185,7 @@ internal static class FrameResourceProbe
             RenderGraphDiagnosticPassEnabled = RenderGraphDiagnosticPassEnabled || enableRenderGraphDiagnosticPass;
             ExistingRenderFuncProbeEnabled = ExistingRenderFuncProbeEnabled || enableExistingRenderFuncProbe;
             ResourceMaterializationProbeEnabled = ResourceMaterializationProbeEnabled || enableResourceMaterializationProbe;
+            RenderGraphGetTextureProbeEnabled = RenderGraphGetTextureProbeEnabled || enableRenderGraphGetTextureProbe;
             DlssPassResourceProbeEnabled = DlssPassResourceProbeEnabled || enableDlssPassResourceProbe;
             RenderGraphGetTextureDiagnosticLoggingEnabled = RenderGraphGetTextureDiagnosticLoggingEnabled || ShouldEnableRenderGraphGetTextureDiagnosticLogging(
                 enableFrameResourceProbe,
@@ -215,6 +218,7 @@ internal static class FrameResourceProbe
         RenderGraphDiagnosticPassEnabled = enableRenderGraphDiagnosticPass;
         ExistingRenderFuncProbeEnabled = enableExistingRenderFuncProbe;
         ResourceMaterializationProbeEnabled = enableResourceMaterializationProbe;
+        RenderGraphGetTextureProbeEnabled = enableRenderGraphGetTextureProbe;
         DlssPassResourceProbeEnabled = enableDlssPassResourceProbe;
         RenderGraphGetTextureDiagnosticLoggingEnabled = ShouldEnableRenderGraphGetTextureDiagnosticLogging(
             enableFrameResourceProbe,
@@ -431,14 +435,19 @@ internal static class FrameResourceProbe
                 log.LogInfo("Frame resource RenderGraph builder/execution-scope probes skipped for crash-safe Stage 8A. Enable Diagnostics.EnableFrameResourceProbe only for deliberate discovery.");
             }
 
-            if (TryPatchRenderGraphGetTextureMethod(
-                log,
-                assemblies,
-                harmonyMethodConstructor,
-                patchMethod,
-                patchedMethodKeys))
+            if (RenderGraphGetTextureProbeEnabled
+                && TryPatchRenderGraphGetTextureMethod(
+                    log,
+                    assemblies,
+                    harmonyMethodConstructor,
+                    patchMethod,
+                    patchedMethodKeys))
             {
                 patched++;
+            }
+            else if (!RenderGraphGetTextureProbeEnabled)
+            {
+                log.LogInfo("Frame resource RenderGraph GetTexture postfix skipped by Diagnostics.EnableRenderGraphGetTextureProbe=false.");
             }
 
             if (ResourceMaterializationProbeEnabled)
@@ -544,6 +553,7 @@ internal static class FrameResourceProbe
             RenderGraphDiagnosticPassEnabled = false;
             ExistingRenderFuncProbeEnabled = false;
             ResourceMaterializationProbeEnabled = false;
+            RenderGraphGetTextureProbeEnabled = false;
             DlssPassResourceProbeEnabled = false;
             RenderGraphGetTextureDiagnosticLoggingEnabled = false;
             DlssEvaluateProbeEnabled = false;
@@ -1638,7 +1648,15 @@ internal static class FrameResourceProbe
     {
         try
         {
-            if (!DlssEvaluateInputProbeEnabled || !ResourceMaterializationProbeEnabled || DlssEvaluateInputProbeSucceeded)
+            if (!DlssEvaluateInputProbeEnabled || !ResourceMaterializationProbeEnabled)
+            {
+                return;
+            }
+
+            if (DlssEvaluateInputProbeSucceeded
+                && !DlssSuperResolutionInputProbeEnabled
+                && !DlssVisibleWritebackProbeEnabled
+                && !DlssUserRenderingEnabled)
             {
                 return;
             }
@@ -1699,12 +1717,14 @@ internal static class FrameResourceProbe
                     "RenderGraphResourceRegistry.CreateTextureCallback",
                     resourceName,
                     pointer,
-                    $"TextureResource.graphicsResource nativeOwner={SummarizeValue(owner ?? graphicsResource!)} epoch={epoch}");
+                    $"TextureResource.graphicsResource nativeOwner={SummarizeValue(owner ?? graphicsResource!)} epoch={epoch}",
+                    TryGetUnityFrameCount(out var candidateFrame) ? candidateFrame : -1);
                 RenderGraphResourceMaterializationCandidates[resourceName] = candidate;
                 snapshot = RenderGraphResourceMaterializationCandidates.Values.ToArray();
             }
 
             TryRunRenderGraphMaterializationDlssEvaluateInputProbe(log, bridge, snapshot);
+            TryRunRenderGraphDlssSuperResolutionInputProbe(log, bridge, snapshot, "RenderGraph materialization");
         }
         catch (Exception ex)
         {
@@ -1783,7 +1803,7 @@ internal static class FrameResourceProbe
                 }
 
                 TryRunRenderGraphGetTextureDlssEvaluateInputProbe(log, bridge, snapshot);
-                TryRunRenderGraphGetTextureDlssSuperResolutionInputProbe(log, bridge, snapshot);
+                TryRunRenderGraphDlssSuperResolutionInputProbe(log, bridge, snapshot, "RenderGraph GetTexture");
             }
 
             TryLogDlssEvaluateOutputFollowup(log, bridge, count, resourceName, pointer);
@@ -2227,10 +2247,11 @@ internal static class FrameResourceProbe
         }
     }
 
-    private static void TryRunRenderGraphGetTextureDlssSuperResolutionInputProbe(
+    private static void TryRunRenderGraphDlssSuperResolutionInputProbe(
         ManualLogSource log,
         NativeBridge bridge,
-        IReadOnlyList<RenderGraphTextureCandidate> candidates)
+        IReadOnlyList<RenderGraphTextureCandidate> candidates,
+        string source)
     {
         if (!DlssSuperResolutionInputProbeEnabled)
         {
@@ -2241,15 +2262,15 @@ internal static class FrameResourceProbe
         {
             if (DlssVisibleWritebackProbeEnabled)
             {
-                TryRunDlssVisibleWritebackProbe(log, bridge, "RenderGraph GetTexture", candidates);
+                TryRunDlssVisibleWritebackProbe(log, bridge, source, candidates);
             }
             else if (DlssUserRenderingEnabled)
             {
-                TryRunDlssUserRendering(log, bridge, "RenderGraph GetTexture", candidates);
+                TryRunDlssUserRendering(log, bridge, source, candidates);
             }
             else
             {
-                TryRunDlssSuperResolutionFrameSequenceEvaluateProbe(log, bridge, "RenderGraph GetTexture", candidates);
+                TryRunDlssSuperResolutionFrameSequenceEvaluateProbe(log, bridge, source, candidates);
             }
             return;
         }
@@ -2300,7 +2321,7 @@ internal static class FrameResourceProbe
             }
 
             log.LogInfo(
-                $"DLSS super-resolution input probe candidate #{attempt} from RenderGraph GetTexture: color={color.Value.ResourceName} 0x{color.Value.Pointer.ToInt64():X}; output={output.ResourceName} 0x{output.Pointer.ToInt64():X}; depth={depth.Value.ResourceName} 0x{depth.Value.Pointer.ToInt64():X}; motion={motion.Value.ResourceName} 0x{motion.Value.Pointer.ToInt64():X}");
+                $"DLSS super-resolution input probe candidate #{attempt} from {source}: color={color.Value.ResourceName} 0x{color.Value.Pointer.ToInt64():X}; output={output.ResourceName} 0x{output.Pointer.ToInt64():X}; depth={depth.Value.ResourceName} 0x{depth.Value.Pointer.ToInt64():X}; motion={motion.Value.ResourceName} 0x{motion.Value.Pointer.ToInt64():X}");
 
             var success = bridge.ProbeDlssSuperResolutionInputs(
                 color.Value.Pointer,
@@ -2311,11 +2332,11 @@ internal static class FrameResourceProbe
             if (success)
             {
                 DlssSuperResolutionInputProbeSucceeded = true;
-                log.LogInfo($"DLSS super-resolution input probe succeeded from RenderGraph GetTexture: {status}");
+                log.LogInfo($"DLSS super-resolution input probe succeeded from {source}: {status}");
                 TryRunDlssSuperResolutionEvaluateProbe(
                     log,
                     bridge,
-                    "RenderGraph GetTexture",
+                    source,
                     color.Value.Pointer,
                     output.Pointer,
                     depth.Value.Pointer,
@@ -2324,7 +2345,7 @@ internal static class FrameResourceProbe
                 TryRunDlssSuperResolutionPersistentEvaluateProbe(
                     log,
                     bridge,
-                    "RenderGraph GetTexture",
+                    source,
                     color.Value.Pointer,
                     output.Pointer,
                     depth.Value.Pointer,
@@ -2335,7 +2356,7 @@ internal static class FrameResourceProbe
                     TryRunDlssVisibleWritebackProbe(
                         log,
                         bridge,
-                        "RenderGraph GetTexture",
+                        source,
                         color.Value.Pointer,
                         output.Pointer,
                         depth.Value.Pointer,
@@ -2346,7 +2367,7 @@ internal static class FrameResourceProbe
                 {
                     RememberDlssUserRenderingAcceptedTuple(
                         log,
-                        "RenderGraph GetTexture",
+                        source,
                         color.Value.Pointer,
                         output.Pointer,
                         depth.Value.Pointer,
@@ -2355,7 +2376,7 @@ internal static class FrameResourceProbe
                     TryRunDlssUserRendering(
                         log,
                         bridge,
-                        "RenderGraph GetTexture",
+                        source,
                         color.Value.Pointer,
                         output.Pointer,
                         depth.Value.Pointer,
@@ -2367,7 +2388,7 @@ internal static class FrameResourceProbe
                     TryRunDlssSuperResolutionFrameSequenceEvaluateProbe(
                         log,
                         bridge,
-                        "RenderGraph GetTexture",
+                        source,
                         color.Value.Pointer,
                         output.Pointer,
                         depth.Value.Pointer,
@@ -2377,7 +2398,7 @@ internal static class FrameResourceProbe
                 return;
             }
 
-            log.LogInfo($"DLSS super-resolution input probe not accepted from RenderGraph GetTexture: {status}");
+            log.LogInfo($"DLSS super-resolution input probe not accepted from {source}: {status}");
         }
     }
 

@@ -382,6 +382,25 @@ but insufficient runtime evidence: paired FPS improved to `194.424 -> 119.573`, 
 logs, but the candidate still ran with only `41.250%` average GPU utilization. Keep
 this as a diagnostic optimization, not as the production steady-state route.
 
+Materialization-only follow-up: `materialization-only-no-evaluate-1080p-20260606-r1`
+disabled the global `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` probe
+and enabled only the `BeginExecute` / `CreateTextureCallback` materialization route
+plus no-evaluate tuple acceptance. The candidate patched the materialization methods
+and skipped the GetTexture postfix as expected, but gameplay produced `0`
+`RenderGraph texture materialization #` logs, `0` SR input candidates, and `0`
+no-evaluate acceptances from materialization before the candidate was stopped. The
+protected `11111` save restored with `ChangeCount=0`. This rejects
+`CreateTextureCallback` as a sufficient replacement boundary for steady-state tuple
+discovery.
+
+Narrow HDRP source follow-up: see
+[hdrp-dlss-execution-boundary-2026-06-06.md](hdrp-dlss-execution-boundary-2026-06-06.md).
+Local Unity source and V Rising interop show the official DLSS boundary is the
+`Deep Learning Super Sampling` RenderGraph pass execution window:
+`RenderPostProcess -> DoDLSSPasses -> DoDLSSPass -> DLSSPass.GetCameraResources -> DLSSPass.Render/ExecuteDLSS`.
+The next production-oriented route should prove a narrowly filtered RenderGraph
+pass-execution hook, then resolve/evaluate resources only inside that pass window.
+
 ## Theoretical Performance Follow-up
 
 See [dlss-theoretical-performance-model-2026-06-06.md](dlss-theoretical-performance-model-2026-06-06.md).

@@ -80,6 +80,47 @@ path should move toward a targeted render/upscale pass boundary where the releva
 resources are already declared and valid, then evaluate or copy from that boundary
 without broad per-texture resource discovery in steady state.
 
+## Materialization-Only Follow-Up
+
+After r4, a new `dlss-user-rendering-materialization-no-evaluate` isolation stage
+disabled the global `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` postfix
+and attempted to accept the same SR tuple from the
+`RenderGraphResourceRegistry.BeginExecute(int)` /
+`CreateTextureCallback(RenderGraphContext, IRenderGraphResource)` materialization
+route only.
+
+Run: `materialization-only-no-evaluate-1080p-20260606-r1`.
+
+Conditions:
+
+- True `1920x1080` Windowed.
+- V Rising `FsrQualityMode=Off`.
+- Protected local/private `11111` save.
+- `EnableResourceMaterializationProbe=true`.
+- `EnableRenderGraphGetTextureProbe=false`.
+- `EnableDlssUserRenderingNoEvaluateProbe=true`.
+- `EnableDLSS=false` and no native runtime path.
+
+Evidence:
+
+- The candidate log confirmed `Frame resource RenderGraph GetTexture postfix
+  skipped by Diagnostics.EnableRenderGraphGetTextureProbe=false`.
+- `BeginExecute` and `CreateTextureCallback` materialization probes patched cleanly.
+- No native evaluate or user-rendering evaluate path ran.
+- The candidate did not observe any `RenderGraph texture materialization #`,
+  `DLSS super-resolution input probe candidate #`, or no-evaluate acceptance from
+  materialization before it was stopped.
+- Save cleanup restored the protected `11111` save with `ChangeCount=0`, and the
+  loader config returned to release-safe state.
+
+Result:
+
+The materialization-only route is a negative result. It is useful as an isolation
+switch and confirms that the global `GetTexture` probe can be disabled cleanly, but
+`CreateTextureCallback` did not provide a usable steady-state tuple boundary in
+real gameplay. The next route remains a targeted render/upscale pass execution
+boundary, not resource materialization by itself.
+
 ## Follow-up Patch
 
 After r3, the `GetTexture` postfix was narrowed so it reads the RenderGraph resource

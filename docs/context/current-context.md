@@ -118,6 +118,16 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
   the `11111` save to `ChangeCount=0`. This makes the global
   `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` postfix/placement the
   leading suspect, not direct NGX evaluate CPU time or render-scale-only control.
+- Materialization-only isolation is a negative route. The new
+  `dlss-user-rendering-materialization-no-evaluate` stage disabled the global
+  `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` postfix and tried to
+  accept the SR tuple only from `BeginExecute` / `CreateTextureCallback`
+  materialization. Run `materialization-only-no-evaluate-1080p-20260606-r1`
+  patched the materialization hooks cleanly and confirmed GetTexture was skipped,
+  but gameplay produced `0` `RenderGraph texture materialization #` logs, `0` SR
+  input candidates, and `0` no-evaluate acceptances before the candidate was
+  stopped. Cleanup restored release-safe config, left no V Rising process, and
+  restored the protected `11111` save to `ChangeCount=0`.
 - External research downloaded on 2026-06-06 into
   `ref/dlss-performance-investigation-2026-06-06/` aligns with that conclusion:
   Unity RenderGraph expects actual resources to be used inside render pass execution
@@ -126,6 +136,15 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
   reuse, current-frame resource tagging/evaluate, and explicit resize/reset/lifecycle
   handling; OptiScaler-style injection generally reuses existing upscaler input paths
   instead of broad per-texture discovery.
+- Narrow HDRP source/interop follow-up is recorded in
+  `docs/research/hdrp-dlss-execution-boundary-2026-06-06.md`. Local Unity source and
+  V Rising interop show the official boundary as
+  `RenderPostProcess -> DoDLSSPasses -> DoDLSSPass -> Deep Learning Super Sampling`
+  RenderGraph pass execution -> `DLSSPass.GetCameraResources` ->
+  `DLSSPass.Render/ExecuteDLSS`. V Rising exposes the HDRP symbols, but still does
+  not show a complete built-in Unity NVIDIA DLSS runtime stack. The next safest
+  equivalent boundary is a read-only, narrowly filtered RenderGraph pass-execution
+  proof, not another global texture lookup.
 - `docs/research/dlss-theoretical-performance-model-2026-06-06.md` records the
   expected DLSS SR performance shape. For 1920x1080 Performance-mode constructive
   tests, the working model is 960x540 input to 1920x1080 output, or 25% pixel count.
@@ -173,9 +192,11 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
   Render-scale-only is no longer the primary suspect: r1 preserved average FPS around
   baseline while proving the 0.5 scale was active and no DLSS evaluate ran.
   No-evaluate isolation then reproduced the severe drop without NGX evaluate, even
-  after logging suppression and tuple/reflection caching. The next technical blocker
-  is to remove the global `GetTexture` postfix from the steady-state path and move
-  tuple use/evaluate into a targeted render/upscale pass boundary.
+  after logging suppression and tuple/reflection caching. Materialization-only
+  discovery did not replace the global GetTexture route. The next technical blocker
+  is to remove the global `GetTexture` postfix from the steady-state path by first
+  proving a narrow, read-only RenderGraph pass-execution boundary, then moving tuple
+  use/evaluate into that targeted render/upscale pass window.
 - Gameplay image-correctness still needs a human review only after the severe
   performance regression is fixed; do not write a passing human review for the r2
   artifact.
@@ -207,9 +228,15 @@ Follow the new goal order:
      `user-rendering-no-evaluate-1080p-20260606-r1/r2/r3/r4`; it reproduced the
      collapse without native DLSS evaluate, and caching/log suppression/resource-name
      filtering only partially helped;
-   - next loop should stop treating global `GetTexture` as the normal runtime path and
-     instead target a real HDRP render/upscale pass boundary, or a more specific
-     resource submission point, where current-frame resources are already valid;
+   - `dlss-user-rendering-materialization-no-evaluate` isolation is complete in
+     `materialization-only-no-evaluate-1080p-20260606-r1`; it cleanly disabled the
+     global GetTexture probe but did not observe materialization SR candidates or
+     accept a tuple;
+   - next loop should implement a read-only `rendergraph-pass-boundary` proof:
+     patch only a narrowly filtered RenderGraph pass-execution boundary such as
+     `PreRenderPassExecute` or one adjacent non-generic executor, log pass names
+     and candidate upscale/final boundaries, and do not resolve textures or call
+     native DLSS until that boundary is proven stable in gameplay;
    - use `docs/research/dlss-theoretical-performance-model-2026-06-06.md` to
      interpret performance: 1080p is a constructive correctness/stall test, while
      final DLSS value requires a GPU-bound 4K/high-load matrix;
@@ -220,10 +247,10 @@ Follow the new goal order:
 
 ## Current Repository Checkpoint
 
-As of the no-evaluate user-rendering performance follow-up:
+As of the HDRP DLSS execution-boundary follow-up:
 
 - Branch: `main`.
-- Latest pushed checkpoint before this update: `521952b Narrow GetTexture path and model DLSS gains`.
+- Latest pushed checkpoint before this update: `c2e0993 Record r4 no-evaluate performance evidence`.
 - The current working tree records the `fsr-off-render-scale-1080p-software-fallback-v5-20260606`
   failed fallback-only result, the `fsr-off-render-scale-1080p-post-update-fraction-v6-20260606`
   tuple/evaluate pass, safe cleanup, save restoration, external DLSS mod practice
@@ -240,6 +267,8 @@ As of the no-evaluate user-rendering performance follow-up:
   baseline was still `194.424` FPS and candidate GPU utilization remained low at
   `41.250%`. The working tree also records the source-backed theoretical DLSS SR
   performance model used to separate low-resolution constructive validation from the
-  final GPU-bound performance matrix.
+  final GPU-bound performance matrix. This update additionally records the negative
+  materialization-only no-evaluate route, the local/upstream HDRP DLSS execution
+  boundary search, and the downloaded Unity Core RenderGraph reference files.
 - Readiness status: `DiagnosticPackageReady_MvpBlocked`.
 - Diagnostic package path: `dist/VrisingDLSS-0.1.0-thunderstore.zip`.

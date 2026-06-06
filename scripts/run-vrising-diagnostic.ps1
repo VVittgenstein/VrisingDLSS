@@ -23,6 +23,7 @@ param(
         "render-scale-control",
         "dlss-user-rendering",
         "dlss-user-rendering-no-evaluate",
+        "dlss-user-rendering-materialization-no-evaluate",
         "dlss-evaluate",
         "dlss-persistent-evaluate",
         "dlsspass-resource"
