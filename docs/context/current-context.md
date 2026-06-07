@@ -1291,3 +1291,36 @@ As of the read-only RenderGraph pass-map runtime result:
   vector payloads at an equivalent official boundary, or add a local
   SDK-wrapper-only DLSS frame-sequence lifecycle preflight at this exact
   callback boundary before any visible write-back.
+- Follow-up stage `native-renderfunc-commandbuffer-dlss-create-render-scale` is
+  implemented and menu plus protected-gameplay validated; see
+  `docs/development/native-renderfunc-commandbuffer-dlss-create-render-scale-gameplay-result-2026-06-07.md`.
+  Native bridge API version is now `15`. The stage uses the focused EASU
+  source/destination native texture payload and consumes it from one `ctx.cmd`
+  plugin event with `eventId=260609`, then creates and immediately
+  releases/destroys/shuts down one NGX DLSS feature through the SDK-wrapper
+  path. It still does not evaluate DLSS or write visible output. Menu smoke
+  passed with `Native RenderFunc CommandBuffer DLSS Feature Create=Pass`,
+  `create=0x00000001`, `feature=yes`, `release=0x00000001`,
+  `destroy=0x00000001`, `shutdown=0x00000001`, `ExecuteDLSS` `0`, user
+  rendering `0`, visible write-back `0`, and no crash patterns. Protected
+  gameplay proof then passed with V Rising `FsrQualityMode=Off`, true
+  `1920x1080` Windowed, mod-owned render scale, and the protected `11111`
+  fixture. Computer Use clicked Continue once and sent no movement keys.
+  Analyzer reported `Stage 2C Render-Scale Control Probe=Pass`, `Native
+  RenderFunc Context=Pass`, `Native RenderFunc CommandBuffer DLSS Feature
+  Create=Pass`, `Native RenderFunc Resource Tuple=Pass`, and `Native RenderFunc
+  Resource Native Pointer=Pass`. Key evidence preserved `actualWidth=960`,
+  `actualHeight=540`, `GetCurrentScale=0.5`, `GetResolvedScale=(0.50, 0.50)`,
+  `sameDevice=yes`, `source=960x540 fmt=26`, `destination=1920x1080 fmt=26`,
+  `scale=(2.000x,2.000x)`, `create=0x00000001`, `feature=yes`,
+  `release=0x00000001`, `destroy=0x00000001`, and
+  `shutdown=0x00000001`. Counts: feature-create advanced `1`, set advanced
+  `1`, consumed-status lines `111`, broad `RenderGraph.GetTexture` `0`,
+  `ExecuteDLSS` `0`, `DLSS user rendering` `0`, visible write-back `0`, and
+  crash/exception/access-violation patterns `0`. Cleanup restored
+  config/native/ClientSettings, left no game process, and restored the
+  protected save with `ChangeCount=0`. The next route remains
+  source/decompilation-guided: either add depth/motion-vector payloads at an
+  equivalent official boundary or design a bounded no-write evaluate preflight;
+  do not return to broad `GetTexture` discovery or direct `DLSSPass.Render`
+  patching.

@@ -99,6 +99,19 @@ This explains the runtime native-pointer proof: the EASU `source` and
 `destination` handles we observed are exactly the handles authored by
 `EdgeAdaptiveSpatialUpsampling(...)`.
 
+Additional local alignment on 2026-06-07 confirmed the game build embeds Unity
+`2022.3.58f1` in `VRising_Data/globalgamemanagers`. That makes the local
+`ref/UnityGraphics-2022.3` HDRP source a strong method-body reference for the
+render path, while the V Rising IL2CPP interop/xref output supplies the actual
+runtime symbols, tokens, fields, wrapper signatures, and caller/xref ranges.
+For the DLSS route this is enough "important source" to reduce blind runtime
+trial: official HDRP records `source`, `output`, `depth`, `motionVectors`, and
+optional `biasColorMask` in `DoDLSSPass(...)`, then converts them through
+`DLSSPass.GetCameraResources(...)` inside the pass render func immediately
+before submitting on `ctx.cmd`. The local metadata still lacks Unity's complete
+NVIDIA module stack, so the built-in DLSS pass remains a design map rather than
+an already-active runtime path.
+
 ## Practical Implications
 
 - A complete proprietary game source tree is not required for the next step;
@@ -107,6 +120,12 @@ This explains the runtime native-pointer proof: the EASU `source` and
 - The current best boundary is not broad
   `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` discovery. The
   focused EASU render func is now proven enough to drive narrow tests.
+- The practical "source" answer is three-part: IL2CPP metadata/interop proves
+  what V Rising actually contains, BepInEx xref/cache proves call adjacency and
+  wrapper accessibility, and Unity HDRP 2022.3 source supplies the relevant
+  method bodies. Full proprietary source is not required for the HDRP
+  upscaler boundary, but full generated/decompiled game output must remain
+  local and must not be redistributed.
 - Direct Harmony prefixing of `DLSSPass.Render(...)` remains rejected by prior
   crash evidence, despite the method being present and named.
 - The ordinary `DLSSPass.GetCameraResources(...)` wrapper still has poor

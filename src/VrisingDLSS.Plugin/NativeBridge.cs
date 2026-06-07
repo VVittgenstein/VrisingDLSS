@@ -18,6 +18,9 @@ internal sealed class NativeBridge
     private SetRenderEventTexturePayloadDelegate? _setRenderEventTexturePayload;
     private GetIntDelegate? _getRenderEventTexturePayloadConsumedCount;
     private GetStringPointerDelegate? _getRenderEventTexturePayloadStatus;
+    private SetRenderEventDlssFeatureCreatePayloadDelegate? _setRenderEventDlssFeatureCreatePayload;
+    private GetIntDelegate? _getRenderEventDlssFeatureCreateConsumedCount;
+    private GetStringPointerDelegate? _getRenderEventDlssFeatureCreateStatus;
     private ProbePointerDelegate? _probeD3D11Texture;
     private GetStringPointerDelegate? _getD3D11ProbeStatus;
     private ProbePointerPairDelegate? _probeD3D11TexturePair;
@@ -71,6 +74,9 @@ internal sealed class NativeBridge
         _setRenderEventTexturePayload = GetOptionalExport<SetRenderEventTexturePayloadDelegate>("VrisingDlss_SetRenderEventTexturePayload");
         _getRenderEventTexturePayloadConsumedCount = GetOptionalExport<GetIntDelegate>("VrisingDlss_GetRenderEventTexturePayloadConsumedCount");
         _getRenderEventTexturePayloadStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetRenderEventTexturePayloadStatus");
+        _setRenderEventDlssFeatureCreatePayload = GetOptionalExport<SetRenderEventDlssFeatureCreatePayloadDelegate>("VrisingDlss_SetRenderEventDlssFeatureCreatePayload");
+        _getRenderEventDlssFeatureCreateConsumedCount = GetOptionalExport<GetIntDelegate>("VrisingDlss_GetRenderEventDlssFeatureCreateConsumedCount");
+        _getRenderEventDlssFeatureCreateStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetRenderEventDlssFeatureCreateStatus");
         _probeD3D11Texture = GetOptionalExport<ProbePointerDelegate>("VrisingDlss_ProbeD3D11Texture");
         _getD3D11ProbeStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetD3D11ProbeStatus");
         _probeD3D11TexturePair = GetOptionalExport<ProbePointerPairDelegate>("VrisingDlss_ProbeD3D11TexturePair");
@@ -120,6 +126,31 @@ internal sealed class NativeBridge
     internal int GetRenderEventTexturePayloadConsumedCount() => _getRenderEventTexturePayloadConsumedCount?.Invoke() ?? -1;
 
     internal string GetRenderEventTexturePayloadStatus() => PtrToString(_getRenderEventTexturePayloadStatus?.Invoke() ?? IntPtr.Zero);
+
+    internal bool SetRenderEventDlssFeatureCreatePayload(
+        IntPtr sourceTexturePtr,
+        IntPtr destinationTexturePtr,
+        int eventId,
+        int sequence,
+        string runtimePath,
+        string applicationDataPath,
+        ulong applicationId,
+        int perfQualityValue,
+        int featureFlags) =>
+        _setRenderEventDlssFeatureCreatePayload?.Invoke(
+            sourceTexturePtr,
+            destinationTexturePtr,
+            eventId,
+            sequence,
+            runtimePath,
+            applicationDataPath,
+            applicationId,
+            perfQualityValue,
+            featureFlags) == 1;
+
+    internal int GetRenderEventDlssFeatureCreateConsumedCount() => _getRenderEventDlssFeatureCreateConsumedCount?.Invoke() ?? -1;
+
+    internal string GetRenderEventDlssFeatureCreateStatus() => PtrToString(_getRenderEventDlssFeatureCreateStatus?.Invoke() ?? IntPtr.Zero);
 
     internal bool ProbeD3D11Texture(IntPtr nativeTexturePtr) => _probeD3D11Texture?.Invoke(nativeTexturePtr) == 1;
 
@@ -362,6 +393,18 @@ internal sealed class NativeBridge
         IntPtr destinationTexturePtr,
         int eventId,
         int sequence);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+    private delegate int SetRenderEventDlssFeatureCreatePayloadDelegate(
+        IntPtr sourceTexturePtr,
+        IntPtr destinationTexturePtr,
+        int eventId,
+        int sequence,
+        [MarshalAs(UnmanagedType.LPWStr)] string runtimePath,
+        [MarshalAs(UnmanagedType.LPWStr)] string applicationDataPath,
+        ulong applicationId,
+        int perfQualityValue,
+        int featureFlags);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
     private delegate int ProbeWideStringDelegate([MarshalAs(UnmanagedType.LPWStr)] string value);

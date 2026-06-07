@@ -255,6 +255,13 @@ $results.Add((New-StageResult `
     -StartedPatterns @("Native render-func command-buffer payload preflight enabled", "Native render-func command-buffer payload status #", "Native render-func command-buffer payload set advanced:")))
 
 $results.Add((New-StageResult `
+    -Stage "Native RenderFunc CommandBuffer DLSS Feature Create" `
+    -PassPatterns @("Native render-func command-buffer DLSS feature-create advanced:") `
+    -FailPatterns @("Native render-func entry probe failed:", "Native render-func entry detour dispose failed:", "Native render-func command-buffer DLSS feature-create set failed:", "Native render-func command-buffer DLSS feature-create event failed:", "render event DLSS feature-create payload set failed:", "render event DLSS feature-create payload consume failed:", "render event DLSS feature-create payload create failed:", "RenderGraph pass-list logging failed") `
+    -BlockedPatterns @("native bridge was built without NVIDIA SDK wrapper integration", "runtime path was empty") `
+    -StartedPatterns @("Native render-func command-buffer DLSS feature-create preflight enabled", "Native render-func command-buffer DLSS feature-create status #", "Native render-func command-buffer DLSS feature-create set advanced:")))
+
+$results.Add((New-StageResult `
     -Stage "Native RenderFunc Resource Identity" `
     -PassPatterns @("Native render-func resource identity advanced:") `
     -FailPatterns @("Native render-func entry probe failed:", "Native render-func entry detour dispose failed:", "RenderGraph pass-list logging failed", "Native render-func resource identity data=not found") `

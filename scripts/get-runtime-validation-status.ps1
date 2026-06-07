@@ -104,6 +104,9 @@ function Get-ConfiguredStage {
     if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferPayloadProbe") -and
         (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "native-renderfunc-commandbuffer-payload-render-scale" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferPayloadProbe") { return "native-renderfunc-commandbuffer-payload" }
+    if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferDlssFeatureCreateProbe") -and
+        (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "native-renderfunc-commandbuffer-dlss-create-render-scale" }
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferDlssFeatureCreateProbe") { return "native-renderfunc-commandbuffer-dlss-create" }
     if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncContextProbe") -and
         (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "native-renderfunc-context-render-scale" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncContextProbe") { return "native-renderfunc-context" }
@@ -294,6 +297,7 @@ function Get-NextRecommendation {
     $superResolutionFrameSequence = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 9A"
     $visibleWriteback = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 10A"
     $userRendering = Get-FirstStageStatus -Results $LogResults -StagePrefix "DLSS User Rendering Candidate"
+    $nativeRenderFuncCommandBufferDlssFeatureCreate = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc CommandBuffer DLSS Feature Create"
     $nativeRenderFuncCommandBufferPayload = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc CommandBuffer Payload"
     $nativeRenderFuncCommandBufferEvent = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc CommandBuffer Event"
     $nativeRenderFuncContext = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Context"
@@ -340,6 +344,17 @@ function Get-NextRecommendation {
         }
 
         return "The latest dlss-user-rendering gameplay log did not accept an FSR Off Super Resolution tuple: the main candidate stayed color=1920x1080 output=1920x1080. Before rerunning the same runtime proof, use the targeted render-scale diagnostic to check for `Render-scale control member write did not stick`, `RTHandles.SetHardwareDynamicResolutionState=true`, and whether the gameplay camera/main targets remain full-size."
+    }
+
+    if ($nativeRenderFuncCommandBufferDlssFeatureCreate -eq "Pass" -and $renderScaleControl -eq "Pass") {
+        $nativeRenderFuncCommandBufferDlssFeatureCreateGameplayDoc = Get-ChildItem -LiteralPath (Join-Path $Root "docs\development") -Filter "native-renderfunc-commandbuffer-dlss-create-render-scale-gameplay-result-*.md" -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+        if ($nativeRenderFuncCommandBufferDlssFeatureCreateGameplayDoc) {
+            return "Native EASU ctx.cmd DLSS feature-create lifecycle and render-scale control have a combined protected gameplay proof. Next source-guided guard should add the missing depth/motion-vector payloads or design a bounded no-write evaluate preflight at this callback boundary; still avoid broad GetTexture discovery and direct DLSSPass.Render patching. Latest proof: $($nativeRenderFuncCommandBufferDlssFeatureCreateGameplayDoc.FullName)"
+        }
+
+        return "Native EASU ctx.cmd DLSS feature-create lifecycle and render-scale control both have runtime evidence, but not yet in the same protected gameplay proof. Next step is a 1920x1080 Windowed protected 11111 run using scripts\start-vrising-automation-session.ps1 -Stage native-renderfunc-commandbuffer-dlss-create-render-scale with -UseSdkWrapperNative and -DlssRuntimePath; expected evidence is create=0x00000001, feature=yes, release/destroy/shutdown success, no ExecuteDLSS, no visible write-back, and save restore."
     }
 
     if ($nativeRenderFuncCommandBufferPayload -eq "Pass" -and $renderScaleControl -eq "Pass") {

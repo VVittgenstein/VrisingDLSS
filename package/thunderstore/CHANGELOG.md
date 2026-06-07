@@ -9,6 +9,7 @@
 - Added a default-off native RenderGraph render-func context diagnostic; it reads the focused EASU `RenderGraphContext.cmd` identity without issuing command-buffer work or evaluating DLSS.
 - Added a default-off native RenderGraph render-func command-buffer event diagnostic; it issues one focused no-op plugin event and verifies native callback timing without passing resources or evaluating DLSS.
 - Added a default-off native RenderGraph render-func command-buffer payload diagnostic; it consumes the focused EASU source/output texture payload from a no-op plugin event without NGX, DLSS evaluate, or visible write-back.
+- Added a default-off SDK-wrapper-only native RenderGraph render-func DLSS feature-create diagnostic; it creates and immediately releases one NGX DLSS feature from the focused EASU `ctx.cmd` callback without evaluating DLSS or writing visible output.
 - Added read-only HDRP hook probe.
 - Added optional read-only Harmony call probe with a conservative target list.
 - Added native bridge smoke-test interface.

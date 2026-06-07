@@ -314,6 +314,7 @@ try {
             "EnableNativeRenderFuncContextProbe = false",
             "EnableNativeRenderFuncCommandBufferEventProbe = false",
             "EnableNativeRenderFuncCommandBufferPayloadProbe = false",
+            "EnableNativeRenderFuncCommandBufferDlssFeatureCreateProbe = false",
             "EnableNativeRenderFuncResourceIdentityProbe = false",
             "EnableNativeRenderFuncResourceTupleProbe = false",
             "EnableNativeRenderFuncResourceResolveProbe = false",

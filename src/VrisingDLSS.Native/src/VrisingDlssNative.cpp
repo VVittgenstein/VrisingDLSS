@@ -33,6 +33,16 @@ namespace
         int sequence = 0;
     };
 
+    struct RenderEventDlssFeatureCreatePayload
+    {
+        RenderEventTexturePayload textures;
+        std::wstring runtimePath;
+        std::wstring applicationDataPath;
+        unsigned long long applicationId = 0;
+        int perfQualityValue = 0;
+        int featureFlags = 0;
+    };
+
     std::atomic<int> g_renderEventCount{0};
     std::atomic<int> g_lastRenderEventId{-1};
     std::atomic<int> g_renderEventTexturePayloadSetAttempts{0};
@@ -45,6 +55,16 @@ namespace
     std::mutex g_renderEventTexturePayloadMutex;
     RenderEventTexturePayload g_renderEventTexturePayload;
     char g_renderEventTexturePayloadStatus[1536] = "render event texture payload probe has not run";
+    std::atomic<int> g_renderEventDlssFeatureCreatePayloadSetAttempts{0};
+    std::atomic<int> g_renderEventDlssFeatureCreatePayloadSetSuccesses{0};
+    std::atomic<int> g_renderEventDlssFeatureCreatePayloadSetFailures{0};
+    std::atomic<int> g_renderEventDlssFeatureCreatePayloadConsumedCount{0};
+    std::atomic<int> g_renderEventDlssFeatureCreatePayloadConsumedFailures{0};
+    std::atomic<int> g_renderEventDlssFeatureCreatePayloadLastSequence{0};
+    std::atomic<int> g_renderEventDlssFeatureCreatePayloadLastEventId{-1};
+    std::mutex g_renderEventDlssFeatureCreatePayloadMutex;
+    RenderEventDlssFeatureCreatePayload g_renderEventDlssFeatureCreatePayload;
+    char g_renderEventDlssFeatureCreatePayloadStatus[2400] = "render event DLSS feature-create payload probe has not run";
     std::mutex g_probeStatusMutex;
     char g_d3d11ProbeStatus[512] = "D3D11 texture probe has not run";
     char g_d3d11TexturePairProbeStatus[1024] = "D3D11 texture pair probe has not run";
@@ -75,12 +95,27 @@ namespace
     using NgxParameterGetUIntFunc = NgxResult(__cdecl*)(void* parameters, const char* name, unsigned int* outValue);
 
     void TryConsumeRenderEventTexturePayload(int eventId);
+    void TryConsumeRenderEventDlssFeatureCreatePayload(int eventId);
+#if defined(VRISINGDLSS_ENABLE_NGX_SDK_WRAPPER)
+    int ProbeDlssFeatureCreateWithSdkWrapper(
+        ID3D11Device* device,
+        const wchar_t* runtimePath,
+        const wchar_t* applicationDataPath,
+        unsigned long long applicationId,
+        unsigned int renderWidth,
+        unsigned int renderHeight,
+        unsigned int targetWidth,
+        unsigned int targetHeight,
+        int perfQualityValue,
+        int featureFlags);
+#endif
 
     void VRISINGDLSS_RENDER_EVENT_CALL OnRenderEvent(int eventId)
     {
         g_lastRenderEventId.store(eventId);
         g_renderEventCount.fetch_add(1);
         TryConsumeRenderEventTexturePayload(eventId);
+        TryConsumeRenderEventDlssFeatureCreatePayload(eventId);
     }
 
     void SetD3D11ProbeStatus(const char* message)
@@ -304,6 +339,21 @@ namespace
         payload->sequence = 0;
     }
 
+    void ReleaseRenderEventDlssFeatureCreatePayload(RenderEventDlssFeatureCreatePayload* payload)
+    {
+        if (payload == nullptr)
+        {
+            return;
+        }
+
+        ReleaseRenderEventTexturePayload(&payload->textures);
+        payload->runtimePath.clear();
+        payload->applicationDataPath.clear();
+        payload->applicationId = 0;
+        payload->perfQualityValue = 0;
+        payload->featureFlags = 0;
+    }
+
     void SetRenderEventTexturePayloadFailureStatus(const char* label, const char* detail, int eventId, int sequence)
     {
         std::lock_guard<std::mutex> lock(g_renderEventTexturePayloadMutex);
@@ -318,6 +368,24 @@ namespace
             g_renderEventTexturePayloadSetFailures.load(),
             g_renderEventTexturePayloadConsumedCount.load(),
             g_renderEventTexturePayloadConsumedFailures.load(),
+            eventId,
+            sequence);
+    }
+
+    void SetRenderEventDlssFeatureCreatePayloadFailureStatus(const char* label, const char* detail, int eventId, int sequence)
+    {
+        std::lock_guard<std::mutex> lock(g_renderEventDlssFeatureCreatePayloadMutex);
+        std::snprintf(
+            g_renderEventDlssFeatureCreatePayloadStatus,
+            sizeof(g_renderEventDlssFeatureCreatePayloadStatus),
+            "render event DLSS feature-create payload %s failed: %s; setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d",
+            label,
+            detail,
+            g_renderEventDlssFeatureCreatePayloadSetAttempts.load(),
+            g_renderEventDlssFeatureCreatePayloadSetSuccesses.load(),
+            g_renderEventDlssFeatureCreatePayloadSetFailures.load(),
+            g_renderEventDlssFeatureCreatePayloadConsumedCount.load(),
+            g_renderEventDlssFeatureCreatePayloadConsumedFailures.load(),
             eventId,
             sequence);
     }
@@ -437,6 +505,162 @@ namespace
         ReleaseEvaluateTextureInfo(&source);
         ReleaseEvaluateTextureInfo(&destination);
         ReleaseRenderEventTexturePayload(&payload);
+    }
+
+    void TryConsumeRenderEventDlssFeatureCreatePayload(int eventId)
+    {
+        RenderEventDlssFeatureCreatePayload payload{};
+        {
+            std::lock_guard<std::mutex> lock(g_renderEventDlssFeatureCreatePayloadMutex);
+            if (g_renderEventDlssFeatureCreatePayload.textures.source == nullptr
+                || g_renderEventDlssFeatureCreatePayload.textures.destination == nullptr
+                || g_renderEventDlssFeatureCreatePayload.textures.eventId != eventId)
+            {
+                return;
+            }
+
+            payload = g_renderEventDlssFeatureCreatePayload;
+            g_renderEventDlssFeatureCreatePayload = {};
+        }
+
+        EvaluateTextureInfo source{};
+        EvaluateTextureInfo destination{};
+        char error[384] = {};
+        bool success = TryDescribeEvaluateTexture(
+            "source",
+            payload.textures.sourcePointer,
+            &source,
+            error,
+            sizeof(error));
+        if (success)
+        {
+            success = TryDescribeEvaluateTexture(
+                "destination",
+                payload.textures.destinationPointer,
+                &destination,
+                error,
+                sizeof(error));
+        }
+
+        if (!success)
+        {
+            g_renderEventDlssFeatureCreatePayloadConsumedFailures.fetch_add(1);
+            SetRenderEventDlssFeatureCreatePayloadFailureStatus("consume", error, eventId, payload.textures.sequence);
+            ReleaseEvaluateTextureInfo(&source);
+            ReleaseEvaluateTextureInfo(&destination);
+            ReleaseRenderEventDlssFeatureCreatePayload(&payload);
+            return;
+        }
+
+        if (source.device != destination.device)
+        {
+            g_renderEventDlssFeatureCreatePayloadConsumedFailures.fetch_add(1);
+            SetRenderEventDlssFeatureCreatePayloadFailureStatus(
+                "consume",
+                "source and destination were not on the same D3D11 device",
+                eventId,
+                payload.textures.sequence);
+            ReleaseEvaluateTextureInfo(&source);
+            ReleaseEvaluateTextureInfo(&destination);
+            ReleaseRenderEventDlssFeatureCreatePayload(&payload);
+            return;
+        }
+
+        if (!(destination.width > source.width && destination.height > source.height))
+        {
+            char message[256];
+            std::snprintf(
+                message,
+                sizeof(message),
+                "destination was not larger than source; source=%ux%u destination=%ux%u",
+                source.width,
+                source.height,
+                destination.width,
+                destination.height);
+            g_renderEventDlssFeatureCreatePayloadConsumedFailures.fetch_add(1);
+            SetRenderEventDlssFeatureCreatePayloadFailureStatus("consume", message, eventId, payload.textures.sequence);
+            ReleaseEvaluateTextureInfo(&source);
+            ReleaseEvaluateTextureInfo(&destination);
+            ReleaseRenderEventDlssFeatureCreatePayload(&payload);
+            return;
+        }
+
+        char featureStatus[1024] = {};
+        int createSucceeded = 0;
+#if !defined(VRISINGDLSS_ENABLE_NGX_SDK_WRAPPER)
+        std::snprintf(
+            featureStatus,
+            sizeof(featureStatus),
+            "DLSS feature create probe blocked: native bridge was built without NVIDIA SDK wrapper integration");
+#else
+        createSucceeded = ProbeDlssFeatureCreateWithSdkWrapper(
+            source.device,
+            payload.runtimePath.c_str(),
+            payload.applicationDataPath.empty() ? L"." : payload.applicationDataPath.c_str(),
+            payload.applicationId,
+            source.width,
+            source.height,
+            destination.width,
+            destination.height,
+            payload.perfQualityValue,
+            payload.featureFlags);
+        {
+            std::lock_guard<std::mutex> lock(g_probeStatusMutex);
+            std::snprintf(featureStatus, sizeof(featureStatus), "%s", g_dlssFeatureCreateStatus);
+        }
+#endif
+
+        if (createSucceeded != 1)
+        {
+            g_renderEventDlssFeatureCreatePayloadConsumedFailures.fetch_add(1);
+            SetRenderEventDlssFeatureCreatePayloadFailureStatus("create", featureStatus, eventId, payload.textures.sequence);
+            ReleaseEvaluateTextureInfo(&source);
+            ReleaseEvaluateTextureInfo(&destination);
+            ReleaseRenderEventDlssFeatureCreatePayload(&payload);
+            return;
+        }
+
+        const double widthScale = static_cast<double>(destination.width) / static_cast<double>(source.width);
+        const double heightScale = static_cast<double>(destination.height) / static_cast<double>(source.height);
+        const int consumed = g_renderEventDlssFeatureCreatePayloadConsumedCount.fetch_add(1) + 1;
+        g_renderEventDlssFeatureCreatePayloadLastSequence.store(payload.textures.sequence);
+        g_renderEventDlssFeatureCreatePayloadLastEventId.store(eventId);
+        {
+            std::lock_guard<std::mutex> lock(g_renderEventDlssFeatureCreatePayloadMutex);
+            std::snprintf(
+                g_renderEventDlssFeatureCreatePayloadStatus,
+                sizeof(g_renderEventDlssFeatureCreatePayloadStatus),
+                "render event DLSS feature-create payload consumed: setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d; sourcePtr=%p; destinationPtr=%p; sameDevice=yes; source=%ux%u fmt=%u mips=%u array=%u; destination=%ux%u fmt=%u mips=%u array=%u; scale=(%.3fx,%.3fx); appId=%llu; perfQuality=%d; flags=0x%08X; featureStatus=\"%s\"",
+                g_renderEventDlssFeatureCreatePayloadSetAttempts.load(),
+                g_renderEventDlssFeatureCreatePayloadSetSuccesses.load(),
+                g_renderEventDlssFeatureCreatePayloadSetFailures.load(),
+                consumed,
+                g_renderEventDlssFeatureCreatePayloadConsumedFailures.load(),
+                eventId,
+                payload.textures.sequence,
+                payload.textures.sourcePointer,
+                payload.textures.destinationPointer,
+                source.width,
+                source.height,
+                static_cast<unsigned int>(source.format),
+                source.mipLevels,
+                source.arraySize,
+                destination.width,
+                destination.height,
+                static_cast<unsigned int>(destination.format),
+                destination.mipLevels,
+                destination.arraySize,
+                widthScale,
+                heightScale,
+                payload.applicationId,
+                payload.perfQualityValue,
+                static_cast<unsigned int>(payload.featureFlags),
+                featureStatus);
+        }
+
+        ReleaseEvaluateTextureInfo(&source);
+        ReleaseEvaluateTextureInfo(&destination);
+        ReleaseRenderEventDlssFeatureCreatePayload(&payload);
     }
 
     bool TryQueryD3D11Resource(
@@ -2045,7 +2269,7 @@ extern "C"
 {
     int __cdecl VrisingDlss_GetBridgeApiVersion()
     {
-        return 14;
+        return 15;
     }
 
     const char* __cdecl VrisingDlss_GetBridgeVersion()
@@ -2149,6 +2373,94 @@ extern "C"
     {
         std::lock_guard<std::mutex> lock(g_renderEventTexturePayloadMutex);
         return g_renderEventTexturePayloadStatus;
+    }
+
+    int __cdecl VrisingDlss_SetRenderEventDlssFeatureCreatePayload(
+        void* sourceTexturePtr,
+        void* destinationTexturePtr,
+        int eventId,
+        int sequence,
+        const wchar_t* runtimePath,
+        const wchar_t* applicationDataPath,
+        unsigned long long applicationId,
+        int perfQualityValue,
+        int featureFlags)
+    {
+        g_renderEventDlssFeatureCreatePayloadSetAttempts.fetch_add(1);
+        if (sourceTexturePtr == nullptr || destinationTexturePtr == nullptr)
+        {
+            g_renderEventDlssFeatureCreatePayloadSetFailures.fetch_add(1);
+            SetRenderEventDlssFeatureCreatePayloadFailureStatus("set", "source or destination pointer was null", eventId, sequence);
+            return 0;
+        }
+
+        if (sourceTexturePtr == destinationTexturePtr)
+        {
+            g_renderEventDlssFeatureCreatePayloadSetFailures.fetch_add(1);
+            SetRenderEventDlssFeatureCreatePayloadFailureStatus("set", "source and destination pointers were identical", eventId, sequence);
+            return 0;
+        }
+
+        if (runtimePath == nullptr || runtimePath[0] == L'\0')
+        {
+            g_renderEventDlssFeatureCreatePayloadSetFailures.fetch_add(1);
+            SetRenderEventDlssFeatureCreatePayloadFailureStatus("set", "runtime path was empty", eventId, sequence);
+            return 0;
+        }
+
+        IUnknown* source = static_cast<IUnknown*>(sourceTexturePtr);
+        IUnknown* destination = static_cast<IUnknown*>(destinationTexturePtr);
+        source->AddRef();
+        destination->AddRef();
+
+        {
+            std::lock_guard<std::mutex> lock(g_renderEventDlssFeatureCreatePayloadMutex);
+            ReleaseRenderEventDlssFeatureCreatePayload(&g_renderEventDlssFeatureCreatePayload);
+            g_renderEventDlssFeatureCreatePayload.textures.source = source;
+            g_renderEventDlssFeatureCreatePayload.textures.destination = destination;
+            g_renderEventDlssFeatureCreatePayload.textures.sourcePointer = sourceTexturePtr;
+            g_renderEventDlssFeatureCreatePayload.textures.destinationPointer = destinationTexturePtr;
+            g_renderEventDlssFeatureCreatePayload.textures.eventId = eventId;
+            g_renderEventDlssFeatureCreatePayload.textures.sequence = sequence;
+            g_renderEventDlssFeatureCreatePayload.runtimePath = runtimePath;
+            g_renderEventDlssFeatureCreatePayload.applicationDataPath =
+                applicationDataPath != nullptr && applicationDataPath[0] != L'\0'
+                    ? applicationDataPath
+                    : L".";
+            g_renderEventDlssFeatureCreatePayload.applicationId = applicationId;
+            g_renderEventDlssFeatureCreatePayload.perfQualityValue = perfQualityValue;
+            g_renderEventDlssFeatureCreatePayload.featureFlags = featureFlags;
+            std::snprintf(
+                g_renderEventDlssFeatureCreatePayloadStatus,
+                sizeof(g_renderEventDlssFeatureCreatePayloadStatus),
+                "render event DLSS feature-create payload pending: setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d; sourcePtr=%p; destinationPtr=%p; appId=%llu; perfQuality=%d; flags=0x%08X",
+                g_renderEventDlssFeatureCreatePayloadSetAttempts.load(),
+                g_renderEventDlssFeatureCreatePayloadSetSuccesses.load() + 1,
+                g_renderEventDlssFeatureCreatePayloadSetFailures.load(),
+                g_renderEventDlssFeatureCreatePayloadConsumedCount.load(),
+                g_renderEventDlssFeatureCreatePayloadConsumedFailures.load(),
+                eventId,
+                sequence,
+                sourceTexturePtr,
+                destinationTexturePtr,
+                applicationId,
+                perfQualityValue,
+                static_cast<unsigned int>(featureFlags));
+        }
+
+        g_renderEventDlssFeatureCreatePayloadSetSuccesses.fetch_add(1);
+        return 1;
+    }
+
+    int __cdecl VrisingDlss_GetRenderEventDlssFeatureCreateConsumedCount()
+    {
+        return g_renderEventDlssFeatureCreatePayloadConsumedCount.load();
+    }
+
+    const char* __cdecl VrisingDlss_GetRenderEventDlssFeatureCreateStatus()
+    {
+        std::lock_guard<std::mutex> lock(g_renderEventDlssFeatureCreatePayloadMutex);
+        return g_renderEventDlssFeatureCreatePayloadStatus;
     }
 
     int __cdecl VrisingDlss_ProbeD3D11Texture(void* nativeTexturePtr)

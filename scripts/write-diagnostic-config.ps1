@@ -38,6 +38,7 @@ param(
         "native-renderfunc-context-render-scale",
         "native-renderfunc-commandbuffer-event-render-scale",
         "native-renderfunc-commandbuffer-payload-render-scale",
+        "native-renderfunc-commandbuffer-dlss-create-render-scale",
         "custom-postprocess-registration",
         "custom-postprocess-render-entry",
         "hdrp-postprocess-boundary",
@@ -112,6 +113,7 @@ function New-ConfigMap {
             EnableNativeRenderFuncContextProbe = "false"
             EnableNativeRenderFuncCommandBufferEventProbe = "false"
             EnableNativeRenderFuncCommandBufferPayloadProbe = "false"
+            EnableNativeRenderFuncCommandBufferDlssFeatureCreateProbe = "false"
             EnableNativeRenderFuncResourceIdentityProbe = "false"
             EnableNativeRenderFuncResourceTupleProbe = "false"
             EnableNativeRenderFuncResourceResolveProbe = "false"
@@ -461,6 +463,21 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableNativeRenderFuncArgumentProbe = "true"
             $Config.Diagnostics.EnableNativeRenderFuncContextProbe = "true"
             $Config.Diagnostics.EnableNativeRenderFuncCommandBufferPayloadProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncResourceIdentityProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncResourceTupleProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncResourceNativePointerProbe = "true"
+            $Config.Diagnostics.EnableRenderScaleControlProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
+            $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+            $Config.Diagnostics.EnableHookProbe = "false"
+        }
+        "native-renderfunc-commandbuffer-dlss-create-render-scale" {
+            $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
+            $Config.Diagnostics.EnableDlssRuntimeProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncEntryProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncArgumentProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncContextProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncCommandBufferDlssFeatureCreateProbe = "true"
             $Config.Diagnostics.EnableNativeRenderFuncResourceIdentityProbe = "true"
             $Config.Diagnostics.EnableNativeRenderFuncResourceTupleProbe = "true"
             $Config.Diagnostics.EnableNativeRenderFuncResourceNativePointerProbe = "true"

@@ -770,3 +770,31 @@ Result:
 - Cleanup closed the game, restored ClientSettings/config/native state,
   archived the changed post-run save state, and restored the `11111` save with
   `ChangeCount=0`.
+
+## Native RenderFunc CommandBuffer DLSS Feature Create + Render Scale Gameplay Notes
+
+Run label:
+`native-renderfunc-commandbuffer-dlss-create-render-scale-1080p-gameplay-20260607-r1`.
+
+Result:
+
+- Computer Use selected the real `VRising` Unity window, not the BepInEx
+  console.
+- The main-menu screenshot was `1283x751`; the Chinese Continue entry was
+  clicked once at `(203,353)`.
+- The click went to the loading screen, then into gameplay after about `25`
+  seconds; no save-list interaction was needed.
+- No keyboard, movement, or gameplay keys were sent.
+- Runtime proof passed: the focused EASU source/output native texture payload
+  was consumed from one `ctx.cmd` plugin event with `eventId=260609`, then the
+  SDK-wrapper native path created and immediately released/destroyed/shut down
+  one NGX DLSS feature.
+- Evidence included `sameDevice=yes`, `source=960x540`, `destination=1920x1080`,
+  `scale=(2.000x,2.000x)`, `create=0x00000001`, `feature=yes`,
+  `release=0x00000001`, `destroy=0x00000001`, and
+  `shutdown=0x00000001`.
+- The proof did not call DLSS evaluate, did not run user rendering, and did not
+  write visible output.
+- Cleanup closed the game, restored ClientSettings/config/native state,
+  archived the changed post-run save state, and restored the `11111` save with
+  `ChangeCount=0`.

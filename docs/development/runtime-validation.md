@@ -1212,4 +1212,37 @@ Current helper smoke status:
   find depth/motion-vector payloads at an equivalent official boundary or add a
   local SDK-wrapper-only DLSS frame-sequence lifecycle preflight at this exact
   callback boundary before any visible write-back.
+- The menu and protected gameplay proof
+  `native-renderfunc-commandbuffer-dlss-create-render-scale-1080p-gameplay-20260607-r1`
+  validated that SDK-wrapper-only NGX feature lifecycle guard. Native bridge API
+  version is now `15`. With V Rising `FsrQualityMode=Off`, true `1920x1080`
+  Windowed, and mod-owned render scale, the focused EASU source/output native
+  texture pointers were set as a native pending payload and consumed from one
+  command-buffer-issued plugin event with `eventId=260609`; the native callback
+  then created and immediately released/destroyed/shut down one NGX DLSS
+  feature. Menu smoke passed first with `Native RenderFunc CommandBuffer DLSS
+  Feature Create=Pass`, `create=0x00000001`, `feature=yes`,
+  `release=0x00000001`, `destroy=0x00000001`, `shutdown=0x00000001`, no
+  `ExecuteDLSS`, no user rendering, no visible write-back, and
+  `CrashEventCount=0`. Protected gameplay proof then passed after Computer Use
+  clicked Continue once and sent no movement keys. Analyzer reported `Stage 2C
+  Render-Scale Control Probe=Pass`, `Native RenderFunc Context=Pass`, `Native
+  RenderFunc CommandBuffer DLSS Feature Create=Pass`, `Native RenderFunc
+  Resource Tuple=Pass`, and `Native RenderFunc Resource Native Pointer=Pass`.
+  Key evidence preserved `actualWidth=960`, `actualHeight=540`,
+  `GetCurrentScale=0.5`, `GetResolvedScale=(0.50, 0.50)`,
+  `sameDevice=yes`, `source=960x540 fmt=26`, `destination=1920x1080 fmt=26`,
+  `scale=(2.000x,2.000x)`, and feature status `init=0x00000001`,
+  `capability=0x00000001`, `available=1`, `create=0x00000001`,
+  `feature=yes`, `release=0x00000001`, `destroy=0x00000001`,
+  `shutdown=0x00000001`. Counts: feature-create advanced `1`,
+  feature-create set advanced `1`, consumed-status lines `111`, create
+  failures `0`, SDK-wrapper-blocked lines `0`, broad `RenderGraph.GetTexture`
+  `0`, `ExecuteDLSS` `0`, `DLSS user rendering` `0`, visible write-back `0`,
+  and crash/exception/access-violation patterns `0`. Cleanup restored
+  config/native/ClientSettings, left no game process, and restored the
+  protected save with `ChangeCount=0`. This proves NGX feature create/release
+  can ride the source-guided EASU command-buffer callback boundary, but still
+  does not prove depth/motion-vector payload, DLSS evaluate, resize/reset
+  behavior, visual correctness, legal runtime distribution, or performance.
 - Current route decision: DLSS itself does not depend on FSR. The final MVP validation must keep V Rising `FsrQualityMode=Off` for baseline and candidate, while the mod controls render scale/upscale through HDRP dynamic-resolution/DLSS-path integration. The next gate is no longer tuple existence; it is visual correctness, performance, resize/reset, fallback behavior, and release-boundary validation.

@@ -105,6 +105,7 @@ public sealed class Plugin : BasePlugin
             || _config.EnableNativeRenderFuncContextProbe.Value
             || _config.EnableNativeRenderFuncCommandBufferEventProbe.Value
             || _config.EnableNativeRenderFuncCommandBufferPayloadProbe.Value
+            || _config.EnableNativeRenderFuncCommandBufferDlssFeatureCreateProbe.Value
             || _config.EnableNativeRenderFuncResourceIdentityProbe.Value
             || _config.EnableNativeRenderFuncResourceTupleProbe.Value
             || _config.EnableNativeRenderFuncResourceResolveProbe.Value
@@ -268,6 +269,7 @@ public sealed class Plugin : BasePlugin
             _config?.EnableNativeRenderFuncContextProbe.Value ?? false,
             _config?.EnableNativeRenderFuncCommandBufferEventProbe.Value ?? false,
             _config?.EnableNativeRenderFuncCommandBufferPayloadProbe.Value ?? false,
+            _config?.EnableNativeRenderFuncCommandBufferDlssFeatureCreateProbe.Value ?? false,
             _config?.EnableNativeRenderFuncResourceIdentityProbe.Value ?? false,
             _config?.EnableNativeRenderFuncResourceTupleProbe.Value ?? false,
             _config?.EnableNativeRenderFuncResourceResolveProbe.Value ?? false,
@@ -478,9 +480,9 @@ public sealed class Plugin : BasePlugin
         }
 
         var runtimePath = ResolveConfiguredRuntimePath(_config.DlssRuntimePath.Value);
-        if ((_config.EnableDlss.Value || _config.EnableDlssEvaluateProbe.Value || _config.EnableDlssPersistentEvaluateProbe.Value || _config.EnableDlssSuperResolutionEvaluateProbe.Value || _config.EnableDlssSuperResolutionPersistentEvaluateProbe.Value || _config.EnableDlssSuperResolutionFrameSequenceEvaluateProbe.Value || _config.EnableDlssVisibleWritebackProbe.Value) && string.IsNullOrWhiteSpace(runtimePath))
+        if ((_config.EnableDlss.Value || _config.EnableDlssEvaluateProbe.Value || _config.EnableDlssPersistentEvaluateProbe.Value || _config.EnableDlssSuperResolutionEvaluateProbe.Value || _config.EnableDlssSuperResolutionPersistentEvaluateProbe.Value || _config.EnableDlssSuperResolutionFrameSequenceEvaluateProbe.Value || _config.EnableDlssVisibleWritebackProbe.Value || _config.EnableNativeRenderFuncCommandBufferDlssFeatureCreateProbe.Value) && string.IsNullOrWhiteSpace(runtimePath))
         {
-            _log?.LogWarning("DLSS rendering/evaluate/persistent/Super Resolution evaluate/persistent/frame-sequence/visible write-back path is enabled, but DLSS.DlssRuntimePath is empty. The native path will report skipped until a runtime path is configured.");
+            _log?.LogWarning("DLSS rendering/evaluate/persistent/Super Resolution evaluate/persistent/frame-sequence/visible write-back/native command-buffer feature-create path is enabled, but DLSS.DlssRuntimePath is empty. The native path will report skipped until a runtime path is configured.");
         }
 
         if (!TryParseApplicationId(_config.DlssApplicationId.Value, out var applicationId))
