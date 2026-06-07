@@ -719,10 +719,25 @@ Current Stage 8A status:
   `TextureResource` metadata proof only; both handles still had
   `graphicsResource=null`. See
   `docs/development/native-renderfunc-resource-resolve-runtime-result-2026-06-07.md`.
-  Next proof is protected `11111` gameplay for the same
-  `native-renderfunc-resource-resolve` stage at `1920x1080` Windowed, still with
-  no movement keys, save restore, no `GetTexture`, no native pointer reads, no
-  command-buffer access, and no DLSS evaluate.
+  Protected `11111` gameplay proof
+  `native-renderfunc-resource-resolve-gameplay-1080p-20260607-r1` then passed at
+  true `1920x1080` Windowed. Computer Use clicked the Chinese Continue /
+  `11111` area once at `(205, 354)` and sent no movement/gameplay keys. Gameplay
+  screenshot showed quest text, character, minimap, health bar, and action bar.
+  Analyzer `Native RenderFunc Resource Resolve=Pass`; first resolve advanced
+  line had `passDataMatches=True`, `tupleReady=True`, `resourceReady=True`,
+  `graphicsReady=False`, source/destination resource handles `78/79`, and both
+  handles returned `TextureResource` with `graphicsResource=null`.
+  `resourceReady=True` count `80`, `textureResourceReady=True` count `80`,
+  `graphicsReady=True` count `0`, `RenderGraph GetTexture call #=0`, native
+  texture/D3D11/ExecuteDLSS/NGX patterns `0`, `CrashEventCount=0`; cleanup
+  restored loader config, native DLL, ClientSettings, no game process remained,
+  and the protected save restored to `ChangeCount=0`. See
+  `docs/development/native-renderfunc-resource-resolve-gameplay-result-2026-06-07.md`.
+  This completes metadata-resolve menu+gameplay proof only. Next engineering
+  step is deciding/designing a separately guarded actual native texture-pointer
+  preflight from this boundary, or proving no safe equivalent boundary exists;
+  still no command-buffer access or DLSS evaluate in the same step.
 - See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.
 
 ## Stage 8B: First Guarded DLSS Evaluate Diagnostic

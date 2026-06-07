@@ -194,28 +194,23 @@ evidence, not actual native texture-pointer availability.
 
 ## Next Runtime Test
 
-Protected `11111` gameplay proof next, at true `1920x1080` Windowed:
+Protected `11111` gameplay proof has now passed:
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start-vrising-automation-session.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-resource-resolve -SetClientResolution -SetClientWindowMode -ClientWindowMode 3
-```
+`docs/development/native-renderfunc-resource-resolve-gameplay-result-2026-06-07.md`
 
-Pass signal: analyzer reports `Native RenderFunc Resource Resolve=Pass`, log
-contains `Native render-func resource resolve advanced:`, tuple output includes
-`passDataMatches=True`, `tupleReady=True`, and both `source` / `destination`
-report `textureResourceReady=True`.
+Pass signal matched the menu proof: analyzer reported
+`Native RenderFunc Resource Resolve=Pass`; both `source` / `destination`
+reported `textureResourceReady=True`; `graphicsReady=True` remained `0`; no
+broad `GetTexture`, native texture/D3D11, `ExecuteDLSS`, or NGX pattern
+appeared; cleanup restored config/settings/native state; save restore ended with
+`ChangeCount=0`.
 
-Important interpretation: `graphicsResourceReady=False` would be a valid
-diagnostic finding, not an implementation failure by itself. This stage proves
-only RenderGraph `TextureResource` metadata resolution, not actual native
+Important interpretation remains unchanged: `graphicsResourceReady=False` is a
+valid diagnostic finding, not an implementation failure by itself. This stage
+proves only RenderGraph `TextureResource` metadata resolution, not actual native
 texture-pointer availability.
 
-Fail signal: startup crash, detour failure, pass-list logging failure,
-`Native render-func resource resolve data=not found`, missing tuple fields,
-missing `TextureResource` for either focused handle, any `RenderGraph GetTexture
-call #`, any native texture pointer/D3D11 probe line, or any DLSS/NGX
-evaluate/probe pattern.
-
-Cleanup after any runtime proof: close V Rising, restore loader-safe config,
-confirm release-safe native DLL state, confirm no V Rising/UnityCrashHandler
-process remains, and preserve logs/analysis before moving to protected gameplay.
+Next engineering step: decide/design a separately guarded actual native
+texture-pointer preflight from this boundary, or prove from local source/metadata
+that no safe equivalent boundary exists. Do not combine command-buffer access or
+DLSS evaluate in that step.

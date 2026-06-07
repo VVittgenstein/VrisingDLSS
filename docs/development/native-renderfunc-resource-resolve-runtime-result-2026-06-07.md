@@ -134,13 +134,11 @@ The result supports the current boundary model:
 
 ## Next Step
 
-Run the same default-off stage as a protected `11111` gameplay proof at
-`1920x1080` Windowed, with the established save-restore/no-movement protocol:
+Protected `11111` gameplay proof has now passed:
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start-vrising-automation-session.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-resource-resolve -SetClientResolution -SetClientWindowMode -ClientWindowMode 3
-```
+`docs/development/native-renderfunc-resource-resolve-gameplay-result-2026-06-07.md`
 
-Pass criteria are the same as this menu proof plus protected gameplay cleanup:
-stable gameplay evidence, no movement keys, save restore `ChangeCount=0`, no
-crash, and no unsafe resource/evaluate patterns.
+Next engineering step is to design a separately guarded actual native
+texture-pointer preflight from this boundary, or prove from local source/metadata
+that no safe equivalent boundary exists. Keep command-buffer access and DLSS
+evaluate out of that step.

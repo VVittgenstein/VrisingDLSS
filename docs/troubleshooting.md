@@ -569,6 +569,17 @@ diagnostic finding, not actual native texture-pointer proof. Next proof is the
 protected `11111` gameplay run of the same stage with save restore and no
 movement keys.
 
+Protected `11111` gameplay proof
+`native-renderfunc-resource-resolve-gameplay-1080p-20260607-r1` also passed:
+Computer Use clicked Continue / `11111` once at `(205, 354)`, sent no movement
+keys, analyzer reported `Native RenderFunc Resource Resolve=Pass`,
+`resourceReady=True` and `textureResourceReady=True` each appeared `80` times,
+`graphicsReady=True` remained `0`, no broad `GetTexture`, native texture/D3D11,
+`ExecuteDLSS`, or NGX pattern appeared, `CrashEventCount=0`, and save restore
+ended with `ChangeCount=0`. This completes metadata-resolve proof only; next
+work must be a separately guarded actual native texture-pointer preflight or an
+explicit proof that no safe equivalent boundary exists.
+
 ## RenderGraph Execute-Delegate Probe
 
 `EnableRenderGraphExecuteDelegateProbe` is disabled by default and is read-only.
