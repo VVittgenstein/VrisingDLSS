@@ -38,6 +38,9 @@ internal static class FrameResourceProbe
     private const int NativeRenderFuncCommandBufferFrameDescriptorEventId = 260610;
     private const int NativeRenderFuncCommandBufferFrameDescriptorD3D11EventId = 260611;
     private const int NativeRenderFuncCommandBufferDlssScratchEvaluateEventId = 260612;
+    private const int NativeRenderFuncCommandBufferDlssPersistentScratchEvaluateEventId = 260613;
+    private const int MaxNativeRenderFuncCommandBufferPersistentScratchEvaluateAttempts = 24;
+    private const int TargetNativeRenderFuncCommandBufferPersistentScratchEvaluateSuccesses = 3;
     private const int MaxNativeRenderFuncCommandBufferDlssFeatureCreateStatusLogs = 80;
     private const int NativeRenderFuncCommandBufferDlssFeatureCreateEventId = 260609;
     private const int MaxNativeRenderFuncResourceIdentityStatusLogs = 80;
@@ -210,6 +213,7 @@ internal static class FrameResourceProbe
     private static bool NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled;
     private static bool NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled;
     private static bool NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled;
+    private static bool NativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbeEnabled;
     private static bool NativeRenderFuncCommandBufferDlssFeatureCreateProbeEnabled;
     private static bool NativeRenderFuncResourceIdentityProbeEnabled;
     private static bool NativeRenderFuncResourceTupleProbeEnabled;
@@ -309,17 +313,21 @@ internal static class FrameResourceProbe
     private static string? NativeRenderFuncEntryCandidateMethodSummary;
 
     private static bool NativeRenderFuncCommandBufferFrameDescriptorAnyProbeEnabled =>
-        NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled || NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled || NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled;
+        NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled || NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled || NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled || NativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbeEnabled;
 
     private static int NativeRenderFuncCommandBufferFrameDescriptorActiveEventId =>
-        NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled
+        NativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbeEnabled
+            ? NativeRenderFuncCommandBufferDlssPersistentScratchEvaluateEventId
+            : NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled
             ? NativeRenderFuncCommandBufferDlssScratchEvaluateEventId
             : NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled
             ? NativeRenderFuncCommandBufferFrameDescriptorD3D11EventId
             : NativeRenderFuncCommandBufferFrameDescriptorEventId;
 
     private static string NativeRenderFuncCommandBufferFrameDescriptorLogLabel =>
-        NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled
+        NativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbeEnabled
+            ? "Native render-func command-buffer DLSS persistent scratch evaluate"
+            : NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled
             ? "Native render-func command-buffer DLSS scratch evaluate"
             : NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled
             ? "Native render-func command-buffer frame descriptor D3D11"
@@ -369,6 +377,7 @@ internal static class FrameResourceProbe
         bool enableNativeRenderFuncCommandBufferFrameDescriptorProbe = false,
         bool enableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe = false,
         bool enableNativeRenderFuncCommandBufferDlssScratchEvaluateProbe = false,
+        bool enableNativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbe = false,
         bool enableNativeRenderFuncCommandBufferDlssFeatureCreateProbe = false,
         bool enableNativeRenderFuncResourceIdentityProbe = false,
         bool enableNativeRenderFuncResourceTupleProbe = false,
@@ -380,7 +389,7 @@ internal static class FrameResourceProbe
     {
         var nativeRenderFuncCommandBufferEventRequested = enableNativeRenderFuncCommandBufferEventProbe;
         var nativeRenderFuncCommandBufferPayloadRequested = enableNativeRenderFuncCommandBufferPayloadProbe;
-        var nativeRenderFuncCommandBufferFrameDescriptorRequested = enableNativeRenderFuncCommandBufferFrameDescriptorProbe || enableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe || enableNativeRenderFuncCommandBufferDlssScratchEvaluateProbe;
+        var nativeRenderFuncCommandBufferFrameDescriptorRequested = enableNativeRenderFuncCommandBufferFrameDescriptorProbe || enableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe || enableNativeRenderFuncCommandBufferDlssScratchEvaluateProbe || enableNativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbe;
         var nativeRenderFuncCommandBufferDlssFeatureCreateRequested = enableNativeRenderFuncCommandBufferDlssFeatureCreateProbe;
         var nativeRenderFuncContextRequested = enableNativeRenderFuncContextProbe || nativeRenderFuncCommandBufferEventRequested || nativeRenderFuncCommandBufferPayloadRequested || nativeRenderFuncCommandBufferFrameDescriptorRequested || nativeRenderFuncCommandBufferDlssFeatureCreateRequested;
         var nativeRenderFuncResourceNativePointerRequested = enableNativeRenderFuncResourceNativePointerProbe || enableNativeRenderFuncResourceD3D11Probe || nativeRenderFuncCommandBufferPayloadRequested || nativeRenderFuncCommandBufferFrameDescriptorRequested || nativeRenderFuncCommandBufferDlssFeatureCreateRequested;
@@ -403,7 +412,7 @@ internal static class FrameResourceProbe
             DlssUserRenderingNoEvaluateEnabled = DlssUserRenderingNoEvaluateEnabled || enableDlssUserRenderingNoEvaluate;
             DlssCachedTupleDriverProbeEnabled = DlssCachedTupleDriverProbeEnabled || enableDlssCachedTupleDriverProbe;
             KeepDlssVisibleWritebackProbeRunning = KeepDlssVisibleWritebackProbeRunning || (enableDlssVisibleWritebackProbe && keepDlssVisibleWritebackProbeRunning);
-            if (enableDlssEvaluateProbe || enableDlssPersistentEvaluateProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe || enableDlssVisibleWritebackProbe || enableDlssUserRendering || enableDlssUserRenderingNoEvaluate || enableDlssCachedTupleDriverProbe || nativeRenderFuncCommandBufferDlssFeatureCreateRequested || enableNativeRenderFuncCommandBufferDlssScratchEvaluateProbe)
+            if (enableDlssEvaluateProbe || enableDlssPersistentEvaluateProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe || enableDlssVisibleWritebackProbe || enableDlssUserRendering || enableDlssUserRenderingNoEvaluate || enableDlssCachedTupleDriverProbe || nativeRenderFuncCommandBufferDlssFeatureCreateRequested || enableNativeRenderFuncCommandBufferDlssScratchEvaluateProbe || enableNativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbe)
             {
                 DlssEvaluateSettings = dlssEvaluateSettings;
             }
@@ -427,6 +436,7 @@ internal static class FrameResourceProbe
             NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled = NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled || enableNativeRenderFuncCommandBufferFrameDescriptorProbe;
             NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled = NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled || enableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe;
             NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled = NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled || enableNativeRenderFuncCommandBufferDlssScratchEvaluateProbe;
+            NativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbeEnabled = NativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbeEnabled || enableNativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbe;
             NativeRenderFuncCommandBufferDlssFeatureCreateProbeEnabled = NativeRenderFuncCommandBufferDlssFeatureCreateProbeEnabled || nativeRenderFuncCommandBufferDlssFeatureCreateRequested;
             NativeRenderFuncResourceIdentityProbeEnabled = NativeRenderFuncResourceIdentityProbeEnabled || nativeRenderFuncResourceIdentityRequested;
             NativeRenderFuncResourceTupleProbeEnabled = NativeRenderFuncResourceTupleProbeEnabled || nativeRenderFuncResourceTupleRequested;
@@ -483,6 +493,7 @@ internal static class FrameResourceProbe
         NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled = enableNativeRenderFuncCommandBufferFrameDescriptorProbe;
         NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled = enableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe;
         NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled = enableNativeRenderFuncCommandBufferDlssScratchEvaluateProbe;
+        NativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbeEnabled = enableNativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbe;
         NativeRenderFuncCommandBufferDlssFeatureCreateProbeEnabled = nativeRenderFuncCommandBufferDlssFeatureCreateRequested;
         NativeRenderFuncResourceIdentityProbeEnabled = nativeRenderFuncResourceIdentityRequested;
         NativeRenderFuncResourceTupleProbeEnabled = nativeRenderFuncResourceTupleRequested;
@@ -638,6 +649,10 @@ internal static class FrameResourceProbe
         if (NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled)
         {
             log.LogWarning("Native render-func command-buffer DLSS scratch-evaluate preflight enabled. It carries the focused EASU/HDRP frame descriptor through one ctx.cmd plugin event, evaluates DLSS into a native scratch output texture, and shuts down without writing the visible EASU output.");
+        }
+        if (NativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbeEnabled)
+        {
+            log.LogWarning($"Native render-func command-buffer DLSS persistent scratch-evaluate preflight enabled. It carries the focused EASU/HDRP frame descriptor through ctx.cmd plugin events, evaluates DLSS into native scratch output textures until {TargetNativeRenderFuncCommandBufferPersistentScratchEvaluateSuccesses} successes, then shuts down without writing the visible EASU output.");
         }
         if (NativeRenderFuncCommandBufferDlssFeatureCreateProbeEnabled)
         {
@@ -3121,8 +3136,11 @@ internal static class FrameResourceProbe
                 {
                     var current = NativeRenderFuncResourceNativePointerArmedTarget;
                     var allowCorrelationTargetRefresh = HdrpEasuInputOutputCorrelationProbeState.ShouldRefreshEasuOutput();
+                    var allowPersistentFrameDescriptorTargetRefresh = NativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbeEnabled
+                        && Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorSetSuccessCount) < TargetNativeRenderFuncCommandBufferPersistentScratchEvaluateSuccesses
+                        && Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorIssueSuccessCount) < TargetNativeRenderFuncCommandBufferPersistentScratchEvaluateSuccesses;
                     var allowFrameDescriptorTargetRefresh = NativeRenderFuncCommandBufferFrameDescriptorAnyProbeEnabled
-                        && Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorSetSuccessCount) <= 0;
+                        && (Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorSetSuccessCount) <= 0 || allowPersistentFrameDescriptorTargetRefresh);
                     targetChanged = !current.HasValue
                         || ((allowCorrelationTargetRefresh || allowFrameDescriptorTargetRefresh) && current.Value.CompileCount != target.CompileCount)
                         || !string.Equals(current.Value.SourceResourceHandle, target.SourceResourceHandle, StringComparison.Ordinal)
@@ -3810,10 +3828,14 @@ internal static class FrameResourceProbe
         var lastEventId = bridge.GetLastRenderEventId();
         var eventId = NativeRenderFuncCommandBufferFrameDescriptorActiveEventId;
         var label = NativeRenderFuncCommandBufferFrameDescriptorLogLabel;
+        var persistentScratch = NativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbeEnabled;
         var callbackReached = consumedCount > beforeConsumed
             && consumedCount >= 0
             && beforeConsumed >= 0
             && lastEventId == eventId;
+        var targetReached = persistentScratch
+            ? consumedCount >= TargetNativeRenderFuncCommandBufferPersistentScratchEvaluateSuccesses && lastEventId == eventId
+            : callbackReached;
         var callbackPtr = Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorCallbackPtr);
         var commandBufferPtr = Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorLastCommandBufferPtr);
         var sequence = Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorSequence);
@@ -3841,7 +3863,7 @@ internal static class FrameResourceProbe
             NativeRenderFuncCommandBufferFrameDescriptorLastEventId = lastEventId;
             NativeRenderFuncCommandBufferFrameDescriptorLastStatus = status;
             failure = NativeRenderFuncCommandBufferFrameDescriptorLastFailure;
-            if (callbackReached && !NativeRenderFuncCommandBufferFrameDescriptorAdvancedLogged)
+            if (targetReached && !NativeRenderFuncCommandBufferFrameDescriptorAdvancedLogged)
             {
                 NativeRenderFuncCommandBufferFrameDescriptorAdvancedLogged = true;
                 shouldLogAdvanced = true;
@@ -4252,12 +4274,28 @@ internal static class FrameResourceProbe
 
     private static void TryIssueNativeRenderFuncCommandBufferFrameDescriptorEvent(object commandBuffer, IntPtr commandBufferPtr)
     {
-        if (Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorSetSuccessCount) <= 0)
+        var setSuccesses = Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorSetSuccessCount);
+        if (setSuccesses <= 0)
         {
             return;
         }
 
-        if (Interlocked.CompareExchange(ref NativeRenderFuncCommandBufferFrameDescriptorIssueAttemptCount, 1, 0) != 0)
+        var persistentScratch = NativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbeEnabled;
+        if (persistentScratch)
+        {
+            var issueSuccesses = Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorIssueSuccessCount);
+            var issueFailures = Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorIssueFailureCount);
+            if (issueSuccesses >= setSuccesses
+                || issueSuccesses >= TargetNativeRenderFuncCommandBufferPersistentScratchEvaluateSuccesses
+                || issueFailures > 0
+                || Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorIssueAttemptCount) >= MaxNativeRenderFuncCommandBufferPersistentScratchEvaluateAttempts)
+            {
+                return;
+            }
+
+            Interlocked.Increment(ref NativeRenderFuncCommandBufferFrameDescriptorIssueAttemptCount);
+        }
+        else if (Interlocked.CompareExchange(ref NativeRenderFuncCommandBufferFrameDescriptorIssueAttemptCount, 1, 0) != 0)
         {
             return;
         }
@@ -5510,8 +5548,11 @@ internal static class FrameResourceProbe
         NativeRenderFuncResourceNativePointerTarget target;
         lock (Sync)
         {
+            var shouldKeepRefreshingForPersistentScratch = NativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbeEnabled
+                && Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorSetSuccessCount) < TargetNativeRenderFuncCommandBufferPersistentScratchEvaluateSuccesses
+                && Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorIssueSuccessCount) < TargetNativeRenderFuncCommandBufferPersistentScratchEvaluateSuccesses;
             var shouldKeepRefreshingForFrameDescriptor = NativeRenderFuncCommandBufferFrameDescriptorAnyProbeEnabled
-                && Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorSetSuccessCount) <= 0;
+                && (Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorSetSuccessCount) <= 0 || shouldKeepRefreshingForPersistentScratch);
             if ((NativeRenderFuncResourceNativePointerAdvancedLogged
                     && !HdrpEasuInputOutputCorrelationProbeState.ShouldRefreshEasuOutput()
                     && !shouldKeepRefreshingForFrameDescriptor)
@@ -5779,7 +5820,8 @@ internal static class FrameResourceProbe
         NativeRenderFuncResourceNativePointerObservation destinationObservation,
         NativeRenderFuncResourceNativePointerTarget target)
     {
-        if (Interlocked.CompareExchange(ref NativeRenderFuncCommandBufferFrameDescriptorSetAttemptCount, 1, 0) != 0)
+        var persistentScratch = NativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbeEnabled;
+        if (!persistentScratch && Interlocked.CompareExchange(ref NativeRenderFuncCommandBufferFrameDescriptorSetAttemptCount, 1, 0) != 0)
         {
             return;
         }
@@ -5794,7 +5836,10 @@ internal static class FrameResourceProbe
                 }
 
                 log.LogInfo($"{NativeRenderFuncCommandBufferFrameDescriptorLogLabel} waiting: source=({FormatNativeRenderFuncResourceNativePointerObservation(sourceObservation)}); destination=({FormatNativeRenderFuncResourceNativePointerObservation(destinationObservation)}); targetCompile={target.CompileCount}; targetManagedPassData=0x{target.ManagedPassDataPointer:X}; tuple={target.TupleSummary}; reason=\"HDRP/EASU descriptor not ready\"");
-                Interlocked.Exchange(ref NativeRenderFuncCommandBufferFrameDescriptorSetAttemptCount, 0);
+                if (!persistentScratch)
+                {
+                    Interlocked.Exchange(ref NativeRenderFuncCommandBufferFrameDescriptorSetAttemptCount, 0);
+                }
                 return;
             }
 
@@ -5806,11 +5851,58 @@ internal static class FrameResourceProbe
                 return;
             }
 
+            if (persistentScratch)
+            {
+                var consumed = bridge.GetRenderEventFrameDescriptorPayloadConsumedCount();
+                var setSuccesses = Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorSetSuccessCount);
+                var issueSuccesses = Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorIssueSuccessCount);
+                var setFailures = Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorSetFailureCount);
+                var issueFailures = Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorIssueFailureCount);
+                if (consumed >= TargetNativeRenderFuncCommandBufferPersistentScratchEvaluateSuccesses
+                    || setSuccesses >= TargetNativeRenderFuncCommandBufferPersistentScratchEvaluateSuccesses
+                    || setFailures > 0
+                    || issueFailures > 0
+                    || setSuccesses > consumed
+                    || setSuccesses > issueSuccesses)
+                {
+                    return;
+                }
+
+                var attempt = Interlocked.Increment(ref NativeRenderFuncCommandBufferFrameDescriptorSetAttemptCount);
+                if (attempt > MaxNativeRenderFuncCommandBufferPersistentScratchEvaluateAttempts)
+                {
+                    return;
+                }
+            }
+
             var sequence = Interlocked.Increment(ref NativeRenderFuncCommandBufferFrameDescriptorSequence);
             var beforeConsumed = bridge.GetRenderEventFrameDescriptorPayloadConsumedCount();
             Interlocked.Exchange(ref NativeRenderFuncCommandBufferFrameDescriptorBeforeConsumedCount, beforeConsumed);
             var eventId = NativeRenderFuncCommandBufferFrameDescriptorActiveEventId;
-            var success = NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled
+            var success = persistentScratch
+                ? bridge.SetRenderEventFrameDescriptorDlssPersistentScratchEvaluatePayload(
+                    descriptor.SourcePointer,
+                    descriptor.DestinationPointer,
+                    descriptor.DepthPointer,
+                    descriptor.MotionPointer,
+                    descriptor.InputWidth,
+                    descriptor.InputHeight,
+                    descriptor.OutputWidth,
+                    descriptor.OutputHeight,
+                    descriptor.HdrpFrame,
+                    descriptor.EasuSourceFrame,
+                    descriptor.EasuDestinationFrame,
+                    eventId,
+                    sequence,
+                    DlssEvaluateSettings.RuntimePath,
+                    DlssEvaluateSettings.ApplicationDataPath,
+                    DlssEvaluateSettings.ApplicationId,
+                    DlssEvaluateSettings.PerfQualityValue,
+                    DlssEvaluateSettings.FeatureFlags,
+                    DlssEvaluateSettings.Sharpness,
+                    DlssEvaluateSettings.Reset,
+                    TargetNativeRenderFuncCommandBufferPersistentScratchEvaluateSuccesses)
+                : NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled
                 ? bridge.SetRenderEventFrameDescriptorDlssScratchEvaluatePayload(
                     descriptor.SourcePointer,
                     descriptor.DestinationPointer,

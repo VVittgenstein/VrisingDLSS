@@ -1385,4 +1385,41 @@ Current helper smoke status:
   (`prepare=1005.944ms`) while actual evaluate was short (`evaluate=0.446ms`),
   so the next guard should prove persistent scratch feature reuse at this same
   boundary before visible write-back or normal-user rendering.
+- Follow-up stage
+  `native-renderfunc-commandbuffer-dlss-persistent-scratch-evaluate-render-scale`
+  is implemented and protected-gameplay validated; see
+  `docs/development/native-renderfunc-commandbuffer-dlss-persistent-scratch-evaluate-render-scale-preflight-implementation-2026-06-07.md`
+  and
+  `docs/development/native-renderfunc-commandbuffer-dlss-persistent-scratch-evaluate-render-scale-gameplay-result-2026-06-07.md`.
+  It adds default-off
+  `Diagnostics.EnableNativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbe=false`
+  and uses SDK-wrapper native only. Native bridge API version is now `19`.
+  The first protected gameplay iteration `r1` was Partial at
+  `sequenceEvaluates=2`, because target refresh stopped while RenderGraph
+  handle indexes kept being reused. The fix keeps the focused EASU target
+  refresh active until persistent set/issue successes reach the target count.
+  Protected gameplay proof
+  `native-renderfunc-commandbuffer-dlss-persistent-scratch-evaluate-render-scale-gameplay-1080p-20260607-r2`
+  passed at true `1920x1080` Windowed with V Rising `FsrQualityMode=Off` and
+  mod-owned render scale. Analyzer reported `Native RenderFunc CommandBuffer
+  DLSS Persistent Scratch Evaluate=Pass`, `HDRP/EASU Input Output
+  Correlation=Pass`, `HDRP PostProcess Render Args Global Textures=Pass`,
+  `Native RenderFunc Context=Pass`, `Native RenderFunc Resource Tuple=Pass`,
+  `Native RenderFunc Resource Native Pointer=Pass`, `Stage 2C Render-Scale
+  Control Probe=Pass`, and `Stage 5D DLSS Runtime=Pass`. Key evidence preserved
+  `eventId=260613`, `setSuccesses=3`, `issueSuccesses=3`, `consumed=3`,
+  `sequenceCreates=1`, `sequenceEvaluates=3`, `evaluateSuccesses=3`,
+  `input=960x540`, `output=1920x1080`, `validation=D3D11-succeeded`,
+  `sameDevice=yes`, `scratchOutput=yes`, `visibleOutput=no`, `persistent=yes`,
+  `targetSuccesses=3`, `evaluateResult=1`, `shutdownResult=1`,
+  `shutdown=completed`, `evaluateLast=0x00000001`, and
+  `release/destroy/shutdown=0x00000001`. Counts: persistent advanced `1`,
+  persistent set advanced `3`, persistent failures `0`, SDK-wrapper blocked
+  lines `0`, `visibleOutput=yes` `0`, `DLSS visible write-back` `0`,
+  `ExecuteDLSS` `0`, `DLSS user rendering evaluate` `0`,
+  `RenderGraph GetTexture call #` `0`, crash/access-violation `0`, and save
+  restore `ChangeCount=0`. Steady-state timing was small
+  (`prepare=0.003ms`, `evaluate=0.228ms`, `total=0.232ms`), so the next guard
+  can move to separately gated visible write-back timing/quality proof or keep
+  decompiling the official HDRP DLSS pass for a cleaner equivalent boundary.
 - Current route decision: DLSS itself does not depend on FSR. The final MVP validation must keep V Rising `FsrQualityMode=Off` for baseline and candidate, while the mod controls render scale/upscale through HDRP dynamic-resolution/DLSS-path integration. The next gate is no longer tuple existence; it is visual correctness, performance, resize/reset, fallback behavior, and release-boundary validation.

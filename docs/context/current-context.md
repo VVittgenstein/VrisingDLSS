@@ -1480,3 +1480,41 @@ As of the read-only RenderGraph pass-map runtime result:
   The repeated status lines were status re-logging, not repeated evaluate. The
   next guard should prove persistent scratch feature reuse at this same
   boundary before any visible write-back or normal-user rendering change.
+- Follow-up stage
+  `native-renderfunc-commandbuffer-dlss-persistent-scratch-evaluate-render-scale`
+  is now implemented and protected-gameplay validated; see
+  `docs/development/native-renderfunc-commandbuffer-dlss-persistent-scratch-evaluate-render-scale-preflight-implementation-2026-06-07.md`
+  and
+  `docs/development/native-renderfunc-commandbuffer-dlss-persistent-scratch-evaluate-render-scale-gameplay-result-2026-06-07.md`.
+  It adds default-off
+  `Diagnostics.EnableNativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbe=false`
+  and native bridge API version `19`. The stage reuses the same source-guided
+  HDRP/EASU descriptor and focused EASU `ctx.cmd` callback, but keeps one
+  SDK-wrapper DLSS frame sequence alive until three native scratch-output
+  evaluates succeed, then releases/destroys/shuts down. First protected gameplay
+  iteration `r1` was Partial at `sequenceEvaluates=2` because the managed EASU
+  target stopped refreshing before the target count and RenderGraph handle
+  indexes were later reused; the code now keeps target refresh active while
+  persistent set/issue successes are below the target count. Protected gameplay
+  proof `r2` passed at true `1920x1080` Windowed with V Rising
+  `FsrQualityMode=Off`, SDK-wrapper native, and the protected `11111` fixture.
+  Computer Use clicked Continue once and sent no movement keys. Key evidence:
+  `eventId=260613`, `setSuccesses=3`, `issueSuccesses=3`, `consumed=3`,
+  `sequenceCreates=1`, `sequenceEvaluates=3`, `evaluateSuccesses=3`,
+  `input=960x540`, `output=1920x1080`, `validation=D3D11-succeeded`,
+  `sameDevice=yes`, source/depth/motion at `960x540`, visible destination at
+  `1920x1080`, `scratchOutput=yes`, `visibleOutput=no`, `persistent=yes`,
+  `targetSuccesses=3`, `evaluateResult=1`, `shutdownResult=1`,
+  `shutdown=completed`, `evaluateLast=0x00000001`, and
+  `release/destroy/shutdown=0x00000001`. Negative counts: persistent scratch
+  failures `0`, `visibleOutput=yes` `0`, `DLSS visible write-back` `0`,
+  `ExecuteDLSS` `0`, `DLSS user rendering evaluate` `0`,
+  `RenderGraph GetTexture call #` `0`, crash/access-violation `0`, and save
+  restore `ChangeCount=0`. The final evaluate timing was steady-state small
+  (`prepare=0.003ms`, `evaluate=0.228ms`, `total=0.232ms`), supporting the
+  hypothesis that earlier bad performance is more likely from hot hooks,
+  discovery, synchronization, or visible-path integration than from DLSS
+  evaluate cost itself. The next guard can move to a separately gated visible
+  write-back timing/quality proof at this boundary or continue source/
+  decompilation-guided search for a cleaner official DLSS-pass-equivalent
+  boundary.

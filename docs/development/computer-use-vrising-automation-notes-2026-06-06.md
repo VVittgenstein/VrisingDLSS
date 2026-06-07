@@ -938,3 +938,31 @@ Result:
 - Cleanup closed the game, restored ClientSettings/config/native state,
   archived the changed post-run save state, and restored the `11111` save with
   `ChangeCount=0`.
+
+## Native RenderFunc CommandBuffer DLSS Persistent Scratch Evaluate + Render Scale Gameplay Notes
+
+Run labels:
+
+- `native-renderfunc-commandbuffer-dlss-persistent-scratch-evaluate-render-scale-gameplay-1080p-20260607-r1`
+- `native-renderfunc-commandbuffer-dlss-persistent-scratch-evaluate-render-scale-gameplay-1080p-20260607-r2`
+
+Result:
+
+- Computer Use selected the real `VRising` Unity window, not the BepInEx
+  console.
+- The main-menu screenshot was `1283x751`; the Chinese Continue entry was
+  clicked once near `(205,354)`.
+- No keyboard, movement, combat, or gameplay keys were sent.
+- `r1` was Partial, not a game or DLSS crash. It reached
+  `sequenceCreates=1`, `sequenceEvaluates=2`, and `evaluateSuccesses=2`, then
+  stopped short of the target because the managed target was allowed to go
+  stale while RenderGraph handle indexes were reused.
+- `r2` passed after the target-refresh fix. Evidence showed `eventId=260613`,
+  `setSuccesses=3`, `issueSuccesses=3`, `consumed=3`, `sequenceCreates=1`,
+  `sequenceEvaluates=3`, `evaluateSuccesses=3`, `scratchOutput=yes`,
+  `visibleOutput=no`, and `shutdown=completed`.
+- The proof did not run normal user rendering, did not call `ExecuteDLSS`, did
+  not write visible output, and did not use broad `RenderGraph.GetTexture`.
+- Cleanup closed the game, restored ClientSettings/config/native state,
+  archived logs, restored the release-safe native DLL, left no V Rising
+  process, and restored the `11111` save with `ChangeCount=0`.

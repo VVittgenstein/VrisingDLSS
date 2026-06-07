@@ -54,6 +54,8 @@ namespace
         int sequence = 0;
         bool validateD3D11 = false;
         bool evaluateDlssScratch = false;
+        bool evaluateDlssPersistentScratch = false;
+        int targetEvaluateSuccesses = 0;
         std::wstring runtimePath;
         std::wstring applicationDataPath;
         unsigned long long applicationId = 0;
@@ -94,7 +96,7 @@ namespace
     std::atomic<int> g_renderEventFrameDescriptorPayloadLastEventId{-1};
     std::mutex g_renderEventFrameDescriptorPayloadMutex;
     RenderEventFrameDescriptorPayload g_renderEventFrameDescriptorPayload;
-    char g_renderEventFrameDescriptorPayloadStatus[6000] = "render event frame descriptor payload probe has not run";
+    char g_renderEventFrameDescriptorPayloadStatus[8000] = "render event frame descriptor payload probe has not run";
     std::atomic<int> g_renderEventDlssFeatureCreatePayloadSetAttempts{0};
     std::atomic<int> g_renderEventDlssFeatureCreatePayloadSetSuccesses{0};
     std::atomic<int> g_renderEventDlssFeatureCreatePayloadSetFailures{0};
@@ -168,6 +170,9 @@ namespace
         int reset);
 
     int ShutdownDlssFrameSequenceWithSdkWrapper();
+    int GetDlssFrameSequenceCreateCountWithSdkWrapper();
+    int GetDlssFrameSequenceEvaluateCountWithSdkWrapper();
+    int GetDlssFrameSequenceEvaluateSuccessCountWithSdkWrapper();
 #endif
 
     void VRISINGDLSS_RENDER_EVENT_CALL OnRenderEvent(int eventId)
@@ -791,6 +796,12 @@ namespace
 
         int scratchEvaluateResult = 0;
         int scratchShutdownResult = 0;
+        int scratchSequenceCreates = 0;
+        int scratchSequenceEvaluates = 0;
+        int scratchSequenceSuccesses = 0;
+        int scratchTargetSuccesses = payload.targetEvaluateSuccesses > 0 ? payload.targetEvaluateSuccesses : 1;
+        bool scratchPersistent = payload.evaluateDlssPersistentScratch;
+        bool scratchTargetReached = false;
         char scratchStatus[2048] = {};
         char scratchShutdownStatus[768] = {};
         if (payload.evaluateDlssScratch)
@@ -881,24 +892,43 @@ namespace
                 payload.sharpness,
                 payload.reset);
             std::snprintf(scratchStatus, sizeof(scratchStatus), "%s", g_dlssFrameSequenceStatus);
-            scratchShutdownResult = ShutdownDlssFrameSequenceWithSdkWrapper();
-            std::snprintf(scratchShutdownStatus, sizeof(scratchShutdownStatus), "%s", g_dlssFrameSequenceStatus);
+            scratchSequenceCreates = GetDlssFrameSequenceCreateCountWithSdkWrapper();
+            scratchSequenceEvaluates = GetDlssFrameSequenceEvaluateCountWithSdkWrapper();
+            scratchSequenceSuccesses = GetDlssFrameSequenceEvaluateSuccessCountWithSdkWrapper();
+            scratchTargetReached = scratchPersistent && scratchEvaluateResult == 1 && scratchSequenceSuccesses >= scratchTargetSuccesses;
+            if (!scratchPersistent || scratchEvaluateResult != 1 || scratchTargetReached)
+            {
+                scratchShutdownResult = ShutdownDlssFrameSequenceWithSdkWrapper();
+                std::snprintf(scratchShutdownStatus, sizeof(scratchShutdownStatus), "%s", g_dlssFrameSequenceStatus);
+            }
+            else
+            {
+                std::snprintf(scratchShutdownStatus, sizeof(scratchShutdownStatus), "DLSS persistent scratch evaluate shutdown pending; sequenceCreates=%d; sequenceEvaluates=%d; evaluateSuccesses=%d; targetSuccesses=%d",
+                    scratchSequenceCreates,
+                    scratchSequenceEvaluates,
+                    scratchSequenceSuccesses,
+                    scratchTargetSuccesses);
+            }
             scratchUnknown->Release();
             scratchOutput->Release();
 
-            if (scratchEvaluateResult != 1 || scratchShutdownResult != 1)
+            if (scratchEvaluateResult != 1 || (!scratchPersistent || scratchTargetReached) && scratchShutdownResult != 1)
             {
                 char message[2600];
                 std::snprintf(
                     message,
                     sizeof(message),
-                    "DLSS scratch evaluate failed: evaluateResult=%d; shutdownResult=%d; evaluateStatus=\"%s\"; shutdownStatus=\"%s\"",
+                    scratchPersistent
+                        ? "DLSS persistent scratch evaluate failed: evaluateResult=%d; shutdownResult=%d; sequenceSuccesses=%d/%d; evaluateStatus=\"%s\"; shutdownStatus=\"%s\""
+                        : "DLSS scratch evaluate failed: evaluateResult=%d; shutdownResult=%d; sequenceSuccesses=%d/%d; evaluateStatus=\"%s\"; shutdownStatus=\"%s\"",
                     scratchEvaluateResult,
                     scratchShutdownResult,
+                    scratchSequenceSuccesses,
+                    scratchTargetSuccesses,
                     scratchStatus,
                     scratchShutdownStatus);
                 g_renderEventFrameDescriptorPayloadConsumedFailures.fetch_add(1);
-                SetRenderEventFrameDescriptorPayloadFailureStatus("scratch-evaluate", message, eventId, payload.sequence);
+                SetRenderEventFrameDescriptorPayloadFailureStatus(scratchPersistent ? "persistent-scratch-evaluate" : "scratch-evaluate", message, eventId, payload.sequence);
                 ReleaseEvaluateTextureInfo(&source);
                 ReleaseEvaluateTextureInfo(&destination);
                 ReleaseEvaluateTextureInfo(&depth);
@@ -918,56 +948,117 @@ namespace
             {
                 const double widthScale = static_cast<double>(destination.width) / static_cast<double>(source.width);
                 const double heightScale = static_cast<double>(destination.height) / static_cast<double>(source.height);
-                std::snprintf(
-                    g_renderEventFrameDescriptorPayloadStatus,
-                    sizeof(g_renderEventFrameDescriptorPayloadStatus),
-                    "render event frame descriptor DLSS scratch evaluate consumed: setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d; sourcePtr=%p; visibleDestinationPtr=%p; depthPtr=%p; motionPtr=%p; input=%dx%d; output=%dx%d; hdrpFrame=%d; easuSourceFrame=%d; easuDestinationFrame=%d; sourceFrameDelta=%d; destinationFrameDelta=%d; validation=D3D11-succeeded; sameDevice=yes; source=%ux%u fmt=%u mips=%u array=%u; visibleDestination=%ux%u fmt=%u mips=%u array=%u; depth=%ux%u fmt=%u mips=%u array=%u; motion=%ux%u fmt=%u mips=%u array=%u; scale=(%.3fx,%.3fx); scratchOutput=yes; visibleOutput=no; evaluateResult=%d; shutdownResult=%d; evaluateStatus=\"%s\"; shutdownStatus=\"%s\"",
-                    g_renderEventFrameDescriptorPayloadSetAttempts.load(),
-                    g_renderEventFrameDescriptorPayloadSetSuccesses.load(),
-                    g_renderEventFrameDescriptorPayloadSetFailures.load(),
-                    consumed,
-                    g_renderEventFrameDescriptorPayloadConsumedFailures.load(),
-                    eventId,
-                    payload.sequence,
-                    payload.sourcePointer,
-                    payload.destinationPointer,
-                    payload.depthPointer,
-                    payload.motionPointer,
-                    payload.inputWidth,
-                    payload.inputHeight,
-                    payload.outputWidth,
-                    payload.outputHeight,
-                    payload.hdrpFrame,
-                    payload.easuSourceFrame,
-                    payload.easuDestinationFrame,
-                    sourceDelta,
-                    destinationDelta,
-                    source.width,
-                    source.height,
-                    static_cast<unsigned int>(source.format),
-                    source.mipLevels,
-                    source.arraySize,
-                    destination.width,
-                    destination.height,
-                    static_cast<unsigned int>(destination.format),
-                    destination.mipLevels,
-                    destination.arraySize,
-                    depth.width,
-                    depth.height,
-                    static_cast<unsigned int>(depth.format),
-                    depth.mipLevels,
-                    depth.arraySize,
-                    motion.width,
-                    motion.height,
-                    static_cast<unsigned int>(motion.format),
-                    motion.mipLevels,
-                    motion.arraySize,
-                    widthScale,
-                    heightScale,
-                    scratchEvaluateResult,
-                    scratchShutdownResult,
-                    scratchStatus,
-                    scratchShutdownStatus);
+                if (scratchPersistent)
+                {
+                    std::snprintf(
+                        g_renderEventFrameDescriptorPayloadStatus,
+                        sizeof(g_renderEventFrameDescriptorPayloadStatus),
+                        "render event frame descriptor DLSS persistent scratch evaluate consumed: setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d; sourcePtr=%p; visibleDestinationPtr=%p; depthPtr=%p; motionPtr=%p; input=%dx%d; output=%dx%d; hdrpFrame=%d; easuSourceFrame=%d; easuDestinationFrame=%d; sourceFrameDelta=%d; destinationFrameDelta=%d; validation=D3D11-succeeded; sameDevice=yes; source=%ux%u fmt=%u mips=%u array=%u; visibleDestination=%ux%u fmt=%u mips=%u array=%u; depth=%ux%u fmt=%u mips=%u array=%u; motion=%ux%u fmt=%u mips=%u array=%u; scale=(%.3fx,%.3fx); scratchOutput=yes; visibleOutput=no; persistent=yes; targetSuccesses=%d; sequenceCreates=%d; sequenceEvaluates=%d; evaluateSuccesses=%d; evaluateResult=%d; shutdownResult=%d; shutdown=%s; evaluateStatus=\"%s\"; shutdownStatus=\"%s\"",
+                        g_renderEventFrameDescriptorPayloadSetAttempts.load(),
+                        g_renderEventFrameDescriptorPayloadSetSuccesses.load(),
+                        g_renderEventFrameDescriptorPayloadSetFailures.load(),
+                        consumed,
+                        g_renderEventFrameDescriptorPayloadConsumedFailures.load(),
+                        eventId,
+                        payload.sequence,
+                        payload.sourcePointer,
+                        payload.destinationPointer,
+                        payload.depthPointer,
+                        payload.motionPointer,
+                        payload.inputWidth,
+                        payload.inputHeight,
+                        payload.outputWidth,
+                        payload.outputHeight,
+                        payload.hdrpFrame,
+                        payload.easuSourceFrame,
+                        payload.easuDestinationFrame,
+                        sourceDelta,
+                        destinationDelta,
+                        source.width,
+                        source.height,
+                        static_cast<unsigned int>(source.format),
+                        source.mipLevels,
+                        source.arraySize,
+                        destination.width,
+                        destination.height,
+                        static_cast<unsigned int>(destination.format),
+                        destination.mipLevels,
+                        destination.arraySize,
+                        depth.width,
+                        depth.height,
+                        static_cast<unsigned int>(depth.format),
+                        depth.mipLevels,
+                        depth.arraySize,
+                        motion.width,
+                        motion.height,
+                        static_cast<unsigned int>(motion.format),
+                        motion.mipLevels,
+                        motion.arraySize,
+                        widthScale,
+                        heightScale,
+                        scratchTargetSuccesses,
+                        scratchSequenceCreates,
+                        scratchSequenceEvaluates,
+                        scratchSequenceSuccesses,
+                        scratchEvaluateResult,
+                        scratchShutdownResult,
+                        scratchTargetReached ? "completed" : "pending",
+                        scratchStatus,
+                        scratchShutdownStatus);
+                }
+                else
+                {
+                    std::snprintf(
+                        g_renderEventFrameDescriptorPayloadStatus,
+                        sizeof(g_renderEventFrameDescriptorPayloadStatus),
+                        "render event frame descriptor DLSS scratch evaluate consumed: setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d; sourcePtr=%p; visibleDestinationPtr=%p; depthPtr=%p; motionPtr=%p; input=%dx%d; output=%dx%d; hdrpFrame=%d; easuSourceFrame=%d; easuDestinationFrame=%d; sourceFrameDelta=%d; destinationFrameDelta=%d; validation=D3D11-succeeded; sameDevice=yes; source=%ux%u fmt=%u mips=%u array=%u; visibleDestination=%ux%u fmt=%u mips=%u array=%u; depth=%ux%u fmt=%u mips=%u array=%u; motion=%ux%u fmt=%u mips=%u array=%u; scale=(%.3fx,%.3fx); scratchOutput=yes; visibleOutput=no; evaluateResult=%d; shutdownResult=%d; evaluateStatus=\"%s\"; shutdownStatus=\"%s\"",
+                        g_renderEventFrameDescriptorPayloadSetAttempts.load(),
+                        g_renderEventFrameDescriptorPayloadSetSuccesses.load(),
+                        g_renderEventFrameDescriptorPayloadSetFailures.load(),
+                        consumed,
+                        g_renderEventFrameDescriptorPayloadConsumedFailures.load(),
+                        eventId,
+                        payload.sequence,
+                        payload.sourcePointer,
+                        payload.destinationPointer,
+                        payload.depthPointer,
+                        payload.motionPointer,
+                        payload.inputWidth,
+                        payload.inputHeight,
+                        payload.outputWidth,
+                        payload.outputHeight,
+                        payload.hdrpFrame,
+                        payload.easuSourceFrame,
+                        payload.easuDestinationFrame,
+                        sourceDelta,
+                        destinationDelta,
+                        source.width,
+                        source.height,
+                        static_cast<unsigned int>(source.format),
+                        source.mipLevels,
+                        source.arraySize,
+                        destination.width,
+                        destination.height,
+                        static_cast<unsigned int>(destination.format),
+                        destination.mipLevels,
+                        destination.arraySize,
+                        depth.width,
+                        depth.height,
+                        static_cast<unsigned int>(depth.format),
+                        depth.mipLevels,
+                        depth.arraySize,
+                        motion.width,
+                        motion.height,
+                        static_cast<unsigned int>(motion.format),
+                        motion.mipLevels,
+                        motion.arraySize,
+                        widthScale,
+                        heightScale,
+                        scratchEvaluateResult,
+                        scratchShutdownResult,
+                        scratchStatus,
+                        scratchShutdownStatus);
+                }
             }
             else if (payload.validateD3D11)
             {
@@ -1916,6 +2007,24 @@ namespace
             && result.shutdownResult == NVSDK_NGX_Result_Success
             ? 1
             : 0;
+    }
+
+    int GetDlssFrameSequenceCreateCountWithSdkWrapper()
+    {
+        std::lock_guard<std::mutex> lock(g_dlssFrameSequenceMutex);
+        return g_dlssFrameSequence.createCount;
+    }
+
+    int GetDlssFrameSequenceEvaluateCountWithSdkWrapper()
+    {
+        std::lock_guard<std::mutex> lock(g_dlssFrameSequenceMutex);
+        return g_dlssFrameSequence.evaluateCount;
+    }
+
+    int GetDlssFrameSequenceEvaluateSuccessCountWithSdkWrapper()
+    {
+        std::lock_guard<std::mutex> lock(g_dlssFrameSequenceMutex);
+        return g_dlssFrameSequence.evaluateSuccesses;
     }
 
     int ProbeDlssInitQueryWithSdkWrapper(
@@ -2889,6 +2998,8 @@ namespace
             g_renderEventFrameDescriptorPayload.sequence = sequence;
             g_renderEventFrameDescriptorPayload.validateD3D11 = validateD3D11;
             g_renderEventFrameDescriptorPayload.evaluateDlssScratch = false;
+            g_renderEventFrameDescriptorPayload.evaluateDlssPersistentScratch = false;
+            g_renderEventFrameDescriptorPayload.targetEvaluateSuccesses = 0;
             std::snprintf(
                 g_renderEventFrameDescriptorPayloadStatus,
                 sizeof(g_renderEventFrameDescriptorPayloadStatus),
@@ -2939,7 +3050,9 @@ namespace
         int perfQualityValue,
         int featureFlags,
         float sharpness,
-        int reset)
+        int reset,
+        bool persistentScratch,
+        int targetEvaluateSuccesses)
     {
         if (runtimePath == nullptr || runtimePath[0] == L'\0')
         {
@@ -2971,6 +3084,8 @@ namespace
 
         std::lock_guard<std::mutex> lock(g_renderEventFrameDescriptorPayloadMutex);
         g_renderEventFrameDescriptorPayload.evaluateDlssScratch = true;
+        g_renderEventFrameDescriptorPayload.evaluateDlssPersistentScratch = persistentScratch;
+        g_renderEventFrameDescriptorPayload.targetEvaluateSuccesses = targetEvaluateSuccesses > 0 ? targetEvaluateSuccesses : 1;
         g_renderEventFrameDescriptorPayload.runtimePath = runtimePath;
         g_renderEventFrameDescriptorPayload.applicationDataPath = applicationDataPath != nullptr && applicationDataPath[0] != L'\0'
             ? applicationDataPath
@@ -2983,7 +3098,9 @@ namespace
         std::snprintf(
             g_renderEventFrameDescriptorPayloadStatus,
             sizeof(g_renderEventFrameDescriptorPayloadStatus),
-            "render event frame descriptor DLSS scratch evaluate pending: setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d; sourcePtr=%p; visibleDestinationPtr=%p; depthPtr=%p; motionPtr=%p; input=%dx%d; output=%dx%d; hdrpFrame=%d; easuSourceFrame=%d; easuDestinationFrame=%d; validation=D3D11-pending; scratchOutput=yes; visibleOutput=no; ngx=pending; evaluate=pending; appId=%llu; perfQuality=%d; flags=0x%08X; sharpness=%.4f; reset=%d",
+            persistentScratch
+                ? "render event frame descriptor DLSS persistent scratch evaluate pending: setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d; sourcePtr=%p; visibleDestinationPtr=%p; depthPtr=%p; motionPtr=%p; input=%dx%d; output=%dx%d; hdrpFrame=%d; easuSourceFrame=%d; easuDestinationFrame=%d; validation=D3D11-pending; scratchOutput=yes; visibleOutput=no; persistent=yes; targetSuccesses=%d; ngx=pending; evaluate=pending; appId=%llu; perfQuality=%d; flags=0x%08X; sharpness=%.4f; reset=%d"
+                : "render event frame descriptor DLSS scratch evaluate pending: setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d; sourcePtr=%p; visibleDestinationPtr=%p; depthPtr=%p; motionPtr=%p; input=%dx%d; output=%dx%d; hdrpFrame=%d; easuSourceFrame=%d; easuDestinationFrame=%d; validation=D3D11-pending; scratchOutput=yes; visibleOutput=no; persistent=no; targetSuccesses=%d; ngx=pending; evaluate=pending; appId=%llu; perfQuality=%d; flags=0x%08X; sharpness=%.4f; reset=%d",
             g_renderEventFrameDescriptorPayloadSetAttempts.load(),
             g_renderEventFrameDescriptorPayloadSetSuccesses.load(),
             g_renderEventFrameDescriptorPayloadSetFailures.load(),
@@ -3002,6 +3119,7 @@ namespace
             hdrpFrame,
             easuSourceFrame,
             easuDestinationFrame,
+            g_renderEventFrameDescriptorPayload.targetEvaluateSuccesses,
             applicationId,
             perfQualityValue,
             static_cast<unsigned int>(featureFlags),
@@ -3015,7 +3133,7 @@ extern "C"
 {
     int __cdecl VrisingDlss_GetBridgeApiVersion()
     {
-        return 18;
+        return 19;
     }
 
     const char* __cdecl VrisingDlss_GetBridgeVersion()
@@ -3227,7 +3345,57 @@ extern "C"
             perfQualityValue,
             featureFlags,
             sharpness,
-            reset);
+            reset,
+            false,
+            1);
+    }
+
+    int __cdecl VrisingDlss_SetRenderEventFrameDescriptorDlssPersistentScratchEvaluatePayload(
+        void* sourceTexturePtr,
+        void* destinationTexturePtr,
+        void* depthTexturePtr,
+        void* motionTexturePtr,
+        int inputWidth,
+        int inputHeight,
+        int outputWidth,
+        int outputHeight,
+        int hdrpFrame,
+        int easuSourceFrame,
+        int easuDestinationFrame,
+        int eventId,
+        int sequence,
+        const wchar_t* runtimePath,
+        const wchar_t* applicationDataPath,
+        unsigned long long applicationId,
+        int perfQualityValue,
+        int featureFlags,
+        float sharpness,
+        int reset,
+        int targetEvaluateSuccesses)
+    {
+        return SetRenderEventFrameDescriptorDlssScratchEvaluatePayloadInternal(
+            sourceTexturePtr,
+            destinationTexturePtr,
+            depthTexturePtr,
+            motionTexturePtr,
+            inputWidth,
+            inputHeight,
+            outputWidth,
+            outputHeight,
+            hdrpFrame,
+            easuSourceFrame,
+            easuDestinationFrame,
+            eventId,
+            sequence,
+            runtimePath,
+            applicationDataPath,
+            applicationId,
+            perfQualityValue,
+            featureFlags,
+            sharpness,
+            reset,
+            true,
+            targetEvaluateSuccesses);
     }
 
     int __cdecl VrisingDlss_GetRenderEventFrameDescriptorPayloadConsumedCount()

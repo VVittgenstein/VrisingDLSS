@@ -45,6 +45,7 @@ param(
         "native-renderfunc-commandbuffer-frame-descriptor-render-scale",
         "native-renderfunc-commandbuffer-frame-descriptor-d3d11-render-scale",
         "native-renderfunc-commandbuffer-dlss-scratch-evaluate-render-scale",
+        "native-renderfunc-commandbuffer-dlss-persistent-scratch-evaluate-render-scale",
         "native-renderfunc-commandbuffer-dlss-create-render-scale",
         "custom-postprocess-registration",
         "custom-postprocess-render-entry",
