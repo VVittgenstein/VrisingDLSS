@@ -721,6 +721,18 @@ As of the read-only RenderGraph pass-map runtime result:
   native DLL, ClientSettings, no game process remained, and the protected save
   restored to `ChangeCount=0`. See
   `docs/development/native-renderfunc-resource-tuple-gameplay-result-2026-06-07.md`.
-  Next engineering step is the first separately guarded resource-resolution
-  preflight, default-off and menu-first, still no command-buffer access or DLSS
-  evaluate in the same step.
+  The first separately guarded resource-resolution preflight is now implemented
+  as `native-renderfunc-resource-resolve`; see
+  `docs/development/native-renderfunc-resource-resolve-preflight-implementation-2026-06-07.md`.
+  Config key:
+  `Diagnostics.EnableNativeRenderFuncResourceResolveProbe=false`. Helper stage:
+  `native-renderfunc-resource-resolve`. It reuses the proven EASU
+  entry/args/resource-identity/tuple path and resolves the matched `source` /
+  `destination` TextureHandles through
+  `RenderGraphResourceRegistry.GetTextureResource(ResourceHandle&)` only. It
+  still does not call `GetTexture(TextureHandle&)`, read native texture
+  pointers, use D3D11 probes, touch command buffers, patch generated render
+  funcs through Harmony, or evaluate DLSS. Static Release build, PowerShell
+  parser validation, `git diff --check`, and dry config validation passed. Next
+  proof is a true `1920x1080` Windowed menu-only run of
+  `native-renderfunc-resource-resolve`.

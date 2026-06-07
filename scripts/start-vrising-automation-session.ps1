@@ -32,6 +32,7 @@ param(
         "native-renderfunc-args",
         "native-renderfunc-resource-identity",
         "native-renderfunc-resource-tuple",
+        "native-renderfunc-resource-resolve",
         "render-scale-control",
         "dlss-user-rendering",
         "dlss-user-rendering-cached-driver",

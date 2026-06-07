@@ -540,8 +540,27 @@ evaluate/probe `0`, `CrashEventCount=0`, and save restore `ChangeCount=0`. See
 `docs/development/native-renderfunc-resource-tuple-gameplay-result-2026-06-07.md`.
 
 Treat this as tuple metadata proof only; it is still not actual texture/resource
-resolution, command-buffer, or evaluate proof. The next engineering step is a
-separately guarded resource-resolution preflight, default-off and menu-first.
+resolution, command-buffer, or evaluate proof. The follow-up separately guarded
+resource-resolution preflight is below.
+
+`Diagnostics.EnableNativeRenderFuncResourceResolveProbe` is implemented
+separately and defaults to `false`. The helper stage is
+`native-renderfunc-resource-resolve`; it reuses the focused EASU
+entry/args/resource-identity/tuple path and resolves only the matched
+`source` / `destination` handles through
+`RenderGraphResourceRegistry.GetTextureResource(ResourceHandle&)`. It does not
+call `GetTexture(TextureHandle&)`, read native texture pointers, run D3D11
+native probes, touch command buffers, patch generated render funcs through
+Harmony, or evaluate DLSS. First proof must be menu-only at true `1920x1080`
+Windowed:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-resource-resolve -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3
+```
+
+Expected analyzer line: `Native RenderFunc Resource Resolve=Pass`. Treat this
+as `TextureResource` metadata proof only; `graphicsResourceReady=False` is a
+diagnostic finding, not actual native texture-pointer proof.
 
 ## RenderGraph Execute-Delegate Probe
 
