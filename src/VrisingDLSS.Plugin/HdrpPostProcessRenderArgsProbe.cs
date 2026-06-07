@@ -15,13 +15,15 @@ internal static class HdrpPostProcessRenderArgsProbe
     private static readonly object Sync = new();
     private static int CallCount;
     private static int FailureCount;
+    private static bool GlobalTextureAdvancedLogged;
 
     private static ManualLogSource? Log;
     private static object? HarmonyInstance;
     private static Type? HarmonyType;
     private static bool Installed;
+    private static bool GlobalTextureSnapshotEnabled;
 
-    internal static void Install(ManualLogSource log)
+    internal static void Install(ManualLogSource log, bool enableGlobalTextureSnapshot)
     {
         if (Installed)
         {
@@ -30,6 +32,7 @@ internal static class HdrpPostProcessRenderArgsProbe
         }
 
         Log = log;
+        GlobalTextureSnapshotEnabled = enableGlobalTextureSnapshot;
 
         var assemblies = AppDomain.CurrentDomain.GetAssemblies();
         var harmonyType = FindRuntimeType(assemblies, "HarmonyLib.Harmony");
@@ -93,7 +96,7 @@ internal static class HdrpPostProcessRenderArgsProbe
         }
 
         Installed = patched > 0;
-        log.LogInfo($"HDRP postprocess render args probe installed: patched={patched}; target=DarkForeground.Render; native=False; dlssEvaluate=False; getTexture=False; commandBufferWork=False");
+        log.LogInfo($"HDRP postprocess render args probe installed: patched={patched}; target=DarkForeground.Render; globalTextureSnapshot={enableGlobalTextureSnapshot}; dlssEvaluate=False; getTexture=False; commandBufferWork=False");
     }
 
     internal static void Uninstall(ManualLogSource log)
@@ -141,7 +144,9 @@ internal static class HdrpPostProcessRenderArgsProbe
             {
                 CallCount = 0;
                 FailureCount = 0;
+                GlobalTextureAdvancedLogged = false;
             }
+            GlobalTextureSnapshotEnabled = false;
         }
     }
 
@@ -167,13 +172,44 @@ internal static class HdrpPostProcessRenderArgsProbe
                 return;
             }
 
+            var hasDepthNativePointer = false;
+            var hasMotionNativePointer = false;
+            var globalTextureSummary = GlobalTextureSnapshotEnabled
+                ? DescribeGlobalTextureSnapshot(out hasDepthNativePointer, out hasMotionNativePointer)
+                : null;
+            var methodLabel = HookTargetCatalog.FormatMethod(__originalMethod);
+            var cameraSummary = DescribeCamera(__1);
+            var sourceSummary = DescribeRtHandle("source", __2);
+            var destinationSummary = DescribeRtHandle("destination", __3);
+
             log.LogInfo(
                 $"HDRP postprocess render args snapshot #{count}: " +
-                $"method={HookTargetCatalog.FormatMethod(__originalMethod)}; " +
+                $"method={methodLabel}; " +
                 $"{DescribeCommandBuffer(__0)}; " +
-                $"{DescribeCamera(__1)}; " +
-                $"{DescribeRtHandle("source", __2)}; " +
-                $"{DescribeRtHandle("destination", __3)}");
+                $"{cameraSummary}; " +
+                $"{sourceSummary}; " +
+                $"{destinationSummary}" +
+                (globalTextureSummary is null ? string.Empty : $"; {globalTextureSummary}"));
+
+            if (GlobalTextureSnapshotEnabled && hasDepthNativePointer && hasMotionNativePointer)
+            {
+                var shouldLogAdvanced = false;
+                lock (Sync)
+                {
+                    if (!GlobalTextureAdvancedLogged)
+                    {
+                        GlobalTextureAdvancedLogged = true;
+                        shouldLogAdvanced = true;
+                    }
+                }
+
+                if (shouldLogAdvanced)
+                {
+                    log.LogInfo(
+                        $"HDRP postprocess render args global textures advanced: " +
+                        $"method={methodLabel}; {cameraSummary}; {sourceSummary}; {destinationSummary}; {globalTextureSummary}");
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -237,6 +273,70 @@ internal static class HdrpPostProcessRenderArgsProbe
         AppendNestedTexture(parts, value, "rt");
         AppendNestedTexture(parts, value, "externalTexture");
         return $"{role}={{{string.Join(", ", parts)}}}";
+    }
+
+    private static string DescribeGlobalTextureSnapshot(out bool hasDepthNativePointer, out bool hasMotionNativePointer)
+    {
+        var depth = DescribeGlobalTexture("_CameraDepthTexture", out hasDepthNativePointer);
+        var motion = DescribeGlobalTexture("_CameraMotionVectorsTexture", out hasMotionNativePointer);
+        return $"globalTextures=[{depth}; {motion}]";
+    }
+
+    private static string DescribeGlobalTexture(string textureName, out bool hasNativePointer)
+    {
+        hasNativePointer = false;
+        try
+        {
+            var texture = TryGetGlobalTexture(textureName);
+            if (texture is null)
+            {
+                return $"{textureName}=null";
+            }
+
+            var nativePointer = TryGetNativeTexturePtr(texture);
+            hasNativePointer = nativePointer != IntPtr.Zero;
+            var pointerSummary = hasNativePointer
+                ? $"0x{nativePointer.ToInt64():X}"
+                : "not found";
+            return $"{textureName}={DescribeTextureLike(texture)}, nativePtr={pointerSummary}";
+        }
+        catch (Exception ex)
+        {
+            return $"{textureName}=<error:{Sanitize(GetExceptionMessage(ex), 96)}>";
+        }
+    }
+
+    private static object? TryGetGlobalTexture(string textureName)
+    {
+        var shaderType = HookTargetCatalog.FindType(AppDomain.CurrentDomain.GetAssemblies(), "UnityEngine.Shader");
+        if (shaderType is null)
+        {
+            return null;
+        }
+
+        var method = shaderType.GetMethod(
+            "GetGlobalTexture",
+            BindingFlags.Public | BindingFlags.Static,
+            null,
+            new[] { typeof(string) },
+            null);
+        return method?.Invoke(null, new object[] { textureName });
+    }
+
+    private static IntPtr TryGetNativeTexturePtr(object texture)
+    {
+        var method = texture.GetType().GetMethod(
+            "GetNativeTexturePtr",
+            BindingFlags.Public | BindingFlags.Instance,
+            null,
+            Type.EmptyTypes,
+            null);
+        if (method?.Invoke(texture, Array.Empty<object>()) is IntPtr pointer)
+        {
+            return pointer;
+        }
+
+        return IntPtr.Zero;
     }
 
     private static string DescribeTextureLike(object value)

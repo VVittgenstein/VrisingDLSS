@@ -316,7 +316,9 @@ public sealed class Plugin : BasePlugin
             return;
         }
 
-        HdrpPostProcessRenderArgsProbe.Install(_log);
+        HdrpPostProcessRenderArgsProbe.Install(
+            _log,
+            _config?.EnableHdrpPostProcessRenderArgsGlobalTextureProbe.Value ?? false);
     }
 
     private ConfigFile CreateModConfigFile()

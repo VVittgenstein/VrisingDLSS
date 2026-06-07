@@ -324,6 +324,7 @@ try {
             "EnableCustomPostProcessRenderEntryProbe = false",
             "EnableHdrpPostProcessBoundaryProbe = false",
             "EnableHdrpPostProcessRenderArgsProbe = false",
+            "EnableHdrpPostProcessRenderArgsGlobalTextureProbe = false",
             "EnableRenderGraphGetTextureProbe = true",
             "EnableDlssPassResourceProbe = false",
             "EnableUpscalerStateProbe = false",

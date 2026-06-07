@@ -1324,3 +1324,32 @@ As of the read-only RenderGraph pass-map runtime result:
   equivalent official boundary or design a bounded no-write evaluate preflight;
   do not return to broad `GetTexture` discovery or direct `DLSSPass.Render`
   patching.
+- Follow-up stage `hdrp-postprocess-render-args-global-textures-render-scale`
+  is implemented and protected-gameplay validated; see
+  `docs/development/hdrp-postprocess-render-args-global-textures-render-scale-gameplay-result-2026-06-07.md`.
+  It adds default-off
+  `Diagnostics.EnableHdrpPostProcessRenderArgsGlobalTextureProbe=false`. The
+  probe still patches only
+  `DarkForeground.Render(CommandBuffer, HDCamera, RTHandle, RTHandle)`, but when
+  enabled it reads `Shader.GetGlobalTexture("_CameraDepthTexture")` and
+  `Shader.GetGlobalTexture("_CameraMotionVectorsTexture")` plus native pointers.
+  It does not use RenderGraph `GetTexture`, D3D11 validation, command-buffer
+  plugin events, NGX, DLSS evaluate, or visible write-back. Protected gameplay
+  proof passed with V Rising `FsrQualityMode=Off`, true `1920x1080` Windowed,
+  mod-owned render scale, and the protected `11111` fixture. Computer Use
+  clicked Continue once and sent no movement keys. Analyzer reported `Stage 2C
+  Render-Scale Control Probe=Pass`, `HDRP PostProcess Render Args=Pass`, and
+  `HDRP PostProcess Render Args Global Textures=Pass`. Key evidence:
+  `camera.actualWidth=960`, `actualHeight=540`, source
+  `CameraColor_960x540`, destination `CustomPostProcesDestination_960x540`,
+  `_CameraMotionVectorsTexture=Motion Vectors_960x540` with native pointer, and
+  depth stabilizing to `CameraDepthStencil_960x540` with native pointer.
+  Counts: snapshots `9`, global advanced `1`, depth null `0`, motion null `0`,
+  broad `RenderGraph.GetTexture` `0`, D3D11 `0`, NGX `0`, actual DLSS
+  evaluate/writeback `0`, crash/access-violation patterns `0`. Cleanup restored
+  config/native/ClientSettings, left no game process, and restored the
+  protected save with `ChangeCount=0`. This solves the low-resolution
+  color/depth/motion visibility question at a gameplay-proven HDRP/ProjectM
+  boundary, but output at that boundary remains `960x540`; the next guard should
+  correlate this input side with the already proven EASU/native render-func
+  `1920x1080` output side before no-write evaluate or visible-output work.

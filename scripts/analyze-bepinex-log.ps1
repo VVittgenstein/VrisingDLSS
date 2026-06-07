@@ -320,6 +320,13 @@ $results.Add((New-StageResult `
     -StartedPatterns @("HDRP postprocess render args probe patched:", "HDRP postprocess render args probe installed:")))
 
 $results.Add((New-StageResult `
+    -Stage "HDRP PostProcess Render Args Global Textures" `
+    -PassPatterns @("HDRP postprocess render args global textures advanced:") `
+    -FailPatterns @("HDRP postprocess render args probe failed to patch", "HDRP postprocess render args probe prefix failed:", "HDRP postprocess render args probe uninstall failed:") `
+    -BlockedPatterns @("HDRP postprocess render args probe blocked:", "_CameraDepthTexture=null", "_CameraMotionVectorsTexture=null") `
+    -StartedPatterns @("globalTextureSnapshot=True")))
+
+$results.Add((New-StageResult `
     -Stage "Stage 5D DLSS Runtime" `
     -PassPatterns @("DLSS runtime probe succeeded:") `
     -FailPatterns @("DLSS runtime probe failed:", "DLSS runtime probe skipped:") `

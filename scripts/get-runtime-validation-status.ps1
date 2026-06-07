@@ -125,6 +125,9 @@ function Get-ConfiguredStage {
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncResourceIdentityProbe") { return "native-renderfunc-resource-identity" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncArgumentProbe") { return "native-renderfunc-args" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncEntryProbe") { return "native-renderfunc-entry" }
+    if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableHdrpPostProcessRenderArgsGlobalTextureProbe") -and
+        (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "hdrp-postprocess-render-args-global-textures-render-scale" }
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableHdrpPostProcessRenderArgsGlobalTextureProbe") { return "hdrp-postprocess-render-args-global-textures" }
     if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableHdrpPostProcessRenderArgsProbe") -and
         (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "hdrp-postprocess-render-args-render-scale" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableHdrpPostProcessRenderArgsProbe") { return "hdrp-postprocess-render-args" }
@@ -309,6 +312,7 @@ function Get-NextRecommendation {
     $nativeRenderFuncArgs = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Args"
     $nativeRenderFuncEntry = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Entry"
     $renderScaleControl = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 2C"
+    $hdrpPostProcessRenderArgsGlobalTextures = Get-FirstStageStatus -Results $LogResults -StagePrefix "HDRP PostProcess Render Args Global Textures"
     $hdrpPostProcessRenderArgs = Get-FirstStageStatus -Results $LogResults -StagePrefix "HDRP PostProcess Render Args"
     $hdrpPostProcessBoundary = Get-FirstStageStatus -Results $LogResults -StagePrefix "HDRP PostProcess Boundary"
     $currentUserRendering = Get-FirstStageStatus -Results $CurrentLogResults -StagePrefix "DLSS User Rendering Candidate"
@@ -344,6 +348,25 @@ function Get-NextRecommendation {
         }
 
         return "The latest dlss-user-rendering gameplay log did not accept an FSR Off Super Resolution tuple: the main candidate stayed color=1920x1080 output=1920x1080. Before rerunning the same runtime proof, use the targeted render-scale diagnostic to check for `Render-scale control member write did not stick`, `RTHandles.SetHardwareDynamicResolutionState=true`, and whether the gameplay camera/main targets remain full-size."
+    }
+
+    if ($hdrpPostProcessRenderArgsGlobalTextures -eq "Pass" -and $renderScaleControl -eq "Pass") {
+        $hdrpPostProcessRenderArgsGlobalTexturesRenderScaleGameplayDoc = Get-ChildItem -LiteralPath (Join-Path $Root "docs\development") -Filter "hdrp-postprocess-render-args-global-textures-render-scale-gameplay-result-*.md" -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+        if ($hdrpPostProcessRenderArgsGlobalTexturesRenderScaleGameplayDoc) {
+            return "HDRP DarkForeground.Render managed source/destination snapshots, global depth/motion texture native pointers, and render-scale control now have a combined protected gameplay proof. Next separate guard should correlate this low-resolution color/depth/motion boundary with the proven full-size EASU output/native command-buffer boundary, without broad GetTexture discovery, D3D11 validation, command-buffer work, or DLSS evaluate in the same step. Latest proof: $($hdrpPostProcessRenderArgsGlobalTexturesRenderScaleGameplayDoc.FullName)"
+        }
+
+        return "HDRP DarkForeground.Render managed source/destination snapshots, global depth/motion texture native pointers, and render-scale control now have runtime evidence. Next separate guard should correlate this low-resolution color/depth/motion boundary with the proven full-size EASU output/native command-buffer boundary, without broad GetTexture discovery, D3D11 validation, command-buffer work, or DLSS evaluate in the same step."
+    }
+
+    if ($hdrpPostProcessRenderArgsGlobalTextures -eq "Pass") {
+        return "HDRP DarkForeground.Render global depth/motion texture native pointers have runtime evidence. Next narrow run should combine this stage with render-scale control, then compare source/depth/motion sizes against the proven EASU full-size output boundary; still no broad GetTexture discovery, command-buffer work, D3D11 validation, NGX, or DLSS evaluate."
+    }
+
+    if ($hdrpPostProcessRenderArgsGlobalTextures -eq "Partial") {
+        return "HDRP postprocess global-texture probe started but did not prove both _CameraDepthTexture and _CameraMotionVectorsTexture native pointers. If this was menu-only, run a protected 11111 gameplay proof at 1920x1080 Windowed; if gameplay was reached, inspect whether motion vectors are disabled or not yet bound at DarkForeground.Render."
     }
 
     if ($nativeRenderFuncCommandBufferDlssFeatureCreate -eq "Pass" -and $renderScaleControl -eq "Pass") {

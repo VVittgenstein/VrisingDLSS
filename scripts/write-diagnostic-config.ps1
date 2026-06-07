@@ -43,7 +43,9 @@ param(
         "custom-postprocess-render-entry",
         "hdrp-postprocess-boundary",
         "hdrp-postprocess-render-args",
+        "hdrp-postprocess-render-args-global-textures",
         "hdrp-postprocess-render-args-render-scale",
+        "hdrp-postprocess-render-args-global-textures-render-scale",
         "render-scale-control",
         "dlss-user-rendering",
         "dlss-user-rendering-cached-driver",
@@ -123,6 +125,7 @@ function New-ConfigMap {
             EnableCustomPostProcessRenderEntryProbe = "false"
             EnableHdrpPostProcessBoundaryProbe = "false"
             EnableHdrpPostProcessRenderArgsProbe = "false"
+            EnableHdrpPostProcessRenderArgsGlobalTextureProbe = "false"
             EnableRenderGraphGetTextureProbe = "true"
             EnableDlssPassResourceProbe = "false"
             EnableUpscalerStateProbe = "false"
@@ -506,8 +509,21 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
             $Config.Diagnostics.EnableHookProbe = "false"
         }
+        "hdrp-postprocess-render-args-global-textures" {
+            $Config.Diagnostics.EnableHdrpPostProcessRenderArgsProbe = "true"
+            $Config.Diagnostics.EnableHdrpPostProcessRenderArgsGlobalTextureProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
+            $Config.Diagnostics.EnableHookProbe = "false"
+        }
         "hdrp-postprocess-render-args-render-scale" {
             $Config.Diagnostics.EnableHdrpPostProcessRenderArgsProbe = "true"
+            $Config.Diagnostics.EnableRenderScaleControlProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
+            $Config.Diagnostics.EnableHookProbe = "false"
+        }
+        "hdrp-postprocess-render-args-global-textures-render-scale" {
+            $Config.Diagnostics.EnableHdrpPostProcessRenderArgsProbe = "true"
+            $Config.Diagnostics.EnableHdrpPostProcessRenderArgsGlobalTextureProbe = "true"
             $Config.Diagnostics.EnableRenderScaleControlProbe = "true"
             $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
             $Config.Diagnostics.EnableHookProbe = "false"

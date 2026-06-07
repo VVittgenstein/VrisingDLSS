@@ -798,3 +798,28 @@ Result:
 - Cleanup closed the game, restored ClientSettings/config/native state,
   archived the changed post-run save state, and restored the `11111` save with
   `ChangeCount=0`.
+
+## HDRP PostProcess Global Textures + Render Scale Gameplay Notes
+
+Run label:
+`hdrp-postprocess-render-args-global-textures-render-scale-gameplay-1080p-20260607-r1`.
+
+Result:
+
+- Computer Use selected the real `VRising` Unity window, not the BepInEx
+  console.
+- The main-menu screenshot was `1283x751`; the Chinese Continue entry was
+  clicked once at `(205,354)`.
+- The click went to the loading screen, then into gameplay after about `30`
+  seconds.
+- No keyboard, movement, or gameplay keys were sent.
+- Runtime proof passed: `DarkForeground.Render(CommandBuffer,HDCamera,RTHandle,
+  RTHandle)` saw `CameraColor_960x540`, `CustomPostProcesDestination_960x540`,
+  `_CameraMotionVectorsTexture=Motion Vectors_960x540`, and depth stabilizing
+  to `CameraDepthStencil_960x540`, with non-zero native pointers for depth and
+  motion.
+- The proof did not use RenderGraph `GetTexture`, D3D11 validation, NGX, DLSS
+  evaluate, command-buffer plugin events, user rendering, or visible write-back.
+- Cleanup closed the game, restored ClientSettings/config/native state,
+  archived the changed post-run save state, and restored the `11111` save with
+  `ChangeCount=0`.

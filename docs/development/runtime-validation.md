@@ -1245,4 +1245,29 @@ Current helper smoke status:
   can ride the source-guided EASU command-buffer callback boundary, but still
   does not prove depth/motion-vector payload, DLSS evaluate, resize/reset
   behavior, visual correctness, legal runtime distribution, or performance.
+- The protected gameplay proof
+  `hdrp-postprocess-render-args-global-textures-render-scale-gameplay-1080p-20260607-r1`
+  validated the low-resolution input side at the ProjectM/HDRP custom
+  postprocess boundary. The new default-off
+  `Diagnostics.EnableHdrpPostProcessRenderArgsGlobalTextureProbe=false` switch
+  patches only `DarkForeground.Render(CommandBuffer, HDCamera, RTHandle,
+  RTHandle)` and reads `Shader.GetGlobalTexture("_CameraDepthTexture")` plus
+  `Shader.GetGlobalTexture("_CameraMotionVectorsTexture")` native pointers; it
+  does not call RenderGraph `GetTexture`, issue command-buffer work, run D3D11
+  validation, initialize NGX, evaluate DLSS, or write visible output. With V
+  Rising `FsrQualityMode=Off`, true `1920x1080` Windowed, and mod-owned render
+  scale, analyzer reported `Stage 2C Render-Scale Control Probe=Pass`,
+  `HDRP PostProcess Render Args=Pass`, and `HDRP PostProcess Render Args Global
+  Textures=Pass`. Evidence: `camera.actualWidth=960`, `actualHeight=540`,
+  `CameraColor_960x540`, `CustomPostProcesDestination_960x540`,
+  `_CameraMotionVectorsTexture=Motion Vectors_960x540` with native pointer, and
+  depth stabilizing to `CameraDepthStencil_960x540` with native pointer. Broad
+  `RenderGraph.GetTexture`, D3D11, NGX, DLSS evaluate/writeback, crash, and
+  access-violation counts were zero. Cleanup restored config/native/
+  ClientSettings, left no game process, and restored the protected save with
+  `ChangeCount=0`. This solves the depth/motion visibility question for the
+  low-resolution input side, but the custom-postprocess destination remains
+  `960x540`; the next guard should correlate this boundary with the already
+  proven EASU/native render-func `1920x1080` output boundary before any
+  no-write evaluate or visible-output work.
 - Current route decision: DLSS itself does not depend on FSR. The final MVP validation must keep V Rising `FsrQualityMode=Off` for baseline and candidate, while the mod controls render scale/upscale through HDRP dynamic-resolution/DLSS-path integration. The next gate is no longer tuple existence; it is visual correctness, performance, resize/reset, fallback behavior, and release-boundary validation.
