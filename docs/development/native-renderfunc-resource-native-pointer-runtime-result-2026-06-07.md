@@ -168,12 +168,12 @@ It also confirms the safety distinction that matters for the next step:
 Do not combine command-buffer access or DLSS evaluate with this proof. The next
 step must be a separately guarded preflight.
 
-## Next Step
+## Gameplay Follow-Up
 
-Run the protected `11111` gameplay proof at true `1920x1080` Windowed using the
-same stage. Keep the established safety rules:
+Protected `11111` gameplay proof has now passed:
 
-- Use Computer Use automation only for menu selection.
-- Send no movement/gameplay keys.
-- Restore the protected save afterward.
-- Still no command-buffer access, D3D11 validation, or DLSS evaluate.
+`docs/development/native-renderfunc-resource-native-pointer-gameplay-result-2026-06-07.md`
+
+The next engineering step must be a separately guarded preflight for the next
+official-boundary question. Do not combine command-buffer access, D3D11
+validation, or DLSS evaluate with this proof.

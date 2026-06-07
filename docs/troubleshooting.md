@@ -613,6 +613,16 @@ Menu proof result on 2026-06-07:
 - See
   `docs/development/native-renderfunc-resource-native-pointer-runtime-result-2026-06-07.md`.
 
+Protected `11111` gameplay proof also passed with the same safety boundary:
+Computer Use clicked Continue / `11111` once at `(205, 354)`, sent no movement
+or gameplay keyboard input, recovered from one stale/crossed Codex screenshot
+without sending input, observed gameplay, analyzer reported
+`Native RenderFunc Resource Native Pointer=Pass`, source/destination native
+pointers were non-zero, broad `RenderGraph GetTexture call #`, D3D11, NGX, and
+DLSS evaluate patterns were `0`, `CrashEventCount=0`, cleanup restored config /
+native / settings, and save restore ended with `ChangeCount=0`. See
+`docs/development/native-renderfunc-resource-native-pointer-gameplay-result-2026-06-07.md`.
+
 ## RenderGraph Execute-Delegate Probe
 
 `EnableRenderGraphExecuteDelegateProbe` is disabled by default and is read-only.

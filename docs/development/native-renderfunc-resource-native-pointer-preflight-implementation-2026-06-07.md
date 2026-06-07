@@ -1,7 +1,7 @@
 # Native RenderFunc Resource Native-Pointer Preflight Implementation - 2026-06-07
 
-Status: implemented, statically validated, and menu-runtime validated. Protected
-gameplay proof is still pending.
+Status: implemented, statically validated, and menu/protected-gameplay
+validated.
 
 ## Question
 
@@ -99,6 +99,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-vrising-diagnost
 
 Menu proof has now passed; see
 `docs/development/native-renderfunc-resource-native-pointer-runtime-result-2026-06-07.md`.
+Protected `11111` gameplay proof has now passed; see
+`docs/development/native-renderfunc-resource-native-pointer-gameplay-result-2026-06-07.md`.
 Do not add command-buffer access, D3D11 validation, or DLSS evaluate to this
 stage.
 
@@ -137,3 +139,10 @@ Runtime validation:
   `Frame resource RenderGraph GetTexture postfix patched:`, and
   `Native render-func resource native-pointer advanced:` showing non-zero
   source/destination native pointers.
+- The protected `11111` gameplay proof,
+  `native-renderfunc-resource-native-pointer-gameplay-1080p-20260607-r1`,
+  also passed at true `1920x1080` Windowed. Computer Use clicked the known
+  Continue / `11111` entry once, sent no movement/gameplay keys, observed
+  gameplay, analyzer reported `Native RenderFunc Resource Native Pointer=Pass`,
+  cleanup restored config/native/settings, and save restore ended with
+  `ChangeCount=0`.

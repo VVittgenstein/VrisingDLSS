@@ -763,9 +763,24 @@ Current Stage 8A status:
   evaluate patterns `0`, and cleanup restored loader config, native DLL, and
   ClientSettings with no game process left. See
   `docs/development/native-renderfunc-resource-native-pointer-runtime-result-2026-06-07.md`.
-  The next runtime step is a protected `11111` gameplay proof for
-  `native-renderfunc-resource-native-pointer`; still no command-buffer access,
-  D3D11 validation, or DLSS evaluate in the same step.
+  Protected `11111` gameplay proof
+  `native-renderfunc-resource-native-pointer-gameplay-1080p-20260607-r1` then
+  passed at true `1920x1080` Windowed. Computer Use clicked the Chinese
+  Continue / `11111` area once at `(205, 354)`, sent no movement/gameplay keys,
+  recovered from one stale/crossed Codex screenshot without sending input,
+  and captured gameplay with quest text, character, minimap, health bar, and
+  action bar. Analyzer `Native RenderFunc Resource Native Pointer=Pass`; first
+  native-pointer advanced line had source `nativePtr=0x1C09CF519A0`, destination
+  `nativePtr=0x1C09D040620`, both at `1920x1080`, `targetCompile=4`, and
+  `targetManagedPassData=0x1BF14614660`. `RenderGraph GetTexture call #=0`,
+  D3D11/NGX/DLSS evaluate patterns `0`, `CrashEventCount=0`; cleanup restored
+  config, native DLL, ClientSettings, no game process remained, and the
+  protected save restored to `ChangeCount=0`. See
+  `docs/development/native-renderfunc-resource-native-pointer-gameplay-result-2026-06-07.md`.
+  This completes native texture-pointer menu+protected-gameplay proof only.
+  The next engineering step must be a separately guarded preflight for the next
+  official-boundary question; still no command-buffer access, D3D11 validation,
+  or DLSS evaluate in the same step.
 - See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.
 
 ## Stage 8B: First Guarded DLSS Evaluate Diagnostic
