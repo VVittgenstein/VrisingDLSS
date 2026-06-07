@@ -1137,3 +1137,26 @@ As of the read-only RenderGraph pass-map runtime result:
   render func, `DoDLSSPasses`, `DoDLSSPass`, and
   `DLSSPass.Render/ExecuteDLSS` before adding any D3D11/device/dimension or
   command-buffer guard.
+- Source/decompilation-guided investigation has started; see
+  `docs/research/vrising-il2cpp-hdrp-decompilation-kickoff-2026-06-07.md`.
+  Local ILSpy over V Rising's BepInEx interop confirms the concrete IL2CPP
+  symbols and tokens that match the current runtime evidence:
+  `HDRenderPipeline.RenderPostProcess` token `100663789`,
+  `DoDLSSPasses` `100663792`, `DoDLSSPass` `100663793`,
+  `EdgeAdaptiveSpatialUpsampling` `100663869`, `FinalPass` `100663870`,
+  `_DoDLSSPass_b__969_0(DLSSData, RenderGraphContext)` `100664365`,
+  `_EdgeAdaptiveSpatialUpsampling_b__1066_0(EASUData, RenderGraphContext)`
+  `100664389`, and `_FinalPass_b__1069_0` `100664390`. `DLSSPass` also
+  exposes `GetViewResources`, `CreateCameraResources`, `GetCameraResources`,
+  `SetupFeature`, `BeginFrame`, `SetupDRSScaling`, and `Render(...)` tokens.
+  Upstream HDRP 2022.3 source aligns with those names: EASU reads the current
+  postprocess source and writes `GetPostprocessUpsampledOutputHandle(...,
+  "Edge Adaptive Spatial Upsampling")`; official DLSS reads
+  source/depth/motion vectors, writes `GetPostprocessUpsampledOutputHandle(...,
+  "DLSS destination")`, then calls
+  `DLSSPass.GetCameraResources(data.resourceHandles)` immediately before
+  `DLSSPass.Render(..., ctx.cmd)`. Do not commit or package full generated
+  interop decompilation output; keep it local under `ref/` and commit only
+  derived notes. The conservative next guard is focused D3D11/device/dimension
+  validation for the proven EASU native pointers before any command-buffer or
+  DLSS evaluate experiment.
