@@ -65,6 +65,11 @@ public sealed class Plugin : BasePlugin
             HarmonyCallProbe.Install(_log);
         }
 
+        if (_config.EnableCustomPostProcessRegistrationProbe.Value)
+        {
+            RunCustomPostProcessRegistrationProbe();
+        }
+
         if (_config.EnableFrameResourceProbe.Value
             || _config.EnableDlssEvaluateInputProbe.Value
             || _config.EnableDlssSuperResolutionInputProbe.Value
@@ -141,6 +146,7 @@ public sealed class Plugin : BasePlugin
             RenderScaleControlProbe.Uninstall(_log);
             UpscalerStateProbe.Uninstall(_log);
             HarmonyCallProbe.Uninstall(_log);
+            CustomPostProcessRegistrationProbe.Uninstall(_log);
         }
 
         _log?.LogInfo($"{PluginInfo.Name} unloaded.");
@@ -246,6 +252,16 @@ public sealed class Plugin : BasePlugin
             _config?.EnableNativeRenderFuncResourceNativePointerProbe.Value ?? false,
             _config?.EnableRenderGraphGetTextureProbe.Value ?? true,
             _config?.EnableDlssPassResourceProbe.Value ?? false);
+    }
+
+    private void RunCustomPostProcessRegistrationProbe()
+    {
+        if (_log is null)
+        {
+            return;
+        }
+
+        CustomPostProcessRegistrationProbe.Install(_log);
     }
 
     private ConfigFile CreateModConfigFile()

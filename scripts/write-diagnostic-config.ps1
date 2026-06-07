@@ -31,6 +31,7 @@ param(
         "native-renderfunc-resource-tuple",
         "native-renderfunc-resource-resolve",
         "native-renderfunc-resource-native-pointer",
+        "custom-postprocess-registration",
         "render-scale-control",
         "dlss-user-rendering",
         "dlss-user-rendering-cached-driver",
@@ -101,6 +102,7 @@ function New-ConfigMap {
             EnableNativeRenderFuncResourceTupleProbe = "false"
             EnableNativeRenderFuncResourceResolveProbe = "false"
             EnableNativeRenderFuncResourceNativePointerProbe = "false"
+            EnableCustomPostProcessRegistrationProbe = "false"
             EnableRenderGraphGetTextureProbe = "true"
             EnableDlssPassResourceProbe = "false"
             EnableUpscalerStateProbe = "false"
@@ -360,6 +362,11 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableNativeRenderFuncResourceNativePointerProbe = "true"
             $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+            $Config.Diagnostics.EnableHookProbe = "false"
+        }
+        "custom-postprocess-registration" {
+            $Config.Diagnostics.EnableCustomPostProcessRegistrationProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
             $Config.Diagnostics.EnableHookProbe = "false"
         }
         "render-scale-control" {

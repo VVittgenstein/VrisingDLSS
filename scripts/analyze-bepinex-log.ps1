@@ -261,6 +261,13 @@ $results.Add((New-StageResult `
     -StartedPatterns @("Native render-func resource native-pointer preflight enabled", "Native render-func resource native-pointer target armed:", "Native render-func resource native-pointer status #", "Native render-func entry detour installed:")))
 
 $results.Add((New-StageResult `
+    -Stage "HDRP Custom PostProcess Registration" `
+    -PassPatterns @("Custom post-process registration probe installed:") `
+    -FailPatterns @("Custom post-process registration probe failed:", "Custom post-process registration probe uninstall failed:") `
+    -BlockedPatterns @("Custom post-process registration probe blocked:") `
+    -StartedPatterns @("Custom post-process registration probe IL2CPP type registered.", "Custom post-process registration probe inactive volume created:")))
+
+$results.Add((New-StageResult `
     -Stage "Stage 5D DLSS Runtime" `
     -PassPatterns @("DLSS runtime probe succeeded:") `
     -FailPatterns @("DLSS runtime probe failed:", "DLSS runtime probe skipped:") `

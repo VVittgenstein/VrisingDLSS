@@ -824,3 +824,22 @@ As of the read-only RenderGraph pass-map runtime result:
   The next engineering step must be a separately guarded preflight for the next
   official-boundary question; still no command-buffer access, D3D11 validation,
   or DLSS evaluate in the same step.
+- 2026-06-07 continuation: implemented the first separately guarded HDRP
+  CustomPostProcess boundary preflight as `custom-postprocess-registration`;
+  see
+  `docs/development/custom-postprocess-registration-preflight-implementation-2026-06-07.md`.
+  Config key:
+  `Diagnostics.EnableCustomPostProcessRegistrationProbe=false`. It registers an
+  injected `CustomPostProcessVolumeComponent` implementing HDRP
+  `IPostProcessComponent`, appends its type string to
+  `HDRenderPipelineGlobalSettings.afterPostProcessCustomPostProcesses`, calls
+  `RefreshPostProcessTypes()`, and creates a hidden global `Volume` with the
+  component present but inactive. `IsActive()` returns `false`, so this is a
+  registration/mount proof only. It does not enter `Render(...)`, issue
+  command-buffer work, resolve RenderGraph resources, read native texture
+  pointers, use D3D11 validation, or evaluate DLSS. Static Release build,
+  dry-run config validation, release-boundary check, Thunderstore package
+  creation/validation, standalone package validation, and `git diff --check`
+  passed. Runtime menu/gameplay validation has not been run yet; any active
+  render/copy proof must be a separate default-off stage with its own launch
+  contract.

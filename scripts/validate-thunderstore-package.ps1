@@ -315,6 +315,7 @@ try {
             "EnableNativeRenderFuncResourceTupleProbe = false",
             "EnableNativeRenderFuncResourceResolveProbe = false",
             "EnableNativeRenderFuncResourceNativePointerProbe = false",
+            "EnableCustomPostProcessRegistrationProbe = false",
             "EnableRenderGraphGetTextureProbe = true",
             "EnableDlssPassResourceProbe = false",
             "EnableUpscalerStateProbe = false",
