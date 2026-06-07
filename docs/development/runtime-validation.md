@@ -666,8 +666,21 @@ Current Stage 8A status:
   Thunderstore package validation, local loader config restore, and process
   safety checks passed. See
   `docs/development/native-renderfunc-resource-tuple-preflight-implementation-2026-06-07.md`.
-  Next proof is a `1920x1080` Windowed menu-only run of
-  `native-renderfunc-resource-tuple`.
+  Menu runtime proof `native-renderfunc-resource-tuple-1080p-menu-20260607-r1`
+  passed at true `1920x1080` Windowed. Analyzer reported
+  `Native RenderFunc Resource Tuple=Pass`; first advanced line appeared at
+  `compile=4` with `managedPassData=0x1149CC95420`,
+  `nativeLastPassData=0x1149CC95420`, `passDataMatches=True`, and
+  `tupleReady=True`; tuple metadata included `input=1920x1080`,
+  `output=1920x1080`, focused `source` TextureHandle identity, and focused
+  `destination` TextureHandle identity. Final tuple status reached `#600` with
+  `entryCount=597` and `sampleCount=597`; `RenderGraph GetTexture call #=0`;
+  actual native/DLSS evaluate/probe patterns `0`; `CrashEventCount=0`. Cleanup
+  restored loader config, release-safe native, ClientSettings, and no game
+  process remained. See
+  `docs/development/native-renderfunc-resource-tuple-runtime-result-2026-06-07.md`.
+  Next proof is protected `11111` gameplay with save backup/restore and no
+  movement keys.
 - See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.
 
 ## Stage 8B: First Guarded DLSS Evaluate Diagnostic

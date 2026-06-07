@@ -691,6 +691,19 @@ As of the read-only RenderGraph pass-map runtime result:
   buffers, patch generated render funcs through Harmony, or evaluate DLSS.
   Static `git diff --check`, Release build, dry-run config validation,
   Thunderstore package validation, local loader config restore, and process
-  safety checks passed. Next proof is
-  `scripts\run-vrising-diagnostic.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-resource-tuple -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3`
-  at true `1920x1080` Windowed menu-only.
+  safety checks passed. Menu runtime proof
+  `native-renderfunc-resource-tuple-1080p-menu-20260607-r1` then passed at true
+  `1920x1080` Windowed: analyzer
+  `Native RenderFunc Resource Tuple=Pass`; first advanced line appeared at
+  `compile=4` with `managedPassData=0x1149CC95420`,
+  `nativeLastPassData=0x1149CC95420`, `passDataMatches=True`,
+  `tupleReady=True`, and tuple metadata `input=1920x1080`,
+  `output=1920x1080`, focused `source` TextureHandle identity, and focused
+  `destination` TextureHandle identity. Final tuple status reached `#600` with
+  `entryCount=597` and `sampleCount=597`; `RenderGraph GetTexture call #=0`;
+  actual native/DLSS evaluate/probe patterns `0`; `CrashEventCount=0`; cleanup
+  restored loader config, release-safe native, ClientSettings, and no game
+  process remained. See
+  `docs/development/native-renderfunc-resource-tuple-runtime-result-2026-06-07.md`.
+  Next proof is protected `11111` gameplay with save backup/restore and no
+  movement keys, still no command-buffer access or DLSS evaluate.

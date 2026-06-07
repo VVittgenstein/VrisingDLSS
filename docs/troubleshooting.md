@@ -519,15 +519,22 @@ matched managed `EASUData` into tuple metadata: input/output dimensions plus
 focused `source` / `destination` TextureHandle resource identity. It does not
 dereference native callback pointers, resolve textures, call `GetTexture`, touch
 command buffers, patch generated render funcs through Harmony, or evaluate DLSS.
-The first runtime proof must be menu-only at true `1920x1080` Windowed:
+Menu runtime proof passed at true `1920x1080` Windowed:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-resource-tuple -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3
 ```
 
-Expected analyzer line: `Native RenderFunc Resource Tuple=Pass`. Treat this as
-tuple metadata proof only; it is still not actual texture/resource resolution,
-command-buffer, or evaluate proof.
+Analyzer line: `Native RenderFunc Resource Tuple=Pass`. Evidence:
+`passDataMatches=True`, `tupleReady=True`, `input=1920x1080`,
+`output=1920x1080`, focused `source` / `destination` TextureHandles,
+`RenderGraph GetTexture call #=0`, actual DLSS/NGX evaluate/probe `0`, and
+`CrashEventCount=0`. See
+`docs/development/native-renderfunc-resource-tuple-runtime-result-2026-06-07.md`.
+
+Treat this as tuple metadata proof only; it is still not actual texture/resource
+resolution, command-buffer, or evaluate proof. The next proof is protected
+`11111` gameplay with save backup/restore and no movement keys.
 
 ## RenderGraph Execute-Delegate Probe
 

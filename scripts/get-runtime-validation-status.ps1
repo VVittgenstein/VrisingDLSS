@@ -325,6 +325,11 @@ function Get-NextRecommendation {
             Select-Object -First 1
         if ($nativeRenderFuncResourceIdentityGameplayDoc) {
             $nativeRenderFuncResourceTupleImplementationDoc = Join-Path $Root "docs\development\native-renderfunc-resource-tuple-preflight-implementation-2026-06-07.md"
+            $nativeRenderFuncResourceTupleRuntimeDoc = Join-Path $Root "docs\development\native-renderfunc-resource-tuple-runtime-result-2026-06-07.md"
+            if (Test-Path -LiteralPath $nativeRenderFuncResourceTupleRuntimeDoc) {
+                return "Native render-func resource identity menu/protected gameplay proofs passed, and native-renderfunc-resource-tuple menu proof passed. Next step is protected 11111 gameplay proof at 1920x1080 Windowed using scripts\start-vrising-automation-session.ps1 -Stage native-renderfunc-resource-tuple, with save backup/restore, no movement keys, and still no GetTexture, command-buffer access, texture resolution, or DLSS evaluate."
+            }
+
             if (Test-Path -LiteralPath $nativeRenderFuncResourceTupleImplementationDoc) {
                 return "Native render-func resource identity menu and protected 11111 gameplay proofs passed, and the default-off resource-tuple preflight is implemented. Next step is scripts\run-vrising-diagnostic.ps1 -GamePath `"$($Inspect.GamePath)`" -Stage native-renderfunc-resource-tuple -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 for a 1920x1080 Windowed menu-only tuple proof; no GetTexture, command-buffer access, texture resolution, or DLSS evaluate."
             }

@@ -1,6 +1,7 @@
 # Native RenderFunc Resource Tuple Preflight Implementation - 2026-06-07
 
-Status: implemented and statically validated. No game launch in this pass.
+Status: implemented, statically validated, and menu-runtime validated.
+Protected gameplay proof is still pending.
 
 ## Question
 
@@ -87,12 +88,39 @@ was also restored to loader-safe defaults with
 `EnableHookProbe=true`, and `EnableDLSS=false`. No V Rising or
 UnityCrashHandler process was running after validation.
 
+## Menu Runtime Proof
+
+Menu-only proof passed at true `1920x1080` Windowed on 2026-06-07:
+
+- artifact label:
+  `native-renderfunc-resource-tuple-1080p-menu-20260607-r1`;
+- analyzer reported `Native RenderFunc Resource Tuple=Pass`;
+- first advanced line appeared at `compile=4`;
+- `managedPassData=0x1149CC95420`;
+- `nativeLastPassData=0x1149CC95420`;
+- `passDataMatches=True`;
+- `tupleReady=True`;
+- tuple metadata included `input=1920x1080`, `output=1920x1080`,
+  focused `source` TextureHandle identity, and focused `destination`
+  TextureHandle identity;
+- final tuple status reached `#600` with `entryCount=597` and
+  `sampleCount=597`;
+- `RenderGraph GetTexture call #=0`;
+- actual DLSS/NGX evaluate/probe patterns `0`;
+- `CrashEventCount=0`;
+- cleanup restored loader-safe config, release-safe native state,
+  `ClientSettings.json`, and left no V Rising/UnityCrashHandler process.
+
+See
+`docs/development/native-renderfunc-resource-tuple-runtime-result-2026-06-07.md`.
+
 ## Next Runtime Test
 
-Menu-only proof first, at true `1920x1080` Windowed:
+Protected `11111` gameplay proof, at true `1920x1080` Windowed, after backing
+up the protected save:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-resource-tuple -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start-vrising-automation-session.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-resource-tuple -ArtifactLabel native-renderfunc-resource-tuple-gameplay-1080p-20260607-r1 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3
 ```
 
 Pass signal: analyzer reports `Native RenderFunc Resource Tuple=Pass`, log
@@ -105,6 +133,6 @@ Fail signal: startup crash, detour failure, pass-list logging failure,
 TextureHandle identities, any `GetTexture` steady-state discovery, or any
 DLSS/NGX evaluate/probe pattern.
 
-Cleanup after any runtime proof: close V Rising, restore loader-safe config,
-confirm release-safe native DLL state, confirm no V Rising/UnityCrashHandler
-process remains, and preserve logs/analysis before moving to protected gameplay.
+Gameplay cleanup must additionally restore the protected `11111` save to
+`ChangeCount=0` after archiving any changed post-run state. No movement keys or
+gameplay keyboard input are allowed.
