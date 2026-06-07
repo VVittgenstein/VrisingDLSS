@@ -377,7 +377,7 @@ $items.Add((New-ReadinessItem `
     -Area "MVP" `
     -Requirement "Normal-user DLSS enable/disable changes rendering correctly and safely." `
     -Status "Blocked" `
-    -Evidence "EnableDLSS is exposed and wired to an experimental one-evaluate-per-Unity-frame candidate. Stage 8A/8B/8C/8D/8E/8F/8G/9A/10A frame-input/evaluate/output-follow-up/persistent-lifecycle/SR-sizing/SR-evaluate/SR-persistent-lifecycle/frame-sequence/visible-path evidence and the user-rendering candidate evidence are tracked by readiness when present, but image-correctness, performance, resize/reset, and fallback validation are not complete yet."))
+    -Evidence "EnableDLSS is exposed and wired to the experimental source-guided EASU ctx.cmd command-buffer candidate. Runtime evidence and the user-rendering candidate proof are tracked by readiness when present, but image-correctness, performance, resize/reset, and fallback validation are not complete yet."))
 
 $mvpBlockingStatuses = @("Fail", "Blocked", "Missing")
 $hardFailures = @($items | Where-Object { $_.Status -eq "Fail" })
@@ -405,7 +405,7 @@ $summary = [pscustomobject]@{
     NextRecommendation = if ($mvpReady) {
         "MVP evidence is complete. Prepare a final release review."
     } elseif ([string]::IsNullOrWhiteSpace($GamePath)) {
-        "Pass -GamePath to include local runtime evidence. Current MVP next step is not another broad DLSS search or old HDRP args snapshot: the source-guided EASU ctx.cmd frame descriptor and persistent scratch-output DLSS frame sequence now have protected gameplay proof. Next narrow step is the separate default-off native-renderfunc-commandbuffer-dlss-visible-writeback-render-scale guard."
+        "Pass -GamePath to include local runtime evidence. Current MVP next step is the normal-user dlss-user-rendering paired visual/performance comparison using the source-guided EASU ctx.cmd route with V Rising FSR Off, followed by a matching human review file."
     } elseif ($visualStatus.Status -ne "Pass" -and $visualStatus.HumanReviewStatus -eq "Pending") {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
@@ -470,13 +470,13 @@ $summary = [pscustomobject]@{
         if (-not [string]::IsNullOrWhiteSpace($runtimeNextRecommendation)) {
             $runtimeNextRecommendation
         } else {
-            "Do not rerun rejected RenderGraph wrapper stages unchanged. The source-guided EASU ctx.cmd descriptor plus persistent scratch-output DLSS frame sequence is the current strongest boundary. Next narrow step is the separate default-off native-renderfunc-commandbuffer-dlss-visible-writeback-render-scale guard, then visual/performance proof before normal-user EnableDLSS."
+            "Do not rerun rejected RenderGraph wrapper stages unchanged. Re-run or inspect the source-guided EASU ctx.cmd dlss-user-rendering protected gameplay proof, then move to paired visual/performance validation with V Rising FSR Off."
         }
     } elseif (@($items | Where-Object { $_.Requirement -like "Normal-user dlss-user-rendering gameplay visual/performance comparison*" -and $_.Status -ne "Pass" }).Count -gt 0) {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
         } else {
-            "After a safe targeted placement route replaces the hot global GetTexture steady-state path, rerun paired dlss-user-rendering gameplay visual/performance comparison and add a matching human review file."
+            "Run paired dlss-user-rendering gameplay visual/performance comparison on the current source-guided EASU ctx.cmd candidate and add a matching human review file."
         }
     } else {
         "Validate image correctness, output selection, resize/reset handling, and fallback behavior before public release."

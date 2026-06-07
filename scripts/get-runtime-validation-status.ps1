@@ -374,6 +374,21 @@ function Get-NextRecommendation {
         return "The latest dlss-user-rendering gameplay log did not accept an FSR Off Super Resolution tuple: the main candidate stayed color=1920x1080 output=1920x1080. Before rerunning the same runtime proof, use the targeted render-scale diagnostic to check for `Render-scale control member write did not stick`, `RTHandles.SetHardwareDynamicResolutionState=true`, and whether the gameplay camera/main targets remain full-size."
     }
 
+    if ($userRendering -eq "Pass") {
+        return "DLSS user-rendering candidate passed on the source-guided EASU ctx.cmd command-buffer route. Next engineering step is paired dlss-user-rendering gameplay visual/performance comparison with V Rising FSR Off, human image-quality review, resize/reset handling, and fallback validation."
+    }
+
+    if ($nativeRenderFuncCommandBufferDlssVisibleWriteback -eq "Pass" -and $renderScaleControl -eq "Pass") {
+        $nativeRenderFuncCommandBufferDlssVisibleWritebackGameplayDoc = Get-ChildItem -LiteralPath (Join-Path $Root "docs\development") -Filter "native-renderfunc-commandbuffer-dlss-visible-writeback-render-scale-gameplay-result-*.md" -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+        if ($nativeRenderFuncCommandBufferDlssVisibleWritebackGameplayDoc) {
+            return "Native EASU ctx.cmd DLSS visible write-back and render-scale control have a protected gameplay proof: the same source-guided frame sequence reaches the target visible-output successes and then shuts down. Next step is the normal-user dlss-user-rendering visual/performance comparison before MVP promotion. Latest proof: $($nativeRenderFuncCommandBufferDlssVisibleWritebackGameplayDoc.FullName)"
+        }
+
+        return "Native EASU ctx.cmd DLSS visible write-back passed with render-scale evidence. Next step is normal-user dlss-user-rendering visual/performance comparison before MVP promotion."
+    }
+
     if ($nativeRenderFuncCommandBufferFrameDescriptorD3D11 -eq "Pass" -and $renderScaleControl -eq "Pass") {
         $nativeRenderFuncCommandBufferFrameDescriptorD3D11GameplayDoc = Get-ChildItem -LiteralPath (Join-Path $Root "docs\development") -Filter "native-renderfunc-commandbuffer-frame-descriptor-d3d11-render-scale-gameplay-result-*.md" -File -ErrorAction SilentlyContinue |
             Sort-Object LastWriteTime -Descending |
@@ -383,17 +398,6 @@ function Get-NextRecommendation {
         }
 
         return "Native frame-descriptor D3D11 validation passed with render-scale evidence. Next step should be a protected gameplay proof document, then a separate bounded no-write evaluate preflight at the same callback; do not add visible write-back yet."
-    }
-
-    if ($nativeRenderFuncCommandBufferDlssVisibleWriteback -eq "Pass" -and $renderScaleControl -eq "Pass") {
-        $nativeRenderFuncCommandBufferDlssVisibleWritebackGameplayDoc = Get-ChildItem -LiteralPath (Join-Path $Root "docs\development") -Filter "native-renderfunc-commandbuffer-dlss-visible-writeback-render-scale-gameplay-result-*.md" -File -ErrorAction SilentlyContinue |
-            Sort-Object LastWriteTime -Descending |
-            Select-Object -First 1
-        if ($nativeRenderFuncCommandBufferDlssVisibleWritebackGameplayDoc) {
-            return "Native EASU ctx.cmd DLSS visible write-back and render-scale control have a protected gameplay proof: the same source-guided frame sequence reaches the target visible-output successes and then shuts down. Next step is visual review plus controlled GPU-bound performance comparison before promoting any normal-user rendering path. Latest proof: $($nativeRenderFuncCommandBufferDlssVisibleWritebackGameplayDoc.FullName)"
-        }
-
-        return "Native EASU ctx.cmd DLSS visible write-back passed with render-scale evidence. Next step should be a protected gameplay proof document, then visual review and controlled GPU-bound performance comparison before any normal-user rendering change."
     }
 
     if ($nativeRenderFuncCommandBufferDlssVisibleWriteback -eq "Blocked" -or $nativeRenderFuncCommandBufferDlssVisibleWriteback -eq "Fail" -or $nativeRenderFuncCommandBufferDlssVisibleWriteback -eq "Partial") {

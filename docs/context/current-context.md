@@ -1603,3 +1603,17 @@ As of the read-only RenderGraph pass-map runtime result:
   `artifacts\native-build\Release\VrisingDLSS.Native.dll` and the game plugin
   release-safe native were refreshed from the MSVC release-safe DLL so
   automation cleanup restores the current safe native.
+- Source-guided route checkpoint on 2026-06-08: the useful "source" map is now
+  enough for the current DLSS boundary without full proprietary V Rising source.
+  Unity HDRP 2022.3 source supplies the official
+  `RenderPostProcess -> DoDLSSPasses -> DoDLSSPass -> DLSSPass.Render(...,
+  ctx.cmd)` method-body map, V Rising IL2CPP metadata/interop proves the actual
+  local symbols and generated EASU render-func identity, and the r3 protected
+  gameplay proof proves the normal-user `DLSS.EnableDLSS=true` candidate can
+  use the source-aligned EASU `ctx.cmd` route with `RenderGraph.GetTexture=0`.
+  A fresh read-only probe still shows no complete built-in Unity NVIDIA runtime
+  stack in the game. Do not spend the next loop on broad decompilation; use
+  source-guided decompilation only for narrow questions such as
+  history/reset/jitter/pre-exposure/lifecycle differences if the visual or
+  performance gate fails. See
+  `docs/research/source-guided-boundary-check-2026-06-08.md`.
