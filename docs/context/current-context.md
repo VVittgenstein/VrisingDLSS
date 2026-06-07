@@ -1052,3 +1052,27 @@ As of the read-only RenderGraph pass-map runtime result:
   and destination were `960x540`, not `960x540 -> 1920x1080`. Next guard should
   locate a full-size output target in the same frame/lifecycle or prove a safe
   handoff to the existing full-size EASU/output RenderGraph resource path.
+- Follow-up script-only stage `native-renderfunc-resource-tuple-render-scale`
+  is implemented and protected-gameplay validated; see
+  `docs/development/native-renderfunc-resource-tuple-render-scale-gameplay-result-2026-06-07.md`.
+  The stage combines the previously proven focused EASU native render-func
+  tuple path with `RenderScaleControlProbe`, while leaving broad
+  `RenderGraph.GetTexture`, D3D11 validation, NGX/DLSS evaluate, command-buffer
+  work, and broad hook scan disabled. With V Rising `FsrQualityMode=Off`, true
+  `1920x1080` Windowed, and the protected `11111` fixture, analyzer reported
+  `Native RenderFunc Resource Tuple=Pass` and
+  `Stage 2C Render-Scale Control Probe=Pass`. The first tuple advanced line at
+  `compile=4` matched native and managed EASU pass data
+  (`passDataMatches=True`, `tupleReady=True`) and reported
+  `tuple=input=960x540; output=1920x1080`; the final sampled status reached
+  `#8400` with the same shape. Counts: `tuple=input=960x540;
+  output=1920x1080` `109`, `1920x1080 -> 1920x1080` `0`, `960x540 ->
+  960x540` `0`, `GetCurrentScale=0.5` `31`, `GetResolvedScale=(0.50, 0.50)`
+  `31`, `RenderGraph GetTexture` `0`, D3D11/NGX/DLSS/evaluate patterns `0`,
+  failure/access-violation patterns `0`, `CrashEventCount=0`. Cleanup restored
+  loader config, ClientSettings, release-safe native state, left no V Rising
+  process, and restored the protected save with `ChangeCount=0`. This is now
+  the preferred official-boundary-adjacent locator for SR sizing: next work
+  should focus on a separate EASU source/destination resource-resolution or
+  native-pointer guard, not another broad `GetTexture` route or immediate DLSS
+  evaluate.

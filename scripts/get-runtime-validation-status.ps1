@@ -100,6 +100,8 @@ function Get-ConfiguredStage {
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphExecuteDelegateProbe") { return "rendergraph-execute-delegate" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncResourceNativePointerProbe") { return "native-renderfunc-resource-native-pointer" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncResourceResolveProbe") { return "native-renderfunc-resource-resolve" }
+    if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncResourceTupleProbe") -and
+        (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "native-renderfunc-resource-tuple-render-scale" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncResourceTupleProbe") { return "native-renderfunc-resource-tuple" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncResourceIdentityProbe") { return "native-renderfunc-resource-identity" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncArgumentProbe") { return "native-renderfunc-args" }
@@ -318,6 +320,17 @@ function Get-NextRecommendation {
         }
 
         return "The latest dlss-user-rendering gameplay log did not accept an FSR Off Super Resolution tuple: the main candidate stayed color=1920x1080 output=1920x1080. Before rerunning the same runtime proof, use the targeted render-scale diagnostic to check for `Render-scale control member write did not stick`, `RTHandles.SetHardwareDynamicResolutionState=true`, and whether the gameplay camera/main targets remain full-size."
+    }
+
+    if ($nativeRenderFuncResourceTuple -eq "Pass" -and $renderScaleControl -eq "Pass") {
+        $nativeRenderFuncResourceTupleRenderScaleGameplayDoc = Get-ChildItem -LiteralPath (Join-Path $Root "docs\development") -Filter "native-renderfunc-resource-tuple-render-scale-gameplay-result-*.md" -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+        if ($nativeRenderFuncResourceTupleRenderScaleGameplayDoc) {
+            return "Native EASU tuple metadata and render-scale control have a combined protected gameplay proof. Inspect the latest EASU tuple: if it is input=960x540 output=1920x1080, the next separate guard can target focused EASU source/destination resource resolution or native-pointer observation; if it remains same-sized, compare EASU timing against the DarkForeground scaled postprocess boundary. Still no broad GetTexture loop, command-buffer access, native texture dereference, or DLSS evaluate without another explicit preflight. Latest proof: $($nativeRenderFuncResourceTupleRenderScaleGameplayDoc.FullName)"
+        }
+
+        return "Native render-func tuple and render-scale control both have runtime evidence, but not yet in the same protected gameplay proof. Next step is a 1920x1080 Windowed protected 11111 run using scripts\start-vrising-automation-session.ps1 -Stage native-renderfunc-resource-tuple-render-scale; expected evidence is whether EASU reports input=960x540 output=1920x1080 while GetTexture/DLSS/evaluate stay zero."
     }
 
     if ($hdrpPostProcessRenderArgs -eq "Pass" -and $renderScaleControl -eq "Pass") {

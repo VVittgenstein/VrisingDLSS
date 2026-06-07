@@ -587,3 +587,29 @@ Result:
 - Cleanup closed the game, restored ClientSettings/config/native state,
   archived the changed post-run save state, and restored the `11111` save with
   `ChangeCount=0`.
+
+## Native RenderFunc Resource Tuple + Render Scale Gameplay Notes
+
+Run label:
+`native-renderfunc-resource-tuple-render-scale-gameplay-1080p-20260607-r1`.
+
+Result:
+
+- Computer Use selected the real `VRising` Unity window, not the BepInEx
+  console.
+- The main-menu screenshot was `1283x751`; the known Chinese Continue / `11111`
+  entry was clicked once at `(205,354)`.
+- The click went straight to the loading screen; no save-list interaction was
+  needed.
+- No keyboard, movement, or gameplay keys were sent.
+- After the wait, Computer Use again returned a screenshot of the Codex window
+  even though the selected target handle was the `VRising` game window. Treat
+  this as a recurring Computer Use screenshot-channel mismatch after V Rising
+  loads; no further UI input should be sent when it happens.
+- Player log proved gameplay was reached (`HUDCanvas`, `TopDownCamera`
+  created/assigned).
+- A passive window capture helper produced the valid gameplay screenshot:
+  `artifacts/gameplay-automation/CaptureGameplay-native-renderfunc-resource-tuple-render-scale-gameplay-1080p-20260607-r1.png`.
+- Cleanup closed the game, restored ClientSettings/config/native state,
+  archived the changed post-run save state, and restored the `11111` save with
+  `ChangeCount=0`.
