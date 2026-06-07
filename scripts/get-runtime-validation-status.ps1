@@ -101,6 +101,9 @@ function Get-ConfiguredStage {
     if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe") -and
         (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "native-renderfunc-commandbuffer-frame-descriptor-d3d11-render-scale" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe") { return "native-renderfunc-commandbuffer-frame-descriptor-d3d11" }
+    if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferDlssVisibleWritebackProbe") -and
+        (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "native-renderfunc-commandbuffer-dlss-visible-writeback-render-scale" }
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferDlssVisibleWritebackProbe") { return "native-renderfunc-commandbuffer-dlss-visible-writeback" }
     if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbe") -and
         (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "native-renderfunc-commandbuffer-dlss-persistent-scratch-evaluate-render-scale" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbe") { return "native-renderfunc-commandbuffer-dlss-persistent-scratch-evaluate" }
@@ -316,6 +319,7 @@ function Get-NextRecommendation {
     $visibleWriteback = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 10A"
     $userRendering = Get-FirstStageStatus -Results $LogResults -StagePrefix "DLSS User Rendering Candidate"
     $nativeRenderFuncCommandBufferDlssFeatureCreate = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc CommandBuffer DLSS Feature Create"
+    $nativeRenderFuncCommandBufferDlssVisibleWriteback = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc CommandBuffer DLSS Visible Write-back"
     $nativeRenderFuncCommandBufferDlssPersistentScratchEvaluate = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc CommandBuffer DLSS Persistent Scratch Evaluate"
     $nativeRenderFuncCommandBufferDlssScratchEvaluate = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc CommandBuffer DLSS Scratch Evaluate"
     $nativeRenderFuncCommandBufferFrameDescriptorD3D11 = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc CommandBuffer Frame Descriptor D3D11"
@@ -379,6 +383,21 @@ function Get-NextRecommendation {
         }
 
         return "Native frame-descriptor D3D11 validation passed with render-scale evidence. Next step should be a protected gameplay proof document, then a separate bounded no-write evaluate preflight at the same callback; do not add visible write-back yet."
+    }
+
+    if ($nativeRenderFuncCommandBufferDlssVisibleWriteback -eq "Pass" -and $renderScaleControl -eq "Pass") {
+        $nativeRenderFuncCommandBufferDlssVisibleWritebackGameplayDoc = Get-ChildItem -LiteralPath (Join-Path $Root "docs\development") -Filter "native-renderfunc-commandbuffer-dlss-visible-writeback-render-scale-gameplay-result-*.md" -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+        if ($nativeRenderFuncCommandBufferDlssVisibleWritebackGameplayDoc) {
+            return "Native EASU ctx.cmd DLSS visible write-back and render-scale control have a protected gameplay proof: the same source-guided frame sequence reaches the target visible-output successes and then shuts down. Next step is visual review plus controlled GPU-bound performance comparison before promoting any normal-user rendering path. Latest proof: $($nativeRenderFuncCommandBufferDlssVisibleWritebackGameplayDoc.FullName)"
+        }
+
+        return "Native EASU ctx.cmd DLSS visible write-back passed with render-scale evidence. Next step should be a protected gameplay proof document, then visual review and controlled GPU-bound performance comparison before any normal-user rendering change."
+    }
+
+    if ($nativeRenderFuncCommandBufferDlssVisibleWriteback -eq "Blocked" -or $nativeRenderFuncCommandBufferDlssVisibleWriteback -eq "Fail" -or $nativeRenderFuncCommandBufferDlssVisibleWriteback -eq "Partial") {
+        return "Native visible DLSS write-back at the focused EASU ctx.cmd boundary has not passed. Inspect visible write-back set/issue/consume counts, sequenceCreates, sequenceEvaluates, evaluateSuccesses, shutdown pending/completed, image artifacts, SDK-wrapper/runtime path, and stale target refresh before changing normal-user rendering."
     }
 
     if ($nativeRenderFuncCommandBufferDlssPersistentScratchEvaluate -eq "Pass" -and $renderScaleControl -eq "Pass") {

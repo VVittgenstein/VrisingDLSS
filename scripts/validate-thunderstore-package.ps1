@@ -318,6 +318,7 @@ try {
             "EnableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe = false",
             "EnableNativeRenderFuncCommandBufferDlssScratchEvaluateProbe = false",
             "EnableNativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbe = false",
+            "EnableNativeRenderFuncCommandBufferDlssVisibleWritebackProbe = false",
             "EnableNativeRenderFuncCommandBufferDlssFeatureCreateProbe = false",
             "EnableNativeRenderFuncResourceIdentityProbe = false",
             "EnableNativeRenderFuncResourceTupleProbe = false",

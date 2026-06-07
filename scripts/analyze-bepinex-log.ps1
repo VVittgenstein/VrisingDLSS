@@ -281,6 +281,13 @@ $results.Add((New-StageResult `
     -StartedPatterns @("Native render-func command-buffer DLSS persistent scratch-evaluate preflight enabled", "Native render-func command-buffer DLSS persistent scratch evaluate status #", "Native render-func command-buffer DLSS persistent scratch evaluate set advanced:", "render event frame descriptor DLSS persistent scratch evaluate pending")))
 
 $results.Add((New-StageResult `
+    -Stage "Native RenderFunc CommandBuffer DLSS Visible Write-back" `
+    -PassPatterns @("Native render-func command-buffer DLSS visible write-back advanced:") `
+    -FailPatterns @("Native render-func entry probe failed:", "Native render-func entry detour dispose failed:", "Native render-func command-buffer DLSS visible write-back set failed:", "Native render-func command-buffer DLSS visible write-back event failed:", "render event frame descriptor payload set failed:", "render event frame descriptor payload consume failed:", "DLSS visible write-back failed", "RenderGraph pass-list logging failed") `
+    -BlockedPatterns @("DLSS visible write-back blocked", "native bridge was built without NVIDIA SDK wrapper integration", "runtime path was empty") `
+    -StartedPatterns @("Native render-func command-buffer DLSS visible write-back preflight enabled", "Native render-func command-buffer DLSS visible write-back status #", "Native render-func command-buffer DLSS visible write-back set advanced:", "render event frame descriptor DLSS visible write-back pending")))
+
+$results.Add((New-StageResult `
     -Stage "Native RenderFunc CommandBuffer DLSS Feature Create" `
     -PassPatterns @("Native render-func command-buffer DLSS feature-create advanced:") `
     -FailPatterns @("Native render-func entry probe failed:", "Native render-func entry detour dispose failed:", "Native render-func command-buffer DLSS feature-create set failed:", "Native render-func command-buffer DLSS feature-create event failed:", "render event DLSS feature-create payload set failed:", "render event DLSS feature-create payload consume failed:", "render event DLSS feature-create payload create failed:", "RenderGraph pass-list logging failed") `

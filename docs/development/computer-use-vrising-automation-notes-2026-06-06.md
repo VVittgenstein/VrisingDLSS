@@ -966,3 +966,31 @@ Result:
 - Cleanup closed the game, restored ClientSettings/config/native state,
   archived logs, restored the release-safe native DLL, left no V Rising
   process, and restored the `11111` save with `ChangeCount=0`.
+
+## Native RenderFunc CommandBuffer DLSS Visible Write-back + Render Scale Gameplay Notes
+
+Run label:
+`native-renderfunc-commandbuffer-dlss-visible-writeback-render-scale-gameplay-1080p-20260607-r1`.
+
+Result:
+
+- Computer Use selected the real `VRising` Unity window, not the BepInEx
+  console.
+- The main-menu screenshot was `1283x751`; the Chinese Continue entry was
+  clicked once near `(205,354)`.
+- After the click, one verification screenshot initially showed the foreground
+  Codex/desktop surface rather than the game. Recovery was to refresh app/window
+  state, rebind the returned `VRising` window id, activate it, and take a new
+  screenshot before doing anything else. The new screenshot confirmed gameplay.
+- No keyboard, movement, combat, or gameplay keys were sent.
+- Runtime proof passed: the focused EASU `ctx.cmd` event with `eventId=260614`
+  consumed the HDRP/EASU frame descriptor three times and evaluated DLSS into
+  the visible EASU output.
+- Evidence showed `setSuccesses=3`, `issueSuccesses=3`, `consumed=3`,
+  `sequenceCreates=1`, `sequenceEvaluates=3`, `evaluateSuccesses=3`,
+  `scratchOutput=no`, `visibleOutput=yes`, and `shutdown=completed`.
+- The proof did not run normal user rendering, old Stage 10A visible write-back,
+  broad `RenderGraph.GetTexture`, or `ExecuteDLSS`.
+- Cleanup closed the game, restored ClientSettings/config/native state,
+  archived logs, restored the release-safe native DLL, left no V Rising
+  process, and restored the `11111` save with `ChangeCount=0`.

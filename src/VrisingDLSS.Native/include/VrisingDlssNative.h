@@ -93,6 +93,28 @@ extern "C"
         float sharpness,
         int reset,
         int targetEvaluateSuccesses);
+    VRISINGDLSS_API int __cdecl VrisingDlss_SetRenderEventFrameDescriptorDlssVisibleWritebackPayload(
+        void* sourceTexturePtr,
+        void* destinationTexturePtr,
+        void* depthTexturePtr,
+        void* motionTexturePtr,
+        int inputWidth,
+        int inputHeight,
+        int outputWidth,
+        int outputHeight,
+        int hdrpFrame,
+        int easuSourceFrame,
+        int easuDestinationFrame,
+        int eventId,
+        int sequence,
+        const wchar_t* runtimePath,
+        const wchar_t* applicationDataPath,
+        unsigned long long applicationId,
+        int perfQualityValue,
+        int featureFlags,
+        float sharpness,
+        int reset,
+        int targetEvaluateSuccesses);
     VRISINGDLSS_API int __cdecl VrisingDlss_GetRenderEventFrameDescriptorPayloadConsumedCount();
     VRISINGDLSS_API const char* __cdecl VrisingDlss_GetRenderEventFrameDescriptorPayloadStatus();
     VRISINGDLSS_API int __cdecl VrisingDlss_SetRenderEventDlssFeatureCreatePayload(

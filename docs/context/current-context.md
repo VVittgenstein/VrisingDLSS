@@ -1518,3 +1518,29 @@ As of the read-only RenderGraph pass-map runtime result:
   write-back timing/quality proof at this boundary or continue source/
   decompilation-guided search for a cleaner official DLSS-pass-equivalent
   boundary.
+- Follow-up stage
+  `native-renderfunc-commandbuffer-dlss-visible-writeback-render-scale` is now
+  implemented and protected-gameplay validated; see
+  `docs/development/native-renderfunc-commandbuffer-dlss-visible-writeback-render-scale-preflight-implementation-2026-06-07.md`
+  and
+  `docs/development/native-renderfunc-commandbuffer-dlss-visible-writeback-render-scale-gameplay-result-2026-06-07.md`.
+  It adds default-off
+  `Diagnostics.EnableNativeRenderFuncCommandBufferDlssVisibleWritebackProbe=false`
+  and native bridge API version `20`. It deliberately remains separate from old
+  Stage 10A/global `EnableDlssVisibleWritebackProbe`: old visible write-back,
+  normal-user rendering, `EnableDLSS`, `RenderGraph.GetTexture`, and hook probe
+  stay disabled for this guard. Protected gameplay proof `r1` passed at true
+  `1920x1080` Windowed with V Rising `FsrQualityMode=Off`, SDK-wrapper native,
+  and the protected `11111` fixture. Key evidence: `eventId=260614`,
+  `setSuccesses=3`, `issueSuccesses=3`, `consumed=3`, `sequenceCreates=1`,
+  `sequenceEvaluates=3`, `evaluateSuccesses=3`, `input=960x540`,
+  `output=1920x1080`, `validation=D3D11-succeeded`, `sameDevice=yes`,
+  `scratchOutput=no`, `visibleOutput=yes`, `persistent=yes`,
+  `targetSuccesses=3`, `evaluateResult=1`, `shutdownResult=1`,
+  `shutdown=completed`, and `release/destroy/shutdown=0x00000001`. Negative
+  counts: visible write-back failures `0`, blocked `0`, old Stage 10A visible
+  write-back probe `0`, user-rendering evaluate `0`, `RenderGraph GetTexture
+  call #` `0`, crash events `0`, and save restore `ChangeCount=0`. This is the
+  first source-guided visible-output proof at the EASU `ctx.cmd` boundary; the
+  next work should be visual/performance or a normal-user candidate that
+  preserves this placement and bounded resource discovery.

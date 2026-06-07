@@ -405,7 +405,7 @@ $summary = [pscustomobject]@{
     NextRecommendation = if ($mvpReady) {
         "MVP evidence is complete. Prepare a final release review."
     } elseif ([string]::IsNullOrWhiteSpace($GamePath)) {
-        "Pass -GamePath to include local runtime evidence. Current MVP next step is not another broad DLSS search or unchanged RenderGraph map run: the native-renderfunc-entry through native-pointer proofs passed, and the ProjectM HDRP postprocess boundary now has gameplay evidence. Next narrow step is the default-off no-native hdrp-postprocess-render-args snapshot over DarkForeground.Render; do not combine command-buffer work, GetTexture loops, D3D11 validation, native texture dereference, or DLSS evaluate with this argument snapshot."
+        "Pass -GamePath to include local runtime evidence. Current MVP next step is not another broad DLSS search or old HDRP args snapshot: the source-guided EASU ctx.cmd frame descriptor and persistent scratch-output DLSS frame sequence now have protected gameplay proof. Next narrow step is the separate default-off native-renderfunc-commandbuffer-dlss-visible-writeback-render-scale guard."
     } elseif ($visualStatus.Status -ne "Pass" -and $visualStatus.HumanReviewStatus -eq "Pending") {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
@@ -467,7 +467,11 @@ $summary = [pscustomobject]@{
             "Run scripts\run-vrising-diagnostic.ps1 -Stage dlss-visible-writeback with a local SDK-wrapper native build, DLSS runtime path, and DLSS disabled by default."
         }
     } elseif (@($items | Where-Object { $_.Requirement -like "Experimental EnableDLSS user-rendering*" -and $_.Status -ne "Pass" }).Count -gt 0) {
-        "Do not rerun rejected RenderGraph wrapper stages unchanged. The official HDRP DLSS boundary is the Deep Learning Super Sampling render func, and V Rising's ProjectM postprocess boundary now has protected gameplay evidence. Next narrow step is the default-off no-native hdrp-postprocess-render-args snapshot over DarkForeground.Render; do not combine command-buffer work, GetTexture loops, D3D11 validation, native texture dereference, or DLSS evaluate with this argument snapshot."
+        if (-not [string]::IsNullOrWhiteSpace($runtimeNextRecommendation)) {
+            $runtimeNextRecommendation
+        } else {
+            "Do not rerun rejected RenderGraph wrapper stages unchanged. The source-guided EASU ctx.cmd descriptor plus persistent scratch-output DLSS frame sequence is the current strongest boundary. Next narrow step is the separate default-off native-renderfunc-commandbuffer-dlss-visible-writeback-render-scale guard, then visual/performance proof before normal-user EnableDLSS."
+        }
     } elseif (@($items | Where-Object { $_.Requirement -like "Normal-user dlss-user-rendering gameplay visual/performance comparison*" -and $_.Status -ne "Pass" }).Count -gt 0) {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation

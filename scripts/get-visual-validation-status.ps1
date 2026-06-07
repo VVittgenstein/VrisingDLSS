@@ -516,7 +516,7 @@ if (Test-Path -LiteralPath $reviewResolved) {
 }
 
 if (@($issues | Where-Object { $_ -like "Candidate * regressed*" -or $_ -like "Candidate P95 frame time worsened*" }).Count -gt 0) {
-    $nextRecommendation = "Cached-driver real-evaluate crashed in nvwgf2umx.dll even with GetTexture evaluate/output-follow-up at zero. The safe CompileRenderGraph map path has pass-list, declarations, pass-data, renderfunc-metadata, and compiled-pass-info proof; execute-delegate was stable but silent; native-renderfunc-entry through native-pointer proofs passed, and the ProjectM HDRP postprocess boundary now has protected gameplay evidence. The next narrow step is the default-off no-native hdrp-postprocess-render-args snapshot over DarkForeground.Render; do not combine command-buffer work, GetTexture loops, D3D11 validation, native texture dereference, or DLSS evaluate with this argument snapshot. Do not patch generated render funcs through Harmony or rerun completed/rejected probes unchanged."
+    $nextRecommendation = "Older GetTexture/driver candidate visual-performance evidence is stale and not MVP-safe. Current source-guided evidence has advanced through the EASU ctx.cmd visible-output DLSS write-back proof. The next visual/performance candidate should preserve that placement, avoid the hot global GetTexture path, and collect paired screenshots plus controlled GPU-bound performance proof before normal-user promotion."
 }
 
 if ($issues.Count -gt 0) {

@@ -1422,4 +1422,33 @@ Current helper smoke status:
   (`prepare=0.003ms`, `evaluate=0.228ms`, `total=0.232ms`), so the next guard
   can move to separately gated visible write-back timing/quality proof or keep
   decompiling the official HDRP DLSS pass for a cleaner equivalent boundary.
+- Follow-up stage
+  `native-renderfunc-commandbuffer-dlss-visible-writeback-render-scale` is
+  implemented and protected-gameplay validated; see
+  `docs/development/native-renderfunc-commandbuffer-dlss-visible-writeback-render-scale-preflight-implementation-2026-06-07.md`
+  and
+  `docs/development/native-renderfunc-commandbuffer-dlss-visible-writeback-render-scale-gameplay-result-2026-06-07.md`.
+  It adds default-off
+  `Diagnostics.EnableNativeRenderFuncCommandBufferDlssVisibleWritebackProbe=false`
+  and native bridge API version `20`. The stage reuses the source-guided
+  HDRP/EASU descriptor and focused EASU `ctx.cmd` callback, keeps one
+  SDK-wrapper DLSS frame sequence alive until three visible-output evaluates
+  succeed, then releases/destroys/shuts down. Protected gameplay proof
+  `native-renderfunc-commandbuffer-dlss-visible-writeback-render-scale-gameplay-1080p-20260607-r1`
+  passed at true `1920x1080` Windowed with V Rising `FsrQualityMode=Off`,
+  SDK-wrapper native, and the protected `11111` fixture. Key evidence preserved
+  `eventId=260614`, `setSuccesses=3`, `issueSuccesses=3`, `consumed=3`,
+  `sequenceCreates=1`, `sequenceEvaluates=3`, `evaluateSuccesses=3`,
+  `input=960x540`, `output=1920x1080`, `validation=D3D11-succeeded`,
+  `sameDevice=yes`, `scratchOutput=no`, `visibleOutput=yes`, `persistent=yes`,
+  `targetSuccesses=3`, `evaluateResult=1`, `shutdownResult=1`,
+  `shutdown=completed`, `evaluateLast=0x00000001`, and
+  `release/destroy/shutdown=0x00000001`. Counts: visible write-back advanced
+  `1`, consumed visible status lines `18`, `eventId=260614` lines `113`,
+  `DLSS visible write-back failed` `0`, `DLSS visible write-back blocked` `0`,
+  old `DLSS visible write-back probe` `0`, `DLSS user rendering evaluate`
+  `0`, `RenderGraph GetTexture call #` `0`, crash events `0`, and save restore
+  `ChangeCount=0`. The next guard should convert this placement into a
+  normal-user candidate or paired visual/performance proof without returning to
+  the hot global GetTexture path.
 - Current route decision: DLSS itself does not depend on FSR. The final MVP validation must keep V Rising `FsrQualityMode=Off` for baseline and candidate, while the mod controls render scale/upscale through HDRP dynamic-resolution/DLSS-path integration. The next gate is no longer tuple existence; it is visual correctness, performance, resize/reset, fallback behavior, and release-boundary validation.

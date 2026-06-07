@@ -22,6 +22,7 @@ internal sealed class NativeBridge
     private SetRenderEventFrameDescriptorPayloadDelegate? _setRenderEventFrameDescriptorD3D11ValidationPayload;
     private SetRenderEventFrameDescriptorDlssScratchEvaluatePayloadDelegate? _setRenderEventFrameDescriptorDlssScratchEvaluatePayload;
     private SetRenderEventFrameDescriptorDlssPersistentScratchEvaluatePayloadDelegate? _setRenderEventFrameDescriptorDlssPersistentScratchEvaluatePayload;
+    private SetRenderEventFrameDescriptorDlssPersistentScratchEvaluatePayloadDelegate? _setRenderEventFrameDescriptorDlssVisibleWritebackPayload;
     private GetIntDelegate? _getRenderEventFrameDescriptorPayloadConsumedCount;
     private GetStringPointerDelegate? _getRenderEventFrameDescriptorPayloadStatus;
     private SetRenderEventDlssFeatureCreatePayloadDelegate? _setRenderEventDlssFeatureCreatePayload;
@@ -84,6 +85,7 @@ internal sealed class NativeBridge
         _setRenderEventFrameDescriptorD3D11ValidationPayload = GetOptionalExport<SetRenderEventFrameDescriptorPayloadDelegate>("VrisingDlss_SetRenderEventFrameDescriptorD3D11ValidationPayload");
         _setRenderEventFrameDescriptorDlssScratchEvaluatePayload = GetOptionalExport<SetRenderEventFrameDescriptorDlssScratchEvaluatePayloadDelegate>("VrisingDlss_SetRenderEventFrameDescriptorDlssScratchEvaluatePayload");
         _setRenderEventFrameDescriptorDlssPersistentScratchEvaluatePayload = GetOptionalExport<SetRenderEventFrameDescriptorDlssPersistentScratchEvaluatePayloadDelegate>("VrisingDlss_SetRenderEventFrameDescriptorDlssPersistentScratchEvaluatePayload");
+        _setRenderEventFrameDescriptorDlssVisibleWritebackPayload = GetOptionalExport<SetRenderEventFrameDescriptorDlssPersistentScratchEvaluatePayloadDelegate>("VrisingDlss_SetRenderEventFrameDescriptorDlssVisibleWritebackPayload");
         _getRenderEventFrameDescriptorPayloadConsumedCount = GetOptionalExport<GetIntDelegate>("VrisingDlss_GetRenderEventFrameDescriptorPayloadConsumedCount");
         _getRenderEventFrameDescriptorPayloadStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetRenderEventFrameDescriptorPayloadStatus");
         _setRenderEventDlssFeatureCreatePayload = GetOptionalExport<SetRenderEventDlssFeatureCreatePayloadDelegate>("VrisingDlss_SetRenderEventDlssFeatureCreatePayload");
@@ -267,6 +269,51 @@ internal sealed class NativeBridge
         int reset,
         int targetEvaluateSuccesses) =>
         _setRenderEventFrameDescriptorDlssPersistentScratchEvaluatePayload?.Invoke(
+            sourceTexturePtr,
+            destinationTexturePtr,
+            depthTexturePtr,
+            motionTexturePtr,
+            inputWidth,
+            inputHeight,
+            outputWidth,
+            outputHeight,
+            hdrpFrame,
+            easuSourceFrame,
+            easuDestinationFrame,
+            eventId,
+            sequence,
+            runtimePath,
+            applicationDataPath,
+            applicationId,
+            perfQualityValue,
+            featureFlags,
+            sharpness,
+            reset,
+            targetEvaluateSuccesses) == 1;
+
+    internal bool SetRenderEventFrameDescriptorDlssVisibleWritebackPayload(
+        IntPtr sourceTexturePtr,
+        IntPtr destinationTexturePtr,
+        IntPtr depthTexturePtr,
+        IntPtr motionTexturePtr,
+        int inputWidth,
+        int inputHeight,
+        int outputWidth,
+        int outputHeight,
+        int hdrpFrame,
+        int easuSourceFrame,
+        int easuDestinationFrame,
+        int eventId,
+        int sequence,
+        string runtimePath,
+        string applicationDataPath,
+        ulong applicationId,
+        int perfQualityValue,
+        int featureFlags,
+        float sharpness,
+        int reset,
+        int targetEvaluateSuccesses) =>
+        _setRenderEventFrameDescriptorDlssVisibleWritebackPayload?.Invoke(
             sourceTexturePtr,
             destinationTexturePtr,
             depthTexturePtr,

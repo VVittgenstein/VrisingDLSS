@@ -43,6 +43,7 @@ param(
         "native-renderfunc-commandbuffer-frame-descriptor-d3d11-render-scale",
         "native-renderfunc-commandbuffer-dlss-scratch-evaluate-render-scale",
         "native-renderfunc-commandbuffer-dlss-persistent-scratch-evaluate-render-scale",
+        "native-renderfunc-commandbuffer-dlss-visible-writeback-render-scale",
         "native-renderfunc-commandbuffer-dlss-create-render-scale",
         "custom-postprocess-registration",
         "custom-postprocess-render-entry",
@@ -124,6 +125,7 @@ function New-ConfigMap {
             EnableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe = "false"
             EnableNativeRenderFuncCommandBufferDlssScratchEvaluateProbe = "false"
             EnableNativeRenderFuncCommandBufferDlssPersistentScratchEvaluateProbe = "false"
+            EnableNativeRenderFuncCommandBufferDlssVisibleWritebackProbe = "false"
             EnableNativeRenderFuncCommandBufferDlssFeatureCreateProbe = "false"
             EnableNativeRenderFuncResourceIdentityProbe = "false"
             EnableNativeRenderFuncResourceTupleProbe = "false"
@@ -562,6 +564,24 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"
             $Config.Diagnostics.EnableHookProbe = "false"
+        }
+        "native-renderfunc-commandbuffer-dlss-visible-writeback-render-scale" {
+            $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
+            $Config.Diagnostics.EnableDlssRuntimeProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncEntryProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncArgumentProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncContextProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncCommandBufferDlssVisibleWritebackProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncResourceIdentityProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncResourceTupleProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncResourceNativePointerProbe = "true"
+            $Config.Diagnostics.EnableHdrpPostProcessRenderArgsProbe = "true"
+            $Config.Diagnostics.EnableHdrpPostProcessRenderArgsGlobalTextureProbe = "true"
+            $Config.Diagnostics.EnableRenderScaleControlProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
+            $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+            $Config.Diagnostics.EnableHookProbe = "false"
+            $Config.DLSS.EnableDLSS = "false"
         }
         "native-renderfunc-commandbuffer-dlss-create-render-scale" {
             $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"

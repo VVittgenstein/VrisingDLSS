@@ -55,6 +55,7 @@ namespace
         bool validateD3D11 = false;
         bool evaluateDlssScratch = false;
         bool evaluateDlssPersistentScratch = false;
+        bool evaluateDlssVisibleWriteback = false;
         int targetEvaluateSuccesses = 0;
         std::wstring runtimePath;
         std::wstring applicationDataPath;
@@ -804,6 +805,94 @@ namespace
         bool scratchTargetReached = false;
         char scratchStatus[2048] = {};
         char scratchShutdownStatus[768] = {};
+        int visibleWritebackEvaluateResult = 0;
+        int visibleWritebackShutdownResult = 0;
+        int visibleWritebackSequenceCreates = 0;
+        int visibleWritebackSequenceEvaluates = 0;
+        int visibleWritebackSequenceSuccesses = 0;
+        int visibleWritebackTargetSuccesses = payload.targetEvaluateSuccesses > 0 ? payload.targetEvaluateSuccesses : 1;
+        bool visibleWritebackTargetReached = false;
+        char visibleWritebackStatus[2048] = {};
+        char visibleWritebackShutdownStatus[768] = {};
+        if (payload.evaluateDlssVisibleWriteback)
+        {
+#if !defined(VRISINGDLSS_ENABLE_NGX_SDK_WRAPPER)
+            g_renderEventFrameDescriptorPayloadConsumedFailures.fetch_add(1);
+            SetRenderEventFrameDescriptorPayloadFailureStatus(
+                "visible-writeback",
+                "DLSS visible write-back blocked: native bridge was built without NVIDIA SDK wrapper integration",
+                eventId,
+                payload.sequence);
+            ReleaseEvaluateTextureInfo(&source);
+            ReleaseEvaluateTextureInfo(&destination);
+            ReleaseEvaluateTextureInfo(&depth);
+            ReleaseEvaluateTextureInfo(&motion);
+            ReleaseRenderEventFrameDescriptorPayload(&payload);
+            return;
+#else
+            visibleWritebackEvaluateResult = EvaluateDlssFrameSequenceWithSdkWrapper(
+                payload.source,
+                payload.destination,
+                payload.depth,
+                payload.motion,
+                payload.runtimePath.c_str(),
+                payload.applicationDataPath.c_str(),
+                payload.applicationId,
+                payload.perfQualityValue,
+                payload.featureFlags,
+                0.0f,
+                0.0f,
+                1.0f,
+                1.0f,
+                payload.sharpness,
+                payload.reset);
+            std::snprintf(visibleWritebackStatus, sizeof(visibleWritebackStatus), "%s", g_dlssFrameSequenceStatus);
+            visibleWritebackSequenceCreates = GetDlssFrameSequenceCreateCountWithSdkWrapper();
+            visibleWritebackSequenceEvaluates = GetDlssFrameSequenceEvaluateCountWithSdkWrapper();
+            visibleWritebackSequenceSuccesses = GetDlssFrameSequenceEvaluateSuccessCountWithSdkWrapper();
+            visibleWritebackTargetReached = visibleWritebackEvaluateResult == 1 && visibleWritebackSequenceSuccesses >= visibleWritebackTargetSuccesses;
+            if (visibleWritebackEvaluateResult != 1 || visibleWritebackTargetReached)
+            {
+                visibleWritebackShutdownResult = ShutdownDlssFrameSequenceWithSdkWrapper();
+                std::snprintf(visibleWritebackShutdownStatus, sizeof(visibleWritebackShutdownStatus), "%s", g_dlssFrameSequenceStatus);
+            }
+            else
+            {
+                std::snprintf(
+                    visibleWritebackShutdownStatus,
+                    sizeof(visibleWritebackShutdownStatus),
+                    "DLSS visible write-back shutdown pending; sequenceCreates=%d; sequenceEvaluates=%d; evaluateSuccesses=%d; targetSuccesses=%d",
+                    visibleWritebackSequenceCreates,
+                    visibleWritebackSequenceEvaluates,
+                    visibleWritebackSequenceSuccesses,
+                    visibleWritebackTargetSuccesses);
+            }
+
+            if (visibleWritebackEvaluateResult != 1 || (visibleWritebackTargetReached && visibleWritebackShutdownResult != 1))
+            {
+                char message[2600];
+                std::snprintf(
+                    message,
+                    sizeof(message),
+                    "DLSS visible write-back failed: evaluateResult=%d; shutdownResult=%d; sequenceSuccesses=%d/%d; evaluateStatus=\"%s\"; shutdownStatus=\"%s\"",
+                    visibleWritebackEvaluateResult,
+                    visibleWritebackShutdownResult,
+                    visibleWritebackSequenceSuccesses,
+                    visibleWritebackTargetSuccesses,
+                    visibleWritebackStatus,
+                    visibleWritebackShutdownStatus);
+                g_renderEventFrameDescriptorPayloadConsumedFailures.fetch_add(1);
+                SetRenderEventFrameDescriptorPayloadFailureStatus("visible-writeback", message, eventId, payload.sequence);
+                ReleaseEvaluateTextureInfo(&source);
+                ReleaseEvaluateTextureInfo(&destination);
+                ReleaseEvaluateTextureInfo(&depth);
+                ReleaseEvaluateTextureInfo(&motion);
+                ReleaseRenderEventFrameDescriptorPayload(&payload);
+                return;
+            }
+#endif
+        }
+
         if (payload.evaluateDlssScratch)
         {
 #if !defined(VRISINGDLSS_ENABLE_NGX_SDK_WRAPPER)
@@ -944,7 +1033,67 @@ namespace
         g_renderEventFrameDescriptorPayloadLastEventId.store(eventId);
         {
             std::lock_guard<std::mutex> lock(g_renderEventFrameDescriptorPayloadMutex);
-            if (payload.evaluateDlssScratch)
+            if (payload.evaluateDlssVisibleWriteback)
+            {
+                const double widthScale = static_cast<double>(destination.width) / static_cast<double>(source.width);
+                const double heightScale = static_cast<double>(destination.height) / static_cast<double>(source.height);
+                std::snprintf(
+                    g_renderEventFrameDescriptorPayloadStatus,
+                    sizeof(g_renderEventFrameDescriptorPayloadStatus),
+                    "render event frame descriptor DLSS visible write-back consumed: setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d; sourcePtr=%p; visibleDestinationPtr=%p; depthPtr=%p; motionPtr=%p; input=%dx%d; output=%dx%d; hdrpFrame=%d; easuSourceFrame=%d; easuDestinationFrame=%d; sourceFrameDelta=%d; destinationFrameDelta=%d; validation=D3D11-succeeded; sameDevice=yes; source=%ux%u fmt=%u mips=%u array=%u; visibleDestination=%ux%u fmt=%u mips=%u array=%u; depth=%ux%u fmt=%u mips=%u array=%u; motion=%ux%u fmt=%u mips=%u array=%u; scale=(%.3fx,%.3fx); scratchOutput=no; visibleOutput=yes; persistent=yes; targetSuccesses=%d; sequenceCreates=%d; sequenceEvaluates=%d; evaluateSuccesses=%d; evaluateResult=%d; shutdownResult=%d; shutdown=%s; evaluateStatus=\"%s\"; shutdownStatus=\"%s\"",
+                    g_renderEventFrameDescriptorPayloadSetAttempts.load(),
+                    g_renderEventFrameDescriptorPayloadSetSuccesses.load(),
+                    g_renderEventFrameDescriptorPayloadSetFailures.load(),
+                    consumed,
+                    g_renderEventFrameDescriptorPayloadConsumedFailures.load(),
+                    eventId,
+                    payload.sequence,
+                    payload.sourcePointer,
+                    payload.destinationPointer,
+                    payload.depthPointer,
+                    payload.motionPointer,
+                    payload.inputWidth,
+                    payload.inputHeight,
+                    payload.outputWidth,
+                    payload.outputHeight,
+                    payload.hdrpFrame,
+                    payload.easuSourceFrame,
+                    payload.easuDestinationFrame,
+                    sourceDelta,
+                    destinationDelta,
+                    source.width,
+                    source.height,
+                    static_cast<unsigned int>(source.format),
+                    source.mipLevels,
+                    source.arraySize,
+                    destination.width,
+                    destination.height,
+                    static_cast<unsigned int>(destination.format),
+                    destination.mipLevels,
+                    destination.arraySize,
+                    depth.width,
+                    depth.height,
+                    static_cast<unsigned int>(depth.format),
+                    depth.mipLevels,
+                    depth.arraySize,
+                    motion.width,
+                    motion.height,
+                    static_cast<unsigned int>(motion.format),
+                    motion.mipLevels,
+                    motion.arraySize,
+                    widthScale,
+                    heightScale,
+                    visibleWritebackTargetSuccesses,
+                    visibleWritebackSequenceCreates,
+                    visibleWritebackSequenceEvaluates,
+                    visibleWritebackSequenceSuccesses,
+                    visibleWritebackEvaluateResult,
+                    visibleWritebackShutdownResult,
+                    visibleWritebackTargetReached ? "completed" : "pending",
+                    visibleWritebackStatus,
+                    visibleWritebackShutdownStatus);
+            }
+            else if (payload.evaluateDlssScratch)
             {
                 const double widthScale = static_cast<double>(destination.width) / static_cast<double>(source.width);
                 const double heightScale = static_cast<double>(destination.height) / static_cast<double>(source.height);
@@ -2999,6 +3148,7 @@ namespace
             g_renderEventFrameDescriptorPayload.validateD3D11 = validateD3D11;
             g_renderEventFrameDescriptorPayload.evaluateDlssScratch = false;
             g_renderEventFrameDescriptorPayload.evaluateDlssPersistentScratch = false;
+            g_renderEventFrameDescriptorPayload.evaluateDlssVisibleWriteback = false;
             g_renderEventFrameDescriptorPayload.targetEvaluateSuccesses = 0;
             std::snprintf(
                 g_renderEventFrameDescriptorPayloadStatus,
@@ -3127,13 +3277,107 @@ namespace
             reset);
         return 1;
     }
+
+    int SetRenderEventFrameDescriptorDlssVisibleWritebackPayloadInternal(
+        void* sourceTexturePtr,
+        void* destinationTexturePtr,
+        void* depthTexturePtr,
+        void* motionTexturePtr,
+        int inputWidth,
+        int inputHeight,
+        int outputWidth,
+        int outputHeight,
+        int hdrpFrame,
+        int easuSourceFrame,
+        int easuDestinationFrame,
+        int eventId,
+        int sequence,
+        const wchar_t* runtimePath,
+        const wchar_t* applicationDataPath,
+        unsigned long long applicationId,
+        int perfQualityValue,
+        int featureFlags,
+        float sharpness,
+        int reset,
+        int targetEvaluateSuccesses)
+    {
+        if (runtimePath == nullptr || runtimePath[0] == L'\0')
+        {
+            g_renderEventFrameDescriptorPayloadSetAttempts.fetch_add(1);
+            g_renderEventFrameDescriptorPayloadSetFailures.fetch_add(1);
+            SetRenderEventFrameDescriptorPayloadFailureStatus("set", "DLSS visible write-back runtime path was empty", eventId, sequence);
+            return 0;
+        }
+
+        const int result = SetRenderEventFrameDescriptorPayloadInternal(
+            sourceTexturePtr,
+            destinationTexturePtr,
+            depthTexturePtr,
+            motionTexturePtr,
+            inputWidth,
+            inputHeight,
+            outputWidth,
+            outputHeight,
+            hdrpFrame,
+            easuSourceFrame,
+            easuDestinationFrame,
+            eventId,
+            sequence,
+            true);
+        if (result != 1)
+        {
+            return 0;
+        }
+
+        std::lock_guard<std::mutex> lock(g_renderEventFrameDescriptorPayloadMutex);
+        g_renderEventFrameDescriptorPayload.evaluateDlssVisibleWriteback = true;
+        g_renderEventFrameDescriptorPayload.targetEvaluateSuccesses = targetEvaluateSuccesses > 0 ? targetEvaluateSuccesses : 1;
+        g_renderEventFrameDescriptorPayload.runtimePath = runtimePath;
+        g_renderEventFrameDescriptorPayload.applicationDataPath = applicationDataPath != nullptr && applicationDataPath[0] != L'\0'
+            ? applicationDataPath
+            : L".";
+        g_renderEventFrameDescriptorPayload.applicationId = applicationId;
+        g_renderEventFrameDescriptorPayload.perfQualityValue = perfQualityValue;
+        g_renderEventFrameDescriptorPayload.featureFlags = featureFlags;
+        g_renderEventFrameDescriptorPayload.sharpness = sharpness;
+        g_renderEventFrameDescriptorPayload.reset = reset;
+        std::snprintf(
+            g_renderEventFrameDescriptorPayloadStatus,
+            sizeof(g_renderEventFrameDescriptorPayloadStatus),
+            "render event frame descriptor DLSS visible write-back pending: setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d; sourcePtr=%p; visibleDestinationPtr=%p; depthPtr=%p; motionPtr=%p; input=%dx%d; output=%dx%d; hdrpFrame=%d; easuSourceFrame=%d; easuDestinationFrame=%d; validation=D3D11-pending; scratchOutput=no; visibleOutput=yes; persistent=yes; targetSuccesses=%d; ngx=pending; evaluate=pending; appId=%llu; perfQuality=%d; flags=0x%08X; sharpness=%.4f; reset=%d",
+            g_renderEventFrameDescriptorPayloadSetAttempts.load(),
+            g_renderEventFrameDescriptorPayloadSetSuccesses.load(),
+            g_renderEventFrameDescriptorPayloadSetFailures.load(),
+            g_renderEventFrameDescriptorPayloadConsumedCount.load(),
+            g_renderEventFrameDescriptorPayloadConsumedFailures.load(),
+            eventId,
+            sequence,
+            sourceTexturePtr,
+            destinationTexturePtr,
+            depthTexturePtr,
+            motionTexturePtr,
+            inputWidth,
+            inputHeight,
+            outputWidth,
+            outputHeight,
+            hdrpFrame,
+            easuSourceFrame,
+            easuDestinationFrame,
+            g_renderEventFrameDescriptorPayload.targetEvaluateSuccesses,
+            applicationId,
+            perfQualityValue,
+            static_cast<unsigned int>(featureFlags),
+            sharpness,
+            reset);
+        return 1;
+    }
 }
 
 extern "C"
 {
     int __cdecl VrisingDlss_GetBridgeApiVersion()
     {
-        return 19;
+        return 20;
     }
 
     const char* __cdecl VrisingDlss_GetBridgeVersion()
@@ -3395,6 +3639,53 @@ extern "C"
             sharpness,
             reset,
             true,
+            targetEvaluateSuccesses);
+    }
+
+    int __cdecl VrisingDlss_SetRenderEventFrameDescriptorDlssVisibleWritebackPayload(
+        void* sourceTexturePtr,
+        void* destinationTexturePtr,
+        void* depthTexturePtr,
+        void* motionTexturePtr,
+        int inputWidth,
+        int inputHeight,
+        int outputWidth,
+        int outputHeight,
+        int hdrpFrame,
+        int easuSourceFrame,
+        int easuDestinationFrame,
+        int eventId,
+        int sequence,
+        const wchar_t* runtimePath,
+        const wchar_t* applicationDataPath,
+        unsigned long long applicationId,
+        int perfQualityValue,
+        int featureFlags,
+        float sharpness,
+        int reset,
+        int targetEvaluateSuccesses)
+    {
+        return SetRenderEventFrameDescriptorDlssVisibleWritebackPayloadInternal(
+            sourceTexturePtr,
+            destinationTexturePtr,
+            depthTexturePtr,
+            motionTexturePtr,
+            inputWidth,
+            inputHeight,
+            outputWidth,
+            outputHeight,
+            hdrpFrame,
+            easuSourceFrame,
+            easuDestinationFrame,
+            eventId,
+            sequence,
+            runtimePath,
+            applicationDataPath,
+            applicationId,
+            perfQualityValue,
+            featureFlags,
+            sharpness,
+            reset,
             targetEvaluateSuccesses);
     }
 
