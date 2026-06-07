@@ -156,6 +156,7 @@ internal static class CustomPostProcessRenderEntryProbe
             throw new InvalidOperationException("VolumeProfile.Add returned null.");
         }
 
+        component.parameterList ??= new Il2CppSystem.Collections.Generic.List<VolumeParameter>();
         component.active = true;
 
         var gameObject = new GameObject("VrisingDLSS Custom PostProcess Render Entry Probe");
@@ -276,12 +277,6 @@ internal static class CustomPostProcessRenderEntryProbe
         public bool IsActive()
         {
             return true;
-        }
-
-        public override void OnEnable()
-        {
-            EnsureVolumeStorage();
-            base.OnEnable();
         }
 
         public override void Render(CommandBuffer cmd, HDCamera camera, RTHandle source, RTHandle destination)

@@ -882,18 +882,55 @@ As of the read-only RenderGraph pass-map runtime result:
   `Diagnostics.EnableCustomPostProcessRenderEntryProbe=false`. The stage mounts
   a hidden global layer-0 `Volume` with a hidden `VolumeProfile`, adds an
   injected `RenderEntryComponent` using the IL2CPP type handle, initializes the
-  injected component's `parameterList` before `base.OnEnable()` to address the
-  earlier `VolumeComponent.OnEnable` null-list failure, returns `IsActive() ==
-  true`, and in `Render(cmd, camera, source, destination)` only calls
+  injected component's `parameterList` in its constructor and after
+  `VolumeProfile.Add(...)` if that call returns, returns `IsActive() == true`,
+  and in `Render(cmd, camera, source, destination)` only calls
   `HDUtils.BlitCameraTexture(cmd, source, destination)` plus sparse logging.
   It disables `EnableRenderGraphGetTextureProbe`, disables `EnableHookProbe`,
   keeps `EnableDLSS=false`, does not load/use the native bridge, does not read
   native texture pointers, and does not evaluate DLSS. Static Release build,
   dry-run/written helper config, release-boundary check, Thunderstore package
   creation/validation, standalone package validation, and `git diff --check`
-  passed without launching V Rising. This is implementation/static evidence
-  only; the next runtime step is a menu-only true `1920x1080` Windowed run for
-  `custom-postprocess-render-entry`, with pass signal
-  `Custom post-process render-entry probe Render #1` and no `GetTexture`,
-  D3D11/NGX/DLSS/evaluate, crash, or `VolumeComponent.OnEnable`
-  `NullReferenceException` patterns.
+  passed before runtime. Runtime follow-up is recorded in
+  `docs/development/custom-postprocess-render-entry-menu-result-2026-06-07.md`.
+  Run `custom-postprocess-render-entry-1080p-menu-20260607-r1` crashed before
+  the diagnostic window with WER `0xc00000fd` in `KERNELBASE.dll`; the likely
+  cause was the injected `OnEnable()` override calling `base.OnEnable()` through
+  a generated IL2CPP wrapper that still used virtual dispatch. The override was
+  removed. Run `custom-postprocess-render-entry-1080p-menu-20260607-r2` then
+  stayed stable at true `1920x1080` Windowed (`CrashEventCount=0`,
+  `ExitedBeforeWindow=False`, `ClosedByScript=True`, cleanup restored config,
+  release-safe native, and ClientSettings), but analyzer reported
+  `HDRP Custom PostProcess Render Entry=Fail`: `VolumeProfile.Add(...)` still
+  threw `NullReferenceException` from
+  `UnityEngine.Rendering.VolumeComponent.OnEnable()`. There was no
+  `volume mounted` line and no `Render #` line; `RenderGraph GetTexture`,
+  D3D11/NGX/DLSS/evaluate patterns were `0`. Do not rerun this stage unchanged
+  as the next normal route; `VolumeProfile.Add(...)` is rejected for injected
+  component mounting. Next work should avoid `VolumeProfile.Add(...)` (for
+  example by investigating `VolumeManager` / `VolumeStack` default-component
+  extension) or move to another official-boundary-equivalent route.
+- 2026-06-07 IL2CPP/HDRP decompilation follow-up is recorded in
+  `docs/development/vrising-il2cpp-hdrp-postprocess-decompilation-2026-06-07.md`.
+  Local BepInEx/Cpp2IL interop wrappers and xref caches were inspected without
+  copying decompiled game bodies into the repository. The game exposes concrete
+  ProjectM HDRP custom postprocess types including `CustomVignette`,
+  `LineOfSightVision`, `LineOfSight`, `BatFormFog`, `DarkForeground`, and
+  `ProjectM.ContestAreaEffect`; their concrete `Render(CommandBuffer, HDCamera,
+  RTHandle, RTHandle)` methods call normal postprocess operations such as
+  `Material.Set*`, `RTHandle.op_Implicit`, and `HDUtils.DrawFullScreen`, proving
+  they are real existing HDRP postprocess render boundaries. Their direct
+  caller refs are empty, consistent with HDRP virtual/custom-postprocess pass
+  dispatch, so do not assume patching only
+  `CustomPostProcessVolumeComponent.Render` will catch the overrides. Local HDRP
+  xref order shows `RenderPostProcess` reaches `DoDLSSPasses` at five sites,
+  calls `CustomPostProcessPass` for before-TAA, before-postprocess,
+  after-postprocess-blurs, and after-postprocess lists, and reaches
+  `FinalPass`. `DoDLSSPass` xrefs include `RenderGraph.AddRenderPass`,
+  `ReadTexture`, `GetPostprocessOutputHandle`, `AddResourceWrite`,
+  `DLSSPass.CreateCameraResources`, and `SetRenderFunc`, reinforcing that the
+  official DLSS path is a narrow RenderGraph pass boundary rather than broad
+  `GetTexture` discovery. Next minimal route should be a default-off,
+  no-native/no-DLSS `hdrp-postprocess-boundary-probe` over
+  `RenderPostProcess`, `DoDLSSPasses`, `DoDLSSPass`, `CustomPostProcessPass`,
+  and the concrete ProjectM custom postprocess `Render(...)` methods.

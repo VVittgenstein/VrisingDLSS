@@ -1,7 +1,8 @@
 # HDRP Custom PostProcess Render-Entry Preflight Implementation - 2026-06-07
 
-Status: implemented and statically validated. Runtime validation has not been
-run yet.
+Status: implemented, statically validated, and runtime rejected as an unchanged
+mount route. See
+`docs/development/custom-postprocess-render-entry-menu-result-2026-06-07.md`.
 
 ## Question
 
@@ -62,8 +63,8 @@ Runtime behavior when deliberately enabled:
 - Creates a hidden, global, layer-0 `Volume`.
 - Creates a hidden `VolumeProfile`.
 - Adds the injected component to the profile using the IL2CPP type handle.
-- Initializes the injected component's `parameterList` before calling
-  `base.OnEnable()`.
+- Initializes the injected component's `parameterList` in its constructor, and
+  also after `VolumeProfile.Add(...)` returns if it ever returns.
 - Returns `IsActive() == true`.
 - In `Render(...)`, calls only
   `HDUtils.BlitCameraTexture(cmd, source, destination)` to preserve the post
@@ -124,19 +125,26 @@ Local validation completed without launching V Rising:
   passed.
 - `git diff --check` passed.
 
-## Next Runtime Contract
+## Runtime Result
 
-The first runtime run should be menu-only at true `1920x1080` Windowed:
+Two menu-only runtime runs were completed after this implementation:
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\Software\VRising" -Stage custom-postprocess-render-entry -ArtifactLabel custom-postprocess-render-entry-1080p-menu-20260607-r1 -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080
-```
+- `custom-postprocess-render-entry-1080p-menu-20260607-r1` crashed before the
+  diagnostic window ended with WER exception `0xc00000fd` in `KERNELBASE.dll`.
+  The likely failure was the injected component's `OnEnable()` override calling
+  `base.OnEnable()` through a generated IL2CPP wrapper that still used virtual
+  dispatch, causing stack overflow.
+- The `OnEnable()` override was removed.
+- `custom-postprocess-render-entry-1080p-menu-20260607-r2` no longer crashed:
+  `CrashEventCount=0`, `ExitedBeforeWindow=False`, `ClosedByScript=True`, and
+  Player log reported `SetResolution 1920, 1080, fullScreenMode Windowed`.
+  However, the analyzer reported
+  `HDRP Custom PostProcess Render Entry=Fail` because
+  `VolumeProfile.Add(...)` still threw `NullReferenceException` from
+  `UnityEngine.Rendering.VolumeComponent.OnEnable()`. There was no
+  `volume mounted` line and no `Render #` line.
 
-Question: can the mounted active custom post-process reach
-`Render(cmd, camera, source, destination)` in the main menu without the previous
-`VolumeComponent.OnEnable` failure?
-
-Pass/fail signals are the analyzer and log patterns above. Cleanup must restore
-loader config, release-safe native DLL, and `ClientSettings.json`, leave no
-V Rising process, and record crash count. The protected `11111` save should not
-be touched because gameplay is not entered.
+Decision: do not rerun `custom-postprocess-render-entry` unchanged as the next
+normal route. The r2 code is retained because it removes the stack-overflow
+variant from this default-off stage, but `VolumeProfile.Add(...)` remains
+rejected for injected component mounting.
