@@ -40,6 +40,7 @@ internal sealed class ModConfig
     internal ConfigEntry<bool> EnableNativeRenderFuncResourceNativePointerProbe { get; }
     internal ConfigEntry<bool> EnableCustomPostProcessRegistrationProbe { get; }
     internal ConfigEntry<bool> EnableCustomPostProcessRenderEntryProbe { get; }
+    internal ConfigEntry<bool> EnableHdrpPostProcessBoundaryProbe { get; }
     internal ConfigEntry<bool> EnableRenderGraphGetTextureProbe { get; }
     internal ConfigEntry<bool> EnableDlssPassResourceProbe { get; }
     internal ConfigEntry<bool> EnableUpscalerStateProbe { get; }
@@ -100,6 +101,7 @@ internal sealed class ModConfig
         EnableNativeRenderFuncResourceNativePointerProbe = config.Bind("Diagnostics", "EnableNativeRenderFuncResourceNativePointerProbe", false, "High-risk native RenderGraph render-func native-pointer preflight. Reuses the proven EASU tuple as a handle filter, passively observes engine-owned GetTexture returns for source/destination only, and reads native texture pointers without D3D11 validation, command-buffer access, or DLSS evaluate. Leave false unless menu-only local testing is intentional.");
         EnableCustomPostProcessRegistrationProbe = config.Bind("Diagnostics", "EnableCustomPostProcessRegistrationProbe", false, "Default-off HDRP CustomPostProcess registration proof. Registers an inactive AfterPostProcess volume component and refreshes HDRP custom post-process types without rendering, command-buffer access, native texture access, or DLSS evaluate.");
         EnableCustomPostProcessRenderEntryProbe = config.Bind("Diagnostics", "EnableCustomPostProcessRenderEntryProbe", false, "Default-off HDRP CustomPostProcess render-entry proof. Mounts an active global Volume for an injected AfterPostProcess component and copies source to destination from Render(cmd, camera, source, destination) without native texture access or DLSS evaluate.");
+        EnableHdrpPostProcessBoundaryProbe = config.Bind("Diagnostics", "EnableHdrpPostProcessBoundaryProbe", false, "Default-off no-native HDRP postprocess boundary proof. Patches known ProjectM custom postprocess Render methods for sparse logging only; direct HDRP pipeline method patching is intentionally avoided after coreclr crash evidence.");
         EnableRenderGraphGetTextureProbe = config.Bind("Diagnostics", "EnableRenderGraphGetTextureProbe", true, "Patch RenderGraphResourceRegistry.GetTexture(TextureHandle&) for diagnostic resource discovery. Disable only for deliberate materialization-only isolation.");
         EnableDlssPassResourceProbe = config.Bind("Diagnostics", "EnableDlssPassResourceProbe", false, "High-risk research-only patching of DLSSPass resource helper methods. Does not patch DLSSPass.Render; leave false unless deliberate Stage 8A resource testing is intentional.");
         EnableUpscalerStateProbe = config.Bind("Diagnostics", "EnableUpscalerStateProbe", false, "Patch HDRP/dynamic-resolution/DLSS setup methods and log read-only camera/upscale state snapshots. Diagnostic only; does not change render scale.");

@@ -275,6 +275,13 @@ $results.Add((New-StageResult `
     -StartedPatterns @("Custom post-process render-entry probe IL2CPP type registered.", "Custom post-process render-entry probe global settings registered:", "Custom post-process render-entry probe volume mounted:", "Custom post-process render-entry probe installed:")))
 
 $results.Add((New-StageResult `
+    -Stage "HDRP PostProcess Boundary" `
+    -PassPatterns @("HDRP postprocess boundary probe call #") `
+    -FailPatterns @("HDRP postprocess boundary probe failed to patch", "HDRP postprocess boundary probe prefix failed:", "HDRP postprocess boundary probe uninstall failed:") `
+    -BlockedPatterns @("HDRP postprocess boundary probe blocked:") `
+    -StartedPatterns @("HDRP postprocess boundary probe patched:", "HDRP postprocess boundary probe installed:")))
+
+$results.Add((New-StageResult `
     -Stage "Stage 5D DLSS Runtime" `
     -PassPatterns @("DLSS runtime probe succeeded:") `
     -FailPatterns @("DLSS runtime probe failed:", "DLSS runtime probe skipped:") `

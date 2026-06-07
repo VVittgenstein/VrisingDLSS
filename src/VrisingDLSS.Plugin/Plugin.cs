@@ -73,6 +73,10 @@ public sealed class Plugin : BasePlugin
         {
             RunCustomPostProcessRenderEntryProbe();
         }
+        if (_config.EnableHdrpPostProcessBoundaryProbe.Value)
+        {
+            RunHdrpPostProcessBoundaryProbe();
+        }
 
         if (_config.EnableFrameResourceProbe.Value
             || _config.EnableDlssEvaluateInputProbe.Value
@@ -150,6 +154,7 @@ public sealed class Plugin : BasePlugin
             RenderScaleControlProbe.Uninstall(_log);
             UpscalerStateProbe.Uninstall(_log);
             HarmonyCallProbe.Uninstall(_log);
+            HdrpPostProcessBoundaryProbe.Uninstall(_log);
             CustomPostProcessRenderEntryProbe.Uninstall(_log);
             CustomPostProcessRegistrationProbe.Uninstall(_log);
         }
@@ -277,6 +282,16 @@ public sealed class Plugin : BasePlugin
         }
 
         CustomPostProcessRenderEntryProbe.Install(_log);
+    }
+
+    private void RunHdrpPostProcessBoundaryProbe()
+    {
+        if (_log is null)
+        {
+            return;
+        }
+
+        HdrpPostProcessBoundaryProbe.Install(_log);
     }
 
     private ConfigFile CreateModConfigFile()

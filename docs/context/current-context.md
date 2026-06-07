@@ -934,3 +934,40 @@ As of the read-only RenderGraph pass-map runtime result:
   no-native/no-DLSS `hdrp-postprocess-boundary-probe` over
   `RenderPostProcess`, `DoDLSSPasses`, `DoDLSSPass`, `CustomPostProcessPass`,
   and the concrete ProjectM custom postprocess `Render(...)` methods.
+- The default-off no-native `hdrp-postprocess-boundary` preflight is now
+  implemented and statically validated; see
+  `docs/development/hdrp-postprocess-boundary-preflight-implementation-2026-06-07.md`.
+  Config key: `Diagnostics.EnableHdrpPostProcessBoundaryProbe=false`. Helper
+  stage: `hdrp-postprocess-boundary`. The first implementation installed sparse
+  Harmony prefixes on `HDRenderPipeline.RenderPostProcess`, `DoDLSSPasses`,
+  `DoDLSSPass`, `CustomPostProcessPass`, and the concrete ProjectM custom
+  postprocess `Render(...)` methods identified by local IL2CPP/xref analysis.
+  It only logs boundary hits; it does not create a Volume, call `GetTexture`,
+  resolve resources, read native texture pointers, issue command-buffer work,
+  load the native bridge, initialize NGX, or evaluate DLSS. Static Release
+  build, PowerShell parser validation, dry-run config validation,
+  release-boundary check, and `git diff --check` passed. Menu runtime r1
+  `hdrp-postprocess-boundary-1080p-menu-20260607-r1` patched all 10 initial
+  target methods but crashed before any `call #` line with WER `0xc0000005` in
+  `coreclr.dll`; no `GetTexture`, D3D11/NGX/DLSS/evaluate lines appeared. The
+  prefix was narrowed from `__instance`/`__args` logging to `__originalMethod`
+  only, but r2 `hdrp-postprocess-boundary-1080p-menu-20260607-r2` still
+  reproduced the same coreclr crash after patching all 10 targets and before
+  any `call #`. Decision: reject unchanged all-target direct Harmony patching
+  for this probe. Keep official `HDRenderPipeline.RenderPostProcess ->
+  DoDLSSPasses -> DoDLSSPass` as static xref/source evidence only for now. The
+  active implementation is narrowed to the six ProjectM concrete custom
+  postprocess `Render(...)` overrides only. Menu runtime r3
+  `hdrp-postprocess-boundary-1080p-menu-20260607-r3` was stable at true
+  `1920x1080` Windowed: `CrashEventCount=0`, `ExitedBeforeWindow=False`,
+  `ClosedByScript=True`, patched ProjectM methods `6`, `HDRP postprocess
+  boundary probe call #=0`, `RenderGraph GetTexture call #=0`,
+  D3D11/NGX/DLSS/evaluate patterns `0`, and cleanup restored loader config,
+  release-safe native, and `ClientSettings.json` with no V Rising process left.
+  The result is a stable partial: ProjectM-only patching is safe in the menu,
+  but the menu did not invoke those renders. See
+  `docs/development/hdrp-postprocess-boundary-menu-result-2026-06-07.md`.
+  Next runtime step is a protected `11111` gameplay proof at true `1920x1080`
+  Windowed with this ProjectM-only stage and no movement keys. If gameplay also
+  produces no `HDRP postprocess boundary probe call #`, reject this ProjectM
+  custom postprocess render route as a practical evaluate-boundary candidate.

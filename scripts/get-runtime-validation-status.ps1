@@ -104,6 +104,7 @@ function Get-ConfiguredStage {
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncResourceIdentityProbe") { return "native-renderfunc-resource-identity" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncArgumentProbe") { return "native-renderfunc-args" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncEntryProbe") { return "native-renderfunc-entry" }
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableHdrpPostProcessBoundaryProbe") { return "hdrp-postprocess-boundary" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableCustomPostProcessRenderEntryProbe") { return "custom-postprocess-render-entry" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableCustomPostProcessRegistrationProbe") { return "custom-postprocess-registration" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableDlssFeatureCreateProbe") { return "dlss-feature-create" }
@@ -278,6 +279,7 @@ function Get-NextRecommendation {
     $nativeRenderFuncResourceIdentity = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Resource Identity"
     $nativeRenderFuncArgs = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Args"
     $nativeRenderFuncEntry = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Entry"
+    $hdrpPostProcessBoundary = Get-FirstStageStatus -Results $LogResults -StagePrefix "HDRP PostProcess Boundary"
     $currentUserRendering = Get-FirstStageStatus -Results $CurrentLogResults -StagePrefix "DLSS User Rendering Candidate"
     if ($currentUserRendering -eq "Partial" -and
         $CurrentLogText.IndexOf("DLSS super-resolution input probe not accepted", [StringComparison]::OrdinalIgnoreCase) -ge 0 -and
@@ -313,12 +315,25 @@ function Get-NextRecommendation {
         return "The latest dlss-user-rendering gameplay log did not accept an FSR Off Super Resolution tuple: the main candidate stayed color=1920x1080 output=1920x1080. Before rerunning the same runtime proof, use the targeted render-scale diagnostic to check for `Render-scale control member write did not stick`, `RTHandles.SetHardwareDynamicResolutionState=true`, and whether the gameplay camera/main targets remain full-size."
     }
 
+    if ($hdrpPostProcessBoundary -eq "Pass") {
+        return "HDRP postprocess boundary probe has runtime evidence. Inspect the latest boundary call lines to choose whether the next separate guard should focus on HDRenderPipeline.DoDLSSPass/DoDLSSPasses, HDRenderPipeline.CustomPostProcessPass, or concrete ProjectM CustomPostProcess.Render. Still no command-buffer work, D3D11 validation, native texture dereference, or DLSS evaluate without another explicit preflight."
+    }
+
+    if ($hdrpPostProcessBoundary -eq "Partial") {
+        return "HDRP postprocess boundary probe patched methods but did not observe a boundary call in available logs. If this was menu-only, run a protected 11111 gameplay proof at 1920x1080 Windowed before rejecting the boundary; keep it no-native/no-DLSS and do not send movement keys."
+    }
+
     if ($nativeRenderFuncResourceNativePointer -eq "Pass") {
         $nativeRenderFuncResourceNativePointerGameplayDoc = Get-ChildItem -LiteralPath (Join-Path $Root "docs\development") -Filter "native-renderfunc-resource-native-pointer-gameplay-result-*.md" -File -ErrorAction SilentlyContinue |
             Sort-Object LastWriteTime -Descending |
             Select-Object -First 1
         if ($nativeRenderFuncResourceNativePointerGameplayDoc) {
-            return "Native render-func resource native-pointer menu and protected 11111 gameplay proofs passed. Next engineering step is deciding whether that pointer-availability proof can support a still-separate command-buffer/evaluate preflight; do not combine command-buffer access or DLSS evaluate without another explicit guard. Latest proof: $($nativeRenderFuncResourceNativePointerGameplayDoc.FullName)"
+            $hdrpPostProcessBoundaryImplementationDoc = Join-Path $Root "docs\development\hdrp-postprocess-boundary-preflight-implementation-2026-06-07.md"
+            if (Test-Path -LiteralPath $hdrpPostProcessBoundaryImplementationDoc) {
+                return "Native render-func resource native-pointer menu and protected 11111 gameplay proofs passed, and the default-off HDRP postprocess boundary probe is implemented. Next step is scripts\run-vrising-diagnostic.ps1 -GamePath `"$($Inspect.GamePath)`" -Stage hdrp-postprocess-boundary -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 for a 1920x1080 Windowed menu-only proof; no native bridge, no GetTexture, no command-buffer work, and no DLSS evaluate."
+            }
+
+            return "Native render-func resource native-pointer menu and protected 11111 gameplay proofs passed. Next engineering step is implementing a default-off no-native HDRP postprocess boundary probe over RenderPostProcess/DoDLSSPass/CustomPostProcessPass and concrete ProjectM custom postprocess Render methods; do not combine command-buffer access or DLSS evaluate without another explicit guard. Latest proof: $($nativeRenderFuncResourceNativePointerGameplayDoc.FullName)"
         }
 
         return "Native render-func resource native-pointer menu preflight passed in available logs. Next step is a protected 11111 gameplay proof at 1920x1080 Windowed using scripts\start-vrising-automation-session.ps1 -Stage native-renderfunc-resource-native-pointer; no movement keys, no command-buffer access, no D3D11 validation, and no DLSS evaluate."

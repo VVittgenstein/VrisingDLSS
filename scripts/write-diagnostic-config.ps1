@@ -33,6 +33,7 @@ param(
         "native-renderfunc-resource-native-pointer",
         "custom-postprocess-registration",
         "custom-postprocess-render-entry",
+        "hdrp-postprocess-boundary",
         "render-scale-control",
         "dlss-user-rendering",
         "dlss-user-rendering-cached-driver",
@@ -105,6 +106,7 @@ function New-ConfigMap {
             EnableNativeRenderFuncResourceNativePointerProbe = "false"
             EnableCustomPostProcessRegistrationProbe = "false"
             EnableCustomPostProcessRenderEntryProbe = "false"
+            EnableHdrpPostProcessBoundaryProbe = "false"
             EnableRenderGraphGetTextureProbe = "true"
             EnableDlssPassResourceProbe = "false"
             EnableUpscalerStateProbe = "false"
@@ -373,6 +375,11 @@ function Set-SwitchesForStage {
         }
         "custom-postprocess-render-entry" {
             $Config.Diagnostics.EnableCustomPostProcessRenderEntryProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
+            $Config.Diagnostics.EnableHookProbe = "false"
+        }
+        "hdrp-postprocess-boundary" {
+            $Config.Diagnostics.EnableHdrpPostProcessBoundaryProbe = "true"
             $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
             $Config.Diagnostics.EnableHookProbe = "false"
         }
