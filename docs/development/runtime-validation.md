@@ -1047,6 +1047,9 @@ Scope:
 - Uses `scripts\capture-vrising-window.ps1` for each capture, then uses `scripts\compare-image-artifacts.ps1` for paired baseline/candidate summaries.
 - Archives each run's BepInEx log and matching Windows Application Error events.
 - Restores the release-safe native DLL and loader config after each run, including after the SDK-wrapper Stage 10A candidate.
+- Temporarily disables the BepInEx console and enables instant disk log flushing
+  for the paired visual run, then restores the original `BepInEx.cfg` during
+  cleanup. If restore fails, the helper exits nonzero after printing the result.
 - Writes only ignored local artifacts under `artifacts\runtime-logs` and `artifacts\visual-validation`.
 - Records a lightweight `VisibilityPreflightStatus` immediately before each screenshot so failed runs can distinguish "game process/window not visible to Codex" from rendering or capture failures.
 - Stage 10A candidate visual runs default to `KeepDlssVisibleWritebackProbeRunning=true` and `WaitForStage10A=true`, so screenshots wait for the `sequenceSuccesses=30/30` milestone while the visible write-back candidate keeps evaluating until cleanup. Normal-user candidate visual runs can use `-CandidateStage dlss-user-rendering`; screenshots wait for a successful user-rendering evaluate when `WaitForUserRendering=true`.

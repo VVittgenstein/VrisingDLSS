@@ -117,7 +117,7 @@ powershell -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -Gam
 
 Use `-SdkWrapperNativePath` only when the local wrapper build is not at `artifacts\native-build-msvc-wrapper\Release\VrisingDLSS.Native.dll`.
 
-For paired local/private gameplay visual comparison after SDK-wrapper research builds are available, use the visual helper. It runs a baseline loader capture and a candidate capture, gives you time to enter the same scene before each screenshot, archives logs, compares the PNGs, and restores the release-safe loader config/native DLL after each run.
+For paired local/private gameplay visual comparison after SDK-wrapper research builds are available, use the visual helper. It runs a baseline loader capture and a candidate capture, gives you time to enter the same scene before each screenshot, archives logs, compares the PNGs, temporarily disables the BepInEx console to avoid startup focus stalls, and restores the release-safe loader config/native DLL plus the original BepInEx config after each run.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\path\to\VRising" -DurationSeconds 240 -CaptureAtSeconds 170 -CapturePerformance:$true -WaitForStage10A:$true -KeepCandidateWritebackRunning:$true -DlssRuntimePath "C:\path\to\nvngx_dlss.dll"

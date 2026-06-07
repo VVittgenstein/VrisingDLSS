@@ -1627,3 +1627,8 @@ As of the read-only RenderGraph pass-map runtime result:
   emits its result object and exits nonzero. The next source-guided
   `dlss-user-rendering` paired visual/performance validation should use this
   built-in protection rather than relying on an external manual restore step.
+- The same visual comparison helper now mirrors the automation session's
+  BepInEx console mitigation: before launching paired visual runs it backs up
+  `BepInEx\config\BepInEx.cfg`, disables `Logging.Console`, enables disk log
+  flushing, then restores the backup during cleanup. A BepInEx config restore
+  failure also makes the helper exit nonzero after printing the result.

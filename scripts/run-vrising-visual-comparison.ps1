@@ -149,6 +149,7 @@ $runtimeLogRoot = Join-Path $resolvedRoot "artifacts\runtime-logs"
 $visualRoot = Join-Path $resolvedRoot "artifacts\visual-validation"
 $fpsRoot = Join-Path $resolvedRoot "artifacts\fps-validation"
 $clientSettingsPath = Join-Path $env:USERPROFILE "AppData\LocalLow\Stunlock Studios\VRising\Settings\v4\ClientSettings.json"
+$bepInExConfigPath = Join-Path $resolvedGamePath "BepInEx\config\BepInEx.cfg"
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 
 if ([string]::IsNullOrWhiteSpace($ArtifactLabel)) {
@@ -166,6 +167,7 @@ if ([string]::IsNullOrWhiteSpace($ReadyFile)) {
 $readyFileResolved = [System.IO.Path]::GetFullPath($ReadyFile)
 $clientSettingsChanged = [bool]($SetClientResolution -or $SetClientWindowMode)
 $clientSettingsBackupArtifact = Join-Path $visualRoot "ClientSettings-$ArtifactLabel.before.json"
+$bepInExConfigBackupArtifact = Join-Path $visualRoot "BepInEx-$ArtifactLabel.before.cfg"
 $saveDirResolved = ""
 if ($ProtectSave) {
     $saveDirResolved = [System.IO.Path]::GetFullPath($SaveDir)
@@ -238,6 +240,86 @@ function Close-VisualRunProcess {
     }
 
     return $closedByScript
+}
+
+function Set-IniValue {
+    param(
+        [string[]]$Lines,
+        [string]$Section,
+        [string]$Key,
+        [string]$Value
+    )
+
+    $result = New-Object System.Collections.Generic.List[string]
+    $currentSection = ""
+    $sectionFound = $false
+    $keySet = $false
+    $keyPattern = "^\s*$([regex]::Escape($Key))\s*="
+
+    foreach ($line in $Lines) {
+        if ($line -match "^\s*\[(.+?)\]\s*$") {
+            if ($currentSection -eq $Section -and -not $keySet) {
+                $result.Add("$Key = $Value")
+                $keySet = $true
+            }
+
+            $currentSection = $matches[1]
+            if ($currentSection -eq $Section) {
+                $sectionFound = $true
+            }
+
+            $result.Add($line)
+            continue
+        }
+
+        if ($currentSection -eq $Section -and $line -match $keyPattern) {
+            $result.Add("$Key = $Value")
+            $keySet = $true
+            continue
+        }
+
+        $result.Add($line)
+    }
+
+    if ($sectionFound) {
+        if ($currentSection -eq $Section -and -not $keySet) {
+            $result.Add("$Key = $Value")
+        }
+    } else {
+        if ($result.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($result[$result.Count - 1])) {
+            $result.Add("")
+        }
+
+        $result.Add("[$Section]")
+        $result.Add("$Key = $Value")
+    }
+
+    return $result.ToArray()
+}
+
+function Set-BepInExVisualRunConfig {
+    if (-not (Test-Path -LiteralPath $bepInExConfigPath)) {
+        Write-Warning "BepInEx config was not found; console mitigation skipped: $bepInExConfigPath"
+        return $false
+    }
+
+    Copy-Item -LiteralPath $bepInExConfigPath -Destination $bepInExConfigBackupArtifact -Force
+    $lines = Get-Content -LiteralPath $bepInExConfigPath
+    $lines = Set-IniValue -Lines $lines -Section "Logging.Console" -Key "Enabled" -Value "false"
+    $lines = Set-IniValue -Lines $lines -Section "Logging.Disk" -Key "Enabled" -Value "true"
+    $lines = Set-IniValue -Lines $lines -Section "Logging.Disk" -Key "InstantFlushing" -Value "true"
+    $lines | Set-Content -LiteralPath $bepInExConfigPath -Encoding UTF8
+    Write-Host "Temporarily disabled BepInEx console and enabled instant disk log flushing for visual comparison."
+    return $true
+}
+
+function Restore-BepInExVisualRunConfig {
+    if (-not (Test-Path -LiteralPath $bepInExConfigBackupArtifact)) {
+        return $true
+    }
+
+    Copy-Item -LiteralPath $bepInExConfigBackupArtifact -Destination $bepInExConfigPath -Force
+    return $true
 }
 
 function Archive-VisualRunLog {
@@ -874,6 +956,8 @@ $plan = [pscustomobject]@{
     ClientWindowMode = $(if ($SetClientWindowMode) { $ClientWindowMode } else { $null })
     ClientSettingsPath = $(if ($clientSettingsChanged) { $clientSettingsPath } else { "" })
     ClientSettingsBackupArtifact = $(if ($clientSettingsChanged) { $clientSettingsBackupArtifact } else { "" })
+    BepInExConfigPath = $bepInExConfigPath
+    BepInExConfigBackupArtifact = $bepInExConfigBackupArtifact
     LaunchArgs = $launchArgs
     CapturePerformance = $capturePerformanceEnabled
     PerformanceSeconds = $(if ($capturePerformanceEnabled) { $PerformanceSeconds } else { 0 })
@@ -900,6 +984,7 @@ $plan = [pscustomobject]@{
     RestoresFsrMode = ($FsrMode -ne "Unchanged")
     FsrBackupPath = $(if ($fsrPlan) { $fsrPlan.BackupPath } else { "" })
     RestoresClientSettings = $clientSettingsChanged
+    RestoresBepInExConfig = $true
     RestoresReleaseSafeState = $true
     ProtectSave = [bool]$ProtectSave
     SaveDir = $(if ($ProtectSave) { $saveDirResolved } else { "" })
@@ -921,6 +1006,8 @@ $restoredFsrMode = ($FsrMode -eq "Unchanged")
 $restoredClientSettings = -not $clientSettingsChanged
 $previousFsrMode = ""
 $fsrBackupPath = ""
+$bepInExConfigChanged = $false
+$restoredBepInExConfig = $true
 $saveBackup = $null
 $saveRestore = $null
 $saveProtectionBackedUp = $false
@@ -930,6 +1017,11 @@ $saveRestored = -not [bool]$ProtectSave
 
 try {
     New-Item -ItemType Directory -Force -Path $runtimeLogRoot, $visualRoot, $fpsRoot | Out-Null
+
+    if (Set-BepInExVisualRunConfig) {
+        $bepInExConfigChanged = $true
+        $restoredBepInExConfig = $false
+    }
 
     if ($ProtectSave) {
         $saveBackup = Invoke-ProjectScript -RelativePath "scripts\protect-vrising-save.ps1" -Parameters @{
@@ -1057,6 +1149,16 @@ try {
         }
     }
 
+    if ($bepInExConfigChanged) {
+        try {
+            if (Restore-BepInExVisualRunConfig) {
+                $restoredBepInExConfig = $true
+            }
+        } catch {
+            Write-Warning "BepInEx config restore failed: $($_.Exception.Message)"
+        }
+    }
+
     if ($ProtectSave) {
         if ($saveProtectionBackedUp -and $saveBackup -and -not [string]::IsNullOrWhiteSpace([string]$saveBackup.BackupDir)) {
             $remainingBeforeSaveRestore = @(Get-VRisingProcess)
@@ -1121,6 +1223,9 @@ $result = [pscustomobject]@{
     ClientWindowMode = $(if ($SetClientWindowMode) { $ClientWindowMode } else { $null })
     RestoredClientSettings = $restoredClientSettings
     ClientSettingsBackupArtifact = $(if (Test-Path -LiteralPath $clientSettingsBackupArtifact) { $clientSettingsBackupArtifact } else { "" })
+    BepInExConfigPath = $bepInExConfigPath
+    BepInExConfigBackupArtifact = $(if (Test-Path -LiteralPath $bepInExConfigBackupArtifact) { $bepInExConfigBackupArtifact } else { "" })
+    RestoredBepInExConfig = $restoredBepInExConfig
     ProtectSave = [bool]$ProtectSave
     SaveDir = $(if ($ProtectSave) { $saveDirResolved } else { "" })
     SaveProtectionLabel = $(if ($ProtectSave) { $saveProtectionLabel } else { "" })
@@ -1143,5 +1248,9 @@ $result = [pscustomobject]@{
 $result
 
 if ($ProtectSave -and -not $saveRestored) {
+    exit 1
+}
+
+if ($bepInExConfigChanged -and -not $restoredBepInExConfig) {
     exit 1
 }
