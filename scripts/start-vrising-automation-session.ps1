@@ -177,6 +177,96 @@ function Close-VRisingProcess {
     return $true
 }
 
+function Set-IniValue {
+    param(
+        [string[]]$Lines,
+        [string]$Section,
+        [string]$Key,
+        [string]$Value
+    )
+
+    $result = New-Object System.Collections.Generic.List[string]
+    $currentSection = ""
+    $sectionFound = $false
+    $keySet = $false
+    $keyPattern = "^\s*$([regex]::Escape($Key))\s*="
+
+    foreach ($line in $Lines) {
+        if ($line -match "^\s*\[(.+?)\]\s*$") {
+            if ($currentSection -eq $Section -and -not $keySet) {
+                $result.Add("$Key = $Value")
+                $keySet = $true
+            }
+
+            $currentSection = $matches[1]
+            if ($currentSection -eq $Section) {
+                $sectionFound = $true
+            }
+
+            $result.Add($line)
+            continue
+        }
+
+        if ($currentSection -eq $Section -and $line -match $keyPattern) {
+            $result.Add("$Key = $Value")
+            $keySet = $true
+            continue
+        }
+
+        $result.Add($line)
+    }
+
+    if ($sectionFound) {
+        if ($currentSection -eq $Section -and -not $keySet) {
+            $result.Add("$Key = $Value")
+        }
+    } else {
+        if ($result.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($result[$result.Count - 1])) {
+            $result.Add("")
+        }
+
+        $result.Add("[$Section]")
+        $result.Add("$Key = $Value")
+    }
+
+    return $result.ToArray()
+}
+
+function Set-BepInExAutomationConfig {
+    param(
+        [string]$ConfigPath,
+        [string]$BackupPath
+    )
+
+    if (-not (Test-Path -LiteralPath $ConfigPath)) {
+        Write-Warning "BepInEx config was not found; console mitigation skipped: $ConfigPath"
+        return $false
+    }
+
+    Copy-Item -LiteralPath $ConfigPath -Destination $BackupPath -Force
+    $lines = Get-Content -LiteralPath $ConfigPath
+    $lines = Set-IniValue -Lines $lines -Section "Logging.Console" -Key "Enabled" -Value "false"
+    $lines = Set-IniValue -Lines $lines -Section "Logging.Disk" -Key "Enabled" -Value "true"
+    $lines = Set-IniValue -Lines $lines -Section "Logging.Disk" -Key "InstantFlushing" -Value "true"
+    $lines | Set-Content -LiteralPath $ConfigPath -Encoding UTF8
+    Write-Host "Temporarily disabled BepInEx console and enabled instant disk log flushing."
+    return $true
+}
+
+function Restore-BepInExAutomationConfig {
+    param(
+        [string]$ConfigPath,
+        [string]$BackupPath
+    )
+
+    if (-not (Test-Path -LiteralPath $BackupPath)) {
+        return $true
+    }
+
+    Copy-Item -LiteralPath $BackupPath -Destination $ConfigPath -Force
+    return $true
+}
+
 $sessionArtifact = Join-Path $artifactRoot "Session-$ArtifactLabel.json"
 $playerLogArtifact = Join-Path $artifactRoot "Player-$ArtifactLabel.log"
 $bepInExLogArtifact = Join-Path $artifactRoot "LogOutput-$ArtifactLabel.log"
@@ -185,6 +275,8 @@ $visibilityArtifact = Join-Path $artifactRoot "Visibility-$ArtifactLabel.json"
 $screenshotArtifact = Join-Path $artifactRoot "SessionScreenshot-$ArtifactLabel.png"
 $clientSettingsPath = Join-Path $env:USERPROFILE "AppData\LocalLow\Stunlock Studios\VRising\Settings\v4\ClientSettings.json"
 $clientSettingsBackupArtifact = Join-Path $artifactRoot "ClientSettings-$ArtifactLabel.before.json"
+$bepInExConfigPath = Join-Path $resolvedGamePath "BepInEx\config\BepInEx.cfg"
+$bepInExConfigBackupArtifact = Join-Path $artifactRoot "BepInEx-$ArtifactLabel.before.cfg"
 
 $launchArgs = @(
     "-windowed",
@@ -223,6 +315,8 @@ $plan = [pscustomobject]@{
     ClientWindowMode = $(if ($SetClientWindowMode) { $ClientWindowMode } else { $null })
     ClientSettingsPath = $clientSettingsPath
     ClientSettingsBackupArtifact = $(if ($SetClientResolution -or $SetClientWindowMode) { $clientSettingsBackupArtifact } else { "" })
+    BepInExConfigPath = $bepInExConfigPath
+    BepInExConfigBackupArtifact = $bepInExConfigBackupArtifact
     ScreenshotMethod = $ScreenshotMethod
     ArtifactLabel = $ArtifactLabel
     SessionArtifact = $sessionArtifact
@@ -232,6 +326,7 @@ $plan = [pscustomobject]@{
     AnalysisArtifact = $analysisArtifact
     VisibilityArtifact = $visibilityArtifact
     RestoresLoaderConfig = $true
+    RestoresBepInExConfig = $true
     RestoresReleaseSafeNative = [bool]$UseSdkWrapperNative
     LeavesGameRunning = -not [bool]$DryRun
     LaunchesGame = -not [bool]$DryRun
@@ -258,6 +353,7 @@ $screenshotAccepted = $false
 $clientSettingsChanged = [bool]($SetClientResolution -or $SetClientWindowMode)
 $restoredClientSettings = -not $clientSettingsChanged
 $restoredLoaderConfig = $false
+$restoredBepInExConfig = $false
 $restoredReleaseSafeNative = -not [bool]$UseSdkWrapperNative
 $status = "Failed"
 $failureReason = ""
@@ -281,6 +377,12 @@ try {
         -DlssRuntimePath $DlssRuntimePath `
         -DlssApplicationId $DlssApplicationId |
         Out-Host
+
+    if (Set-BepInExAutomationConfig -ConfigPath $bepInExConfigPath -BackupPath $bepInExConfigBackupArtifact) {
+        $restoredBepInExConfig = $false
+    } else {
+        $restoredBepInExConfig = $true
+    }
 
     if ($clientSettingsChanged) {
         if (-not (Test-Path -LiteralPath $clientSettingsPath)) {
@@ -409,6 +511,10 @@ try {
                 $restoredClientSettings = $true
             }
 
+            if (Restore-BepInExAutomationConfig -ConfigPath $bepInExConfigPath -BackupPath $bepInExConfigBackupArtifact) {
+                $restoredBepInExConfig = $true
+            }
+
             & (Join-Path $resolvedRoot "scripts\write-diagnostic-config.ps1") -GamePath $resolvedGamePath -Stage loader | Out-Host
             $restoredLoaderConfig = $true
             $cleanupRequired = $false
@@ -453,8 +559,11 @@ try {
         ClientWindowMode = $(if ($SetClientWindowMode) { $ClientWindowMode } else { $null })
         ClientSettingsPath = $clientSettingsPath
         ClientSettingsBackupArtifact = $(if (Test-Path -LiteralPath $clientSettingsBackupArtifact) { $clientSettingsBackupArtifact } else { "" })
+        BepInExConfigPath = $bepInExConfigPath
+        BepInExConfigBackupArtifact = $(if (Test-Path -LiteralPath $bepInExConfigBackupArtifact) { $bepInExConfigBackupArtifact } else { "" })
         RestoredClientSettings = $restoredClientSettings
         RestoredLoaderConfig = $restoredLoaderConfig
+        RestoredBepInExConfig = $restoredBepInExConfig
         RestoredReleaseSafeNative = $restoredReleaseSafeNative
         CleanupRequired = $cleanupRequired
         CleanupCommand = "powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\stop-vrising-automation-session.ps1 -SessionPath `"$sessionArtifact`""

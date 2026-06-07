@@ -1544,3 +1544,62 @@ As of the read-only RenderGraph pass-map runtime result:
   first source-guided visible-output proof at the EASU `ctx.cmd` boundary; the
   next work should be visual/performance or a normal-user candidate that
   preserves this placement and bounded resource discovery.
+- Follow-up normal-user candidate work started on 2026-06-07: `DLSS.EnableDLSS`
+  is being rewired toward the source-guided native EASU `ctx.cmd`
+  command-buffer route instead of the old hot global `RenderGraph.GetTexture`
+  user-rendering path. The helper stage `dlss-user-rendering` now keeps
+  `EnableRenderGraphGetTextureProbe=false`, `EnableHookProbe=false`, enables
+  HDRP postprocess/global texture args plus render-scale control, and uses a new
+  native event id `260615` for sustained user rendering. Static C# build and
+  dry-run config validation passed before gameplay validation.
+- The first protected 1080p Windowed start attempt for this candidate,
+  `native-commandbuffer-user-rendering-1080p-20260607-r1`, failed before any
+  visible Unity game window or BepInEx artifact log. Visibility saw only a
+  `ConsoleWindowClass` BepInEx window titled with `选择 ...`, consistent with
+  Windows console selection/QuickEdit pausing startup. Treat this as automation
+  startup noise, not DLSS/render-path evidence. The failed-start cleanup
+  restored loader config, ClientSettings, release-safe native state, and left no
+  V Rising process; protected-save restore/check reported final
+  `ChangeCount=0`.
+- Automation mitigation is implemented in
+  `scripts/start-vrising-automation-session.ps1` and
+  `scripts/stop-vrising-automation-session.ps1`: session startup backs up
+  `BepInEx\config\BepInEx.cfg`, temporarily disables the BepInEx console, keeps
+  disk logging enabled with instant flushing, and cleanup restores the backup.
+  See `docs/development/computer-use-vrising-automation-notes-2026-06-06.md`.
+- Normal-user source-guided native command-buffer DLSS candidate passed
+  protected gameplay on 2026-06-07; see
+  `docs/development/native-commandbuffer-user-rendering-1080p-gameplay-result-2026-06-07.md`.
+  The `r2` run was not a route failure: it reached `consumed=3029`,
+  `lastEventId=260615`, `setFailures=0`, `issueFailures=0`, and
+  `consumeFailures=0`, but managed logging kept seeing the next frame's pending
+  payload because the native status string was overwritten after each consume.
+  The fix added a separate native
+  `VrisingDlss_GetRenderEventFrameDescriptorPayloadLastConsumedStatus()`
+  export, changed user-rendering success detection to
+  `consumed > 0 && lastEventId == 260615`, and throttled early
+  `HDRP/EASU descriptor not ready` waiting logs. Protected gameplay run
+  `native-commandbuffer-user-rendering-1080p-20260607-r3` passed at true
+  `1920x1080` Windowed with V Rising `FsrQualityMode=Off`, SDK-wrapper native,
+  and protected save restore. Analyzer reported `Native RenderFunc CommandBuffer
+  DLSS User Rendering=Pass` and `DLSS User Rendering Candidate=Pass`. Key
+  evidence: `eventId=260615`, `setSuccesses=124`, `issueSuccesses=124`,
+  `consumed=124`, `sequenceCreates=1`, `sequenceEvaluates=124`,
+  `evaluateSuccesses=124`, `input=960x540`, `output=1920x1080`,
+  `validation=D3D11-succeeded`, `sameDevice=yes`, `scratchOutput=no`,
+  `visibleOutput=yes`, `persistent=yes`, `evaluateResult=1`, and native timing
+  `evaluate=0.092ms`, `total=0.096ms`. Negative counts:
+  `RenderGraph GetTexture call #` `0`, visible write-back failures `0`,
+  payload consume failures `0`, access violations `0`, `nvwgf2umx` `0`, crash
+  events `0`, and final save `ChangeCount=0`. `shutdown=pending` is expected
+  because normal user rendering keeps the DLSS frame sequence alive until
+  cleanup.
+- Build note: C# Release, MSVC release-safe native, and MSVC SDK-wrapper native
+  all built successfully after the `lastConsumedStatus` change. The existing
+  `artifacts\native-build` CMake/Ninja directory is tied to a local w64devkit
+  configuration that currently fails with missing `cc1plus`; use
+  `artifacts\native-build-msvc` for release-safe builds and
+  `artifacts\native-build-msvc-wrapper` for SDK-wrapper builds. The default
+  `artifacts\native-build\Release\VrisingDLSS.Native.dll` and the game plugin
+  release-safe native were refreshed from the MSVC release-safe DLL so
+  automation cleanup restores the current safe native.

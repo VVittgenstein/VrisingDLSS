@@ -117,6 +117,7 @@ extern "C"
         int targetEvaluateSuccesses);
     VRISINGDLSS_API int __cdecl VrisingDlss_GetRenderEventFrameDescriptorPayloadConsumedCount();
     VRISINGDLSS_API const char* __cdecl VrisingDlss_GetRenderEventFrameDescriptorPayloadStatus();
+    VRISINGDLSS_API const char* __cdecl VrisingDlss_GetRenderEventFrameDescriptorPayloadLastConsumedStatus();
     VRISINGDLSS_API int __cdecl VrisingDlss_SetRenderEventDlssFeatureCreatePayload(
         void* sourceTexturePtr,
         void* destinationTexturePtr,

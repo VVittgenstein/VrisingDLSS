@@ -994,3 +994,85 @@ Result:
 - Cleanup closed the game, restored ClientSettings/config/native state,
   archived logs, restored the release-safe native DLL, left no V Rising
   process, and restored the `11111` save with `ChangeCount=0`.
+
+## BepInEx Console QuickEdit Startup Pitfall
+
+Run label:
+`native-commandbuffer-user-rendering-1080p-20260607-r1`.
+
+Result:
+
+- The automation session failed before a visible Unity game window appeared.
+- Visibility inspection found only a `ConsoleWindowClass` top-level window with
+  the title prefix `选择 BepInEx 6.0.0-dev - VRising`.
+- This title shape is consistent with a Windows console entering selection /
+  QuickEdit mode. When that happens, console output can pause the process, so
+  the game window may never finish appearing.
+- The failed start generated no BepInEx artifact log and an empty redirected
+  Player log, which fits a startup pause rather than a rendered-frame failure.
+- The helper already cleaned up loader config, ClientSettings, release-safe
+  native state, and process state. A protected-save restore/check then reported
+  `ChangeCount=0`.
+
+Automation mitigation:
+
+- `scripts/start-vrising-automation-session.ps1` now backs up
+  `BepInEx\config\BepInEx.cfg` for the session, temporarily sets
+  `Logging.Console.Enabled=false`, keeps disk logging enabled, and sets
+  `Logging.Disk.InstantFlushing=true`.
+- `scripts/stop-vrising-automation-session.ps1` restores the backed-up BepInEx
+  config during cleanup, and failed starts restore it immediately.
+- Treat future `ProcessOnly` results that show a BepInEx console/selection
+  window as automation startup noise first. Do not infer DLSS or render-path
+  failure until a real `UnityWndClass` game window and BepInEx log are present.
+
+## Native Command-buffer DLSS User Rendering Candidate
+
+Run labels:
+
+- `native-commandbuffer-user-rendering-1080p-20260607-r1`
+- `native-commandbuffer-user-rendering-1080p-20260607-r2`
+- `native-commandbuffer-user-rendering-1080p-20260607-r3`
+
+Result:
+
+- `r1` failed before a visible Unity game window because the BepInEx console
+  appeared to be paused in selection / QuickEdit mode. Startup cleanup restored
+  config/native/client settings and the protected save remained at
+  `ChangeCount=0`.
+- The BepInEx console mitigation now disables the console for automation
+  sessions while preserving instant disk logging, then restores the config on
+  cleanup.
+- `r2` reached gameplay and showed `consumed=3029`, `lastEventId=260615`, and
+  no set/issue/consume failures, but the run was analyzed as Partial because
+  the next frame's pending payload overwrote the native consumed/evaluate status
+  before managed logging saw it.
+- The instrumentation fix adds a separate native last-consumed-status export,
+  changes user-rendering success detection to consumed-event evidence, and
+  throttles early descriptor-wait logs.
+- `r3` passed after the instrumentation fix. Analyzer reported `Native
+  RenderFunc CommandBuffer DLSS User Rendering=Pass` and `DLSS User Rendering
+  Candidate=Pass`.
+- Key r3 evidence: `eventId=260615`, `setSuccesses=124`,
+  `issueSuccesses=124`, `consumed=124`, `sequenceCreates=1`,
+  `sequenceEvaluates=124`, `evaluateSuccesses=124`, `evaluateResult=1`,
+  `input=960x540`, `output=1920x1080`, `scratchOutput=no`,
+  `visibleOutput=yes`, and steady native timing around `evaluate=0.092ms`.
+- Negative r3 evidence: `RenderGraph GetTexture call #` `0`, visible write-back
+  failures `0`, payload consume failures `0`, access violations `0`,
+  `nvwgf2umx` `0`, crash events `0`.
+- Cleanup closed the game, restored ClientSettings/loader/BepInEx config/native
+  state, refreshed the game plugin with the current release-safe MSVC native
+  DLL, left no V Rising process, archived the post-run save, and restored the
+  protected save with final `ChangeCount=0`.
+
+Computer Use notes:
+
+- Use the real `VRising` Unity window, not Codex and not any BepInEx console.
+- If `get_window_state` unexpectedly captures the Codex UI while the returned
+  window object still says `VRising`, do not send input. Recover with
+  `scripts\inspect-vrising-visibility.ps1` and
+  `scripts\capture-vrising-window.ps1`, or refresh `list_apps()` and reselect
+  the true VRising window before any click.
+- For the Continue action, one mouse click near `(205,354)` on the
+  `1283x751` menu screenshot is enough. Do not send movement or gameplay keys.

@@ -25,6 +25,7 @@ internal sealed class NativeBridge
     private SetRenderEventFrameDescriptorDlssPersistentScratchEvaluatePayloadDelegate? _setRenderEventFrameDescriptorDlssVisibleWritebackPayload;
     private GetIntDelegate? _getRenderEventFrameDescriptorPayloadConsumedCount;
     private GetStringPointerDelegate? _getRenderEventFrameDescriptorPayloadStatus;
+    private GetStringPointerDelegate? _getRenderEventFrameDescriptorPayloadLastConsumedStatus;
     private SetRenderEventDlssFeatureCreatePayloadDelegate? _setRenderEventDlssFeatureCreatePayload;
     private GetIntDelegate? _getRenderEventDlssFeatureCreateConsumedCount;
     private GetStringPointerDelegate? _getRenderEventDlssFeatureCreateStatus;
@@ -88,6 +89,7 @@ internal sealed class NativeBridge
         _setRenderEventFrameDescriptorDlssVisibleWritebackPayload = GetOptionalExport<SetRenderEventFrameDescriptorDlssPersistentScratchEvaluatePayloadDelegate>("VrisingDlss_SetRenderEventFrameDescriptorDlssVisibleWritebackPayload");
         _getRenderEventFrameDescriptorPayloadConsumedCount = GetOptionalExport<GetIntDelegate>("VrisingDlss_GetRenderEventFrameDescriptorPayloadConsumedCount");
         _getRenderEventFrameDescriptorPayloadStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetRenderEventFrameDescriptorPayloadStatus");
+        _getRenderEventFrameDescriptorPayloadLastConsumedStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetRenderEventFrameDescriptorPayloadLastConsumedStatus");
         _setRenderEventDlssFeatureCreatePayload = GetOptionalExport<SetRenderEventDlssFeatureCreatePayloadDelegate>("VrisingDlss_SetRenderEventDlssFeatureCreatePayload");
         _getRenderEventDlssFeatureCreateConsumedCount = GetOptionalExport<GetIntDelegate>("VrisingDlss_GetRenderEventDlssFeatureCreateConsumedCount");
         _getRenderEventDlssFeatureCreateStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetRenderEventDlssFeatureCreateStatus");
@@ -202,6 +204,8 @@ internal sealed class NativeBridge
     internal int GetRenderEventFrameDescriptorPayloadConsumedCount() => _getRenderEventFrameDescriptorPayloadConsumedCount?.Invoke() ?? -1;
 
     internal string GetRenderEventFrameDescriptorPayloadStatus() => PtrToString(_getRenderEventFrameDescriptorPayloadStatus?.Invoke() ?? IntPtr.Zero);
+
+    internal string GetRenderEventFrameDescriptorPayloadLastConsumedStatus() => PtrToString(_getRenderEventFrameDescriptorPayloadLastConsumedStatus?.Invoke() ?? IntPtr.Zero);
 
     internal bool SetRenderEventFrameDescriptorDlssScratchEvaluatePayload(
         IntPtr sourceTexturePtr,

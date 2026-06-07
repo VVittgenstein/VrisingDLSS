@@ -643,11 +643,19 @@ function Set-SwitchesForStage {
         }
         "dlss-user-rendering" {
             $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
-            $Config.Diagnostics.EnableD3D11TextureProbe = "true"
             $Config.Diagnostics.EnableDlssRuntimeProbe = "true"
-            $Config.Diagnostics.EnableResourceMaterializationProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncEntryProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncArgumentProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncContextProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncResourceIdentityProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncResourceTupleProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncResourceNativePointerProbe = "true"
+            $Config.Diagnostics.EnableHdrpPostProcessRenderArgsProbe = "true"
+            $Config.Diagnostics.EnableHdrpPostProcessRenderArgsGlobalTextureProbe = "true"
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"
             $Config.Diagnostics.EnableRenderScaleControlProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
+            $Config.Diagnostics.EnableHookProbe = "false"
             $Config.DLSS.EnableDLSS = "true"
         }
         "dlss-user-rendering-cached-driver" {

@@ -1451,4 +1451,38 @@ Current helper smoke status:
   `ChangeCount=0`. The next guard should convert this placement into a
   normal-user candidate or paired visual/performance proof without returning to
   the hot global GetTexture path.
+- Normal-user source-guided command-buffer candidate is now implemented and
+  protected-gameplay validated; see
+  `docs/development/native-commandbuffer-user-rendering-1080p-gameplay-result-2026-06-07.md`.
+  `DLSS.EnableDLSS=true` now drives the focused EASU `ctx.cmd` native
+  command-buffer user-rendering route instead of the previous hot global
+  `RenderGraph.GetTexture` route. The helper stage `dlss-user-rendering` keeps
+  `EnableRenderGraphGetTextureProbe=false` and `EnableHookProbe=false`, uses
+  native event id `260615`, and carries the source/output/depth/motion
+  descriptor through the same EASU boundary as the visible write-back proof.
+  The first start attempt `r1` was automation startup noise caused by a
+  BepInEx console selection/QuickEdit pause before a Unity window appeared.
+  The `r2` run reached `consumed=3029`, `lastEventId=260615`, and no
+  set/issue/consume failures, but was misread as pending because each new
+  per-frame payload overwrote the native status string before managed logging
+  observed the consumed status. The fix adds
+  `VrisingDlss_GetRenderEventFrameDescriptorPayloadLastConsumedStatus()`,
+  detects user-rendering success from `consumed > 0 && lastEventId == 260615`,
+  and throttles early descriptor-wait logs. Protected gameplay proof
+  `native-commandbuffer-user-rendering-1080p-20260607-r3` then passed at true
+  `1920x1080` Windowed with V Rising `FsrQualityMode=Off`, SDK-wrapper native,
+  and the protected `11111` fixture. Analyzer reported `Native RenderFunc
+  CommandBuffer DLSS User Rendering=Pass` and `DLSS User Rendering
+  Candidate=Pass`. Key evidence preserved `eventId=260615`,
+  `setSuccesses=124`, `issueSuccesses=124`, `consumed=124`,
+  `sequenceCreates=1`, `sequenceEvaluates=124`, `evaluateSuccesses=124`,
+  `input=960x540`, `output=1920x1080`, `validation=D3D11-succeeded`,
+  `sameDevice=yes`, `scratchOutput=no`, `visibleOutput=yes`,
+  `persistent=yes`, `evaluateResult=1`, and steady native timing
+  `evaluate=0.092ms`, `total=0.096ms`. Counts: `RenderGraph GetTexture call #`
+  `0`, visible write-back failures `0`, payload consume failures `0`,
+  access violations `0`, `nvwgf2umx` `0`, crash events `0`, and save restore
+  final `ChangeCount=0`. `shutdown=pending` is expected for sustained user
+  rendering because the candidate keeps the DLSS frame sequence alive until
+  cleanup instead of stopping at three diagnostic evaluates.
 - Current route decision: DLSS itself does not depend on FSR. The final MVP validation must keep V Rising `FsrQualityMode=Off` for baseline and candidate, while the mod controls render scale/upscale through HDRP dynamic-resolution/DLSS-path integration. The next gate is no longer tuple existence; it is visual correctness, performance, resize/reset, fallback behavior, and release-boundary validation.

@@ -34,7 +34,7 @@ public sealed class Plugin : BasePlugin
 
         if (_config.EnableDlss.Value)
         {
-            _log.LogWarning("DLSS.EnableDLSS is true. The experimental user rendering path will use the crash-safe RenderGraph resource route and at most one DLSS evaluate per Unity frame when a compatible native bridge/runtime is available.");
+            _log.LogWarning("DLSS.EnableDLSS is true. The experimental user rendering path will use the source-guided native EASU ctx.cmd command-buffer route when a compatible native bridge/runtime is available.");
         }
         if (_config.EnableDlssUserRenderingNoEvaluateProbe.Value)
         {
@@ -77,7 +77,7 @@ public sealed class Plugin : BasePlugin
         {
             RunHdrpPostProcessBoundaryProbe();
         }
-        if (_config.EnableHdrpPostProcessRenderArgsProbe.Value)
+        if (_config.EnableHdrpPostProcessRenderArgsProbe.Value || _config.EnableDlss.Value)
         {
             RunHdrpPostProcessRenderArgsProbe();
         }
@@ -285,7 +285,7 @@ public sealed class Plugin : BasePlugin
             _config?.EnableNativeRenderFuncResourceResolveProbe.Value ?? false,
             _config?.EnableNativeRenderFuncResourceNativePointerProbe.Value ?? false,
             _config?.EnableNativeRenderFuncResourceD3D11Probe.Value ?? false,
-            _config?.EnableRenderGraphGetTextureProbe.Value ?? true,
+            (_config?.EnableRenderGraphGetTextureProbe.Value ?? true) && !(_config?.EnableDlss.Value ?? false),
             _config?.EnableDlssPassResourceProbe.Value ?? false);
     }
 
@@ -328,7 +328,7 @@ public sealed class Plugin : BasePlugin
 
         HdrpPostProcessRenderArgsProbe.Install(
             _log,
-            _config?.EnableHdrpPostProcessRenderArgsGlobalTextureProbe.Value ?? false);
+            (_config?.EnableHdrpPostProcessRenderArgsGlobalTextureProbe.Value ?? false) || (_config?.EnableDlss.Value ?? false));
     }
 
     private ConfigFile CreateModConfigFile()

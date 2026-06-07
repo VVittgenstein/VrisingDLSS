@@ -98,6 +98,7 @@ namespace
     std::mutex g_renderEventFrameDescriptorPayloadMutex;
     RenderEventFrameDescriptorPayload g_renderEventFrameDescriptorPayload;
     char g_renderEventFrameDescriptorPayloadStatus[8000] = "render event frame descriptor payload probe has not run";
+    char g_renderEventFrameDescriptorPayloadLastConsumedStatus[8000] = "render event frame descriptor payload has not been consumed";
     std::atomic<int> g_renderEventDlssFeatureCreatePayloadSetAttempts{0};
     std::atomic<int> g_renderEventDlssFeatureCreatePayloadSetSuccesses{0};
     std::atomic<int> g_renderEventDlssFeatureCreatePayloadSetFailures{0};
@@ -1287,6 +1288,12 @@ namespace
                     sourceDelta,
                     destinationDelta);
             }
+
+            std::snprintf(
+                g_renderEventFrameDescriptorPayloadLastConsumedStatus,
+                sizeof(g_renderEventFrameDescriptorPayloadLastConsumedStatus),
+                "%s",
+                g_renderEventFrameDescriptorPayloadStatus);
         }
 
         ReleaseEvaluateTextureInfo(&source);
@@ -3698,6 +3705,12 @@ extern "C"
     {
         std::lock_guard<std::mutex> lock(g_renderEventFrameDescriptorPayloadMutex);
         return g_renderEventFrameDescriptorPayloadStatus;
+    }
+
+    const char* __cdecl VrisingDlss_GetRenderEventFrameDescriptorPayloadLastConsumedStatus()
+    {
+        std::lock_guard<std::mutex> lock(g_renderEventFrameDescriptorPayloadMutex);
+        return g_renderEventFrameDescriptorPayloadLastConsumedStatus;
     }
 
     int __cdecl VrisingDlss_SetRenderEventDlssFeatureCreatePayload(

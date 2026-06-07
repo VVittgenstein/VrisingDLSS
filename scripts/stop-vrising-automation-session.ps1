@@ -143,6 +143,8 @@ $plan = [pscustomobject]@{
     ClientWindowMode = $session.ClientWindowMode
     ClientSettingsPath = [string]$session.ClientSettingsPath
     ClientSettingsBackupArtifact = [string]$session.ClientSettingsBackupArtifact
+    BepInExConfigPath = [string]$session.BepInExConfigPath
+    BepInExConfigBackupArtifact = [string]$session.BepInExConfigBackupArtifact
     CleanupArtifact = $cleanupArtifact
 }
 
@@ -157,6 +159,8 @@ $closedProcesses = @()
 $clientSettingsChanged = [bool]($session.SetClientResolution -or $session.SetClientWindowMode)
 $restoredClientSettings = -not $clientSettingsChanged
 $restoredLoaderConfig = $false
+$bepInExConfigBackupArtifact = [string]$session.BepInExConfigBackupArtifact
+$restoredBepInExConfig = [string]::IsNullOrWhiteSpace($bepInExConfigBackupArtifact)
 $restoredReleaseSafeNative = -not [bool]$session.UseSdkWrapperNative
 $bepInExLogArchived = $false
 $analysisArchived = $false
@@ -239,8 +243,22 @@ try {
             Copy-Item -LiteralPath $clientSettingsBackupArtifact -Destination $clientSettingsPath -Force
             $restoredClientSettings = $true
         }
+
+        $bepInExConfigPath = [string]$session.BepInExConfigPath
+        if (-not [string]::IsNullOrWhiteSpace($bepInExConfigBackupArtifact)) {
+            if ([string]::IsNullOrWhiteSpace($bepInExConfigPath)) {
+                throw "Session did not contain BepInEx config restore path."
+            }
+
+            if (-not (Test-Path -LiteralPath $bepInExConfigBackupArtifact)) {
+                throw "BepInEx config backup artifact was not found: $bepInExConfigBackupArtifact"
+            }
+
+            Copy-Item -LiteralPath $bepInExConfigBackupArtifact -Destination $bepInExConfigPath -Force
+            $restoredBepInExConfig = $true
+        }
     } catch {
-        $failureReasons.Add("ClientSettings restore failed: $($_.Exception.Message)")
+        $failureReasons.Add("ClientSettings/BepInEx config restore failed: $($_.Exception.Message)")
     }
 
     try {
@@ -259,7 +277,7 @@ if ($remainingProcessCount -gt 0) {
     $failureReasons.Add("Scoped V Rising process remained after cleanup.")
 }
 
-if ($failureReasons.Count -gt 0 -or -not $restoredLoaderConfig -or -not $restoredClientSettings -or $remainingProcessCount -gt 0) {
+if ($failureReasons.Count -gt 0 -or -not $restoredLoaderConfig -or -not $restoredClientSettings -or -not $restoredBepInExConfig -or $remainingProcessCount -gt 0) {
     $status = "Failed"
 }
 
@@ -295,6 +313,8 @@ $result = [pscustomobject]@{
     ClientWindowMode = $session.ClientWindowMode
     RestoredClientSettings = $restoredClientSettings
     RestoredLoaderConfig = $restoredLoaderConfig
+    RestoredBepInExConfig = $restoredBepInExConfig
+    BepInExConfigBackupArtifact = $(if (-not [string]::IsNullOrWhiteSpace($bepInExConfigBackupArtifact) -and (Test-Path -LiteralPath $bepInExConfigBackupArtifact)) { $bepInExConfigBackupArtifact } else { "" })
     RestoredReleaseSafeNative = $restoredReleaseSafeNative
     CleanupRequired = $false
     RemainingVRisingProcessCount = $remainingProcessCount
