@@ -104,6 +104,7 @@ function Get-ConfiguredStage {
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncResourceIdentityProbe") { return "native-renderfunc-resource-identity" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncArgumentProbe") { return "native-renderfunc-args" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncEntryProbe") { return "native-renderfunc-entry" }
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableHdrpPostProcessRenderArgsProbe") { return "hdrp-postprocess-render-args" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableHdrpPostProcessBoundaryProbe") { return "hdrp-postprocess-boundary" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableCustomPostProcessRenderEntryProbe") { return "custom-postprocess-render-entry" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableCustomPostProcessRegistrationProbe") { return "custom-postprocess-registration" }
@@ -279,6 +280,7 @@ function Get-NextRecommendation {
     $nativeRenderFuncResourceIdentity = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Resource Identity"
     $nativeRenderFuncArgs = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Args"
     $nativeRenderFuncEntry = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Entry"
+    $hdrpPostProcessRenderArgs = Get-FirstStageStatus -Results $LogResults -StagePrefix "HDRP PostProcess Render Args"
     $hdrpPostProcessBoundary = Get-FirstStageStatus -Results $LogResults -StagePrefix "HDRP PostProcess Boundary"
     $currentUserRendering = Get-FirstStageStatus -Results $CurrentLogResults -StagePrefix "DLSS User Rendering Candidate"
     if ($currentUserRendering -eq "Partial" -and
@@ -315,8 +317,16 @@ function Get-NextRecommendation {
         return "The latest dlss-user-rendering gameplay log did not accept an FSR Off Super Resolution tuple: the main candidate stayed color=1920x1080 output=1920x1080. Before rerunning the same runtime proof, use the targeted render-scale diagnostic to check for `Render-scale control member write did not stick`, `RTHandles.SetHardwareDynamicResolutionState=true`, and whether the gameplay camera/main targets remain full-size."
     }
 
+    if ($hdrpPostProcessRenderArgs -eq "Pass") {
+        return "HDRP postprocess render-argument snapshot has runtime evidence. Inspect the latest source/destination RTHandle and texture summaries to decide whether this ProjectM custom postprocess boundary is close enough to the official HDRP DLSS evaluate boundary for the next separate guard. Still no command-buffer work, GetTexture loop, D3D11 validation, native texture dereference, or DLSS evaluate without another explicit preflight."
+    }
+
+    if ($hdrpPostProcessRenderArgs -eq "Partial") {
+        return "HDRP postprocess render-argument probe patched DarkForeground.Render but did not observe a snapshot in available logs. If this was menu-only, run a protected 11111 gameplay proof at 1920x1080 Windowed before rejecting the boundary; keep it no-native/no-DLSS and do not send movement keys."
+    }
+
     if ($hdrpPostProcessBoundary -eq "Pass") {
-        return "HDRP postprocess boundary probe has runtime evidence. Inspect the latest boundary call lines to choose whether the next separate guard should focus on HDRenderPipeline.DoDLSSPass/DoDLSSPasses, HDRenderPipeline.CustomPostProcessPass, or concrete ProjectM CustomPostProcess.Render. Still no command-buffer work, D3D11 validation, native texture dereference, or DLSS evaluate without another explicit preflight."
+        return "HDRP postprocess boundary probe has protected gameplay runtime evidence. Next separate guard is scripts\run-vrising-diagnostic.ps1 -GamePath `"$($Inspect.GamePath)`" -Stage hdrp-postprocess-render-args -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 for a no-native source/destination RTHandle snapshot; still no command-buffer work, GetTexture loop, D3D11 validation, native texture dereference, or DLSS evaluate."
     }
 
     if ($hdrpPostProcessBoundary -eq "Partial") {

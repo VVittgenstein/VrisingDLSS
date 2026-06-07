@@ -34,6 +34,7 @@ param(
         "custom-postprocess-registration",
         "custom-postprocess-render-entry",
         "hdrp-postprocess-boundary",
+        "hdrp-postprocess-render-args",
         "render-scale-control",
         "dlss-user-rendering",
         "dlss-user-rendering-cached-driver",
@@ -107,6 +108,7 @@ function New-ConfigMap {
             EnableCustomPostProcessRegistrationProbe = "false"
             EnableCustomPostProcessRenderEntryProbe = "false"
             EnableHdrpPostProcessBoundaryProbe = "false"
+            EnableHdrpPostProcessRenderArgsProbe = "false"
             EnableRenderGraphGetTextureProbe = "true"
             EnableDlssPassResourceProbe = "false"
             EnableUpscalerStateProbe = "false"
@@ -380,6 +382,11 @@ function Set-SwitchesForStage {
         }
         "hdrp-postprocess-boundary" {
             $Config.Diagnostics.EnableHdrpPostProcessBoundaryProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
+            $Config.Diagnostics.EnableHookProbe = "false"
+        }
+        "hdrp-postprocess-render-args" {
+            $Config.Diagnostics.EnableHdrpPostProcessRenderArgsProbe = "true"
             $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
             $Config.Diagnostics.EnableHookProbe = "false"
         }

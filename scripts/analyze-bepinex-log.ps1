@@ -282,6 +282,13 @@ $results.Add((New-StageResult `
     -StartedPatterns @("HDRP postprocess boundary probe patched:", "HDRP postprocess boundary probe installed:")))
 
 $results.Add((New-StageResult `
+    -Stage "HDRP PostProcess Render Args" `
+    -PassPatterns @("HDRP postprocess render args snapshot #") `
+    -FailPatterns @("HDRP postprocess render args probe failed to patch", "HDRP postprocess render args probe prefix failed:", "HDRP postprocess render args probe uninstall failed:") `
+    -BlockedPatterns @("HDRP postprocess render args probe blocked:") `
+    -StartedPatterns @("HDRP postprocess render args probe patched:", "HDRP postprocess render args probe installed:")))
+
+$results.Add((New-StageResult `
     -Stage "Stage 5D DLSS Runtime" `
     -PassPatterns @("DLSS runtime probe succeeded:") `
     -FailPatterns @("DLSS runtime probe failed:", "DLSS runtime probe skipped:") `

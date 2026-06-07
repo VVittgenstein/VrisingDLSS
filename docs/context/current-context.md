@@ -990,3 +990,37 @@ As of the read-only RenderGraph pass-map runtime result:
   Next step should be a separate default-off no-native resource-argument
   snapshot from this boundary, not direct DLSS evaluate and not broad
   steady-state `GetTexture` discovery.
+- The separate default-off no-native `hdrp-postprocess-render-args` probe is
+  now implemented and protected-gameplay validated; see
+  `docs/development/hdrp-postprocess-render-args-preflight-implementation-2026-06-07.md`
+  and
+  `docs/development/hdrp-postprocess-render-args-gameplay-result-2026-06-07.md`.
+  Config key: `Diagnostics.EnableHdrpPostProcessRenderArgsProbe=false`.
+  Helper stage: `hdrp-postprocess-render-args`. It patches only
+  `DarkForeground.Render(CommandBuffer, HDCamera, RTHandle, RTHandle)` and
+  logs sparse managed `cmd/camera/source/destination` snapshots; it does not
+  call `GetTexture`, read native texture pointers, do command-buffer work, load
+  NGX, or evaluate DLSS. Static Release build, PowerShell parser validation,
+  dry-run config, `git diff --check`, release-boundary check, Thunderstore
+  package creation, and package validation passed. Protected gameplay proof
+  `hdrp-postprocess-render-args-gameplay-1080p-20260607-r1` passed in the
+  `11111` fixture at true `1920x1080` Windowed. Computer Use selected the real
+  `VRising` Unity window, clicked the Chinese Continue / `11111` entry once at
+  `(205,354)`, waited about `45` seconds, and sent no keyboard/movement input.
+  Analyzer reported `HDRP PostProcess Render Args=Pass`; the log patched `1`
+  method and recorded `9` snapshots. Counts for `RenderGraph GetTexture`,
+  D3D11, NGX, DLSS/evaluate, prefix failure, and patch failure were all `0`.
+  Cleanup reported `CrashEventCount=0`, restored loader config,
+  ClientSettings, and release-safe native DLL, and left no V Rising process.
+  Gameplay entry added one save difference before restore; the changed state
+  was archived and the protected save was restored with `ChangeCount=0`. The
+  first snapshot showed `camera.actualWidth=1920`,
+  `camera.actualHeight=1080`, `camera.allowDynamicResolution=False`,
+  `source=CameraColor` / `CameraColor_1920x1080_B10G11R11_UFloatPack32_Tex2DArray`,
+  and `destination=CustomPostProcesDestination` /
+  `CustomPostProcesDestination_1920x1080_B10G11R11_UFloatPack32_Tex2DArray_dynamic`.
+  Decision: keep this as a clean source-driven boundary, but do not treat it as
+  a DLSS Super Resolution tuple yet because current evidence is full-res
+  `1920x1080 -> 1920x1080`. Next separate guard should prove whether the same
+  boundary can observe dynamic-resolution render input state before any native
+  pointer or DLSS evaluate step.
