@@ -187,6 +187,23 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
   next technical route should move back toward an official HDRP/RenderGraph
   upscale-pass-equivalent boundary with current-frame resources and command-buffer
   ordering comparable to `DoDLSSPass -> DLSSPass.Render/ExecuteDLSS`.
+- A narrower 2026-06-07 refresh is recorded in
+  `docs/research/hdrp-dlss-official-boundary-narrow-refresh-2026-06-07.md`.
+  It re-confirms that the exact official boundary is the `Deep Learning Super
+  Sampling` RenderGraph render func calling
+  `DLSSPass.GetCameraResources(data.resourceHandles)` immediately before
+  `DLSSPass.Render(..., ctx.cmd)`. V Rising still has no proven safe Harmony
+  equivalent: `DLSSPass.Render`, generated render funcs, ref-`CompiledPassInfo`
+  executor wrappers, `GetExecuteDelegate<T>`, `RenderGraphPass<T>.Execute`,
+  `RenderFunc<T>.Invoke`, `CreateTextureCallback`, and
+  `DynamicResolutionHandler.Update` are rejected/no-signal/not equivalent for
+  the next normal route. The only newly interesting source-backed branch is
+  HDRP `CustomPostProcessVolumeComponent.Render(cmd, camera, source, destination)`:
+  HDRP binds depth/normal/motion/source globally before calling it, so it may be a
+  BepInEx-accessible command-buffer boundary if a mod can register a custom post
+  process into V Rising's IL2CPP HDRP global settings and active volume stack.
+  Treat that as a separate no-native/no-DLSS registration proof, not as an
+  established DLSS evaluate boundary.
 - `docs/research/dlss-theoretical-performance-model-2026-06-06.md` records the
   expected DLSS SR performance shape. For 1920x1080 Performance-mode constructive
   tests, the working model is 960x540 input to 1920x1080 output, or 25% pixel count.
