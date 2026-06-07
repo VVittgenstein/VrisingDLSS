@@ -1024,3 +1024,31 @@ As of the read-only RenderGraph pass-map runtime result:
   `1920x1080 -> 1920x1080`. Next separate guard should prove whether the same
   boundary can observe dynamic-resolution render input state before any native
   pointer or DLSS evaluate step.
+- Follow-up combined stage `hdrp-postprocess-render-args-render-scale` is now
+  implemented and gameplay-validated; see
+  `docs/development/hdrp-postprocess-render-args-render-scale-gameplay-result-2026-06-07.md`.
+  The stage enables only `EnableHdrpPostProcessRenderArgsProbe=true` and
+  `EnableRenderScaleControlProbe=true` while leaving `GetTexture`, D3D11, NGX,
+  DLSS evaluate, broad hook scan, and native bridge work disabled. With V Rising
+  `FsrQualityMode=Off`, true `1920x1080` Windowed, and the protected `11111`
+  fixture, analyzer reported both `Stage 2C Render-Scale Control Probe=Pass`
+  and `HDRP PostProcess Render Args=Pass`. The log recorded `9`
+  `DarkForeground.Render(...)` argument snapshots, `557` render-scale
+  prefix/postfix lines, `31` `GetCurrentScale=0.5` lines, and `31`
+  `GetResolvedScale=(0.50, 0.50)` lines. The first snapshot showed
+  `camera.actualWidth=960`, `camera.actualHeight=540`,
+  `camera.pixelWidth=1920`, `camera.pixelHeight=1080`,
+  `source=CameraColor_960x540_B10G11R11_UFloatPack32_Tex2DArray_dynamic`, and
+  `destination=CustomPostProcesDestination_960x540_B10G11R11_UFloatPack32_Tex2DArray_dynamic`.
+  Counts for `RenderGraph GetTexture`, D3D11, NGX, DLSS/evaluate, prefix
+  failure, and patch failure were all `0`. Cleanup passed with
+  `CrashEventCount=0`, no V Rising process left, loader/config/native restored,
+  and protected save restore `ChangeCount=0`. Passive
+  `capture-vrising-window.ps1` produced a valid 1920x1080 gameplay screenshot
+  because Computer Use captured the wrong Codex window after loading despite
+  reacquiring the `VRising` handle. Decision: this boundary can provide
+  low-resolution render-space color under mod-owned dynamic resolution, but it
+  does not by itself provide a full-size DLSS output target because both source
+  and destination were `960x540`, not `960x540 -> 1920x1080`. Next guard should
+  locate a full-size output target in the same frame/lifecycle or prove a safe
+  handoff to the existing full-size EASU/output RenderGraph resource path.

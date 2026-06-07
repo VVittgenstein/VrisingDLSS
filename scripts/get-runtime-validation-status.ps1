@@ -104,6 +104,8 @@ function Get-ConfiguredStage {
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncResourceIdentityProbe") { return "native-renderfunc-resource-identity" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncArgumentProbe") { return "native-renderfunc-args" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncEntryProbe") { return "native-renderfunc-entry" }
+    if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableHdrpPostProcessRenderArgsProbe") -and
+        (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "hdrp-postprocess-render-args-render-scale" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableHdrpPostProcessRenderArgsProbe") { return "hdrp-postprocess-render-args" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableHdrpPostProcessBoundaryProbe") { return "hdrp-postprocess-boundary" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableCustomPostProcessRenderEntryProbe") { return "custom-postprocess-render-entry" }
@@ -280,6 +282,7 @@ function Get-NextRecommendation {
     $nativeRenderFuncResourceIdentity = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Resource Identity"
     $nativeRenderFuncArgs = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Args"
     $nativeRenderFuncEntry = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Entry"
+    $renderScaleControl = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 2C"
     $hdrpPostProcessRenderArgs = Get-FirstStageStatus -Results $LogResults -StagePrefix "HDRP PostProcess Render Args"
     $hdrpPostProcessBoundary = Get-FirstStageStatus -Results $LogResults -StagePrefix "HDRP PostProcess Boundary"
     $currentUserRendering = Get-FirstStageStatus -Results $CurrentLogResults -StagePrefix "DLSS User Rendering Candidate"
@@ -315,6 +318,10 @@ function Get-NextRecommendation {
         }
 
         return "The latest dlss-user-rendering gameplay log did not accept an FSR Off Super Resolution tuple: the main candidate stayed color=1920x1080 output=1920x1080. Before rerunning the same runtime proof, use the targeted render-scale diagnostic to check for `Render-scale control member write did not stick`, `RTHandles.SetHardwareDynamicResolutionState=true`, and whether the gameplay camera/main targets remain full-size."
+    }
+
+    if ($hdrpPostProcessRenderArgs -eq "Pass" -and $renderScaleControl -eq "Pass") {
+        return "HDRP postprocess render-argument snapshots and render-scale control both have runtime evidence. Inspect the latest DarkForeground source/destination summaries next: if both are scaled, this boundary is useful for low-resolution color input but still needs a separate full-size output boundary; if source is scaled and destination is full-size, the next separate guard can move toward native pointer preflight at this boundary; if both stay full-size, compare snapshot timing against DynamicResolutionHandler.Update and Stage 8E's accepted tuple timing. Still no GetTexture loop, D3D11 validation, native texture dereference, or DLSS evaluate without another explicit preflight."
     }
 
     if ($hdrpPostProcessRenderArgs -eq "Pass") {

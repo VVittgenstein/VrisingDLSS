@@ -23,6 +23,7 @@ Helper stage:
 ```powershell
 scripts\run-vrising-diagnostic.ps1 -Stage hdrp-postprocess-render-args
 scripts\start-vrising-automation-session.ps1 -Stage hdrp-postprocess-render-args
+scripts\start-vrising-automation-session.ps1 -Stage hdrp-postprocess-render-args-render-scale
 ```
 
 Main code path:
@@ -96,6 +97,12 @@ See
 The first protected `11111` gameplay proof passed at true `1920x1080`
 Windowed and logged managed RTHandle/RenderTexture summaries without any
 `GetTexture`, D3D11, NGX, or DLSS evaluate evidence.
+
+A follow-up combined stage
+`hdrp-postprocess-render-args-render-scale` enables the existing
+`RenderScaleControlProbe` alongside the argument snapshot while still keeping
+`GetTexture`, D3D11, NGX, and DLSS evaluate disabled. See
+`docs/development/hdrp-postprocess-render-args-render-scale-gameplay-result-2026-06-07.md`.
 
 ## Decision
 

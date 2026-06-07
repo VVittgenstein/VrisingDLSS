@@ -562,3 +562,28 @@ Result:
 - Cleanup closed the game, restored ClientSettings/config/native state,
   archived the changed post-run save state, and restored the `11111` save with
   `ChangeCount=0`.
+
+## HDRP PostProcess Render Args + Render Scale Gameplay Notes
+
+Run label:
+`hdrp-postprocess-render-args-render-scale-gameplay-1080p-20260607-r1`.
+
+Result:
+
+- Computer Use selected the real `VRising` Unity window, not the BepInEx
+  console.
+- The main-menu screenshot was `1283x751`; the known Chinese Continue / `11111`
+  entry was clicked once at `(205,354)`.
+- The click went straight to the loading screen; no save-list interaction was
+  needed.
+- No keyboard, movement, or gameplay keys were sent.
+- After the wait, Computer Use returned a screenshot of the Codex window even
+  though `list_apps()` still reported the real `VRising` Unity window and
+  reacquiring that handle succeeded. Treat this as a Computer Use screenshot
+  channel failure for this run; no further UI input was sent after the mismatch.
+- Player log showed gameplay was reached (`TopDownCamera` created/assigned).
+- A passive window capture helper produced the valid gameplay screenshot:
+  `artifacts/gameplay-automation/CaptureGameplay-hdrp-postprocess-render-args-render-scale-gameplay-1080p-20260607-r1.png`.
+- Cleanup closed the game, restored ClientSettings/config/native state,
+  archived the changed post-run save state, and restored the `11111` save with
+  `ChangeCount=0`.
