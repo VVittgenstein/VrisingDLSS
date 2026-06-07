@@ -37,6 +37,7 @@ internal static class FrameResourceProbe
     private const int MaxNativeRenderFuncCommandBufferFrameDescriptorStatusLogs = 80;
     private const int NativeRenderFuncCommandBufferFrameDescriptorEventId = 260610;
     private const int NativeRenderFuncCommandBufferFrameDescriptorD3D11EventId = 260611;
+    private const int NativeRenderFuncCommandBufferDlssScratchEvaluateEventId = 260612;
     private const int MaxNativeRenderFuncCommandBufferDlssFeatureCreateStatusLogs = 80;
     private const int NativeRenderFuncCommandBufferDlssFeatureCreateEventId = 260609;
     private const int MaxNativeRenderFuncResourceIdentityStatusLogs = 80;
@@ -208,6 +209,7 @@ internal static class FrameResourceProbe
     private static bool NativeRenderFuncCommandBufferPayloadProbeEnabled;
     private static bool NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled;
     private static bool NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled;
+    private static bool NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled;
     private static bool NativeRenderFuncCommandBufferDlssFeatureCreateProbeEnabled;
     private static bool NativeRenderFuncResourceIdentityProbeEnabled;
     private static bool NativeRenderFuncResourceTupleProbeEnabled;
@@ -307,15 +309,19 @@ internal static class FrameResourceProbe
     private static string? NativeRenderFuncEntryCandidateMethodSummary;
 
     private static bool NativeRenderFuncCommandBufferFrameDescriptorAnyProbeEnabled =>
-        NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled || NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled;
+        NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled || NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled || NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled;
 
     private static int NativeRenderFuncCommandBufferFrameDescriptorActiveEventId =>
-        NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled
+        NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled
+            ? NativeRenderFuncCommandBufferDlssScratchEvaluateEventId
+            : NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled
             ? NativeRenderFuncCommandBufferFrameDescriptorD3D11EventId
             : NativeRenderFuncCommandBufferFrameDescriptorEventId;
 
     private static string NativeRenderFuncCommandBufferFrameDescriptorLogLabel =>
-        NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled
+        NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled
+            ? "Native render-func command-buffer DLSS scratch evaluate"
+            : NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled
             ? "Native render-func command-buffer frame descriptor D3D11"
             : "Native render-func command-buffer frame descriptor";
     private static object? NativeRenderFuncEntryDetour;
@@ -362,6 +368,7 @@ internal static class FrameResourceProbe
         bool enableNativeRenderFuncCommandBufferPayloadProbe = false,
         bool enableNativeRenderFuncCommandBufferFrameDescriptorProbe = false,
         bool enableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe = false,
+        bool enableNativeRenderFuncCommandBufferDlssScratchEvaluateProbe = false,
         bool enableNativeRenderFuncCommandBufferDlssFeatureCreateProbe = false,
         bool enableNativeRenderFuncResourceIdentityProbe = false,
         bool enableNativeRenderFuncResourceTupleProbe = false,
@@ -373,7 +380,7 @@ internal static class FrameResourceProbe
     {
         var nativeRenderFuncCommandBufferEventRequested = enableNativeRenderFuncCommandBufferEventProbe;
         var nativeRenderFuncCommandBufferPayloadRequested = enableNativeRenderFuncCommandBufferPayloadProbe;
-        var nativeRenderFuncCommandBufferFrameDescriptorRequested = enableNativeRenderFuncCommandBufferFrameDescriptorProbe || enableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe;
+        var nativeRenderFuncCommandBufferFrameDescriptorRequested = enableNativeRenderFuncCommandBufferFrameDescriptorProbe || enableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe || enableNativeRenderFuncCommandBufferDlssScratchEvaluateProbe;
         var nativeRenderFuncCommandBufferDlssFeatureCreateRequested = enableNativeRenderFuncCommandBufferDlssFeatureCreateProbe;
         var nativeRenderFuncContextRequested = enableNativeRenderFuncContextProbe || nativeRenderFuncCommandBufferEventRequested || nativeRenderFuncCommandBufferPayloadRequested || nativeRenderFuncCommandBufferFrameDescriptorRequested || nativeRenderFuncCommandBufferDlssFeatureCreateRequested;
         var nativeRenderFuncResourceNativePointerRequested = enableNativeRenderFuncResourceNativePointerProbe || enableNativeRenderFuncResourceD3D11Probe || nativeRenderFuncCommandBufferPayloadRequested || nativeRenderFuncCommandBufferFrameDescriptorRequested || nativeRenderFuncCommandBufferDlssFeatureCreateRequested;
@@ -396,7 +403,7 @@ internal static class FrameResourceProbe
             DlssUserRenderingNoEvaluateEnabled = DlssUserRenderingNoEvaluateEnabled || enableDlssUserRenderingNoEvaluate;
             DlssCachedTupleDriverProbeEnabled = DlssCachedTupleDriverProbeEnabled || enableDlssCachedTupleDriverProbe;
             KeepDlssVisibleWritebackProbeRunning = KeepDlssVisibleWritebackProbeRunning || (enableDlssVisibleWritebackProbe && keepDlssVisibleWritebackProbeRunning);
-            if (enableDlssEvaluateProbe || enableDlssPersistentEvaluateProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe || enableDlssVisibleWritebackProbe || enableDlssUserRendering || enableDlssUserRenderingNoEvaluate || enableDlssCachedTupleDriverProbe || nativeRenderFuncCommandBufferDlssFeatureCreateRequested)
+            if (enableDlssEvaluateProbe || enableDlssPersistentEvaluateProbe || enableDlssSuperResolutionEvaluateProbe || enableDlssSuperResolutionPersistentEvaluateProbe || enableDlssSuperResolutionFrameSequenceEvaluateProbe || enableDlssVisibleWritebackProbe || enableDlssUserRendering || enableDlssUserRenderingNoEvaluate || enableDlssCachedTupleDriverProbe || nativeRenderFuncCommandBufferDlssFeatureCreateRequested || enableNativeRenderFuncCommandBufferDlssScratchEvaluateProbe)
             {
                 DlssEvaluateSettings = dlssEvaluateSettings;
             }
@@ -419,6 +426,7 @@ internal static class FrameResourceProbe
             NativeRenderFuncCommandBufferPayloadProbeEnabled = NativeRenderFuncCommandBufferPayloadProbeEnabled || nativeRenderFuncCommandBufferPayloadRequested;
             NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled = NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled || enableNativeRenderFuncCommandBufferFrameDescriptorProbe;
             NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled = NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled || enableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe;
+            NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled = NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled || enableNativeRenderFuncCommandBufferDlssScratchEvaluateProbe;
             NativeRenderFuncCommandBufferDlssFeatureCreateProbeEnabled = NativeRenderFuncCommandBufferDlssFeatureCreateProbeEnabled || nativeRenderFuncCommandBufferDlssFeatureCreateRequested;
             NativeRenderFuncResourceIdentityProbeEnabled = NativeRenderFuncResourceIdentityProbeEnabled || nativeRenderFuncResourceIdentityRequested;
             NativeRenderFuncResourceTupleProbeEnabled = NativeRenderFuncResourceTupleProbeEnabled || nativeRenderFuncResourceTupleRequested;
@@ -474,6 +482,7 @@ internal static class FrameResourceProbe
         NativeRenderFuncCommandBufferPayloadProbeEnabled = nativeRenderFuncCommandBufferPayloadRequested;
         NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled = enableNativeRenderFuncCommandBufferFrameDescriptorProbe;
         NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled = enableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe;
+        NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled = enableNativeRenderFuncCommandBufferDlssScratchEvaluateProbe;
         NativeRenderFuncCommandBufferDlssFeatureCreateProbeEnabled = nativeRenderFuncCommandBufferDlssFeatureCreateRequested;
         NativeRenderFuncResourceIdentityProbeEnabled = nativeRenderFuncResourceIdentityRequested;
         NativeRenderFuncResourceTupleProbeEnabled = nativeRenderFuncResourceTupleRequested;
@@ -625,6 +634,10 @@ internal static class FrameResourceProbe
         if (NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled)
         {
             log.LogWarning("Native render-func command-buffer frame-descriptor D3D11 preflight enabled. It carries focused EASU source/output plus HDRP depth/motion native pointers through one ctx.cmd plugin event and validates their D3D11 texture/device/dimension shape only; no NGX, DLSS evaluate, or visible write-back.");
+        }
+        if (NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled)
+        {
+            log.LogWarning("Native render-func command-buffer DLSS scratch-evaluate preflight enabled. It carries the focused EASU/HDRP frame descriptor through one ctx.cmd plugin event, evaluates DLSS into a native scratch output texture, and shuts down without writing the visible EASU output.");
         }
         if (NativeRenderFuncCommandBufferDlssFeatureCreateProbeEnabled)
         {
@@ -978,6 +991,7 @@ internal static class FrameResourceProbe
             NativeRenderFuncCommandBufferPayloadProbeEnabled = false;
             NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled = false;
             NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled = false;
+            NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled = false;
             NativeRenderFuncCommandBufferDlssFeatureCreateProbeEnabled = false;
             NativeRenderFuncResourceIdentityProbeEnabled = false;
             NativeRenderFuncResourceTupleProbeEnabled = false;
@@ -5796,7 +5810,29 @@ internal static class FrameResourceProbe
             var beforeConsumed = bridge.GetRenderEventFrameDescriptorPayloadConsumedCount();
             Interlocked.Exchange(ref NativeRenderFuncCommandBufferFrameDescriptorBeforeConsumedCount, beforeConsumed);
             var eventId = NativeRenderFuncCommandBufferFrameDescriptorActiveEventId;
-            var success = NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled
+            var success = NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled
+                ? bridge.SetRenderEventFrameDescriptorDlssScratchEvaluatePayload(
+                    descriptor.SourcePointer,
+                    descriptor.DestinationPointer,
+                    descriptor.DepthPointer,
+                    descriptor.MotionPointer,
+                    descriptor.InputWidth,
+                    descriptor.InputHeight,
+                    descriptor.OutputWidth,
+                    descriptor.OutputHeight,
+                    descriptor.HdrpFrame,
+                    descriptor.EasuSourceFrame,
+                    descriptor.EasuDestinationFrame,
+                    eventId,
+                    sequence,
+                    DlssEvaluateSettings.RuntimePath,
+                    DlssEvaluateSettings.ApplicationDataPath,
+                    DlssEvaluateSettings.ApplicationId,
+                    DlssEvaluateSettings.PerfQualityValue,
+                    DlssEvaluateSettings.FeatureFlags,
+                    DlssEvaluateSettings.Sharpness,
+                    DlssEvaluateSettings.Reset)
+                : NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled
                 ? bridge.SetRenderEventFrameDescriptorD3D11ValidationPayload(
                     descriptor.SourcePointer,
                     descriptor.DestinationPointer,

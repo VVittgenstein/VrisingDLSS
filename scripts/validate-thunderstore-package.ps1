@@ -316,6 +316,7 @@ try {
             "EnableNativeRenderFuncCommandBufferPayloadProbe = false",
             "EnableNativeRenderFuncCommandBufferFrameDescriptorProbe = false",
             "EnableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe = false",
+            "EnableNativeRenderFuncCommandBufferDlssScratchEvaluateProbe = false",
             "EnableNativeRenderFuncCommandBufferDlssFeatureCreateProbe = false",
             "EnableNativeRenderFuncResourceIdentityProbe = false",
             "EnableNativeRenderFuncResourceTupleProbe = false",

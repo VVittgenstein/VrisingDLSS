@@ -11,6 +11,7 @@
 - Added a default-off native RenderGraph render-func command-buffer payload diagnostic; it consumes the focused EASU source/output texture payload from a no-op plugin event without NGX, DLSS evaluate, or visible write-back.
 - Added a default-off native RenderGraph render-func command-buffer frame-descriptor diagnostic; it carries focused EASU source/output plus HDRP depth/motion native pointers through one no-evaluate plugin event without D3D11 validation, NGX, or visible write-back.
 - Added a default-off native RenderGraph render-func command-buffer frame-descriptor D3D11 validation diagnostic; it validates the four-resource descriptor shape without NGX, DLSS evaluate, or visible write-back.
+- Added a default-off SDK-wrapper-only native RenderGraph render-func DLSS scratch-evaluate diagnostic; it evaluates into a native scratch output texture from the focused EASU `ctx.cmd` callback without writing visible output.
 - Added a default-off SDK-wrapper-only native RenderGraph render-func DLSS feature-create diagnostic; it creates and immediately releases one NGX DLSS feature from the focused EASU `ctx.cmd` callback without evaluating DLSS or writing visible output.
 - Added a default-off HDRP postprocess global depth/motion texture snapshot diagnostic for local source-guided boundary proof.
 - Added a default-off HDRP/EASU input-output correlation diagnostic stage for local source-guided boundary proof.

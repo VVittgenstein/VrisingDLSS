@@ -267,6 +267,13 @@ $results.Add((New-StageResult `
     -StartedPatterns @("Native render-func command-buffer frame-descriptor D3D11 preflight enabled", "Native render-func command-buffer frame descriptor D3D11 status #", "Native render-func command-buffer frame descriptor D3D11 set advanced:")))
 
 $results.Add((New-StageResult `
+    -Stage "Native RenderFunc CommandBuffer DLSS Scratch Evaluate" `
+    -PassPatterns @("Native render-func command-buffer DLSS scratch evaluate advanced:") `
+    -FailPatterns @("Native render-func entry probe failed:", "Native render-func entry detour dispose failed:", "Native render-func command-buffer DLSS scratch evaluate set failed:", "Native render-func command-buffer DLSS scratch evaluate event failed:", "render event frame descriptor payload set failed:", "render event frame descriptor payload consume failed:", "DLSS scratch evaluate failed", "RenderGraph pass-list logging failed") `
+    -BlockedPatterns @("DLSS scratch evaluate blocked", "native bridge was built without NVIDIA SDK wrapper integration", "runtime path was empty") `
+    -StartedPatterns @("Native render-func command-buffer DLSS scratch-evaluate preflight enabled", "Native render-func command-buffer DLSS scratch evaluate status #", "Native render-func command-buffer DLSS scratch evaluate set advanced:", "render event frame descriptor DLSS scratch evaluate pending")))
+
+$results.Add((New-StageResult `
     -Stage "Native RenderFunc CommandBuffer DLSS Feature Create" `
     -PassPatterns @("Native render-func command-buffer DLSS feature-create advanced:") `
     -FailPatterns @("Native render-func entry probe failed:", "Native render-func entry detour dispose failed:", "Native render-func command-buffer DLSS feature-create set failed:", "Native render-func command-buffer DLSS feature-create event failed:", "render event DLSS feature-create payload set failed:", "render event DLSS feature-create payload consume failed:", "render event DLSS feature-create payload create failed:", "RenderGraph pass-list logging failed") `

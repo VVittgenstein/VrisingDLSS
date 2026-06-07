@@ -53,6 +53,14 @@ namespace
         int eventId = 0;
         int sequence = 0;
         bool validateD3D11 = false;
+        bool evaluateDlssScratch = false;
+        std::wstring runtimePath;
+        std::wstring applicationDataPath;
+        unsigned long long applicationId = 0;
+        int perfQualityValue = 0;
+        int featureFlags = 0;
+        float sharpness = 0.0f;
+        int reset = 0;
     };
 
     struct RenderEventDlssFeatureCreatePayload
@@ -86,7 +94,7 @@ namespace
     std::atomic<int> g_renderEventFrameDescriptorPayloadLastEventId{-1};
     std::mutex g_renderEventFrameDescriptorPayloadMutex;
     RenderEventFrameDescriptorPayload g_renderEventFrameDescriptorPayload;
-    char g_renderEventFrameDescriptorPayloadStatus[3600] = "render event frame descriptor payload probe has not run";
+    char g_renderEventFrameDescriptorPayloadStatus[6000] = "render event frame descriptor payload probe has not run";
     std::atomic<int> g_renderEventDlssFeatureCreatePayloadSetAttempts{0};
     std::atomic<int> g_renderEventDlssFeatureCreatePayloadSetSuccesses{0};
     std::atomic<int> g_renderEventDlssFeatureCreatePayloadSetFailures{0};
@@ -141,6 +149,25 @@ namespace
         unsigned int targetHeight,
         int perfQualityValue,
         int featureFlags);
+
+    int EvaluateDlssFrameSequenceWithSdkWrapper(
+        void* colorTexturePtr,
+        void* outputTexturePtr,
+        void* depthTexturePtr,
+        void* motionTexturePtr,
+        const wchar_t* runtimePath,
+        const wchar_t* applicationDataPath,
+        unsigned long long applicationId,
+        int perfQualityValue,
+        int featureFlags,
+        float jitterOffsetX,
+        float jitterOffsetY,
+        float motionVectorScaleX,
+        float motionVectorScaleY,
+        float sharpness,
+        int reset);
+
+    int ShutdownDlssFrameSequenceWithSdkWrapper();
 #endif
 
     void VRISINGDLSS_RENDER_EVENT_CALL OnRenderEvent(int eventId)
@@ -239,6 +266,7 @@ namespace
         UINT mipLevels = 0;
         UINT arraySize = 0;
         ID3D11Device* device = nullptr;
+        D3D11_TEXTURE2D_DESC desc{};
     };
 
     void ReleaseEvaluateTextureInfo(EvaluateTextureInfo* info)
@@ -325,6 +353,7 @@ namespace
 
         D3D11_TEXTURE2D_DESC desc{};
         texture2D->GetDesc(&desc);
+        outInfo->desc = desc;
         outInfo->format = desc.Format;
         outInfo->width = desc.Width;
         outInfo->height = desc.Height;
@@ -418,6 +447,14 @@ namespace
         payload->eventId = 0;
         payload->sequence = 0;
         payload->validateD3D11 = false;
+        payload->evaluateDlssScratch = false;
+        payload->runtimePath.clear();
+        payload->applicationDataPath.clear();
+        payload->applicationId = 0;
+        payload->perfQualityValue = 0;
+        payload->featureFlags = 0;
+        payload->sharpness = 0.0f;
+        payload->reset = 0;
     }
 
     void ReleaseRenderEventDlssFeatureCreatePayload(RenderEventDlssFeatureCreatePayload* payload)
@@ -647,7 +684,7 @@ namespace
         EvaluateTextureInfo destination{};
         EvaluateTextureInfo depth{};
         EvaluateTextureInfo motion{};
-        if (payload.validateD3D11)
+        if (payload.validateD3D11 || payload.evaluateDlssScratch)
         {
             char error[384] = {};
             bool success = TryDescribeEvaluateTexture(
@@ -751,12 +788,188 @@ namespace
 
         const int sourceDelta = payload.easuSourceFrame - payload.hdrpFrame;
         const int destinationDelta = payload.easuDestinationFrame - payload.hdrpFrame;
+
+        int scratchEvaluateResult = 0;
+        int scratchShutdownResult = 0;
+        char scratchStatus[2048] = {};
+        char scratchShutdownStatus[768] = {};
+        if (payload.evaluateDlssScratch)
+        {
+#if !defined(VRISINGDLSS_ENABLE_NGX_SDK_WRAPPER)
+            g_renderEventFrameDescriptorPayloadConsumedFailures.fetch_add(1);
+            SetRenderEventFrameDescriptorPayloadFailureStatus(
+                "scratch-evaluate",
+                "DLSS scratch evaluate blocked: native bridge was built without NVIDIA SDK wrapper integration",
+                eventId,
+                payload.sequence);
+            ReleaseEvaluateTextureInfo(&source);
+            ReleaseEvaluateTextureInfo(&destination);
+            ReleaseEvaluateTextureInfo(&depth);
+            ReleaseEvaluateTextureInfo(&motion);
+            ReleaseRenderEventFrameDescriptorPayload(&payload);
+            return;
+#else
+            ID3D11Texture2D* scratchOutput = nullptr;
+            D3D11_TEXTURE2D_DESC scratchDesc = destination.desc;
+            scratchDesc.Width = destination.width;
+            scratchDesc.Height = destination.height;
+            scratchDesc.Usage = D3D11_USAGE_DEFAULT;
+            scratchDesc.CPUAccessFlags = 0;
+            scratchDesc.MiscFlags = 0;
+            HRESULT createScratch = source.device->CreateTexture2D(&scratchDesc, nullptr, &scratchOutput);
+            if (FAILED(createScratch) || scratchOutput == nullptr)
+            {
+                char message[640];
+                std::snprintf(
+                    message,
+                    sizeof(message),
+                    "DLSS scratch evaluate failed: CreateTexture2D returned hr=0x%08X; scratch=%ux%u fmt=%u bind=0x%08X mips=%u array=%u sample=%u/%u",
+                    static_cast<unsigned int>(createScratch),
+                    scratchDesc.Width,
+                    scratchDesc.Height,
+                    static_cast<unsigned int>(scratchDesc.Format),
+                    scratchDesc.BindFlags,
+                    scratchDesc.MipLevels,
+                    scratchDesc.ArraySize,
+                    scratchDesc.SampleDesc.Count,
+                    scratchDesc.SampleDesc.Quality);
+                g_renderEventFrameDescriptorPayloadConsumedFailures.fetch_add(1);
+                SetRenderEventFrameDescriptorPayloadFailureStatus("scratch-evaluate", message, eventId, payload.sequence);
+                ReleaseEvaluateTextureInfo(&source);
+                ReleaseEvaluateTextureInfo(&destination);
+                ReleaseEvaluateTextureInfo(&depth);
+                ReleaseEvaluateTextureInfo(&motion);
+                ReleaseRenderEventFrameDescriptorPayload(&payload);
+                return;
+            }
+
+            IUnknown* scratchUnknown = nullptr;
+            HRESULT scratchUnknownResult = scratchOutput->QueryInterface(__uuidof(IUnknown), reinterpret_cast<void**>(&scratchUnknown));
+            if (FAILED(scratchUnknownResult) || scratchUnknown == nullptr)
+            {
+                char message[384];
+                std::snprintf(
+                    message,
+                    sizeof(message),
+                    "DLSS scratch evaluate failed: scratch output QueryInterface(IUnknown) returned hr=0x%08X",
+                    static_cast<unsigned int>(scratchUnknownResult));
+                scratchOutput->Release();
+                g_renderEventFrameDescriptorPayloadConsumedFailures.fetch_add(1);
+                SetRenderEventFrameDescriptorPayloadFailureStatus("scratch-evaluate", message, eventId, payload.sequence);
+                ReleaseEvaluateTextureInfo(&source);
+                ReleaseEvaluateTextureInfo(&destination);
+                ReleaseEvaluateTextureInfo(&depth);
+                ReleaseEvaluateTextureInfo(&motion);
+                ReleaseRenderEventFrameDescriptorPayload(&payload);
+                return;
+            }
+
+            scratchEvaluateResult = EvaluateDlssFrameSequenceWithSdkWrapper(
+                payload.source,
+                scratchUnknown,
+                payload.depth,
+                payload.motion,
+                payload.runtimePath.c_str(),
+                payload.applicationDataPath.c_str(),
+                payload.applicationId,
+                payload.perfQualityValue,
+                payload.featureFlags,
+                0.0f,
+                0.0f,
+                1.0f,
+                1.0f,
+                payload.sharpness,
+                payload.reset);
+            std::snprintf(scratchStatus, sizeof(scratchStatus), "%s", g_dlssFrameSequenceStatus);
+            scratchShutdownResult = ShutdownDlssFrameSequenceWithSdkWrapper();
+            std::snprintf(scratchShutdownStatus, sizeof(scratchShutdownStatus), "%s", g_dlssFrameSequenceStatus);
+            scratchUnknown->Release();
+            scratchOutput->Release();
+
+            if (scratchEvaluateResult != 1 || scratchShutdownResult != 1)
+            {
+                char message[2600];
+                std::snprintf(
+                    message,
+                    sizeof(message),
+                    "DLSS scratch evaluate failed: evaluateResult=%d; shutdownResult=%d; evaluateStatus=\"%s\"; shutdownStatus=\"%s\"",
+                    scratchEvaluateResult,
+                    scratchShutdownResult,
+                    scratchStatus,
+                    scratchShutdownStatus);
+                g_renderEventFrameDescriptorPayloadConsumedFailures.fetch_add(1);
+                SetRenderEventFrameDescriptorPayloadFailureStatus("scratch-evaluate", message, eventId, payload.sequence);
+                ReleaseEvaluateTextureInfo(&source);
+                ReleaseEvaluateTextureInfo(&destination);
+                ReleaseEvaluateTextureInfo(&depth);
+                ReleaseEvaluateTextureInfo(&motion);
+                ReleaseRenderEventFrameDescriptorPayload(&payload);
+                return;
+            }
+#endif
+        }
+
         const int consumed = g_renderEventFrameDescriptorPayloadConsumedCount.fetch_add(1) + 1;
         g_renderEventFrameDescriptorPayloadLastSequence.store(payload.sequence);
         g_renderEventFrameDescriptorPayloadLastEventId.store(eventId);
         {
             std::lock_guard<std::mutex> lock(g_renderEventFrameDescriptorPayloadMutex);
-            if (payload.validateD3D11)
+            if (payload.evaluateDlssScratch)
+            {
+                const double widthScale = static_cast<double>(destination.width) / static_cast<double>(source.width);
+                const double heightScale = static_cast<double>(destination.height) / static_cast<double>(source.height);
+                std::snprintf(
+                    g_renderEventFrameDescriptorPayloadStatus,
+                    sizeof(g_renderEventFrameDescriptorPayloadStatus),
+                    "render event frame descriptor DLSS scratch evaluate consumed: setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d; sourcePtr=%p; visibleDestinationPtr=%p; depthPtr=%p; motionPtr=%p; input=%dx%d; output=%dx%d; hdrpFrame=%d; easuSourceFrame=%d; easuDestinationFrame=%d; sourceFrameDelta=%d; destinationFrameDelta=%d; validation=D3D11-succeeded; sameDevice=yes; source=%ux%u fmt=%u mips=%u array=%u; visibleDestination=%ux%u fmt=%u mips=%u array=%u; depth=%ux%u fmt=%u mips=%u array=%u; motion=%ux%u fmt=%u mips=%u array=%u; scale=(%.3fx,%.3fx); scratchOutput=yes; visibleOutput=no; evaluateResult=%d; shutdownResult=%d; evaluateStatus=\"%s\"; shutdownStatus=\"%s\"",
+                    g_renderEventFrameDescriptorPayloadSetAttempts.load(),
+                    g_renderEventFrameDescriptorPayloadSetSuccesses.load(),
+                    g_renderEventFrameDescriptorPayloadSetFailures.load(),
+                    consumed,
+                    g_renderEventFrameDescriptorPayloadConsumedFailures.load(),
+                    eventId,
+                    payload.sequence,
+                    payload.sourcePointer,
+                    payload.destinationPointer,
+                    payload.depthPointer,
+                    payload.motionPointer,
+                    payload.inputWidth,
+                    payload.inputHeight,
+                    payload.outputWidth,
+                    payload.outputHeight,
+                    payload.hdrpFrame,
+                    payload.easuSourceFrame,
+                    payload.easuDestinationFrame,
+                    sourceDelta,
+                    destinationDelta,
+                    source.width,
+                    source.height,
+                    static_cast<unsigned int>(source.format),
+                    source.mipLevels,
+                    source.arraySize,
+                    destination.width,
+                    destination.height,
+                    static_cast<unsigned int>(destination.format),
+                    destination.mipLevels,
+                    destination.arraySize,
+                    depth.width,
+                    depth.height,
+                    static_cast<unsigned int>(depth.format),
+                    depth.mipLevels,
+                    depth.arraySize,
+                    motion.width,
+                    motion.height,
+                    static_cast<unsigned int>(motion.format),
+                    motion.mipLevels,
+                    motion.arraySize,
+                    widthScale,
+                    heightScale,
+                    scratchEvaluateResult,
+                    scratchShutdownResult,
+                    scratchStatus,
+                    scratchShutdownStatus);
+            }
+            else if (payload.validateD3D11)
             {
                 const double widthScale = static_cast<double>(destination.width) / static_cast<double>(source.width);
                 const double heightScale = static_cast<double>(destination.height) / static_cast<double>(source.height);
@@ -2675,6 +2888,7 @@ namespace
             g_renderEventFrameDescriptorPayload.eventId = eventId;
             g_renderEventFrameDescriptorPayload.sequence = sequence;
             g_renderEventFrameDescriptorPayload.validateD3D11 = validateD3D11;
+            g_renderEventFrameDescriptorPayload.evaluateDlssScratch = false;
             std::snprintf(
                 g_renderEventFrameDescriptorPayloadStatus,
                 sizeof(g_renderEventFrameDescriptorPayloadStatus),
@@ -2704,13 +2918,104 @@ namespace
         g_renderEventFrameDescriptorPayloadSetSuccesses.fetch_add(1);
         return 1;
     }
+
+    int SetRenderEventFrameDescriptorDlssScratchEvaluatePayloadInternal(
+        void* sourceTexturePtr,
+        void* destinationTexturePtr,
+        void* depthTexturePtr,
+        void* motionTexturePtr,
+        int inputWidth,
+        int inputHeight,
+        int outputWidth,
+        int outputHeight,
+        int hdrpFrame,
+        int easuSourceFrame,
+        int easuDestinationFrame,
+        int eventId,
+        int sequence,
+        const wchar_t* runtimePath,
+        const wchar_t* applicationDataPath,
+        unsigned long long applicationId,
+        int perfQualityValue,
+        int featureFlags,
+        float sharpness,
+        int reset)
+    {
+        if (runtimePath == nullptr || runtimePath[0] == L'\0')
+        {
+            g_renderEventFrameDescriptorPayloadSetAttempts.fetch_add(1);
+            g_renderEventFrameDescriptorPayloadSetFailures.fetch_add(1);
+            SetRenderEventFrameDescriptorPayloadFailureStatus("set", "DLSS scratch evaluate runtime path was empty", eventId, sequence);
+            return 0;
+        }
+
+        const int result = SetRenderEventFrameDescriptorPayloadInternal(
+            sourceTexturePtr,
+            destinationTexturePtr,
+            depthTexturePtr,
+            motionTexturePtr,
+            inputWidth,
+            inputHeight,
+            outputWidth,
+            outputHeight,
+            hdrpFrame,
+            easuSourceFrame,
+            easuDestinationFrame,
+            eventId,
+            sequence,
+            true);
+        if (result != 1)
+        {
+            return 0;
+        }
+
+        std::lock_guard<std::mutex> lock(g_renderEventFrameDescriptorPayloadMutex);
+        g_renderEventFrameDescriptorPayload.evaluateDlssScratch = true;
+        g_renderEventFrameDescriptorPayload.runtimePath = runtimePath;
+        g_renderEventFrameDescriptorPayload.applicationDataPath = applicationDataPath != nullptr && applicationDataPath[0] != L'\0'
+            ? applicationDataPath
+            : L".";
+        g_renderEventFrameDescriptorPayload.applicationId = applicationId;
+        g_renderEventFrameDescriptorPayload.perfQualityValue = perfQualityValue;
+        g_renderEventFrameDescriptorPayload.featureFlags = featureFlags;
+        g_renderEventFrameDescriptorPayload.sharpness = sharpness;
+        g_renderEventFrameDescriptorPayload.reset = reset;
+        std::snprintf(
+            g_renderEventFrameDescriptorPayloadStatus,
+            sizeof(g_renderEventFrameDescriptorPayloadStatus),
+            "render event frame descriptor DLSS scratch evaluate pending: setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d; sourcePtr=%p; visibleDestinationPtr=%p; depthPtr=%p; motionPtr=%p; input=%dx%d; output=%dx%d; hdrpFrame=%d; easuSourceFrame=%d; easuDestinationFrame=%d; validation=D3D11-pending; scratchOutput=yes; visibleOutput=no; ngx=pending; evaluate=pending; appId=%llu; perfQuality=%d; flags=0x%08X; sharpness=%.4f; reset=%d",
+            g_renderEventFrameDescriptorPayloadSetAttempts.load(),
+            g_renderEventFrameDescriptorPayloadSetSuccesses.load(),
+            g_renderEventFrameDescriptorPayloadSetFailures.load(),
+            g_renderEventFrameDescriptorPayloadConsumedCount.load(),
+            g_renderEventFrameDescriptorPayloadConsumedFailures.load(),
+            eventId,
+            sequence,
+            sourceTexturePtr,
+            destinationTexturePtr,
+            depthTexturePtr,
+            motionTexturePtr,
+            inputWidth,
+            inputHeight,
+            outputWidth,
+            outputHeight,
+            hdrpFrame,
+            easuSourceFrame,
+            easuDestinationFrame,
+            applicationId,
+            perfQualityValue,
+            static_cast<unsigned int>(featureFlags),
+            sharpness,
+            reset);
+        return 1;
+    }
 }
 
 extern "C"
 {
     int __cdecl VrisingDlss_GetBridgeApiVersion()
     {
-        return 17;
+        return 18;
     }
 
     const char* __cdecl VrisingDlss_GetBridgeVersion()
@@ -2878,6 +3183,51 @@ extern "C"
             eventId,
             sequence,
             true);
+    }
+
+    int __cdecl VrisingDlss_SetRenderEventFrameDescriptorDlssScratchEvaluatePayload(
+        void* sourceTexturePtr,
+        void* destinationTexturePtr,
+        void* depthTexturePtr,
+        void* motionTexturePtr,
+        int inputWidth,
+        int inputHeight,
+        int outputWidth,
+        int outputHeight,
+        int hdrpFrame,
+        int easuSourceFrame,
+        int easuDestinationFrame,
+        int eventId,
+        int sequence,
+        const wchar_t* runtimePath,
+        const wchar_t* applicationDataPath,
+        unsigned long long applicationId,
+        int perfQualityValue,
+        int featureFlags,
+        float sharpness,
+        int reset)
+    {
+        return SetRenderEventFrameDescriptorDlssScratchEvaluatePayloadInternal(
+            sourceTexturePtr,
+            destinationTexturePtr,
+            depthTexturePtr,
+            motionTexturePtr,
+            inputWidth,
+            inputHeight,
+            outputWidth,
+            outputHeight,
+            hdrpFrame,
+            easuSourceFrame,
+            easuDestinationFrame,
+            eventId,
+            sequence,
+            runtimePath,
+            applicationDataPath,
+            applicationId,
+            perfQualityValue,
+            featureFlags,
+            sharpness,
+            reset);
     }
 
     int __cdecl VrisingDlss_GetRenderEventFrameDescriptorPayloadConsumedCount()

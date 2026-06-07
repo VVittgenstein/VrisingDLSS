@@ -909,3 +909,32 @@ Result:
 - Cleanup closed the game, restored ClientSettings/config/native state,
   archived the changed post-run save state, and restored the `11111` save with
   `ChangeCount=0`.
+
+## Native RenderFunc CommandBuffer DLSS Scratch Evaluate + Render Scale Gameplay Notes
+
+Run label:
+`native-renderfunc-commandbuffer-dlss-scratch-evaluate-render-scale-gameplay-1080p-20260607-r1`.
+
+Result:
+
+- Computer Use selected the real `VRising` Unity window, not the BepInEx
+  console.
+- The main-menu screenshot was `1283x751`; the Chinese Continue entry was
+  clicked once at `(203,352)`.
+- The click went to the loading screen, then into gameplay after about `25`
+  seconds.
+- No keyboard, movement, or gameplay keys were sent.
+- Runtime proof passed: the correlated EASU source/output pointers plus HDRP
+  depth/motion pointers were set as one native frame descriptor, consumed from
+  a focused EASU `ctx.cmd` plugin event with `eventId=260612`, and evaluated by
+  DLSS into a native scratch output texture.
+- Evidence showed `consumed=1`, `sequenceCreates=1`, `sequenceEvaluates=1`,
+  `evaluateSuccesses=1`, `input=960x540`, `output=1920x1080`,
+  `validation=D3D11-succeeded`, `sameDevice=yes`, `scratchOutput=yes`,
+  `visibleOutput=no`, `evaluateResult=1`, `shutdownResult=1`, and
+  `evaluateLast=0x00000001`.
+- The proof did not run user rendering or perform actual visible write-back.
+  Repeated status lines were status re-logging, not repeated evaluate.
+- Cleanup closed the game, restored ClientSettings/config/native state,
+  archived the changed post-run save state, and restored the `11111` save with
+  `ChangeCount=0`.

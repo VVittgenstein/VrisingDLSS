@@ -101,6 +101,9 @@ function Get-ConfiguredStage {
     if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe") -and
         (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "native-renderfunc-commandbuffer-frame-descriptor-d3d11-render-scale" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe") { return "native-renderfunc-commandbuffer-frame-descriptor-d3d11" }
+    if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferDlssScratchEvaluateProbe") -and
+        (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "native-renderfunc-commandbuffer-dlss-scratch-evaluate-render-scale" }
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferDlssScratchEvaluateProbe") { return "native-renderfunc-commandbuffer-dlss-scratch-evaluate" }
     if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferFrameDescriptorProbe") -and
         (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "native-renderfunc-commandbuffer-frame-descriptor-render-scale" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferFrameDescriptorProbe") { return "native-renderfunc-commandbuffer-frame-descriptor" }
@@ -310,6 +313,7 @@ function Get-NextRecommendation {
     $visibleWriteback = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 10A"
     $userRendering = Get-FirstStageStatus -Results $LogResults -StagePrefix "DLSS User Rendering Candidate"
     $nativeRenderFuncCommandBufferDlssFeatureCreate = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc CommandBuffer DLSS Feature Create"
+    $nativeRenderFuncCommandBufferDlssScratchEvaluate = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc CommandBuffer DLSS Scratch Evaluate"
     $nativeRenderFuncCommandBufferFrameDescriptorD3D11 = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc CommandBuffer Frame Descriptor D3D11"
     $nativeRenderFuncCommandBufferFrameDescriptor = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc CommandBuffer Frame Descriptor"
     $nativeRenderFuncCommandBufferPayload = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc CommandBuffer Payload"
@@ -371,6 +375,21 @@ function Get-NextRecommendation {
         }
 
         return "Native frame-descriptor D3D11 validation passed with render-scale evidence. Next step should be a protected gameplay proof document, then a separate bounded no-write evaluate preflight at the same callback; do not add visible write-back yet."
+    }
+
+    if ($nativeRenderFuncCommandBufferDlssScratchEvaluate -eq "Pass" -and $renderScaleControl -eq "Pass") {
+        $nativeRenderFuncCommandBufferDlssScratchEvaluateGameplayDoc = Get-ChildItem -LiteralPath (Join-Path $Root "docs\development") -Filter "native-renderfunc-commandbuffer-dlss-scratch-evaluate-render-scale-gameplay-result-*.md" -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+        if ($nativeRenderFuncCommandBufferDlssScratchEvaluateGameplayDoc) {
+            return "Native EASU ctx.cmd DLSS scratch evaluate and render-scale control have a protected gameplay proof: the four-resource descriptor can evaluate into a native scratch output without touching the visible EASU output. Next source-guided guard should prove persistent feature reuse at the same boundary before any visible write-back or normal-user rendering change. Latest proof: $($nativeRenderFuncCommandBufferDlssScratchEvaluateGameplayDoc.FullName)"
+        }
+
+        return "Native EASU ctx.cmd DLSS scratch evaluate passed with render-scale evidence. Next step should be a protected gameplay proof document, then a separate persistent scratch feature-reuse guard before any visible write-back."
+    }
+
+    if ($nativeRenderFuncCommandBufferDlssScratchEvaluate -eq "Blocked" -or $nativeRenderFuncCommandBufferDlssScratchEvaluate -eq "Fail" -or $nativeRenderFuncCommandBufferDlssScratchEvaluate -eq "Partial") {
+        return "Native DLSS scratch evaluate at the focused EASU ctx.cmd boundary has not passed. Inspect scratch-output creation, SDK-wrapper/runtime path, evaluate/shutdown status, and the frame descriptor dimensions before trying visible write-back or normal-user rendering again."
     }
 
     if ($nativeRenderFuncCommandBufferFrameDescriptorD3D11 -eq "Partial") {

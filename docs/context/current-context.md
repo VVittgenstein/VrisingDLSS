@@ -1452,3 +1452,31 @@ As of the read-only RenderGraph pass-map runtime result:
   guard should be a bounded SDK-wrapper-only no-write DLSS frame-sequence
   evaluate at the same callback boundary; keep visible write-back and broad
   `RenderGraph.GetTexture` disabled.
+- Follow-up stage
+  `native-renderfunc-commandbuffer-dlss-scratch-evaluate-render-scale` is now
+  implemented and protected-gameplay validated; see
+  `docs/development/native-renderfunc-commandbuffer-dlss-scratch-evaluate-render-scale-preflight-implementation-2026-06-07.md`
+  and
+  `docs/development/native-renderfunc-commandbuffer-dlss-scratch-evaluate-render-scale-gameplay-result-2026-06-07.md`.
+  It adds default-off
+  `Diagnostics.EnableNativeRenderFuncCommandBufferDlssScratchEvaluateProbe=false`
+  and native bridge API version `18`. The stage reuses the source-guided
+  HDRP/EASU descriptor, issues one focused EASU `ctx.cmd` event with
+  `eventId=260612`, creates a native scratch output from the visible EASU
+  destination descriptor, evaluates DLSS into scratch, and immediately shuts
+  down. Protected gameplay proof
+  `native-renderfunc-commandbuffer-dlss-scratch-evaluate-render-scale-gameplay-1080p-20260607-r1`
+  passed at true `1920x1080` Windowed with V Rising `FsrQualityMode=Off`,
+  SDK-wrapper native, and the protected `11111` fixture. Computer Use clicked
+  Continue once and sent no movement keys. Key evidence: `consumed=1`,
+  `sequenceCreates=1`, `sequenceEvaluates=1`, `evaluateSuccesses=1`,
+  `input=960x540`, `output=1920x1080`, `validation=D3D11-succeeded`,
+  `sameDevice=yes`, source/depth/motion at `960x540`, visible destination at
+  `1920x1080`, `scratchOutput=yes`, `visibleOutput=no`, `evaluateResult=1`,
+  `shutdownResult=1`, `evaluateLast=0x00000001`, `create=0x00000001`,
+  `feature=yes`, `release/destroy/shutdown=0x00000001`, actual evaluate timing
+  about `0.446ms`, no `DLSS user rendering`, no actual visible write-back, no
+  `ExecuteDLSS`, no crash/access-violation, and save restore `ChangeCount=0`.
+  The repeated status lines were status re-logging, not repeated evaluate. The
+  next guard should prove persistent scratch feature reuse at this same
+  boundary before any visible write-back or normal-user rendering change.
