@@ -1,0 +1,119 @@
+# Native RenderFunc Resource Native-Pointer Preflight Implementation - 2026-06-07
+
+Status: implemented and statically validated. No game launch in this pass.
+
+## Question
+
+After `native-renderfunc-resource-resolve` proved that the focused EASU
+`source` / `destination` handles resolve to `TextureResource` metadata while
+`graphicsResource` remains null at the `CompileRenderGraph(int)` observation
+point, can we add one more default-off preflight that asks only whether those
+same handles ever receive actual native texture pointers during Unity-owned
+`GetTexture(TextureHandle&)` calls?
+
+## Implementation
+
+Added config key:
+
+`Diagnostics.EnableNativeRenderFuncResourceNativePointerProbe=false`
+
+Helper stage:
+
+`native-renderfunc-resource-native-pointer`
+
+The stage enables:
+
+- `EnableNativeBridgeSmokeTest=true`
+- `EnableNativeRenderFuncEntryProbe=true`
+- `EnableNativeRenderFuncArgumentProbe=true`
+- `EnableNativeRenderFuncResourceIdentityProbe=true`
+- `EnableNativeRenderFuncResourceTupleProbe=true`
+- `EnableNativeRenderFuncResourceNativePointerProbe=true`
+- `EnableRenderGraphGetTextureProbe=false`
+- `EnableUpscalerStateProbe=true`
+- `EnableHookProbe=false`
+- `EnableDLSS=false`
+
+Runtime behavior:
+
+- Reuses the proven focused EASU native render-func entry no-op detour.
+- Requires the same native `passDataPtr == managed EASUData` match as the prior
+  identity/tuple/resolve proofs.
+- Arms a target from the matched EASU `source` and `destination`
+  `TextureHandle.handle` summaries during the safe `CompileRenderGraph(int)`
+  pass-list snapshot.
+- Patches `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` only because
+  this preflight needs to observe Unity-owned valid-scope conversions.
+- In the `GetTexture` postfix, returns immediately unless the observed handle
+  matches the armed EASU `source` or `destination`.
+- Reads `GetNativeTexturePtr()` only from the already-returned `__result`.
+- Logs `Native render-func resource native-pointer advanced:` only after both
+  `source` and `destination` return non-zero native texture pointers.
+- Fast-skips after the first dual-pointer proof.
+
+Safety boundary:
+
+- No direct or prefix-time `GetTexture(...)` calls.
+- No generated HDRP render-func Harmony patch.
+- No `DLSSPass.Render(...)` patch.
+- No `RenderGraph.PreRenderPassExecute(...)` / `ExecuteCompiledPass(...)`
+  wrapper patch.
+- No broad GetTexture resource-name candidate path.
+- No `D3D11TextureProbe` / native bridge texture validation.
+- No command-buffer access.
+- No NGX/DLSS evaluate.
+
+## Expected Runtime Interpretation
+
+Pass:
+
+- Analyzer reports `Native RenderFunc Resource Native Pointer=Pass`.
+- Log contains `Native render-func resource native-pointer advanced:`.
+- The advanced line shows both `source` and `destination` with non-zero
+  `nativePtr=0x...`.
+- There are no `RenderGraph GetTexture call #`, D3D11 probe, `ExecuteDLSS`, or
+  NGX/evaluate lines.
+
+Blocked or partial:
+
+- `target armed` appears but no `advanced` line: the EASU tuple is known, but
+  Unity did not later call `GetTexture(...)` for either or both handles during
+  the diagnostic window.
+- `status` lines report `result=null` or `nativePtr=not found`: the handle was
+  observed, but the returned object did not expose a native pointer at this
+  stage.
+
+Even a pass is not a production evaluate boundary. It only proves actual native
+texture-pointer availability during engine-owned resource conversion. Any
+command-buffer or DLSS evaluate step still needs a separate default-off preflight
+with its own hypothesis and cleanup plan.
+
+## Next Runtime Test
+
+Menu-only proof at true `1920x1080` Windowed:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-resource-native-pointer -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3
+```
+
+Do not run protected gameplay until the menu proof has clean crash/log evidence.
+
+## Validation
+
+Local validation completed without launching V Rising:
+
+- `C:\Software\dotnet\dotnet.exe build src\VrisingDLSS.Plugin\VrisingDLSS.Plugin.csproj -c Release`
+  passed with `0` warnings and `0` errors.
+- PowerShell parser validation passed for the changed helper/readiness/package
+  scripts.
+- `git diff --check` passed.
+- `scripts\write-diagnostic-config.ps1 -Stage native-renderfunc-resource-native-pointer -DryRun`
+  reported `LaunchesGame : False` and produced the expected safe config:
+  `EnableNativeRenderFuncResourceNativePointerProbe=true`,
+  `EnableRenderGraphGetTextureProbe=false`, `EnableHookProbe=false`, and
+  `EnableDLSS=false`.
+- `scripts\package-thunderstore.ps1` passed release-boundary and Thunderstore
+  validation and recreated `dist\VrisingDLSS-0.1.0-thunderstore.zip`.
+- `scripts\validate-thunderstore-package.ps1 -PackagePath dist\VrisingDLSS-0.1.0-thunderstore.zip`
+  passed, including the packaged default
+  `EnableNativeRenderFuncResourceNativePointerProbe = false`.

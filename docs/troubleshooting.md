@@ -576,9 +576,29 @@ keys, analyzer reported `Native RenderFunc Resource Resolve=Pass`,
 `resourceReady=True` and `textureResourceReady=True` each appeared `80` times,
 `graphicsReady=True` remained `0`, no broad `GetTexture`, native texture/D3D11,
 `ExecuteDLSS`, or NGX pattern appeared, `CrashEventCount=0`, and save restore
-ended with `ChangeCount=0`. This completes metadata-resolve proof only; next
-work must be a separately guarded actual native texture-pointer preflight or an
-explicit proof that no safe equivalent boundary exists.
+ended with `ChangeCount=0`. This completes metadata-resolve proof only.
+
+## Native RenderFunc Resource Native-Pointer Preflight
+
+`Diagnostics.EnableNativeRenderFuncResourceNativePointerProbe` is implemented
+separately and defaults to `false`. The helper stage is
+`native-renderfunc-resource-native-pointer`; it reuses the focused EASU
+entry/args/resource-identity/tuple path, then passively observes only
+engine-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` returns
+whose handle matches the proven EASU `source` or `destination`.
+
+This stage deliberately does not call `GetTexture(...)` itself, does not use the
+broad GetTexture resource-name candidate path, does not run D3D11 validation,
+does not touch command buffers, and does not evaluate DLSS. It emits
+`Native render-func resource native-pointer advanced:` only after both
+`source` and `destination` have returned non-zero native texture pointers from
+Unity-owned `GetTexture(...)` calls.
+
+Expected menu proof command:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-resource-native-pointer -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3
+```
 
 ## RenderGraph Execute-Delegate Probe
 

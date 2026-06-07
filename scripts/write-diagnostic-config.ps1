@@ -30,6 +30,7 @@ param(
         "native-renderfunc-resource-identity",
         "native-renderfunc-resource-tuple",
         "native-renderfunc-resource-resolve",
+        "native-renderfunc-resource-native-pointer",
         "render-scale-control",
         "dlss-user-rendering",
         "dlss-user-rendering-cached-driver",
@@ -99,6 +100,7 @@ function New-ConfigMap {
             EnableNativeRenderFuncResourceIdentityProbe = "false"
             EnableNativeRenderFuncResourceTupleProbe = "false"
             EnableNativeRenderFuncResourceResolveProbe = "false"
+            EnableNativeRenderFuncResourceNativePointerProbe = "false"
             EnableRenderGraphGetTextureProbe = "true"
             EnableDlssPassResourceProbe = "false"
             EnableUpscalerStateProbe = "false"
@@ -345,6 +347,17 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableNativeRenderFuncResourceIdentityProbe = "true"
             $Config.Diagnostics.EnableNativeRenderFuncResourceTupleProbe = "true"
             $Config.Diagnostics.EnableNativeRenderFuncResourceResolveProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
+            $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+            $Config.Diagnostics.EnableHookProbe = "false"
+        }
+        "native-renderfunc-resource-native-pointer" {
+            $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncEntryProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncArgumentProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncResourceIdentityProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncResourceTupleProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncResourceNativePointerProbe = "true"
             $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"
             $Config.Diagnostics.EnableHookProbe = "false"

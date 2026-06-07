@@ -98,6 +98,7 @@ function Get-ConfiguredStage {
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassRenderFuncMetadataProbe") { return "rendergraph-renderfunc-metadata" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphCompiledPassInfoProbe") { return "rendergraph-compiled-pass-info" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphExecuteDelegateProbe") { return "rendergraph-execute-delegate" }
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncResourceNativePointerProbe") { return "native-renderfunc-resource-native-pointer" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncResourceResolveProbe") { return "native-renderfunc-resource-resolve" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncResourceTupleProbe") { return "native-renderfunc-resource-tuple" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncResourceIdentityProbe") { return "native-renderfunc-resource-identity" }
@@ -269,6 +270,7 @@ function Get-NextRecommendation {
     $superResolutionFrameSequence = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 9A"
     $visibleWriteback = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 10A"
     $userRendering = Get-FirstStageStatus -Results $LogResults -StagePrefix "DLSS User Rendering Candidate"
+    $nativeRenderFuncResourceNativePointer = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Resource Native Pointer"
     $nativeRenderFuncResourceResolve = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Resource Resolve"
     $nativeRenderFuncResourceTuple = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Resource Tuple"
     $nativeRenderFuncResourceIdentity = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Resource Identity"
@@ -309,11 +311,27 @@ function Get-NextRecommendation {
         return "The latest dlss-user-rendering gameplay log did not accept an FSR Off Super Resolution tuple: the main candidate stayed color=1920x1080 output=1920x1080. Before rerunning the same runtime proof, use the targeted render-scale diagnostic to check for `Render-scale control member write did not stick`, `RTHandles.SetHardwareDynamicResolutionState=true`, and whether the gameplay camera/main targets remain full-size."
     }
 
+    if ($nativeRenderFuncResourceNativePointer -eq "Pass") {
+        $nativeRenderFuncResourceNativePointerGameplayDoc = Get-ChildItem -LiteralPath (Join-Path $Root "docs\development") -Filter "native-renderfunc-resource-native-pointer-gameplay-result-*.md" -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+        if ($nativeRenderFuncResourceNativePointerGameplayDoc) {
+            return "Native render-func resource native-pointer menu and protected 11111 gameplay proofs passed. Next engineering step is deciding whether that pointer-availability proof can support a still-separate command-buffer/evaluate preflight; do not combine command-buffer access or DLSS evaluate without another explicit guard. Latest proof: $($nativeRenderFuncResourceNativePointerGameplayDoc.FullName)"
+        }
+
+        return "Native render-func resource native-pointer menu preflight passed in available logs. Next step is a protected 11111 gameplay proof at 1920x1080 Windowed using scripts\start-vrising-automation-session.ps1 -Stage native-renderfunc-resource-native-pointer; no movement keys, no command-buffer access, no D3D11 validation, and no DLSS evaluate."
+    }
+
     if ($nativeRenderFuncResourceResolve -eq "Pass") {
         $nativeRenderFuncResourceResolveGameplayDoc = Get-ChildItem -LiteralPath (Join-Path $Root "docs\development") -Filter "native-renderfunc-resource-resolve-gameplay-result-*.md" -File -ErrorAction SilentlyContinue |
             Sort-Object LastWriteTime -Descending |
             Select-Object -First 1
         if ($nativeRenderFuncResourceResolveGameplayDoc) {
+            $nativeRenderFuncResourceNativePointerImplementationDoc = Join-Path $Root "docs\development\native-renderfunc-resource-native-pointer-preflight-implementation-2026-06-07.md"
+            if (Test-Path -LiteralPath $nativeRenderFuncResourceNativePointerImplementationDoc) {
+                return "Native render-func resource resolve menu and protected 11111 gameplay proofs passed, and the default-off native-pointer preflight is implemented. Next step is scripts\run-vrising-diagnostic.ps1 -GamePath `"$($Inspect.GamePath)`" -Stage native-renderfunc-resource-native-pointer -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 for a 1920x1080 Windowed menu-only proof; no command-buffer access, no D3D11 validation, and no DLSS evaluate."
+            }
+
             return "Native render-func resource resolve menu and protected 11111 gameplay proofs passed. Next engineering step is deciding whether to move from TextureResource/graphicsResource metadata to a separately guarded actual native texture-pointer preflight; still no command-buffer access or DLSS evaluate without another explicit preflight. Latest proof: $($nativeRenderFuncResourceResolveGameplayDoc.FullName)"
         }
 

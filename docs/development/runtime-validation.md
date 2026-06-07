@@ -734,10 +734,25 @@ Current Stage 8A status:
   restored loader config, native DLL, ClientSettings, no game process remained,
   and the protected save restored to `ChangeCount=0`. See
   `docs/development/native-renderfunc-resource-resolve-gameplay-result-2026-06-07.md`.
-  This completes metadata-resolve menu+gameplay proof only. Next engineering
-  step is deciding/designing a separately guarded actual native texture-pointer
-  preflight from this boundary, or proving no safe equivalent boundary exists;
-  still no command-buffer access or DLSS evaluate in the same step.
+  This completes metadata-resolve menu+gameplay proof only. The next
+  separately guarded preflight is now implemented as
+  `native-renderfunc-resource-native-pointer`; see
+  `docs/development/native-renderfunc-resource-native-pointer-preflight-implementation-2026-06-07.md`.
+  Config key:
+  `Diagnostics.EnableNativeRenderFuncResourceNativePointerProbe=false`. It
+  reuses the proven EASU entry/args/resource-identity/tuple path, arms the
+  matched `source` / `destination` TextureHandle handles at the safe
+  `CompileRenderGraph(int)` pass-list snapshot, and passively observes
+  Unity-owned `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` postfix
+  returns only for those two handles. It reads `GetNativeTexturePtr()` only from
+  the already-returned texture object and logs success only after both native
+  pointers are nonzero. It still does not make direct `GetTexture` calls, patch
+  generated render funcs through Harmony, use D3D11 validation, touch command
+  buffers, or evaluate DLSS. Static Release build, PowerShell parser
+  validation, `git diff --check`, dry config validation, package creation, and
+  Thunderstore package validation passed. No game launch has been run for this
+  new stage yet. The next runtime step is a true `1920x1080` Windowed
+  menu-only proof for `native-renderfunc-resource-native-pointer`.
 - See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.
 
 ## Stage 8B: First Guarded DLSS Evaluate Diagnostic

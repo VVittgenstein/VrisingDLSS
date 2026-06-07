@@ -314,6 +314,7 @@ try {
             "EnableNativeRenderFuncResourceIdentityProbe = false",
             "EnableNativeRenderFuncResourceTupleProbe = false",
             "EnableNativeRenderFuncResourceResolveProbe = false",
+            "EnableNativeRenderFuncResourceNativePointerProbe = false",
             "EnableRenderGraphGetTextureProbe = true",
             "EnableDlssPassResourceProbe = false",
             "EnableUpscalerStateProbe = false",
