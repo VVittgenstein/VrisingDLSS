@@ -833,13 +833,28 @@ As of the read-only RenderGraph pass-map runtime result:
   injected `CustomPostProcessVolumeComponent` implementing HDRP
   `IPostProcessComponent`, appends its type string to
   `HDRenderPipelineGlobalSettings.afterPostProcessCustomPostProcesses`, calls
-  `RefreshPostProcessTypes()`, and creates a hidden global `Volume` with the
-  component present but inactive. `IsActive()` returns `false`, so this is a
-  registration/mount proof only. It does not enter `Render(...)`, issue
-  command-buffer work, resolve RenderGraph resources, read native texture
+  `RefreshPostProcessTypes()`, and does not create a custom `Volume` or call
+  `VolumeProfile.Add(Type)`. `IsActive()` returns `false`, so this is a
+  global-settings registration proof only. It does not enter `Render(...)`,
+  issue command-buffer work, resolve RenderGraph resources, read native texture
   pointers, use D3D11 validation, or evaluate DLSS. Static Release build,
   dry-run config validation, release-boundary check, Thunderstore package
   creation/validation, standalone package validation, and `git diff --check`
-  passed. Runtime menu/gameplay validation has not been run yet; any active
-  render/copy proof must be a separate default-off stage with its own launch
-  contract.
+  passed before the first commit. Runtime menu follow-up
+  `custom-postprocess-registration-1080p-menu-20260607-r1` was stable but
+  failed because the first implementation tried to add the injected component
+  to a `VolumeProfile`, which threw `NullReferenceException` from
+  `UnityEngine.Rendering.VolumeComponent.OnEnable`. The narrowed
+  global-settings-only follow-up
+  `custom-postprocess-registration-1080p-menu-20260607-r2` passed at true
+  `1920x1080` Windowed: analyzer
+  `HDRP Custom PostProcess Registration=Pass`,
+  `addedToGlobalSettings=True`, `volumeCreated=False`, `renderActive=False`,
+  `CrashEventCount=0`, no NullReference in BepInEx or Player logs,
+  `RenderGraph GetTexture call #=0`, D3D11/NGX/DLSS evaluate patterns `0`,
+  cleanup restored loader config, release-safe native, and ClientSettings, and
+  no game process remained. See
+  `docs/development/custom-postprocess-registration-menu-result-2026-06-07.md`.
+  Any active volume mount/render/copy proof must be a separate default-off
+  stage with its own launch contract and must first address the
+  `VolumeComponent.OnEnable` failure or avoid that instantiation path.

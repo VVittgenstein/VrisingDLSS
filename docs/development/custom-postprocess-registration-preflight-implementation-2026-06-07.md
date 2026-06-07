@@ -1,18 +1,18 @@
 # HDRP Custom PostProcess Registration Preflight Implementation - 2026-06-07
 
-Status: implemented and statically validated. Runtime menu/gameplay validation
-has not been run yet.
+Status: implemented, statically validated, and menu validated.
 
 ## Question
 
 After the narrow HDRP DLSS boundary refresh identified
 `CustomPostProcessVolumeComponent.Render(cmd, camera, source, destination)` as
 a source-backed official HDRP command-buffer boundary, can V Rising/BepInEx
-register and mount an HDRP custom post-process component without touching
-render resources or DLSS?
+register an HDRP custom post-process type with HDRP global settings without
+touching render resources or DLSS?
 
 This preflight answers only the registration half of that question. It does not
-prove that rendering through the custom post-process boundary is safe.
+prove that mounting a volume component or rendering through the custom
+post-process boundary is safe.
 
 ## Implementation
 
@@ -39,14 +39,14 @@ Runtime behavior:
 - Appends the injected component type string to
   `HDRenderPipelineGlobalSettings.afterPostProcessCustomPostProcesses`.
 - Calls `HDRenderPipelineGlobalSettings.RefreshPostProcessTypes()`.
-- Creates a hidden, inactive global `Volume` with a private `VolumeProfile`.
-- Adds the injected component to that profile and sets `component.active=false`.
 - Keeps `RegistrationComponent.IsActive()` returning `false`.
-- Removes the type string and destroys the probe object on plugin unload.
+- Removes the type string on plugin unload.
 
 Safety boundary:
 
 - No `Render(...)` body work.
+- No `VolumeProfile.Add(Type)` call.
+- No custom `Volume` creation.
 - No command-buffer commands.
 - No RenderGraph resource lookup.
 - No native texture pointer reads.
@@ -60,7 +60,8 @@ Pass:
 
 - Analyzer reports `HDRP Custom PostProcess Registration=Pass`.
 - Log contains `Custom post-process registration probe installed:`.
-- The install line reports `componentActive=False` and `isActive=False`.
+- The install line reports `addedToGlobalSettings=True`,
+  `volumeCreated=False`, and `renderActive=False`.
 - No `RenderGraph GetTexture call #`, D3D11, NGX, `ExecuteDLSS`, or evaluate
   lines appear.
 
@@ -70,10 +71,20 @@ Blocked:
 - `afterPostProcessCustomPostProcesses` is null.
 - The build lacks local V Rising HDRP interop assemblies and uses the stub.
 
-Even a pass is only a registration proof. A later render proof must be a
-separate default-off stage that copies source to destination or otherwise
-preserves the HDRP post-process chain, with its own launch contract and cleanup
-plan.
+Rejected sub-route:
+
+- The first menu run attempted to also create an inactive `VolumeProfile`
+  component using `VolumeProfile.Add(Type)`.
+- That path registered the IL2CPP type but then threw
+  `NullReferenceException` in `UnityEngine.Rendering.VolumeComponent.OnEnable`.
+- It is not safe to treat injected `VolumeComponent` instantiation as proven
+  from this stage.
+
+Even a pass is only a global-settings registration proof. A later mount/render
+proof must be a separate default-off stage that avoids or solves the
+`VolumeComponent.OnEnable` failure, copies source to destination or otherwise
+preserves the HDRP post-process chain, and has its own launch contract and
+cleanup plan.
 
 ## Validation
 
@@ -93,3 +104,28 @@ Local validation completed without launching V Rising:
   passed, including packaged default
   `EnableCustomPostProcessRegistrationProbe = false`.
 - `git diff --check` passed.
+
+Runtime validation:
+
+- First menu run
+  `custom-postprocess-registration-1080p-menu-20260607-r1` was stable but
+  failed the stage: analyzer reported
+  `HDRP Custom PostProcess Registration=Fail`, BepInEx logged
+  `Custom post-process registration probe failed: System.NullReferenceException`,
+  and Player log showed the exception came from
+  `UnityEngine.Rendering.VolumeComponent.OnEnable`. Cleanup still restored
+  config/native/ClientSettings and left no game process.
+- The probe was narrowed to global-settings registration only, with
+  `volumeCreated=False`.
+- Second menu run
+  `custom-postprocess-registration-1080p-menu-20260607-r2` passed at true
+  `1920x1080` Windowed. Analyzer reported
+  `HDRP Custom PostProcess Registration=Pass`; the install line showed
+  `addedToGlobalSettings=True; volumeCreated=False; renderActive=False`.
+  `CrashEventCount=0`, BepInEx and Player logs had `0` `NullReference` lines,
+  `RenderGraph GetTexture call #=0`, D3D11/NGX/DLSS evaluate patterns were
+  `0`, cleanup restored loader config, release-safe native DLL, and
+  ClientSettings, and no game process remained.
+
+See
+`docs/development/custom-postprocess-registration-menu-result-2026-06-07.md`.

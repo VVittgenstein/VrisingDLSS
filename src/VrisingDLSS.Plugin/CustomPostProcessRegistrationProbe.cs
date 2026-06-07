@@ -1,10 +1,8 @@
 #if VRISINGDLSS_LOCAL_INTEROP
 using BepInEx.Logging;
-using Il2CppInterop.Runtime;
 using Il2CppInterop.Runtime.Attributes;
 using Il2CppInterop.Runtime.Injection;
 using System;
-using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.HighDefinition;
 
@@ -12,14 +10,10 @@ namespace VrisingDLSS.Plugin;
 
 internal static class CustomPostProcessRegistrationProbe
 {
-    private const string ProbeObjectName = "VrisingDLSS CustomPostProcess Registration Probe";
     private static readonly object Sync = new();
     private static bool Installed;
     private static bool TypeRegistered;
     private static bool AddedToGlobalSettings;
-    private static GameObject? ProbeObject;
-    private static VolumeProfile? ProbeProfile;
-    private static RegistrationComponent? ProbeComponent;
 
     internal static void Install(ManualLogSource log)
     {
@@ -63,10 +57,9 @@ internal static class CustomPostProcessRegistrationProbe
                 }
 
                 settings.RefreshPostProcessTypes();
-                CreateInactiveProbeVolume(log);
 
                 Installed = true;
-                log.LogInfo($"Custom post-process registration probe installed: injection=AfterPostProcess; type={typeName}; addedToGlobalSettings={AddedToGlobalSettings}; componentActive={ProbeComponent?.active}; isActive={ProbeComponent?.IsActive()}");
+                log.LogInfo($"Custom post-process registration probe installed: injection=AfterPostProcess; type={typeName}; addedToGlobalSettings={AddedToGlobalSettings}; volumeCreated=False; renderActive=False");
             }
             catch (Exception ex)
             {
@@ -97,16 +90,6 @@ internal static class CustomPostProcessRegistrationProbe
                         settings!.RefreshPostProcessTypes();
                     }
                 }
-
-                if (ProbeObject is not null)
-                {
-                    UnityEngine.Object.Destroy(ProbeObject);
-                }
-
-                if (ProbeProfile is not null)
-                {
-                    UnityEngine.Object.Destroy(ProbeProfile);
-                }
             }
             catch (Exception ex)
             {
@@ -114,9 +97,6 @@ internal static class CustomPostProcessRegistrationProbe
             }
             finally
             {
-                ProbeObject = null;
-                ProbeProfile = null;
-                ProbeComponent = null;
                 AddedToGlobalSettings = false;
                 Installed = false;
             }
@@ -139,29 +119,6 @@ internal static class CustomPostProcessRegistrationProbe
         TypeRegistered = true;
     }
 
-    private static void CreateInactiveProbeVolume(ManualLogSource log)
-    {
-        ProbeProfile = ScriptableObject.CreateInstance<VolumeProfile>();
-        ProbeProfile.name = "VrisingDLSS CustomPostProcess Registration Profile";
-
-        var il2CppType = Il2CppSystem.Type.internal_from_handle(
-            IL2CPP.il2cpp_class_get_type(Il2CppClassPointerStore<RegistrationComponent>.NativeClassPtr));
-        ProbeComponent = ProbeProfile.Add(il2CppType, overrides: false).Cast<RegistrationComponent>();
-        ProbeComponent.active = false;
-
-        ProbeObject = new GameObject(ProbeObjectName);
-        ProbeObject.hideFlags = HideFlags.HideAndDontSave;
-        UnityEngine.Object.DontDestroyOnLoad(ProbeObject);
-
-        var volume = ProbeObject.AddComponent<Volume>();
-        volume.isGlobal = true;
-        volume.priority = -10000.0f;
-        volume.weight = 0.0f;
-        volume.profile = ProbeProfile;
-
-        log.LogInfo($"Custom post-process registration probe inactive volume created: profile={ProbeProfile.name}; volumeGlobal={volume.isGlobal}; volumeWeight={volume.weight}");
-    }
-
     private static bool Contains(Il2CppSystem.Collections.Generic.List<string> list, string value)
     {
         for (var index = 0; index < list.Count; index++)
@@ -181,6 +138,7 @@ internal static class CustomPostProcessRegistrationProbe
         return lineEnd >= 0 ? value[..lineEnd] : value;
     }
 
+    [Serializable]
     [Il2CppImplements(typeof(IPostProcessComponent))]
     private sealed class RegistrationComponent : CustomPostProcessVolumeComponent
     {
