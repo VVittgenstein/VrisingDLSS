@@ -858,3 +858,20 @@ As of the read-only RenderGraph pass-map runtime result:
   Any active volume mount/render/copy proof must be a separate default-off
   stage with its own launch contract and must first address the
   `VolumeComponent.OnEnable` failure or avoid that instantiation path.
+- Narrow source/search follow-up after the custom-postprocess registration proof
+  is recorded in
+  `docs/research/hdrp-dlss-official-boundary-narrow-followup-2026-06-07.md`.
+  It reconfirms that official HDRP DLSS obtains live resources and submits
+  evaluate only inside the `Deep Learning Super Sampling` RenderGraph render
+  func: `DLSSPass.GetCameraResources(data.resourceHandles)` immediately before
+  `DLSSPass.Render(..., ctx.cmd)`. OptiScaler-style proxying is not a new
+  boundary for V Rising because it assumes the game already reaches an
+  upscaler API input. The relevant local precedent is only the boundary shape in
+  PureDark's V Rising PerfMod: an existing custom post-process `CustomVignette`
+  render postfix receives `cmd`, `source`, and `destination`, then reads global
+  depth/motion textures and issues a native plugin event. This is evidence for a
+  possible HDRP post-process execution boundary, not permission to reuse
+  PureDark source, binaries, ABI, package layout, or wording. Next safe work is
+  still a default-off injected/custom postprocess `VolumeComponent` creation and
+  no-native/no-DLSS render-entry proof before any resource pointer or evaluate
+  experiment.
