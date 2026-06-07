@@ -268,6 +268,13 @@ $results.Add((New-StageResult `
     -StartedPatterns @("Custom post-process registration probe IL2CPP type registered.", "Custom post-process registration probe inactive volume created:")))
 
 $results.Add((New-StageResult `
+    -Stage "HDRP Custom PostProcess Render Entry" `
+    -PassPatterns @("Custom post-process render-entry probe Render #") `
+    -FailPatterns @("Custom post-process render-entry probe failed:", "Custom post-process render-entry probe copy failed", "Custom post-process render-entry probe uninstall failed:") `
+    -BlockedPatterns @("Custom post-process render-entry probe blocked:") `
+    -StartedPatterns @("Custom post-process render-entry probe IL2CPP type registered.", "Custom post-process render-entry probe global settings registered:", "Custom post-process render-entry probe volume mounted:", "Custom post-process render-entry probe installed:")))
+
+$results.Add((New-StageResult `
     -Stage "Stage 5D DLSS Runtime" `
     -PassPatterns @("DLSS runtime probe succeeded:") `
     -FailPatterns @("DLSS runtime probe failed:", "DLSS runtime probe skipped:") `

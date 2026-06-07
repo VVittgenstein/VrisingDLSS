@@ -875,3 +875,25 @@ As of the read-only RenderGraph pass-map runtime result:
   still a default-off injected/custom postprocess `VolumeComponent` creation and
   no-native/no-DLSS render-entry proof before any resource pointer or evaluate
   experiment.
+- 2026-06-07 continuation: implemented the separately guarded
+  `custom-postprocess-render-entry` preflight; see
+  `docs/development/custom-postprocess-render-entry-preflight-implementation-2026-06-07.md`.
+  New config key:
+  `Diagnostics.EnableCustomPostProcessRenderEntryProbe=false`. The stage mounts
+  a hidden global layer-0 `Volume` with a hidden `VolumeProfile`, adds an
+  injected `RenderEntryComponent` using the IL2CPP type handle, initializes the
+  injected component's `parameterList` before `base.OnEnable()` to address the
+  earlier `VolumeComponent.OnEnable` null-list failure, returns `IsActive() ==
+  true`, and in `Render(cmd, camera, source, destination)` only calls
+  `HDUtils.BlitCameraTexture(cmd, source, destination)` plus sparse logging.
+  It disables `EnableRenderGraphGetTextureProbe`, disables `EnableHookProbe`,
+  keeps `EnableDLSS=false`, does not load/use the native bridge, does not read
+  native texture pointers, and does not evaluate DLSS. Static Release build,
+  dry-run/written helper config, release-boundary check, Thunderstore package
+  creation/validation, standalone package validation, and `git diff --check`
+  passed without launching V Rising. This is implementation/static evidence
+  only; the next runtime step is a menu-only true `1920x1080` Windowed run for
+  `custom-postprocess-render-entry`, with pass signal
+  `Custom post-process render-entry probe Render #1` and no `GetTexture`,
+  D3D11/NGX/DLSS/evaluate, crash, or `VolumeComponent.OnEnable`
+  `NullReferenceException` patterns.

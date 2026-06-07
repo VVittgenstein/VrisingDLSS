@@ -35,6 +35,7 @@ param(
         "native-renderfunc-resource-resolve",
         "native-renderfunc-resource-native-pointer",
         "custom-postprocess-registration",
+        "custom-postprocess-render-entry",
         "render-scale-control",
         "dlss-user-rendering",
         "dlss-user-rendering-cached-driver",
