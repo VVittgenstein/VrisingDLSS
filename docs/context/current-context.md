@@ -1102,3 +1102,38 @@ As of the read-only RenderGraph pass-map runtime result:
   separately guarded focused EASU native-pointer observation under render
   scale, still without command-buffer work, D3D11 validation, or DLSS evaluate
   in the same step.
+- Follow-up script-only stage
+  `native-renderfunc-resource-native-pointer-render-scale` is implemented and
+  protected-gameplay validated; see
+  `docs/development/native-renderfunc-resource-native-pointer-render-scale-gameplay-result-2026-06-07.md`.
+  The stage combines focused EASU native-pointer observation with
+  `RenderScaleControlProbe`, while leaving broad `RenderGraph.GetTexture`
+  logging, D3D11 validation, NGX/DLSS evaluate, command-buffer work, broad hook
+  scan, and real DLSS disabled. With V Rising `FsrQualityMode=Off`, true
+  `1920x1080` Windowed, and the protected `11111` fixture, analyzer reported
+  `Native RenderFunc Resource Native Pointer=Pass` and
+  `Stage 2C Render-Scale Control Probe=Pass`. The advanced line at
+  `targetCompile=4` showed EASU `tuple=input=960x540; output=1920x1080`;
+  source handle `76` returned non-zero `nativePtr=0x21EA3F0B420` for
+  `RTHandle name=Uber Post Destination` / Unity texture
+  `Apply Exposure Destination_960x540_B10G11R11_UFloatPack32_Tex2DArray_dynamic`;
+  destination handle `77` returned non-zero `nativePtr=0x21EA3F111A0` for
+  `RTHandle name=Edge Adaptive Spatial Upsampling` / Unity texture
+  `Edge Adaptive Spatial Upsampling_1920x1080_B10G11R11_UFloatPack32_Tex2DArray`.
+  Counts: target armed `1`, advanced `1`, native-pointer status lines `4`,
+  `tuple=input=960x540; output=1920x1080` `229`, same-size tuple `0`,
+  `GetCurrentScale=0.5` `31`, `GetResolvedScale=(0.50, 0.50)` `31`, broad
+  `RenderGraph GetTexture call #` `0`, D3D11/NGX/DLSS/evaluate runtime lines
+  `0`, source/destination zero-pointer patterns `0`, failure/access-violation
+  patterns `0`, `CrashEventCount=0`. Cleanup restored loader config,
+  ClientSettings, release-safe native state, left no V Rising process, and
+  restored the protected save with `ChangeCount=0`. This is the strongest
+  current official-boundary-adjacent resource proof: under mod-owned render
+  scale, the EASU pass has both a low-resolution source native texture pointer
+  and a full-resolution output native texture pointer. It still does not prove
+  command-buffer ordering, D3D11 device compatibility, NGX lifecycle, or DLSS
+  output correctness. The next route should be source/decompilation-guided:
+  inspect local IL2CPP/HDRP code around `HDRenderPipeline.EASUData`, the EASU
+  render func, `DoDLSSPasses`, `DoDLSSPass`, and
+  `DLSSPass.Render/ExecuteDLSS` before adding any D3D11/device/dimension or
+  command-buffer guard.

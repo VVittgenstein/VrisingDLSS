@@ -36,6 +36,7 @@ param(
         "native-renderfunc-resource-resolve",
         "native-renderfunc-resource-resolve-render-scale",
         "native-renderfunc-resource-native-pointer",
+        "native-renderfunc-resource-native-pointer-render-scale",
         "custom-postprocess-registration",
         "custom-postprocess-render-entry",
         "hdrp-postprocess-boundary",

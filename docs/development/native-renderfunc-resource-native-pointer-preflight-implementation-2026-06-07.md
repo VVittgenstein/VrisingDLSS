@@ -101,6 +101,9 @@ Menu proof has now passed; see
 `docs/development/native-renderfunc-resource-native-pointer-runtime-result-2026-06-07.md`.
 Protected `11111` gameplay proof has now passed; see
 `docs/development/native-renderfunc-resource-native-pointer-gameplay-result-2026-06-07.md`.
+Protected `11111` gameplay proof combined with mod-owned render scale has now
+also passed; see
+`docs/development/native-renderfunc-resource-native-pointer-render-scale-gameplay-result-2026-06-07.md`.
 Do not add command-buffer access, D3D11 validation, or DLSS evaluate to this
 stage.
 
@@ -145,4 +148,13 @@ Runtime validation:
   Continue / `11111` entry once, sent no movement/gameplay keys, observed
   gameplay, analyzer reported `Native RenderFunc Resource Native Pointer=Pass`,
   cleanup restored config/native/settings, and save restore ended with
+  `ChangeCount=0`.
+- The combined protected `11111` gameplay proof,
+  `native-renderfunc-resource-native-pointer-render-scale-gameplay-1080p-20260607-r1`,
+  passed with V Rising `FsrQualityMode=Off` and mod-owned render scale. The
+  advanced line showed EASU `tuple=input=960x540; output=1920x1080`, non-zero
+  source pointer `0x21EA3F0B420` for `Uber Post Destination` /
+  `Apply Exposure Destination_960x540...`, and non-zero destination pointer
+  `0x21EA3F111A0` for `Edge Adaptive Spatial Upsampling_1920x1080...`.
+  Cleanup restored config/native/settings and the protected save to
   `ChangeCount=0`.

@@ -33,6 +33,7 @@ param(
         "native-renderfunc-resource-resolve",
         "native-renderfunc-resource-resolve-render-scale",
         "native-renderfunc-resource-native-pointer",
+        "native-renderfunc-resource-native-pointer-render-scale",
         "custom-postprocess-registration",
         "custom-postprocess-render-entry",
         "hdrp-postprocess-boundary",
@@ -392,6 +393,18 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableNativeRenderFuncResourceIdentityProbe = "true"
             $Config.Diagnostics.EnableNativeRenderFuncResourceTupleProbe = "true"
             $Config.Diagnostics.EnableNativeRenderFuncResourceNativePointerProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
+            $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+            $Config.Diagnostics.EnableHookProbe = "false"
+        }
+        "native-renderfunc-resource-native-pointer-render-scale" {
+            $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncEntryProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncArgumentProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncResourceIdentityProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncResourceTupleProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncResourceNativePointerProbe = "true"
+            $Config.Diagnostics.EnableRenderScaleControlProbe = "true"
             $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"
             $Config.Diagnostics.EnableHookProbe = "false"
