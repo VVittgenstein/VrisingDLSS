@@ -693,3 +693,28 @@ Result:
 - Cleanup closed the game, restored ClientSettings/config/native state,
   archived the changed post-run save state, and restored the `11111` save with
   `ChangeCount=0`.
+
+## Native RenderFunc Context + Render Scale Gameplay Notes
+
+Run label:
+`native-renderfunc-context-render-scale-gameplay-1080p-20260607-r1`.
+
+Result:
+
+- Computer Use selected the real `VRising` Unity window, not the BepInEx
+  console.
+- The main-menu screenshot was `1283x751`; the Chinese Continue entry was
+  clicked once at `(205,354)`.
+- The click went straight to gameplay after loading; no save-list interaction
+  was needed.
+- After about `45` seconds, Computer Use observed gameplay with HUD, quest
+  text, character, minimap, health bar, and action bar visible.
+- No keyboard, movement, or gameplay keys were sent.
+- A passive window capture helper produced the valid gameplay screenshot:
+  `artifacts/gameplay-automation/GameplayScreenshot-native-renderfunc-context-render-scale-gameplay-1080p-20260607-r1.png`.
+- Runtime proof passed: the focused EASU native render-func boundary safely
+  exposed a live `RenderGraphContext.cmd` identity with
+  `cmdPointerNonZero=6699` and `wrapFailures=0` by the final sampled status.
+- Cleanup closed the game, restored ClientSettings/config/native state,
+  archived the changed post-run save state, and restored the `11111` save with
+  `ChangeCount=0`.

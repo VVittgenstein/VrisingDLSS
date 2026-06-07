@@ -311,6 +311,7 @@ try {
             "EnableRenderGraphExecuteDelegateProbe = false",
             "EnableNativeRenderFuncEntryProbe = false",
             "EnableNativeRenderFuncArgumentProbe = false",
+            "EnableNativeRenderFuncContextProbe = false",
             "EnableNativeRenderFuncResourceIdentityProbe = false",
             "EnableNativeRenderFuncResourceTupleProbe = false",
             "EnableNativeRenderFuncResourceResolveProbe = false",

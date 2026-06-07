@@ -29,6 +29,7 @@ internal static class FrameResourceProbe
     private const int MaxRenderGraphExecuteDelegateLogs = 180;
     private const int MaxNativeRenderFuncEntryStatusLogs = 80;
     private const int MaxNativeRenderFuncArgumentStatusLogs = 80;
+    private const int MaxNativeRenderFuncContextStatusLogs = 80;
     private const int MaxNativeRenderFuncResourceIdentityStatusLogs = 80;
     private const int MaxNativeRenderFuncResourceTupleStatusLogs = 80;
     private const int MaxNativeRenderFuncResourceResolveStatusLogs = 80;
@@ -85,6 +86,13 @@ internal static class FrameResourceProbe
     private static int NativeRenderFuncArgumentPassDataNonZeroCount;
     private static int NativeRenderFuncArgumentContextNonZeroCount;
     private static int NativeRenderFuncArgumentMethodInfoNonZeroCount;
+    private static int NativeRenderFuncContextStatusLogCount;
+    private static int NativeRenderFuncContextSampleCount;
+    private static int NativeRenderFuncContextNonZeroCount;
+    private static int NativeRenderFuncContextWrapSuccessCount;
+    private static int NativeRenderFuncContextCmdNonNullCount;
+    private static int NativeRenderFuncContextCmdPointerNonZeroCount;
+    private static int NativeRenderFuncContextWrapFailureCount;
     private static int NativeRenderFuncResourceIdentityStatusLogCount;
     private static int NativeRenderFuncResourceTupleStatusLogCount;
     private static int NativeRenderFuncResourceResolveStatusLogCount;
@@ -161,6 +169,7 @@ internal static class FrameResourceProbe
     private static bool RenderGraphExecuteDelegateProbeEnabled;
     private static bool NativeRenderFuncEntryProbeEnabled;
     private static bool NativeRenderFuncArgumentProbeEnabled;
+    private static bool NativeRenderFuncContextProbeEnabled;
     private static bool NativeRenderFuncResourceIdentityProbeEnabled;
     private static bool NativeRenderFuncResourceTupleProbeEnabled;
     private static bool NativeRenderFuncResourceResolveProbeEnabled;
@@ -170,6 +179,7 @@ internal static class FrameResourceProbe
     private static bool NativeRenderFuncEntryInstalled;
     private static bool NativeRenderFuncEntryCountAdvancedLogged;
     private static bool NativeRenderFuncArgumentSampleAdvancedLogged;
+    private static bool NativeRenderFuncContextAdvancedLogged;
     private static bool NativeRenderFuncResourceIdentityAdvancedLogged;
     private static bool NativeRenderFuncResourceTupleAdvancedLogged;
     private static bool NativeRenderFuncResourceResolveAdvancedLogged;
@@ -208,6 +218,11 @@ internal static class FrameResourceProbe
     private static long NativeRenderFuncArgumentLastPassDataPtr;
     private static long NativeRenderFuncArgumentLastContextPtr;
     private static long NativeRenderFuncArgumentLastMethodInfoPtr;
+    private static long NativeRenderFuncContextLastContextPtr;
+    private static long NativeRenderFuncContextLastWrappedContextPtr;
+    private static long NativeRenderFuncContextLastCommandBufferPtr;
+    private static string? NativeRenderFuncContextLastCommandBufferSummary;
+    private static string? NativeRenderFuncContextLastFailure;
     private static IntPtr NativeRenderFuncEntryCandidatePointer;
     private static int NativeRenderFuncEntryCandidateObservationCount;
     private static string? NativeRenderFuncEntryCandidatePassName;
@@ -251,6 +266,7 @@ internal static class FrameResourceProbe
         bool enableRenderGraphExecuteDelegateProbe = false,
         bool enableNativeRenderFuncEntryProbe = false,
         bool enableNativeRenderFuncArgumentProbe = false,
+        bool enableNativeRenderFuncContextProbe = false,
         bool enableNativeRenderFuncResourceIdentityProbe = false,
         bool enableNativeRenderFuncResourceTupleProbe = false,
         bool enableNativeRenderFuncResourceResolveProbe = false,
@@ -259,10 +275,11 @@ internal static class FrameResourceProbe
         bool enableRenderGraphGetTextureProbe = true,
         bool enableDlssPassResourceProbe = false)
     {
+        var nativeRenderFuncContextRequested = enableNativeRenderFuncContextProbe;
         var nativeRenderFuncResourceNativePointerRequested = enableNativeRenderFuncResourceNativePointerProbe || enableNativeRenderFuncResourceD3D11Probe;
         var nativeRenderFuncResourceTupleRequested = enableNativeRenderFuncResourceTupleProbe || enableNativeRenderFuncResourceResolveProbe || nativeRenderFuncResourceNativePointerRequested;
         var nativeRenderFuncResourceIdentityRequested = enableNativeRenderFuncResourceIdentityProbe || nativeRenderFuncResourceTupleRequested;
-        var nativeRenderFuncArgumentRequested = enableNativeRenderFuncArgumentProbe || nativeRenderFuncResourceIdentityRequested;
+        var nativeRenderFuncArgumentRequested = enableNativeRenderFuncArgumentProbe || nativeRenderFuncContextRequested || nativeRenderFuncResourceIdentityRequested;
         var nativeRenderFuncEntryRequested = enableNativeRenderFuncEntryProbe || nativeRenderFuncArgumentRequested;
         if (Installed)
         {
@@ -297,6 +314,7 @@ internal static class FrameResourceProbe
             RenderGraphExecuteDelegateProbeEnabled = RenderGraphExecuteDelegateProbeEnabled || enableRenderGraphExecuteDelegateProbe;
             NativeRenderFuncEntryProbeEnabled = NativeRenderFuncEntryProbeEnabled || nativeRenderFuncEntryRequested;
             NativeRenderFuncArgumentProbeEnabled = NativeRenderFuncArgumentProbeEnabled || nativeRenderFuncArgumentRequested;
+            NativeRenderFuncContextProbeEnabled = NativeRenderFuncContextProbeEnabled || nativeRenderFuncContextRequested;
             NativeRenderFuncResourceIdentityProbeEnabled = NativeRenderFuncResourceIdentityProbeEnabled || nativeRenderFuncResourceIdentityRequested;
             NativeRenderFuncResourceTupleProbeEnabled = NativeRenderFuncResourceTupleProbeEnabled || nativeRenderFuncResourceTupleRequested;
             NativeRenderFuncResourceResolveProbeEnabled = NativeRenderFuncResourceResolveProbeEnabled || enableNativeRenderFuncResourceResolveProbe;
@@ -346,6 +364,7 @@ internal static class FrameResourceProbe
         RenderGraphExecuteDelegateProbeEnabled = enableRenderGraphExecuteDelegateProbe;
         NativeRenderFuncEntryProbeEnabled = nativeRenderFuncEntryRequested;
         NativeRenderFuncArgumentProbeEnabled = nativeRenderFuncArgumentRequested;
+        NativeRenderFuncContextProbeEnabled = nativeRenderFuncContextRequested;
         NativeRenderFuncResourceIdentityProbeEnabled = nativeRenderFuncResourceIdentityRequested;
         NativeRenderFuncResourceTupleProbeEnabled = nativeRenderFuncResourceTupleRequested;
         NativeRenderFuncResourceResolveProbeEnabled = enableNativeRenderFuncResourceResolveProbe;
@@ -476,6 +495,10 @@ internal static class FrameResourceProbe
         if (NativeRenderFuncArgumentProbeEnabled)
         {
             log.LogWarning("Native render-func argument preflight enabled. It reuses the entry detour to sample raw callback argument pointers only; no pointer dereference, command buffer access, resource resolution, or DLSS evaluate.");
+        }
+        if (NativeRenderFuncContextProbeEnabled)
+        {
+            log.LogWarning("Native render-func context preflight enabled. It wraps only the proven EASU RenderGraphContext pointer and reads ctx.cmd identity; it does not issue command-buffer work or evaluate DLSS.");
         }
         if (NativeRenderFuncResourceIdentityProbeEnabled)
         {
@@ -820,6 +843,7 @@ internal static class FrameResourceProbe
             RenderGraphExecuteDelegateProbeEnabled = false;
             NativeRenderFuncEntryProbeEnabled = false;
             NativeRenderFuncArgumentProbeEnabled = false;
+            NativeRenderFuncContextProbeEnabled = false;
             NativeRenderFuncResourceIdentityProbeEnabled = false;
             NativeRenderFuncResourceTupleProbeEnabled = false;
             NativeRenderFuncResourceResolveProbeEnabled = false;
@@ -829,6 +853,7 @@ internal static class FrameResourceProbe
             NativeRenderFuncEntryInstalled = false;
             NativeRenderFuncEntryCountAdvancedLogged = false;
             NativeRenderFuncArgumentSampleAdvancedLogged = false;
+            NativeRenderFuncContextAdvancedLogged = false;
             NativeRenderFuncResourceIdentityAdvancedLogged = false;
             NativeRenderFuncResourceTupleAdvancedLogged = false;
             NativeRenderFuncResourceResolveAdvancedLogged = false;
@@ -879,6 +904,7 @@ internal static class FrameResourceProbe
                 NativeRenderFuncEntryObservationLogCount = 0;
                 NativeRenderFuncEntryCallCount = 0;
                 NativeRenderFuncArgumentStatusLogCount = 0;
+                NativeRenderFuncContextStatusLogCount = 0;
                 NativeRenderFuncResourceIdentityStatusLogCount = 0;
                 NativeRenderFuncResourceTupleStatusLogCount = 0;
                 NativeRenderFuncResourceResolveStatusLogCount = 0;
@@ -888,10 +914,21 @@ internal static class FrameResourceProbe
                 NativeRenderFuncArgumentPassDataNonZeroCount = 0;
                 NativeRenderFuncArgumentContextNonZeroCount = 0;
                 NativeRenderFuncArgumentMethodInfoNonZeroCount = 0;
+                NativeRenderFuncContextSampleCount = 0;
+                NativeRenderFuncContextNonZeroCount = 0;
+                NativeRenderFuncContextWrapSuccessCount = 0;
+                NativeRenderFuncContextCmdNonNullCount = 0;
+                NativeRenderFuncContextCmdPointerNonZeroCount = 0;
+                NativeRenderFuncContextWrapFailureCount = 0;
                 NativeRenderFuncArgumentLastThisPtr = 0;
                 NativeRenderFuncArgumentLastPassDataPtr = 0;
                 NativeRenderFuncArgumentLastContextPtr = 0;
                 NativeRenderFuncArgumentLastMethodInfoPtr = 0;
+                NativeRenderFuncContextLastContextPtr = 0;
+                NativeRenderFuncContextLastWrappedContextPtr = 0;
+                NativeRenderFuncContextLastCommandBufferPtr = 0;
+                NativeRenderFuncContextLastCommandBufferSummary = null;
+                NativeRenderFuncContextLastFailure = null;
                 NativeRenderFuncEntryCandidatePointer = IntPtr.Zero;
                 NativeRenderFuncEntryCandidateObservationCount = 0;
                 NativeRenderFuncEntryCandidatePassName = null;
@@ -3317,6 +3354,71 @@ internal static class FrameResourceProbe
         {
             log.LogInfo($"Native render-func argument sample advanced: sampleCount={sampleCount}; nonzeroThis={thisNonZeroCount}; nonzeroPassData={passDataNonZeroCount}; nonzeroContext={contextNonZeroCount}; nonzeroMethodInfo={methodInfoNonZeroCount}; lastThis=0x{lastThisPtr:X}; lastPassData=0x{lastPassDataPtr:X}; lastContext=0x{lastContextPtr:X}; lastMethodInfo=0x{lastMethodInfoPtr:X}; pass=\"{passName ?? "unknown"}\"");
         }
+
+        TryLogNativeRenderFuncContextStatus(compileCount);
+    }
+
+    private static void TryLogNativeRenderFuncContextStatus(int compileCount)
+    {
+        if (!NativeRenderFuncContextProbeEnabled)
+        {
+            return;
+        }
+
+        var log = Log;
+        if (log is null)
+        {
+            return;
+        }
+
+        var sampleCount = Volatile.Read(ref NativeRenderFuncContextSampleCount);
+        var entryCount = Volatile.Read(ref NativeRenderFuncEntryCallCount);
+        var nonZeroContextCount = Volatile.Read(ref NativeRenderFuncContextNonZeroCount);
+        var wrapSuccessCount = Volatile.Read(ref NativeRenderFuncContextWrapSuccessCount);
+        var cmdNonNullCount = Volatile.Read(ref NativeRenderFuncContextCmdNonNullCount);
+        var cmdPointerNonZeroCount = Volatile.Read(ref NativeRenderFuncContextCmdPointerNonZeroCount);
+        var wrapFailureCount = Volatile.Read(ref NativeRenderFuncContextWrapFailureCount);
+        var lastContextPtr = Volatile.Read(ref NativeRenderFuncContextLastContextPtr);
+        var lastWrappedContextPtr = Volatile.Read(ref NativeRenderFuncContextLastWrappedContextPtr);
+        var lastCommandBufferPtr = Volatile.Read(ref NativeRenderFuncContextLastCommandBufferPtr);
+        var shouldLogAdvanced = false;
+        var statusLogCount = 0;
+        var skipStatusLog = false;
+        var installed = false;
+        var pointer = IntPtr.Zero;
+        string? passName = null;
+        string? commandBufferSummary = null;
+        string? failure = null;
+        lock (Sync)
+        {
+            NativeRenderFuncContextStatusLogCount++;
+            statusLogCount = NativeRenderFuncContextStatusLogCount;
+            if (statusLogCount > MaxNativeRenderFuncContextStatusLogs && statusLogCount % 300 != 0)
+            {
+                skipStatusLog = true;
+            }
+
+            installed = NativeRenderFuncEntryInstalled;
+            pointer = NativeRenderFuncEntryCandidatePointer;
+            passName = NativeRenderFuncEntryCandidatePassName;
+            commandBufferSummary = NativeRenderFuncContextLastCommandBufferSummary;
+            failure = NativeRenderFuncContextLastFailure;
+            if (cmdPointerNonZeroCount > 0 && !NativeRenderFuncContextAdvancedLogged)
+            {
+                NativeRenderFuncContextAdvancedLogged = true;
+                shouldLogAdvanced = true;
+            }
+        }
+
+        if (!skipStatusLog)
+        {
+            log.LogInfo($"Native render-func context status #{statusLogCount}: compile={compileCount}; installed={installed}; entryCount={entryCount}; sampleCount={sampleCount}; nonzeroContext={nonZeroContextCount}; wrapSuccess={wrapSuccessCount}; cmdNonNull={cmdNonNullCount}; cmdPointerNonZero={cmdPointerNonZeroCount}; wrapFailures={wrapFailureCount}; lastContext=0x{lastContextPtr:X}; lastWrappedContext=0x{lastWrappedContextPtr:X}; lastCmd=0x{lastCommandBufferPtr:X}; cmd=\"{commandBufferSummary ?? "unknown"}\"; failure=\"{failure ?? "none"}\"; candidatePointer=0x{pointer.ToInt64():X}; pass=\"{passName ?? "unknown"}\"");
+        }
+
+        if (shouldLogAdvanced)
+        {
+            log.LogInfo($"Native render-func context advanced: sampleCount={sampleCount}; nonzeroContext={nonZeroContextCount}; wrapSuccess={wrapSuccessCount}; cmdNonNull={cmdNonNullCount}; cmdPointerNonZero={cmdPointerNonZeroCount}; wrapFailures={wrapFailureCount}; lastContext=0x{lastContextPtr:X}; lastWrappedContext=0x{lastWrappedContextPtr:X}; lastCmd=0x{lastCommandBufferPtr:X}; cmd=\"{commandBufferSummary ?? "unknown"}\"; pass=\"{passName ?? "unknown"}\"");
+        }
     }
 
     private static void TryDisposeNativeRenderFuncEntryDetour(ManualLogSource log)
@@ -3374,6 +3476,10 @@ internal static class FrameResourceProbe
         {
             RecordNativeRenderFuncArgumentSample(thisPtr, passDataPtr, renderGraphContextPtr, methodInfoPtr);
         }
+        if (NativeRenderFuncContextProbeEnabled)
+        {
+            RecordNativeRenderFuncContextSample(renderGraphContextPtr);
+        }
 
         var original = NativeRenderFuncEntryOriginalDelegate;
         original?.Invoke(thisPtr, passDataPtr, renderGraphContextPtr, methodInfoPtr);
@@ -3410,6 +3516,64 @@ internal static class FrameResourceProbe
         Interlocked.Exchange(ref NativeRenderFuncArgumentLastPassDataPtr, passDataPtr.ToInt64());
         Interlocked.Exchange(ref NativeRenderFuncArgumentLastContextPtr, renderGraphContextPtr.ToInt64());
         Interlocked.Exchange(ref NativeRenderFuncArgumentLastMethodInfoPtr, methodInfoPtr.ToInt64());
+    }
+
+    private static void RecordNativeRenderFuncContextSample(IntPtr renderGraphContextPtr)
+    {
+        Interlocked.Increment(ref NativeRenderFuncContextSampleCount);
+        if (renderGraphContextPtr == IntPtr.Zero)
+        {
+            return;
+        }
+
+        Interlocked.Increment(ref NativeRenderFuncContextNonZeroCount);
+        Interlocked.Exchange(ref NativeRenderFuncContextLastContextPtr, renderGraphContextPtr.ToInt64());
+
+#if VRISINGDLSS_LOCAL_INTEROP
+        try
+        {
+            var context = new UnityEngine.Experimental.Rendering.RenderGraphModule.RenderGraphContext(renderGraphContextPtr);
+            var wrappedContextPtr = TryGetIl2CppObjectPointer(context);
+            if (wrappedContextPtr != IntPtr.Zero)
+            {
+                Interlocked.Exchange(ref NativeRenderFuncContextLastWrappedContextPtr, wrappedContextPtr.ToInt64());
+            }
+
+            Interlocked.Increment(ref NativeRenderFuncContextWrapSuccessCount);
+            var commandBuffer = context.cmd;
+            if (commandBuffer is null)
+            {
+                return;
+            }
+
+            Interlocked.Increment(ref NativeRenderFuncContextCmdNonNullCount);
+            var commandBufferPtr = TryGetIl2CppObjectPointer(commandBuffer);
+            if (commandBufferPtr != IntPtr.Zero)
+            {
+                Interlocked.Increment(ref NativeRenderFuncContextCmdPointerNonZeroCount);
+                Interlocked.Exchange(ref NativeRenderFuncContextLastCommandBufferPtr, commandBufferPtr.ToInt64());
+            }
+
+            lock (Sync)
+            {
+                NativeRenderFuncContextLastCommandBufferSummary = FirstLine(SummarizeValue(commandBuffer));
+            }
+        }
+        catch (Exception ex)
+        {
+            Interlocked.Increment(ref NativeRenderFuncContextWrapFailureCount);
+            lock (Sync)
+            {
+                NativeRenderFuncContextLastFailure = FirstLine(GetExceptionMessage(ex));
+            }
+        }
+#else
+        Interlocked.Increment(ref NativeRenderFuncContextWrapFailureCount);
+        lock (Sync)
+        {
+            NativeRenderFuncContextLastFailure = "VRISINGDLSS_LOCAL_INTEROP was not defined";
+        }
+#endif
     }
 
     private static string SummarizeNativeRenderFuncEntryMethod(object renderFunc)

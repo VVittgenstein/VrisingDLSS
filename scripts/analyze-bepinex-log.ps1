@@ -237,34 +237,40 @@ $results.Add((New-StageResult `
     -StartedPatterns @("Native render-func argument preflight enabled", "Native render-func argument status #", "Native render-func entry detour installed:")))
 
 $results.Add((New-StageResult `
+    -Stage "Native RenderFunc Context" `
+    -PassPatterns @("Native render-func context advanced:") `
+    -FailPatterns @("Native render-func entry probe failed:", "Native render-func entry detour dispose failed:", "RenderGraph pass-list logging failed") `
+    -StartedPatterns @("Native render-func context preflight enabled", "Native render-func context status #", "Native render-func entry detour installed:")))
+
+$results.Add((New-StageResult `
     -Stage "Native RenderFunc Resource Identity" `
     -PassPatterns @("Native render-func resource identity advanced:") `
     -FailPatterns @("Native render-func entry probe failed:", "Native render-func entry detour dispose failed:", "RenderGraph pass-list logging failed", "Native render-func resource identity data=not found") `
-    -StartedPatterns @("Native render-func resource identity preflight enabled", "Native render-func resource identity status #", "Native render-func entry detour installed:")))
+    -StartedPatterns @("Native render-func resource identity preflight enabled", "Native render-func resource identity status #")))
 
 $results.Add((New-StageResult `
     -Stage "Native RenderFunc Resource Tuple" `
     -PassPatterns @("Native render-func resource tuple advanced:") `
     -FailPatterns @("Native render-func entry probe failed:", "Native render-func entry detour dispose failed:", "RenderGraph pass-list logging failed", "Native render-func resource tuple data=not found") `
-    -StartedPatterns @("Native render-func resource tuple preflight enabled", "Native render-func resource tuple status #", "Native render-func entry detour installed:")))
+    -StartedPatterns @("Native render-func resource tuple preflight enabled", "Native render-func resource tuple status #")))
 
 $results.Add((New-StageResult `
     -Stage "Native RenderFunc Resource Resolve" `
     -PassPatterns @("Native render-func resource resolve advanced:") `
     -FailPatterns @("Native render-func entry probe failed:", "Native render-func entry detour dispose failed:", "RenderGraph pass-list logging failed", "Native render-func resource resolve data=not found") `
-    -StartedPatterns @("Native render-func resource resolve preflight enabled", "Native render-func resource resolve status #", "Native render-func entry detour installed:")))
+    -StartedPatterns @("Native render-func resource resolve preflight enabled", "Native render-func resource resolve status #")))
 
 $results.Add((New-StageResult `
     -Stage "Native RenderFunc Resource Native Pointer" `
     -PassPatterns @("Native render-func resource native-pointer advanced:") `
     -FailPatterns @("Native render-func entry probe failed:", "Native render-func entry detour dispose failed:", "RenderGraph pass-list logging failed", "Native render-func resource native-pointer data=not found") `
-    -StartedPatterns @("Native render-func resource native-pointer preflight enabled", "Native render-func resource native-pointer target armed:", "Native render-func resource native-pointer status #", "Native render-func entry detour installed:")))
+    -StartedPatterns @("Native render-func resource native-pointer preflight enabled", "Native render-func resource native-pointer target armed:", "Native render-func resource native-pointer status #")))
 
 $results.Add((New-StageResult `
     -Stage "Native RenderFunc Resource D3D11" `
     -PassPatterns @("Native render-func resource D3D11 pair advanced:") `
     -FailPatterns @("Native render-func resource D3D11 pair failed:", "D3D11 texture pair probe rejected:", "Native render-func entry probe failed:", "Native render-func entry detour dispose failed:", "RenderGraph pass-list logging failed") `
-    -StartedPatterns @("Native render-func resource D3D11 preflight enabled", "Native render-func resource native-pointer target armed:", "Native render-func resource native-pointer status #", "Native render-func entry detour installed:")))
+    -StartedPatterns @("Native render-func resource D3D11 preflight enabled", "Native render-func resource native-pointer target armed:", "Native render-func resource native-pointer status #")))
 
 $results.Add((New-StageResult `
     -Stage "HDRP Custom PostProcess Registration" `

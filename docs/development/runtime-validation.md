@@ -1153,4 +1153,22 @@ Current helper smoke status:
   rendering step should be source/decompilation-guided command-buffer boundary
   validation near `DoDLSSPass -> DLSSPass.GetCameraResources ->
   DLSSPass.Render(..., ctx.cmd)`, not another broad resource-discovery hook.
+- The protected gameplay proof
+  `native-renderfunc-context-render-scale-gameplay-1080p-20260607-r1` then
+  validated the next source-guided boundary guard. With V Rising
+  `FsrQualityMode=Off`, true `1920x1080` Windowed, and mod-owned render scale,
+  the focused EASU native render-func callback safely wrapped the raw
+  `RenderGraphContext` pointer and read a live `ctx.cmd` identity. Evidence:
+  `Native RenderFunc Context=Pass`, `Native render-func context advanced:
+  sampleCount=1; nonzeroContext=1; wrapSuccess=1; cmdNonNull=1;
+  cmdPointerNonZero=1; wrapFailures=0`, and final context status
+  `entryCount=6699`, `sampleCount=6699`, `cmdPointerNonZero=6699`,
+  `wrapFailures=0`. The same run preserved the EASU
+  `tuple=input=960x540; output=1920x1080`, kept broad
+  `RenderGraph.GetTexture`, native-pointer/D3D11 probes, NGX, DLSS evaluate,
+  and user-rendering disabled, reported `CrashEventCount=0`, restored
+  config/native/ClientSettings, left no game process, and restored the
+  protected save with `ChangeCount=0`. The next guard should be a separate
+  no-op command-buffer/plugin-event timing proof at this same boundary; still
+  do not combine DLSS evaluate in the same step.
 - Current route decision: DLSS itself does not depend on FSR. The final MVP validation must keep V Rising `FsrQualityMode=Off` for baseline and candidate, while the mod controls render scale/upscale through HDRP dynamic-resolution/DLSS-path integration. The next gate is no longer tuple existence; it is visual correctness, performance, resize/reset, fallback behavior, and release-boundary validation.

@@ -35,6 +35,7 @@ param(
         "native-renderfunc-resource-native-pointer",
         "native-renderfunc-resource-native-pointer-render-scale",
         "native-renderfunc-resource-d3d11-render-scale",
+        "native-renderfunc-context-render-scale",
         "custom-postprocess-registration",
         "custom-postprocess-render-entry",
         "hdrp-postprocess-boundary",
@@ -106,6 +107,7 @@ function New-ConfigMap {
             EnableRenderGraphExecuteDelegateProbe = "false"
             EnableNativeRenderFuncEntryProbe = "false"
             EnableNativeRenderFuncArgumentProbe = "false"
+            EnableNativeRenderFuncContextProbe = "false"
             EnableNativeRenderFuncResourceIdentityProbe = "false"
             EnableNativeRenderFuncResourceTupleProbe = "false"
             EnableNativeRenderFuncResourceResolveProbe = "false"
@@ -419,6 +421,18 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableNativeRenderFuncResourceTupleProbe = "true"
             $Config.Diagnostics.EnableNativeRenderFuncResourceNativePointerProbe = "true"
             $Config.Diagnostics.EnableNativeRenderFuncResourceD3D11Probe = "true"
+            $Config.Diagnostics.EnableRenderScaleControlProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
+            $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+            $Config.Diagnostics.EnableHookProbe = "false"
+        }
+        "native-renderfunc-context-render-scale" {
+            $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncEntryProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncArgumentProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncContextProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncResourceIdentityProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncResourceTupleProbe = "true"
             $Config.Diagnostics.EnableRenderScaleControlProbe = "true"
             $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"

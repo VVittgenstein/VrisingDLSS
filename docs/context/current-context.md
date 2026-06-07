@@ -1193,3 +1193,30 @@ As of the read-only RenderGraph pass-map runtime result:
   equivalent of `DoDLSSPass -> DLSSPass.GetCameraResources ->
   DLSSPass.Render(..., ctx.cmd)`, with command-buffer access tested separately
   before any real DLSS evaluate.
+- Follow-up stage `native-renderfunc-context-render-scale` is implemented and
+  protected-gameplay validated; see
+  `docs/development/native-renderfunc-context-render-scale-gameplay-result-2026-06-07.md`.
+  The stage reuses the focused EASU entry/argument/resource tuple proof, wraps
+  only the raw EASU `RenderGraphContext` pointer, and reads `ctx.cmd` identity.
+  It does not issue command-buffer work, resolve textures through broad
+  `GetTexture`, validate D3D11 resources, load NGX, or evaluate DLSS. With V
+  Rising `FsrQualityMode=Off`, true `1920x1080` Windowed, and mod-owned render
+  scale, analyzer reported `Native RenderFunc Context=Pass`, `Stage 2C
+  Render-Scale Control Probe=Pass`, `Native RenderFunc Resource Tuple=Pass`,
+  and `Native bridge API version: 13`. The advanced context line showed
+  `sampleCount=1`, `nonzeroContext=1`, `wrapSuccess=1`, `cmdNonNull=1`,
+  `cmdPointerNonZero=1`, `wrapFailures=0`, `lastCmd=0x204BEF85EC0`, and
+  `cmd="UnityEngine.Rendering.CommandBuffer name="` for `Edge Adaptive Spatial
+  Upsampling`. The final sampled status reached `entryCount=6699`,
+  `sampleCount=6699`, `cmdPointerNonZero=6699`, and `wrapFailures=0`. Counts:
+  context advanced `1`, context status `141`, broad `RenderGraph GetTexture
+  call #` `0`, native-pointer `0`, D3D11 `0`, `ExecuteDLSS` `0`, `NGX` `0`,
+  `DLSS user rendering` `0`, entry/detour failures `0`, crash patterns `0`.
+  Cleanup restored loader config, ClientSettings, release-safe native state,
+  left no V Rising process, and restored the protected save with
+  `ChangeCount=0`. This proves a live `RenderGraphContext.cmd` identity is
+  safely reachable at the source-guided EASU boundary, but still does not prove
+  command-buffer work/plugin-event ordering, NGX feature lifecycle, DLSS
+  evaluate, resize/reset handling, visual correctness, or performance. The next
+  guard should be a separate no-op command-buffer/plugin-event timing proof at
+  this same boundary, still without DLSS evaluate.
