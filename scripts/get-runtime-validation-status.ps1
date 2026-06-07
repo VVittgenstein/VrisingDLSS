@@ -375,7 +375,7 @@ function Get-NextRecommendation {
     }
 
     if ($userRendering -eq "Pass") {
-        return "DLSS user-rendering candidate passed on the source-guided EASU ctx.cmd command-buffer route. Next engineering step is paired dlss-user-rendering gameplay visual/performance comparison with V Rising FSR Off, human image-quality review, resize/reset handling, and fallback validation."
+        return "DLSS user-rendering candidate passed on the source-guided EASU ctx.cmd command-buffer route. Next engineering step is paired dlss-user-rendering gameplay visual/performance comparison with V Rising FSR Off and -ProtectSave -SaveDir <local-save-dir>, human image-quality review, resize/reset handling, and fallback validation."
     }
 
     if ($nativeRenderFuncCommandBufferDlssVisibleWriteback -eq "Pass" -and $renderScaleControl -eq "Pass") {
@@ -383,10 +383,10 @@ function Get-NextRecommendation {
             Sort-Object LastWriteTime -Descending |
             Select-Object -First 1
         if ($nativeRenderFuncCommandBufferDlssVisibleWritebackGameplayDoc) {
-            return "Native EASU ctx.cmd DLSS visible write-back and render-scale control have a protected gameplay proof: the same source-guided frame sequence reaches the target visible-output successes and then shuts down. Next step is the normal-user dlss-user-rendering visual/performance comparison before MVP promotion. Latest proof: $($nativeRenderFuncCommandBufferDlssVisibleWritebackGameplayDoc.FullName)"
+            return "Native EASU ctx.cmd DLSS visible write-back and render-scale control have a protected gameplay proof: the same source-guided frame sequence reaches the target visible-output successes and then shuts down. Next step is the normal-user dlss-user-rendering visual/performance comparison with -ProtectSave -SaveDir <local-save-dir> before MVP promotion. Latest proof: $($nativeRenderFuncCommandBufferDlssVisibleWritebackGameplayDoc.FullName)"
         }
 
-        return "Native EASU ctx.cmd DLSS visible write-back passed with render-scale evidence. Next step is normal-user dlss-user-rendering visual/performance comparison before MVP promotion."
+        return "Native EASU ctx.cmd DLSS visible write-back passed with render-scale evidence. Next step is normal-user dlss-user-rendering visual/performance comparison with -ProtectSave -SaveDir <local-save-dir> before MVP promotion."
     }
 
     if ($nativeRenderFuncCommandBufferFrameDescriptorD3D11 -eq "Pass" -and $renderScaleControl -eq "Pass") {
@@ -694,7 +694,7 @@ function Get-NextRecommendation {
     }
 
     if ($userRendering -eq "Pass") {
-        return "DLSS user-rendering candidate passed. Next engineering step is a paired dlss-user-rendering gameplay visual/performance comparison, human image-quality review, resize/reset handling, and fallback validation."
+        return "DLSS user-rendering candidate passed. Next engineering step is a paired dlss-user-rendering gameplay visual/performance comparison with -ProtectSave -SaveDir <local-save-dir>, human image-quality review, resize/reset handling, and fallback validation."
     }
 
     if ($visibleWriteback -eq "Pass") {

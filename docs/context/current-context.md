@@ -1617,3 +1617,13 @@ As of the read-only RenderGraph pass-map runtime result:
   history/reset/jitter/pre-exposure/lifecycle differences if the visual or
   performance gate fails. See
   `docs/research/source-guided-boundary-check-2026-06-08.md`.
+- Harness checkpoint on 2026-06-08: `scripts\run-vrising-visual-comparison.ps1`
+  now supports `-ProtectSave -SaveDir <local-save-dir>`. When enabled, the
+  helper backs up the local/private save before any launch, archives the
+  changed after-run state by default, closes any remaining V Rising process
+  before restore, restores from the backup, and reports save evidence including
+  `SaveRestoreAttempted`, `SaveRestored`, `SaveBeforeRestoreChangeCount`, and
+  `SaveAfterRestoreChangeCount`. If protected-save restore fails, the helper
+  emits its result object and exits nonzero. The next source-guided
+  `dlss-user-rendering` paired visual/performance validation should use this
+  built-in protection rather than relying on an external manual restore step.

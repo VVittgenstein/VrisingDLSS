@@ -42,6 +42,9 @@ param(
     [switch]$SetClientWindowMode,
     [ValidateRange(0, 3)]
     [int]$ClientWindowMode = 3,
+    [switch]$ProtectSave,
+    [string]$SaveDir,
+    $ArchiveChangedSave = $true,
     [switch]$DryRun
 )
 
@@ -82,6 +85,7 @@ $capturePerformanceEnabled = Convert-ToBooleanOption -Value $CapturePerformance 
 $waitForStage10AEnabled = Convert-ToBooleanOption -Value $WaitForStage10A -Name "WaitForStage10A"
 $waitForUserRenderingEnabled = Convert-ToBooleanOption -Value $WaitForUserRendering -Name "WaitForUserRendering"
 $keepCandidateWritebackRunningEnabled = Convert-ToBooleanOption -Value $KeepCandidateWritebackRunning -Name "KeepCandidateWritebackRunning"
+$archiveChangedSaveEnabled = Convert-ToBooleanOption -Value $ArchiveChangedSave -Name "ArchiveChangedSave"
 
 if ($DurationSeconds -lt 30) {
     throw "DurationSeconds must be at least 30."
@@ -127,6 +131,10 @@ if ($Width -lt 640 -or $Height -lt 480) {
     throw "Width/Height are too small for a useful V Rising visual comparison."
 }
 
+if ($ProtectSave -and [string]::IsNullOrWhiteSpace($SaveDir)) {
+    throw "ProtectSave requires -SaveDir pointing to the local/private V Rising save directory to back up and restore."
+}
+
 if ([string]::IsNullOrWhiteSpace($Root)) {
     $Root = Split-Path -Parent $PSScriptRoot
 }
@@ -158,6 +166,11 @@ if ([string]::IsNullOrWhiteSpace($ReadyFile)) {
 $readyFileResolved = [System.IO.Path]::GetFullPath($ReadyFile)
 $clientSettingsChanged = [bool]($SetClientResolution -or $SetClientWindowMode)
 $clientSettingsBackupArtifact = Join-Path $visualRoot "ClientSettings-$ArtifactLabel.before.json"
+$saveDirResolved = ""
+if ($ProtectSave) {
+    $saveDirResolved = [System.IO.Path]::GetFullPath($SaveDir)
+}
+$saveProtectionLabel = "$ArtifactLabel-protected-save"
 $launchArgs = @()
 if ($clientSettingsChanged) {
     $launchArgs = @(
@@ -888,6 +901,11 @@ $plan = [pscustomobject]@{
     FsrBackupPath = $(if ($fsrPlan) { $fsrPlan.BackupPath } else { "" })
     RestoresClientSettings = $clientSettingsChanged
     RestoresReleaseSafeState = $true
+    ProtectSave = [bool]$ProtectSave
+    SaveDir = $(if ($ProtectSave) { $saveDirResolved } else { "" })
+    SaveProtectionLabel = $(if ($ProtectSave) { $saveProtectionLabel } else { "" })
+    ArchiveChangedSave = $(if ($ProtectSave) { $archiveChangedSaveEnabled } else { $false })
+    RestoresProtectedSave = [bool]$ProtectSave
     LaunchesGame = (-not [bool]$DryRun) -and (($Mode -ne "BaselineOnly") -or (-not [bool]$AttachExistingBaseline))
 }
 
@@ -903,9 +921,26 @@ $restoredFsrMode = ($FsrMode -eq "Unchanged")
 $restoredClientSettings = -not $clientSettingsChanged
 $previousFsrMode = ""
 $fsrBackupPath = ""
+$saveBackup = $null
+$saveRestore = $null
+$saveProtectionBackedUp = $false
+$saveRestoreAttempted = $false
+$saveRestoreSkippedReason = ""
+$saveRestored = -not [bool]$ProtectSave
 
 try {
     New-Item -ItemType Directory -Force -Path $runtimeLogRoot, $visualRoot, $fpsRoot | Out-Null
+
+    if ($ProtectSave) {
+        $saveBackup = Invoke-ProjectScript -RelativePath "scripts\protect-vrising-save.ps1" -Parameters @{
+            Mode = "Backup"
+            SaveDir = $saveDirResolved
+            Label = $saveProtectionLabel
+            Root = $resolvedRoot
+        }
+        $saveBackup | Format-List | Out-String -Width 220 | Write-Host
+        $saveProtectionBackedUp = $true
+    }
 
     if ($clientSettingsChanged) {
         if ($AttachExistingBaseline) {
@@ -1021,9 +1056,49 @@ try {
             Write-Warning "ClientSettings restore failed: $($_.Exception.Message)"
         }
     }
+
+    if ($ProtectSave) {
+        if ($saveProtectionBackedUp -and $saveBackup -and -not [string]::IsNullOrWhiteSpace([string]$saveBackup.BackupDir)) {
+            $remainingBeforeSaveRestore = @(Get-VRisingProcess)
+            if ($remainingBeforeSaveRestore.Count -gt 0) {
+                foreach ($runningProcess in $remainingBeforeSaveRestore) {
+                    [void](Close-VisualRunProcess -Process $runningProcess)
+                }
+            }
+
+            if (@(Get-VRisingProcess).Count -gt 0) {
+                $saveRestoreSkippedReason = "VRising process remained after cleanup; refusing to restore protected save while the game is running."
+                Write-Warning $saveRestoreSkippedReason
+            } else {
+                try {
+                    $restoreParameters = @{
+                        Mode = "Restore"
+                        SaveDir = $saveDirResolved
+                        Label = $saveProtectionLabel
+                        ReferenceDir = [string]$saveBackup.BackupDir
+                        Root = $resolvedRoot
+                    }
+                    if ($archiveChangedSaveEnabled) {
+                        $restoreParameters.ArchiveCurrent = $true
+                    }
+
+                    $saveRestoreAttempted = $true
+                    $saveRestore = Invoke-ProjectScript -RelativePath "scripts\protect-vrising-save.ps1" -Parameters $restoreParameters
+                    $saveRestore | Format-List | Out-String -Width 220 | Write-Host
+                    $saveRestored = ([int]$saveRestore.ChangeCount -eq 0)
+                } catch {
+                    $saveRestoreSkippedReason = "Protected save restore failed: $($_.Exception.Message)"
+                    Write-Warning $saveRestoreSkippedReason
+                }
+            }
+        } else {
+            $saveRestoreSkippedReason = "Protected save backup did not complete; restore was not attempted."
+            Write-Warning $saveRestoreSkippedReason
+        }
+    }
 }
 
-[pscustomobject]@{
+$result = [pscustomobject]@{
     Mode = "Completed"
     GamePath = $resolvedGamePath
     ArtifactLabel = $ArtifactLabel
@@ -1046,7 +1121,27 @@ try {
     ClientWindowMode = $(if ($SetClientWindowMode) { $ClientWindowMode } else { $null })
     RestoredClientSettings = $restoredClientSettings
     ClientSettingsBackupArtifact = $(if (Test-Path -LiteralPath $clientSettingsBackupArtifact) { $clientSettingsBackupArtifact } else { "" })
+    ProtectSave = [bool]$ProtectSave
+    SaveDir = $(if ($ProtectSave) { $saveDirResolved } else { "" })
+    SaveProtectionLabel = $(if ($ProtectSave) { $saveProtectionLabel } else { "" })
+    SaveBackupDir = $(if ($saveBackup) { [string]$saveBackup.BackupDir } else { "" })
+    SaveBackupZipPath = $(if ($saveBackup) { [string]$saveBackup.ZipPath } else { "" })
+    SaveBackupManifestPath = $(if ($saveBackup) { [string]$saveBackup.ManifestPath } else { "" })
+    SaveRestoreAttempted = $saveRestoreAttempted
+    SaveRestored = $saveRestored
+    SaveRestoreArchivePath = $(if ($saveRestore) { [string]$saveRestore.ArchivePath } else { "" })
+    SaveBeforeRestoreChangeCount = $(if ($saveRestore) { [int]$saveRestore.BeforeChangeCount } else { $null })
+    SaveAfterRestoreChangeCount = $(if ($saveRestore) { [int]$saveRestore.ChangeCount } else { $null })
+    SaveCompareStatus = $(if ($saveRestore) { [string]$saveRestore.CompareStatus } else { "" })
+    SaveRestoreSkippedReason = $saveRestoreSkippedReason
+    ArchiveChangedSave = $(if ($ProtectSave) { $archiveChangedSaveEnabled } else { $false })
     ProcessStillRunning = [bool](Get-VRisingProcess)
     RestoredReleaseSafeState = $true
     LaunchesGame = ($Mode -ne "BaselineOnly") -or (-not [bool]$AttachExistingBaseline)
+}
+
+$result
+
+if ($ProtectSave -and -not $saveRestored) {
+    exit 1
 }

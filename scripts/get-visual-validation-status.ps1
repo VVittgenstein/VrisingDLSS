@@ -169,10 +169,10 @@ function Get-VisualNextRecommendation {
 
     if ($Stage -eq "dlss-user-rendering") {
         if ([string]::IsNullOrWhiteSpace($ReviewPath)) {
-            return "Run scripts\run-vrising-visual-comparison.ps1 -CandidateStage dlss-user-rendering -FsrMode Off in a stable gameplay scene to validate the current source-guided EASU ctx.cmd candidate, capture performance, then add a matching human review file."
+            return "Run scripts\run-vrising-visual-comparison.ps1 -CandidateStage dlss-user-rendering -FsrMode Off -ProtectSave -SaveDir <local-save-dir> in a stable gameplay scene to validate the current source-guided EASU ctx.cmd candidate, capture performance, restore the save to ChangeCount=0, then add a matching human review file."
         }
 
-        return "Run scripts\run-vrising-visual-comparison.ps1 -CandidateStage dlss-user-rendering -FsrMode Off in a stable gameplay scene to validate the current source-guided EASU ctx.cmd candidate, capture performance, then create $ReviewPath after human review with matching image SHA256 values."
+        return "Run scripts\run-vrising-visual-comparison.ps1 -CandidateStage dlss-user-rendering -FsrMode Off -ProtectSave -SaveDir <local-save-dir> in a stable gameplay scene to validate the current source-guided EASU ctx.cmd candidate, capture performance, restore the save to ChangeCount=0, then create $ReviewPath after human review with matching image SHA256 values."
     }
 
     if ($Stage -eq "dlss-visible-writeback") {
@@ -516,7 +516,7 @@ if (Test-Path -LiteralPath $reviewResolved) {
 }
 
 if (@($issues | Where-Object { $_ -like "Candidate * regressed*" -or $_ -like "Candidate P95 frame time worsened*" }).Count -gt 0) {
-    $nextRecommendation = "Older GetTexture/driver candidate visual-performance evidence is stale and not MVP-safe. Current source-guided command-buffer user-rendering evidence passed protected gameplay with RenderGraph.GetTexture=0. The next visual/performance candidate should use CandidateStage dlss-user-rendering with V Rising FSR Off, collect paired screenshots plus controlled performance proof, then add human review before normal-user promotion."
+    $nextRecommendation = "Older GetTexture/driver candidate visual-performance evidence is stale and not MVP-safe. Current source-guided command-buffer user-rendering evidence passed protected gameplay with RenderGraph.GetTexture=0. The next visual/performance candidate should use CandidateStage dlss-user-rendering with V Rising FSR Off and -ProtectSave -SaveDir <local-save-dir>, collect paired screenshots plus controlled performance proof, restore the save to ChangeCount=0, then add human review before normal-user promotion."
 }
 
 if ($issues.Count -gt 0) {

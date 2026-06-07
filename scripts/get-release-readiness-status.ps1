@@ -405,7 +405,7 @@ $summary = [pscustomobject]@{
     NextRecommendation = if ($mvpReady) {
         "MVP evidence is complete. Prepare a final release review."
     } elseif ([string]::IsNullOrWhiteSpace($GamePath)) {
-        "Pass -GamePath to include local runtime evidence. Current MVP next step is the normal-user dlss-user-rendering paired visual/performance comparison using the source-guided EASU ctx.cmd route with V Rising FSR Off, followed by a matching human review file."
+        "Pass -GamePath to include local runtime evidence. Current MVP next step is the normal-user dlss-user-rendering paired visual/performance comparison using the source-guided EASU ctx.cmd route with V Rising FSR Off and -ProtectSave -SaveDir <local-save-dir>, followed by a matching human review file."
     } elseif ($visualStatus.Status -ne "Pass" -and $visualStatus.HumanReviewStatus -eq "Pending") {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
@@ -470,13 +470,13 @@ $summary = [pscustomobject]@{
         if (-not [string]::IsNullOrWhiteSpace($runtimeNextRecommendation)) {
             $runtimeNextRecommendation
         } else {
-            "Do not rerun rejected RenderGraph wrapper stages unchanged. Re-run or inspect the source-guided EASU ctx.cmd dlss-user-rendering protected gameplay proof, then move to paired visual/performance validation with V Rising FSR Off."
+            "Do not rerun rejected RenderGraph wrapper stages unchanged. Re-run or inspect the source-guided EASU ctx.cmd dlss-user-rendering protected gameplay proof, then move to paired visual/performance validation with V Rising FSR Off and -ProtectSave -SaveDir <local-save-dir>."
         }
     } elseif (@($items | Where-Object { $_.Requirement -like "Normal-user dlss-user-rendering gameplay visual/performance comparison*" -and $_.Status -ne "Pass" }).Count -gt 0) {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
         } else {
-            "Run paired dlss-user-rendering gameplay visual/performance comparison on the current source-guided EASU ctx.cmd candidate and add a matching human review file."
+            "Run paired dlss-user-rendering gameplay visual/performance comparison on the current source-guided EASU ctx.cmd candidate with -ProtectSave -SaveDir <local-save-dir> and add a matching human review file."
         }
     } else {
         "Validate image correctness, output selection, resize/reset handling, and fallback behavior before public release."
