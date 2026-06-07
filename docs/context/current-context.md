@@ -1632,3 +1632,22 @@ As of the read-only RenderGraph pass-map runtime result:
   `BepInEx\config\BepInEx.cfg`, disables `Logging.Console`, enables disk log
   flushing, then restores the backup during cleanup. A BepInEx config restore
   failure also makes the helper exit nonzero after printing the result.
+- Protected paired visual/performance attempt
+  `source-guided-user-rendering-1080p-20260608-r1` is partial, not MVP evidence.
+  The helper used `-ProtectSave`, temporary BepInEx console mitigation,
+  `FsrQualityMode=Off`, true `1920x1080` Windowed, and Computer Use clicked
+  Continue once for baseline and once for candidate with no movement keys.
+  Baseline screenshot/performance passed (`AverageFps=156.105`,
+  `OnePercentLowFps=90.552`, `P95FrameMs=9.209`, GPU util `81.4%`). Candidate
+  screenshot and DLSS evidence passed: `DLSS User Rendering Candidate=Pass`,
+  `eventId=260615`, `setSuccesses=12`, `consumed=12`,
+  `sequenceCreates=1`, `sequenceEvaluates=12`, `evaluateSuccesses=12`,
+  `input=960x540`, `output=1920x1080`, `RenderGraph GetTexture call #=0`, no
+  crash/driver/access-violation evidence. Image comparison matched `1920x1080`
+  with `MeanAbsRgbDelta=2.0072` and `ChangedRatioGt10=0.026254`. Candidate
+  PresentMon FPS capture failed because no candidate CSV was created, so this
+  run cannot decide the performance gate; only system metrics were recorded
+  (`AverageGpuUtilPercent=33.0`, `AverageGpuPowerW=62.24`). Cleanup passed:
+  no V Rising process remained and protected save restore ended with
+  `ChangeCount=0`. See
+  `docs/development/source-guided-user-rendering-visual-performance-2026-06-08.md`.
