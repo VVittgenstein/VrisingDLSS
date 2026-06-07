@@ -653,6 +653,21 @@ Current Stage 8A status:
   `docs/development/native-renderfunc-resource-identity-gameplay-result-2026-06-07.md`.
   Next route is a separate default-off official-boundary-adjacent resource
   preflight decision, not command-buffer access or DLSS evaluate.
+- Native render-func resource tuple dry preflight is now implemented as a
+  separate default-off stage:
+  `Diagnostics.EnableNativeRenderFuncResourceTupleProbe=false`, helper stage
+  `native-renderfunc-resource-tuple`. It reuses the proven focused EASU
+  entry/args/resource-identity path and formats the matched managed `EASUData`
+  into tuple metadata: input/output dimensions plus focused `source` /
+  `destination` TextureHandle resource identity. It still does not dereference
+  native callback pointers, call `GetTexture`, resolve textures, touch command
+  buffers, patch generated render funcs through Harmony, or evaluate DLSS.
+  Static `git diff --check`, Release build, dry-run config validation,
+  Thunderstore package validation, local loader config restore, and process
+  safety checks passed. See
+  `docs/development/native-renderfunc-resource-tuple-preflight-implementation-2026-06-07.md`.
+  Next proof is a `1920x1080` Windowed menu-only run of
+  `native-renderfunc-resource-tuple`.
 - See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.
 
 ## Stage 8B: First Guarded DLSS Evaluate Diagnostic

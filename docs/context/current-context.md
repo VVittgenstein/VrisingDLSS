@@ -679,3 +679,18 @@ As of the read-only RenderGraph pass-map runtime result:
   TextureHandle identity can support a separate default-off official-boundary-
   adjacent resource preflight. Still no command-buffer access or DLSS evaluate
   without another explicit preflight.
+- The `native-renderfunc-resource-tuple` dry preflight is now implemented and
+  statically validated; see
+  `docs/development/native-renderfunc-resource-tuple-preflight-implementation-2026-06-07.md`.
+  Config key: `Diagnostics.EnableNativeRenderFuncResourceTupleProbe=false`.
+  Helper stage: `native-renderfunc-resource-tuple`. It reuses the proven EASU
+  entry/args/resource-identity path and formats the matched managed `EASUData`
+  into tuple metadata: input/output dimensions plus focused `source` /
+  `destination` TextureHandle resource identity. It still does not dereference
+  native callback pointers, call `GetTexture`, resolve textures, touch command
+  buffers, patch generated render funcs through Harmony, or evaluate DLSS.
+  Static `git diff --check`, Release build, dry-run config validation,
+  Thunderstore package validation, local loader config restore, and process
+  safety checks passed. Next proof is
+  `scripts\run-vrising-diagnostic.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-resource-tuple -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3`
+  at true `1920x1080` Windowed menu-only.

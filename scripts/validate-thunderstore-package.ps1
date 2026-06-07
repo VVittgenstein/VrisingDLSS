@@ -312,6 +312,7 @@ try {
             "EnableNativeRenderFuncEntryProbe = false",
             "EnableNativeRenderFuncArgumentProbe = false",
             "EnableNativeRenderFuncResourceIdentityProbe = false",
+            "EnableNativeRenderFuncResourceTupleProbe = false",
             "EnableRenderGraphGetTextureProbe = true",
             "EnableDlssPassResourceProbe = false",
             "EnableUpscalerStateProbe = false",

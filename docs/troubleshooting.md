@@ -512,6 +512,23 @@ with no movement keys and save restore `ChangeCount=0`; see
 This remains resource-identity proof only; do not treat it as command-buffer,
 texture-resolution, or DLSS evaluate proof.
 
+`Diagnostics.EnableNativeRenderFuncResourceTupleProbe` is implemented separately
+and defaults to `false`. The helper stage is `native-renderfunc-resource-tuple`;
+it reuses the focused EASU entry/args/resource-identity path and formats the
+matched managed `EASUData` into tuple metadata: input/output dimensions plus
+focused `source` / `destination` TextureHandle resource identity. It does not
+dereference native callback pointers, resolve textures, call `GetTexture`, touch
+command buffers, patch generated render funcs through Harmony, or evaluate DLSS.
+The first runtime proof must be menu-only at true `1920x1080` Windowed:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-resource-tuple -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3
+```
+
+Expected analyzer line: `Native RenderFunc Resource Tuple=Pass`. Treat this as
+tuple metadata proof only; it is still not actual texture/resource resolution,
+command-buffer, or evaluate proof.
+
 ## RenderGraph Execute-Delegate Probe
 
 `EnableRenderGraphExecuteDelegateProbe` is disabled by default and is read-only.

@@ -98,6 +98,7 @@ function Get-ConfiguredStage {
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassRenderFuncMetadataProbe") { return "rendergraph-renderfunc-metadata" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphCompiledPassInfoProbe") { return "rendergraph-compiled-pass-info" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphExecuteDelegateProbe") { return "rendergraph-execute-delegate" }
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncResourceTupleProbe") { return "native-renderfunc-resource-tuple" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncResourceIdentityProbe") { return "native-renderfunc-resource-identity" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncArgumentProbe") { return "native-renderfunc-args" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncEntryProbe") { return "native-renderfunc-entry" }
@@ -267,6 +268,7 @@ function Get-NextRecommendation {
     $superResolutionFrameSequence = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 9A"
     $visibleWriteback = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 10A"
     $userRendering = Get-FirstStageStatus -Results $LogResults -StagePrefix "DLSS User Rendering Candidate"
+    $nativeRenderFuncResourceTuple = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Resource Tuple"
     $nativeRenderFuncResourceIdentity = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Resource Identity"
     $nativeRenderFuncArgs = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Args"
     $nativeRenderFuncEntry = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Entry"
@@ -305,12 +307,28 @@ function Get-NextRecommendation {
         return "The latest dlss-user-rendering gameplay log did not accept an FSR Off Super Resolution tuple: the main candidate stayed color=1920x1080 output=1920x1080. Before rerunning the same runtime proof, use the targeted render-scale diagnostic to check for `Render-scale control member write did not stick`, `RTHandles.SetHardwareDynamicResolutionState=true`, and whether the gameplay camera/main targets remain full-size."
     }
 
+    if ($nativeRenderFuncResourceTuple -eq "Pass") {
+        $nativeRenderFuncResourceTupleGameplayDoc = Get-ChildItem -LiteralPath (Join-Path $Root "docs\development") -Filter "native-renderfunc-resource-tuple-gameplay-result-*.md" -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+        if ($nativeRenderFuncResourceTupleGameplayDoc) {
+            return "Native render-func resource tuple menu and protected 11111 gameplay proofs passed. Next engineering step is deciding the first separately guarded resource-resolution preflight; still no command-buffer access or DLSS evaluate without another explicit preflight. Latest proof: $($nativeRenderFuncResourceTupleGameplayDoc.FullName)"
+        }
+
+        return "Native render-func resource tuple menu preflight passed in available logs. Next step is a protected 11111 gameplay proof at 1920x1080 Windowed using scripts\start-vrising-automation-session.ps1 -Stage native-renderfunc-resource-tuple; no GetTexture, command-buffer access, texture resolution, or DLSS evaluate."
+    }
+
     if ($nativeRenderFuncResourceIdentity -eq "Pass") {
         $developmentDocRoot = Join-Path $Root "docs\development"
         $nativeRenderFuncResourceIdentityGameplayDoc = Get-ChildItem -LiteralPath $developmentDocRoot -Filter "native-renderfunc-resource-identity-gameplay-result-*.md" -File -ErrorAction SilentlyContinue |
             Sort-Object LastWriteTime -Descending |
             Select-Object -First 1
         if ($nativeRenderFuncResourceIdentityGameplayDoc) {
+            $nativeRenderFuncResourceTupleImplementationDoc = Join-Path $Root "docs\development\native-renderfunc-resource-tuple-preflight-implementation-2026-06-07.md"
+            if (Test-Path -LiteralPath $nativeRenderFuncResourceTupleImplementationDoc) {
+                return "Native render-func resource identity menu and protected 11111 gameplay proofs passed, and the default-off resource-tuple preflight is implemented. Next step is scripts\run-vrising-diagnostic.ps1 -GamePath `"$($Inspect.GamePath)`" -Stage native-renderfunc-resource-tuple -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 for a 1920x1080 Windowed menu-only tuple proof; no GetTexture, command-buffer access, texture resolution, or DLSS evaluate."
+            }
+
             return "Native render-func resource identity menu and protected 11111 gameplay proofs passed. Next engineering step is deciding whether the proven managed EASU pass-data/TextureHandle identity can support a safe official-boundary-adjacent resource path; still do not add command-buffer access or DLSS evaluate without a separate preflight. Latest proof: $($nativeRenderFuncResourceIdentityGameplayDoc.FullName)"
         }
 

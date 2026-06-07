@@ -405,7 +405,7 @@ $summary = [pscustomobject]@{
     NextRecommendation = if ($mvpReady) {
         "MVP evidence is complete. Prepare a final release review."
     } elseif ([string]::IsNullOrWhiteSpace($GamePath)) {
-        "Pass -GamePath to include local runtime evidence. Current MVP next step is not another broad DLSS search or unchanged RenderGraph map run: the native-renderfunc-entry preflight plus menu/gameplay proofs passed, native-renderfunc-args menu/gameplay proofs passed, and native-renderfunc-resource-identity menu/gameplay proofs passed. Decide the next separate default-off official-boundary-adjacent resource preflight; no command-buffer access or DLSS evaluate without a new preflight."
+        "Pass -GamePath to include local runtime evidence. Current MVP next step is not another broad DLSS search or unchanged RenderGraph map run: the native-renderfunc-entry preflight plus menu/gameplay proofs passed, native-renderfunc-args menu/gameplay proofs passed, native-renderfunc-resource-identity menu/gameplay proofs passed, and the default-off native-renderfunc-resource-tuple preflight is implemented. Run its 1920x1080 Windowed menu proof first; no GetTexture, command-buffer access, texture resolution, or DLSS evaluate."
     } elseif ($visualStatus.Status -ne "Pass" -and $visualStatus.HumanReviewStatus -eq "Pending") {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
@@ -467,7 +467,7 @@ $summary = [pscustomobject]@{
             "Run scripts\run-vrising-diagnostic.ps1 -Stage dlss-visible-writeback with a local SDK-wrapper native build, DLSS runtime path, and DLSS disabled by default."
         }
     } elseif (@($items | Where-Object { $_.Requirement -like "Experimental EnableDLSS user-rendering*" -and $_.Status -ne "Pass" }).Count -gt 0) {
-        "Do not rerun rejected RenderGraph wrapper stages unchanged. The official HDRP DLSS boundary is the Deep Learning Super Sampling render func, but V Rising has no proven safe Harmony-equivalent boundary. The rendergraph-compiled-pass-info proof plus native-renderfunc-entry preflight/menu/gameplay proofs passed, native-renderfunc-args menu/gameplay proofs passed, and native-renderfunc-resource-identity menu/gameplay proofs passed. Next narrow step is deciding a separate default-off official-boundary-adjacent resource preflight from the proven managed EASU pass-data/TextureHandle identity, without command-buffer access or DLSS evaluate."
+        "Do not rerun rejected RenderGraph wrapper stages unchanged. The official HDRP DLSS boundary is the Deep Learning Super Sampling render func, but V Rising has no proven safe Harmony-equivalent boundary. The rendergraph-compiled-pass-info proof plus native-renderfunc-entry preflight/menu/gameplay proofs passed, native-renderfunc-args menu/gameplay proofs passed, native-renderfunc-resource-identity menu/gameplay proofs passed, and the default-off native-renderfunc-resource-tuple preflight is implemented. Next narrow step is the 1920x1080 Windowed menu proof for native-renderfunc-resource-tuple, without GetTexture, command-buffer access, texture resolution, or DLSS evaluate."
     } elseif (@($items | Where-Object { $_.Requirement -like "Normal-user dlss-user-rendering gameplay visual/performance comparison*" -and $_.Status -ne "Pass" }).Count -gt 0) {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation

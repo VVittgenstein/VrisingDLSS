@@ -30,6 +30,7 @@ internal static class FrameResourceProbe
     private const int MaxNativeRenderFuncEntryStatusLogs = 80;
     private const int MaxNativeRenderFuncArgumentStatusLogs = 80;
     private const int MaxNativeRenderFuncResourceIdentityStatusLogs = 80;
+    private const int MaxNativeRenderFuncResourceTupleStatusLogs = 80;
     private const int NativeRenderFuncEntryStableObservationThreshold = 3;
     private const int MaxRenderGraphExecutionScopeLogs = 80;
     private const int MaxRenderGraphScopedEvaluateAttempts = 12;
@@ -83,6 +84,7 @@ internal static class FrameResourceProbe
     private static int NativeRenderFuncArgumentContextNonZeroCount;
     private static int NativeRenderFuncArgumentMethodInfoNonZeroCount;
     private static int NativeRenderFuncResourceIdentityStatusLogCount;
+    private static int NativeRenderFuncResourceTupleStatusLogCount;
     private static int RenderGraphExecutionScopeCallCount;
     private static int RenderGraphScopedEvaluateAttemptCount;
     private static int ExistingRenderFuncCallCount;
@@ -156,11 +158,13 @@ internal static class FrameResourceProbe
     private static bool NativeRenderFuncEntryProbeEnabled;
     private static bool NativeRenderFuncArgumentProbeEnabled;
     private static bool NativeRenderFuncResourceIdentityProbeEnabled;
+    private static bool NativeRenderFuncResourceTupleProbeEnabled;
     private static bool NativeRenderFuncEntryInstallAttempted;
     private static bool NativeRenderFuncEntryInstalled;
     private static bool NativeRenderFuncEntryCountAdvancedLogged;
     private static bool NativeRenderFuncArgumentSampleAdvancedLogged;
     private static bool NativeRenderFuncResourceIdentityAdvancedLogged;
+    private static bool NativeRenderFuncResourceTupleAdvancedLogged;
     private static bool RenderGraphGetTextureProbeEnabled;
     private static bool DlssPassResourceProbeEnabled;
     private static bool RenderGraphGetTextureDiagnosticLoggingEnabled;
@@ -235,10 +239,12 @@ internal static class FrameResourceProbe
         bool enableNativeRenderFuncEntryProbe = false,
         bool enableNativeRenderFuncArgumentProbe = false,
         bool enableNativeRenderFuncResourceIdentityProbe = false,
+        bool enableNativeRenderFuncResourceTupleProbe = false,
         bool enableRenderGraphGetTextureProbe = true,
         bool enableDlssPassResourceProbe = false)
     {
-        var nativeRenderFuncArgumentRequested = enableNativeRenderFuncArgumentProbe || enableNativeRenderFuncResourceIdentityProbe;
+        var nativeRenderFuncResourceIdentityRequested = enableNativeRenderFuncResourceIdentityProbe || enableNativeRenderFuncResourceTupleProbe;
+        var nativeRenderFuncArgumentRequested = enableNativeRenderFuncArgumentProbe || nativeRenderFuncResourceIdentityRequested;
         var nativeRenderFuncEntryRequested = enableNativeRenderFuncEntryProbe || nativeRenderFuncArgumentRequested;
         if (Installed)
         {
@@ -273,7 +279,8 @@ internal static class FrameResourceProbe
             RenderGraphExecuteDelegateProbeEnabled = RenderGraphExecuteDelegateProbeEnabled || enableRenderGraphExecuteDelegateProbe;
             NativeRenderFuncEntryProbeEnabled = NativeRenderFuncEntryProbeEnabled || nativeRenderFuncEntryRequested;
             NativeRenderFuncArgumentProbeEnabled = NativeRenderFuncArgumentProbeEnabled || nativeRenderFuncArgumentRequested;
-            NativeRenderFuncResourceIdentityProbeEnabled = NativeRenderFuncResourceIdentityProbeEnabled || enableNativeRenderFuncResourceIdentityProbe;
+            NativeRenderFuncResourceIdentityProbeEnabled = NativeRenderFuncResourceIdentityProbeEnabled || nativeRenderFuncResourceIdentityRequested;
+            NativeRenderFuncResourceTupleProbeEnabled = NativeRenderFuncResourceTupleProbeEnabled || enableNativeRenderFuncResourceTupleProbe;
             RenderGraphGetTextureProbeEnabled = RenderGraphGetTextureProbeEnabled || enableRenderGraphGetTextureProbe;
             DlssPassResourceProbeEnabled = DlssPassResourceProbeEnabled || enableDlssPassResourceProbe;
             RenderGraphGetTextureDiagnosticLoggingEnabled = RenderGraphGetTextureDiagnosticLoggingEnabled || ShouldEnableRenderGraphGetTextureDiagnosticLogging(
@@ -318,7 +325,8 @@ internal static class FrameResourceProbe
         RenderGraphExecuteDelegateProbeEnabled = enableRenderGraphExecuteDelegateProbe;
         NativeRenderFuncEntryProbeEnabled = nativeRenderFuncEntryRequested;
         NativeRenderFuncArgumentProbeEnabled = nativeRenderFuncArgumentRequested;
-        NativeRenderFuncResourceIdentityProbeEnabled = enableNativeRenderFuncResourceIdentityProbe;
+        NativeRenderFuncResourceIdentityProbeEnabled = nativeRenderFuncResourceIdentityRequested;
+        NativeRenderFuncResourceTupleProbeEnabled = enableNativeRenderFuncResourceTupleProbe;
         RenderGraphGetTextureProbeEnabled = enableRenderGraphGetTextureProbe;
         DlssPassResourceProbeEnabled = enableDlssPassResourceProbe;
         RenderGraphGetTextureDiagnosticLoggingEnabled = ShouldEnableRenderGraphGetTextureDiagnosticLogging(
@@ -448,6 +456,10 @@ internal static class FrameResourceProbe
         if (NativeRenderFuncResourceIdentityProbeEnabled)
         {
             log.LogWarning("Native render-func resource identity preflight enabled. It correlates raw callback pointers with managed EASU pass-data and TextureHandle identity from CompileRenderGraph only; no native-callback pointer dereference, GetTexture, command buffer access, or DLSS evaluate.");
+        }
+        if (NativeRenderFuncResourceTupleProbeEnabled)
+        {
+            log.LogWarning("Native render-func resource tuple preflight enabled. It formats the proven EASU pass-data match into input/output dimensions plus source/destination TextureHandle resource identity only; no native-callback pointer dereference, GetTexture, command buffer access, texture resolution, or DLSS evaluate.");
         }
         if (DlssPassResourceProbeEnabled)
         {
@@ -654,7 +666,7 @@ internal static class FrameResourceProbe
             patched++;
         }
 
-        if ((RenderGraphPassListProbeEnabled || RenderGraphPassResourceDeclarationProbeEnabled || RenderGraphPassDataSnapshotProbeEnabled || RenderGraphPassRenderFuncMetadataProbeEnabled || RenderGraphCompiledPassInfoProbeEnabled || NativeRenderFuncEntryProbeEnabled || NativeRenderFuncResourceIdentityProbeEnabled)
+        if ((RenderGraphPassListProbeEnabled || RenderGraphPassResourceDeclarationProbeEnabled || RenderGraphPassDataSnapshotProbeEnabled || RenderGraphPassRenderFuncMetadataProbeEnabled || RenderGraphCompiledPassInfoProbeEnabled || NativeRenderFuncEntryProbeEnabled || NativeRenderFuncResourceIdentityProbeEnabled || NativeRenderFuncResourceTupleProbeEnabled)
             && TryPatchRenderGraphPassListMethod(
                 log,
                 assemblies,
@@ -759,11 +771,13 @@ internal static class FrameResourceProbe
             NativeRenderFuncEntryProbeEnabled = false;
             NativeRenderFuncArgumentProbeEnabled = false;
             NativeRenderFuncResourceIdentityProbeEnabled = false;
+            NativeRenderFuncResourceTupleProbeEnabled = false;
             NativeRenderFuncEntryInstallAttempted = false;
             NativeRenderFuncEntryInstalled = false;
             NativeRenderFuncEntryCountAdvancedLogged = false;
             NativeRenderFuncArgumentSampleAdvancedLogged = false;
             NativeRenderFuncResourceIdentityAdvancedLogged = false;
+            NativeRenderFuncResourceTupleAdvancedLogged = false;
             RenderGraphGetTextureProbeEnabled = false;
             DlssPassResourceProbeEnabled = false;
             RenderGraphGetTextureDiagnosticLoggingEnabled = false;
@@ -810,6 +824,7 @@ internal static class FrameResourceProbe
                 NativeRenderFuncEntryCallCount = 0;
                 NativeRenderFuncArgumentStatusLogCount = 0;
                 NativeRenderFuncResourceIdentityStatusLogCount = 0;
+                NativeRenderFuncResourceTupleStatusLogCount = 0;
                 NativeRenderFuncArgumentSampleCount = 0;
                 NativeRenderFuncArgumentThisNonZeroCount = 0;
                 NativeRenderFuncArgumentPassDataNonZeroCount = 0;
@@ -1974,7 +1989,8 @@ internal static class FrameResourceProbe
                 && !RenderGraphPassRenderFuncMetadataProbeEnabled
                 && !RenderGraphCompiledPassInfoProbeEnabled
                 && !NativeRenderFuncEntryProbeEnabled
-                && !NativeRenderFuncResourceIdentityProbeEnabled)
+                && !NativeRenderFuncResourceIdentityProbeEnabled
+                && !NativeRenderFuncResourceTupleProbeEnabled)
             {
                 return;
             }
@@ -2064,6 +2080,7 @@ internal static class FrameResourceProbe
             TryLogRenderGraphPassResourceDeclarations(compileCount, passSummaries);
             TryLogRenderGraphPassDataSnapshots(compileCount, passSummaries);
             TryLogNativeRenderFuncResourceIdentity(compileCount, passSummaries);
+            TryLogNativeRenderFuncResourceTuple(compileCount, passSummaries);
             TryLogRenderGraphPassRenderFuncMetadata(compileCount, passSummaries);
             TryLogRenderGraphCompiledPassInfos(compileCount, __instance, passSummaries);
             TryLogNativeRenderFuncEntryStatus(compileCount);
@@ -2344,6 +2361,179 @@ internal static class FrameResourceProbe
                 || string.Equals(member.Label, "destination", StringComparison.Ordinal))
             && (string.Equals(member.Kind, "texture", StringComparison.Ordinal)
                 || string.Equals(member.Kind, "texture-resource", StringComparison.Ordinal)));
+    }
+
+    private static void TryLogNativeRenderFuncResourceTuple(
+        int compileCount,
+        IEnumerable<(int Ordinal, object Pass, string Name, string TypeName, string Category)> passSummaries)
+    {
+        if (!NativeRenderFuncResourceTupleProbeEnabled)
+        {
+            return;
+        }
+
+        var log = Log;
+        if (log is null)
+        {
+            return;
+        }
+
+        foreach (var summary in passSummaries)
+        {
+            if (!IsNativeRenderFuncResourceIdentityTarget(summary.Name, summary.TypeName, summary.Category))
+            {
+                continue;
+            }
+
+            int statusLogCount;
+            bool skipStatusLog;
+            lock (Sync)
+            {
+                NativeRenderFuncResourceTupleStatusLogCount++;
+                statusLogCount = NativeRenderFuncResourceTupleStatusLogCount;
+                skipStatusLog = statusLogCount > MaxNativeRenderFuncResourceTupleStatusLogs && statusLogCount % 300 != 0;
+            }
+
+            var passData = TryReadPropertyObject(summary.Pass, "data")
+                ?? TryReadFieldObject(summary.Pass, "data")
+                ?? TryReadTypedRenderGraphPassDataSnapshotObject(summary.Pass, summary.Name);
+            if (passData is null)
+            {
+                if (!skipStatusLog)
+                {
+                    log.LogInfo($"Native render-func resource tuple data=not found #{statusLogCount}: compile={compileCount}; ordinal={summary.Ordinal}; pass=\"{summary.Name}\"; category={summary.Category}; passType={summary.TypeName}");
+                }
+
+                continue;
+            }
+
+            var dataType = passData.GetType().FullName ?? passData.GetType().Name;
+            var managedPassDataPointer = TryGetIl2CppObjectPointer(passData);
+            var members = CollectRenderGraphPassDataSnapshotMembers(summary.Name, dataType, passData);
+            var hasTuple = TryBuildNativeRenderFuncResourceTuple(members, out var tuple);
+
+            var sampleCount = Volatile.Read(ref NativeRenderFuncArgumentSampleCount);
+            var entryCount = Volatile.Read(ref NativeRenderFuncEntryCallCount);
+            var lastPassDataPtr = Volatile.Read(ref NativeRenderFuncArgumentLastPassDataPtr);
+            var lastContextPtr = Volatile.Read(ref NativeRenderFuncArgumentLastContextPtr);
+            var lastMethodInfoPtr = Volatile.Read(ref NativeRenderFuncArgumentLastMethodInfoPtr);
+
+            bool installed;
+            IntPtr candidatePointer;
+            string? passName;
+            lock (Sync)
+            {
+                installed = NativeRenderFuncEntryInstalled;
+                candidatePointer = NativeRenderFuncEntryCandidatePointer;
+                passName = NativeRenderFuncEntryCandidatePassName;
+            }
+
+            var passDataMatches = managedPassDataPointer != IntPtr.Zero
+                && lastPassDataPtr != 0
+                && managedPassDataPointer.ToInt64() == lastPassDataPtr;
+            var tupleReady = sampleCount > 0 && passDataMatches && hasTuple;
+            var shouldLogAdvanced = false;
+            if (tupleReady)
+            {
+                lock (Sync)
+                {
+                    if (!NativeRenderFuncResourceTupleAdvancedLogged)
+                    {
+                        NativeRenderFuncResourceTupleAdvancedLogged = true;
+                        shouldLogAdvanced = true;
+                    }
+                }
+            }
+
+            var tupleSummary = hasTuple
+                ? FormatNativeRenderFuncResourceTuple(tuple)
+                : "missing";
+            if (!skipStatusLog)
+            {
+                log.LogInfo($"Native render-func resource tuple status #{statusLogCount}: compile={compileCount}; ordinal={summary.Ordinal}; installed={installed}; entryCount={entryCount}; sampleCount={sampleCount}; managedPassData=0x{managedPassDataPointer.ToInt64():X}; nativeLastPassData=0x{lastPassDataPtr:X}; passDataMatches={passDataMatches}; tupleReady={tupleReady}; nativeLastContext=0x{lastContextPtr:X}; nativeLastMethodInfo=0x{lastMethodInfoPtr:X}; candidatePointer=0x{candidatePointer.ToInt64():X}; candidatePass=\"{passName ?? "unknown"}\"; pass=\"{summary.Name}\"; category={summary.Category}; passType={summary.TypeName}; dataType={dataType}; tuple={tupleSummary}");
+            }
+
+            if (shouldLogAdvanced)
+            {
+                log.LogInfo($"Native render-func resource tuple advanced: compile={compileCount}; sampleCount={sampleCount}; managedPassData=0x{managedPassDataPointer.ToInt64():X}; nativeLastPassData=0x{lastPassDataPtr:X}; passDataMatches={passDataMatches}; tupleReady={tupleReady}; pass=\"{summary.Name}\"; tuple={tupleSummary}");
+            }
+        }
+    }
+
+    private static bool TryBuildNativeRenderFuncResourceTuple(
+        IReadOnlyList<RenderGraphPassDataSnapshotMember> members,
+        out NativeRenderFuncResourceTupleSummary tuple)
+    {
+        tuple = default;
+        var inputWidth = TryReadIntSnapshotMember(members, "inputWidth");
+        var inputHeight = TryReadIntSnapshotMember(members, "inputHeight");
+        var outputWidth = TryReadIntSnapshotMember(members, "outputWidth");
+        var outputHeight = TryReadIntSnapshotMember(members, "outputHeight");
+        var source = TryReadTextureSnapshotMember(members, "source");
+        var destination = TryReadTextureSnapshotMember(members, "destination");
+        if (!inputWidth.HasValue
+            || !inputHeight.HasValue
+            || !outputWidth.HasValue
+            || !outputHeight.HasValue
+            || string.IsNullOrWhiteSpace(source)
+            || string.IsNullOrWhiteSpace(destination))
+        {
+            return false;
+        }
+
+        tuple = new NativeRenderFuncResourceTupleSummary(
+            inputWidth.Value,
+            inputHeight.Value,
+            outputWidth.Value,
+            outputHeight.Value,
+            source,
+            destination);
+        return true;
+    }
+
+    private static int? TryReadIntSnapshotMember(
+        IEnumerable<RenderGraphPassDataSnapshotMember> members,
+        string label)
+    {
+        foreach (var member in members)
+        {
+            if (!string.Equals(member.Label, label, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var summary = member.Summary;
+            var separator = summary.LastIndexOf('=');
+            var valueText = separator >= 0 ? summary[(separator + 1)..] : summary;
+            if (int.TryParse(valueText.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? TryReadTextureSnapshotMember(
+        IEnumerable<RenderGraphPassDataSnapshotMember> members,
+        string label)
+    {
+        foreach (var member in members)
+        {
+            if (string.Equals(member.Label, label, StringComparison.Ordinal)
+                && (string.Equals(member.Kind, "texture", StringComparison.Ordinal)
+                    || string.Equals(member.Kind, "texture-resource", StringComparison.Ordinal)))
+            {
+                return member.Summary;
+            }
+        }
+
+        return null;
+    }
+
+    private static string FormatNativeRenderFuncResourceTuple(NativeRenderFuncResourceTupleSummary tuple)
+    {
+        return $"input={tuple.InputWidth}x{tuple.InputHeight}; output={tuple.OutputWidth}x{tuple.OutputHeight}; source=\"{tuple.Source}\"; destination=\"{tuple.Destination}\"";
     }
 
     private static void TryLogRenderGraphPassRenderFuncMetadata(
@@ -7864,6 +8054,14 @@ internal static class FrameResourceProbe
     private readonly record struct RenderGraphPassResourceDeclaration(string Label, string Kind, string Summary);
 
     private readonly record struct RenderGraphPassDataSnapshotMember(string Label, string Kind, string Summary);
+
+    private readonly record struct NativeRenderFuncResourceTupleSummary(
+        int InputWidth,
+        int InputHeight,
+        int OutputWidth,
+        int OutputHeight,
+        string Source,
+        string Destination);
 
     private readonly record struct RenderGraphRegistryCandidate(string Label, object Instance);
 
