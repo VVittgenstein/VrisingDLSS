@@ -106,6 +106,7 @@ public sealed class Plugin : BasePlugin
             || _config.EnableNativeRenderFuncResourceTupleProbe.Value
             || _config.EnableNativeRenderFuncResourceResolveProbe.Value
             || _config.EnableNativeRenderFuncResourceNativePointerProbe.Value
+            || _config.EnableNativeRenderFuncResourceD3D11Probe.Value
             || _config.EnableDlss.Value
             || _config.EnableDlssUserRenderingNoEvaluateProbe.Value
             || _config.EnableDlssCachedTupleDriverProbe.Value)
@@ -265,6 +266,7 @@ public sealed class Plugin : BasePlugin
             _config?.EnableNativeRenderFuncResourceTupleProbe.Value ?? false,
             _config?.EnableNativeRenderFuncResourceResolveProbe.Value ?? false,
             _config?.EnableNativeRenderFuncResourceNativePointerProbe.Value ?? false,
+            _config?.EnableNativeRenderFuncResourceD3D11Probe.Value ?? false,
             _config?.EnableRenderGraphGetTextureProbe.Value ?? true,
             _config?.EnableDlssPassResourceProbe.Value ?? false);
     }

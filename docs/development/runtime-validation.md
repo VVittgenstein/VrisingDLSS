@@ -1141,4 +1141,16 @@ Current helper smoke status:
   baseline. The next rendering step is to isolate the `dlss-user-rendering` hot
   RenderGraph discovery hook from native evaluate/writeback, or move evaluation into a
   real render/upscale pass boundary.
+- The protected gameplay proof
+  `native-renderfunc-resource-d3d11-render-scale-gameplay-1080p-20260607-r1`
+  moved the boundary search closer to official HDRP DLSS execution. With V Rising
+  `FsrQualityMode=Off`, true `1920x1080` Windowed, and mod-owned render scale, the
+  focused EASU source/destination native pointers validated as same-device D3D11
+  textures: `source=960x540`, `destination=1920x1080`, `fmt=26`, and
+  `scale=(2.000x,2.000x)`. The run kept broad `RenderGraph.GetTexture`,
+  command-buffer access, NGX, and DLSS evaluate disabled; cleanup restored loader
+  config/native/ClientSettings and the protected save with `ChangeCount=0`. The next
+  rendering step should be source/decompilation-guided command-buffer boundary
+  validation near `DoDLSSPass -> DLSSPass.GetCameraResources ->
+  DLSSPass.Render(..., ctx.cmd)`, not another broad resource-discovery hook.
 - Current route decision: DLSS itself does not depend on FSR. The final MVP validation must keep V Rising `FsrQualityMode=Off` for baseline and candidate, while the mod controls render scale/upscale through HDRP dynamic-resolution/DLSS-path integration. The next gate is no longer tuple existence; it is visual correctness, performance, resize/reset, fallback behavior, and release-boundary validation.

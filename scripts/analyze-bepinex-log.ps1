@@ -261,6 +261,12 @@ $results.Add((New-StageResult `
     -StartedPatterns @("Native render-func resource native-pointer preflight enabled", "Native render-func resource native-pointer target armed:", "Native render-func resource native-pointer status #", "Native render-func entry detour installed:")))
 
 $results.Add((New-StageResult `
+    -Stage "Native RenderFunc Resource D3D11" `
+    -PassPatterns @("Native render-func resource D3D11 pair advanced:") `
+    -FailPatterns @("Native render-func resource D3D11 pair failed:", "D3D11 texture pair probe rejected:", "Native render-func entry probe failed:", "Native render-func entry detour dispose failed:", "RenderGraph pass-list logging failed") `
+    -StartedPatterns @("Native render-func resource D3D11 preflight enabled", "Native render-func resource native-pointer target armed:", "Native render-func resource native-pointer status #", "Native render-func entry detour installed:")))
+
+$results.Add((New-StageResult `
     -Stage "HDRP Custom PostProcess Registration" `
     -PassPatterns @("Custom post-process registration probe installed:") `
     -FailPatterns @("Custom post-process registration probe failed:", "Custom post-process registration probe uninstall failed:") `

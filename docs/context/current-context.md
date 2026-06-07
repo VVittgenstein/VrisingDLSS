@@ -1160,3 +1160,36 @@ As of the read-only RenderGraph pass-map runtime result:
   derived notes. The conservative next guard is focused D3D11/device/dimension
   validation for the proven EASU native pointers before any command-buffer or
   DLSS evaluate experiment.
+- Follow-up stage `native-renderfunc-resource-d3d11-render-scale` is
+  implemented and protected-gameplay validated; see
+  `docs/development/native-renderfunc-resource-d3d11-render-scale-gameplay-result-2026-06-07.md`.
+  The stage reuses the proven EASU native-pointer target and validates only the
+  focused source/destination D3D11 texture pair/device/dimensions while keeping
+  broad `RenderGraph.GetTexture`, command-buffer access, NGX, DLSS runtime, and
+  DLSS evaluate disabled. With V Rising `FsrQualityMode=Off`, true
+  `1920x1080` Windowed, and the protected `11111` fixture, analyzer reported
+  `Native RenderFunc Resource D3D11=Pass`, `Native RenderFunc Resource Native
+  Pointer=Pass`, `Native RenderFunc Resource Tuple=Pass`, `Stage 2C
+  Render-Scale Control Probe=Pass`, and `Native bridge API version: 13`.
+  The single D3D11 advanced line showed source handle `76` native pointer
+  `0x1A4A4B2DD20`, Unity texture `Apply Exposure
+  Destination_960x540_B10G11R11_UFloatPack32_Tex2DArray_dynamic`, destination
+  handle `77` native pointer `0x1A4A4B30660`, Unity texture `Edge Adaptive
+  Spatial Upsampling_1920x1080_B10G11R11_UFloatPack32_Tex2DArray`,
+  `tuple=input=960x540; output=1920x1080`, and native status `sameDevice=yes;
+  source=960x540 fmt=26 mips=1 array=1; destination=1920x1080 fmt=26 mips=1
+  array=1; scale=(2.000x,2.000x)`. Counts: D3D11 advanced `1`, D3D11 failures
+  `0`, native-pointer advanced `1`, low-to-full tuple `268`, same-size tuple
+  `0`, gameplay camera `actualWidth=960,actualHeight=540` `486`,
+  `GetCurrentScale=0.5` `31`, `GetResolvedScale=(0.50, 0.50)` `31`, broad
+  `RenderGraph GetTexture call #` `0`, `ExecuteDLSS` `0`, `NGX` / `nvngx` `0`,
+  DLSS evaluate success patterns `0`, `CrashEventCount=0`. Cleanup restored
+  loader config, ClientSettings, release-safe native state, left no V Rising
+  process, and restored the protected save with `ChangeCount=0`. This proves
+  same-device D3D11 resource compatibility for the official-boundary-adjacent
+  EASU source/output pair, but still does not prove command-buffer timing,
+  NGX feature lifecycle, resize/reset handling, visual correctness, or
+  performance. The next guard should move source/decompilation-guided toward an
+  equivalent of `DoDLSSPass -> DLSSPass.GetCameraResources ->
+  DLSSPass.Render(..., ctx.cmd)`, with command-buffer access tested separately
+  before any real DLSS evaluate.

@@ -17,6 +17,8 @@ internal sealed class NativeBridge
     private GetStringPointerDelegate? _getRenderEventStatus;
     private ProbePointerDelegate? _probeD3D11Texture;
     private GetStringPointerDelegate? _getD3D11ProbeStatus;
+    private ProbePointerPairDelegate? _probeD3D11TexturePair;
+    private GetStringPointerDelegate? _getD3D11TexturePairProbeStatus;
     private ProbeWideStringDelegate? _probeDlssRuntime;
     private GetStringPointerDelegate? _getDlssRuntimeProbeStatus;
     private ProbeDlssInitQueryDelegate? _probeDlssInitQuery;
@@ -65,6 +67,8 @@ internal sealed class NativeBridge
         _getRenderEventStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetRenderEventStatus");
         _probeD3D11Texture = GetOptionalExport<ProbePointerDelegate>("VrisingDlss_ProbeD3D11Texture");
         _getD3D11ProbeStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetD3D11ProbeStatus");
+        _probeD3D11TexturePair = GetOptionalExport<ProbePointerPairDelegate>("VrisingDlss_ProbeD3D11TexturePair");
+        _getD3D11TexturePairProbeStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetD3D11TexturePairProbeStatus");
         _probeDlssRuntime = GetOptionalExport<ProbeWideStringDelegate>("VrisingDlss_ProbeDlssRuntime");
         _getDlssRuntimeProbeStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetDlssRuntimeProbeStatus");
         _probeDlssInitQuery = GetOptionalExport<ProbeDlssInitQueryDelegate>("VrisingDlss_ProbeDlssInitQuery");
@@ -107,6 +111,11 @@ internal sealed class NativeBridge
     internal bool ProbeD3D11Texture(IntPtr nativeTexturePtr) => _probeD3D11Texture?.Invoke(nativeTexturePtr) == 1;
 
     internal string GetD3D11ProbeStatus() => PtrToString(_getD3D11ProbeStatus?.Invoke() ?? IntPtr.Zero);
+
+    internal bool ProbeD3D11TexturePair(IntPtr sourceTexturePtr, IntPtr destinationTexturePtr) =>
+        _probeD3D11TexturePair?.Invoke(sourceTexturePtr, destinationTexturePtr) == 1;
+
+    internal string GetD3D11TexturePairProbeStatus() => PtrToString(_getD3D11TexturePairProbeStatus?.Invoke() ?? IntPtr.Zero);
 
     internal bool ProbeDlssRuntime(string runtimePath) => _probeDlssRuntime?.Invoke(runtimePath) == 1;
 
@@ -330,6 +339,9 @@ internal sealed class NativeBridge
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate int ProbePointerDelegate(IntPtr pointer);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate int ProbePointerPairDelegate(IntPtr firstPointer, IntPtr secondPointer);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
     private delegate int ProbeWideStringDelegate([MarshalAs(UnmanagedType.LPWStr)] string value);

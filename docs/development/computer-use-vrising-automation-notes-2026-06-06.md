@@ -664,3 +664,32 @@ Result:
 - Cleanup closed the game, restored ClientSettings/config/native state,
   archived the changed post-run save state, and restored the `11111` save with
   `ChangeCount=0`.
+
+## Native RenderFunc Resource D3D11 + Render Scale Gameplay Notes
+
+Run label:
+`native-renderfunc-resource-d3d11-render-scale-gameplay-1080p-20260607-r1`.
+
+Result:
+
+- Computer Use selected the real `VRising` Unity window, not the BepInEx
+  console.
+- A transient Node REPL top-level binding name conflict happened while listing
+  apps; it was recovered with block-local variables and did not require a reset.
+- The main-menu screenshot was `1283x751`; the Chinese Continue entry was
+  clicked once at `(199,352)`.
+- The click went straight to the loading screen; no save-list interaction was
+  needed.
+- After about `60` seconds, Computer Use observed gameplay with HUD, quest
+  text, character, minimap, health bar, and action bar visible.
+- No keyboard, movement, or gameplay keys were sent.
+- Player log confirmed local `11111` entry and `TopDownCamera`
+  created/assigned.
+- A passive window capture helper produced the valid gameplay screenshot:
+  `artifacts/gameplay-automation/CaptureGameplay-native-renderfunc-resource-d3d11-render-scale-gameplay-1080p-20260607-r1.png`.
+- Runtime proof passed: the focused EASU source/destination pair validated as
+  same-device D3D11 textures with `source=960x540`,
+  `destination=1920x1080`, and `scale=(2.000x,2.000x)`.
+- Cleanup closed the game, restored ClientSettings/config/native state,
+  archived the changed post-run save state, and restored the `11111` save with
+  `ChangeCount=0`.

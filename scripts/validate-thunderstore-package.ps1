@@ -315,6 +315,7 @@ try {
             "EnableNativeRenderFuncResourceTupleProbe = false",
             "EnableNativeRenderFuncResourceResolveProbe = false",
             "EnableNativeRenderFuncResourceNativePointerProbe = false",
+            "EnableNativeRenderFuncResourceD3D11Probe = false",
             "EnableCustomPostProcessRegistrationProbe = false",
             "EnableCustomPostProcessRenderEntryProbe = false",
             "EnableHdrpPostProcessBoundaryProbe = false",

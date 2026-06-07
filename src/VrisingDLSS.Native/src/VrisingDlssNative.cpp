@@ -27,6 +27,7 @@ namespace
     std::atomic<int> g_lastRenderEventId{-1};
     std::mutex g_probeStatusMutex;
     char g_d3d11ProbeStatus[512] = "D3D11 texture probe has not run";
+    char g_d3d11TexturePairProbeStatus[1024] = "D3D11 texture pair probe has not run";
     char g_dlssRuntimeProbeStatus[1536] = "DLSS runtime probe has not run";
     char g_dlssInitQueryStatus[1024] = "DLSS init/query probe has not run";
     char g_dlssOptimalSettingsStatus[1536] = "DLSS optimal-settings probe has not run";
@@ -63,6 +64,12 @@ namespace
     {
         std::lock_guard<std::mutex> lock(g_probeStatusMutex);
         std::snprintf(g_d3d11ProbeStatus, sizeof(g_d3d11ProbeStatus), "%s", message);
+    }
+
+    void SetD3D11TexturePairProbeStatus(const char* message)
+    {
+        std::lock_guard<std::mutex> lock(g_probeStatusMutex);
+        std::snprintf(g_d3d11TexturePairProbeStatus, sizeof(g_d3d11TexturePairProbeStatus), "%s", message);
     }
 
     void SetDlssRuntimeProbeStatus(const char* message)
@@ -1855,7 +1862,7 @@ extern "C"
 {
     int __cdecl VrisingDlss_GetBridgeApiVersion()
     {
-        return 12;
+        return 13;
     }
 
     const char* __cdecl VrisingDlss_GetBridgeVersion()
@@ -1976,6 +1983,80 @@ extern "C"
     {
         std::lock_guard<std::mutex> lock(g_probeStatusMutex);
         return g_d3d11ProbeStatus;
+    }
+
+    int __cdecl VrisingDlss_ProbeD3D11TexturePair(void* sourceTexturePtr, void* destinationTexturePtr)
+    {
+        EvaluateTextureInfo source{};
+        EvaluateTextureInfo destination{};
+        char error[384] = {};
+
+        if (!TryDescribeEvaluateTexture("source", sourceTexturePtr, &source, error, sizeof(error))
+            || !TryDescribeEvaluateTexture("destination", destinationTexturePtr, &destination, error, sizeof(error)))
+        {
+            char message[512];
+            std::snprintf(message, sizeof(message), "D3D11 texture pair probe rejected: %s", error);
+            SetD3D11TexturePairProbeStatus(message);
+            ReleaseEvaluateTextureInfo(&source);
+            ReleaseEvaluateTextureInfo(&destination);
+            return 0;
+        }
+
+        if (source.device != destination.device)
+        {
+            SetD3D11TexturePairProbeStatus("D3D11 texture pair probe rejected: source and destination were not on the same D3D11 device");
+            ReleaseEvaluateTextureInfo(&source);
+            ReleaseEvaluateTextureInfo(&destination);
+            return 0;
+        }
+
+        if (!(destination.width > source.width && destination.height > source.height))
+        {
+            char message[512];
+            std::snprintf(
+                message,
+                sizeof(message),
+                "D3D11 texture pair probe rejected: destination was not larger than source; source=%ux%u destination=%ux%u",
+                source.width,
+                source.height,
+                destination.width,
+                destination.height);
+            SetD3D11TexturePairProbeStatus(message);
+            ReleaseEvaluateTextureInfo(&source);
+            ReleaseEvaluateTextureInfo(&destination);
+            return 0;
+        }
+
+        const double widthScale = static_cast<double>(destination.width) / static_cast<double>(source.width);
+        const double heightScale = static_cast<double>(destination.height) / static_cast<double>(source.height);
+        char message[1024];
+        std::snprintf(
+            message,
+            sizeof(message),
+            "D3D11 texture pair probe succeeded; sameDevice=yes; source=%ux%u fmt=%u mips=%u array=%u; destination=%ux%u fmt=%u mips=%u array=%u; scale=(%.3fx,%.3fx)",
+            source.width,
+            source.height,
+            static_cast<unsigned int>(source.format),
+            source.mipLevels,
+            source.arraySize,
+            destination.width,
+            destination.height,
+            static_cast<unsigned int>(destination.format),
+            destination.mipLevels,
+            destination.arraySize,
+            widthScale,
+            heightScale);
+        SetD3D11TexturePairProbeStatus(message);
+
+        ReleaseEvaluateTextureInfo(&source);
+        ReleaseEvaluateTextureInfo(&destination);
+        return 1;
+    }
+
+    const char* __cdecl VrisingDlss_GetD3D11TexturePairProbeStatus()
+    {
+        std::lock_guard<std::mutex> lock(g_probeStatusMutex);
+        return g_d3d11TexturePairProbeStatus;
     }
 
     int __cdecl VrisingDlss_ProbeDlssRuntime(const wchar_t* runtimePath)

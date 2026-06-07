@@ -98,8 +98,11 @@ function Get-ConfiguredStage {
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassRenderFuncMetadataProbe") { return "rendergraph-renderfunc-metadata" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphCompiledPassInfoProbe") { return "rendergraph-compiled-pass-info" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphExecuteDelegateProbe") { return "rendergraph-execute-delegate" }
+    if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncResourceD3D11Probe") -and
+        (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "native-renderfunc-resource-d3d11-render-scale" }
     if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncResourceNativePointerProbe") -and
         (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "native-renderfunc-resource-native-pointer-render-scale" }
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncResourceD3D11Probe") { return "native-renderfunc-resource-d3d11" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncResourceNativePointerProbe") { return "native-renderfunc-resource-native-pointer" }
     if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncResourceResolveProbe") -and
         (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "native-renderfunc-resource-resolve-render-scale" }
@@ -282,6 +285,7 @@ function Get-NextRecommendation {
     $superResolutionFrameSequence = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 9A"
     $visibleWriteback = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 10A"
     $userRendering = Get-FirstStageStatus -Results $LogResults -StagePrefix "DLSS User Rendering Candidate"
+    $nativeRenderFuncResourceD3D11 = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Resource D3D11"
     $nativeRenderFuncResourceNativePointer = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Resource Native Pointer"
     $nativeRenderFuncResourceResolve = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Resource Resolve"
     $nativeRenderFuncResourceTuple = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Resource Tuple"
@@ -326,12 +330,23 @@ function Get-NextRecommendation {
         return "The latest dlss-user-rendering gameplay log did not accept an FSR Off Super Resolution tuple: the main candidate stayed color=1920x1080 output=1920x1080. Before rerunning the same runtime proof, use the targeted render-scale diagnostic to check for `Render-scale control member write did not stick`, `RTHandles.SetHardwareDynamicResolutionState=true`, and whether the gameplay camera/main targets remain full-size."
     }
 
+    if ($nativeRenderFuncResourceD3D11 -eq "Pass" -and $renderScaleControl -eq "Pass") {
+        $nativeRenderFuncResourceD3D11RenderScaleGameplayDoc = Get-ChildItem -LiteralPath (Join-Path $Root "docs\development") -Filter "native-renderfunc-resource-d3d11-render-scale-gameplay-result-*.md" -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+        if ($nativeRenderFuncResourceD3D11RenderScaleGameplayDoc) {
+            return "Native EASU source/destination D3D11 pair validation and render-scale control have a combined protected gameplay proof. Next source-guided guard can investigate command-buffer/RenderGraphContext timing at the EASU render func boundary, but still do not combine DLSS evaluate in the same step. Latest proof: $($nativeRenderFuncResourceD3D11RenderScaleGameplayDoc.FullName)"
+        }
+
+        return "Native EASU D3D11 pair validation and render-scale control both have runtime evidence, but not yet in the same protected gameplay proof. Next step is a 1920x1080 Windowed protected 11111 run using scripts\start-vrising-automation-session.ps1 -Stage native-renderfunc-resource-d3d11-render-scale; expected evidence is a sameDevice=yes D3D11 texture pair with source=960x540 and destination=1920x1080 while command-buffer/DLSS/evaluate stay zero."
+    }
+
     if ($nativeRenderFuncResourceNativePointer -eq "Pass" -and $renderScaleControl -eq "Pass") {
         $nativeRenderFuncResourceNativePointerRenderScaleGameplayDoc = Get-ChildItem -LiteralPath (Join-Path $Root "docs\development") -Filter "native-renderfunc-resource-native-pointer-render-scale-gameplay-result-*.md" -File -ErrorAction SilentlyContinue |
             Sort-Object LastWriteTime -Descending |
             Select-Object -First 1
         if ($nativeRenderFuncResourceNativePointerRenderScaleGameplayDoc) {
-            return "Native EASU source/destination native pointers and render-scale control have a combined protected gameplay proof. Next work should be source/decompilation-guided: inspect local IL2CPP/HDRP code around HDRenderPipeline.EASUData, the EASU render func, DoDLSSPasses, DoDLSSPass, and DLSSPass.Render/ExecuteDLSS before adding a separate D3D11/device/dimension or command-buffer guard. Still do not combine DLSS evaluate in the same step. Latest proof: $($nativeRenderFuncResourceNativePointerRenderScaleGameplayDoc.FullName)"
+            return "Native EASU source/destination native pointers and render-scale control have a combined protected gameplay proof, and source/decompilation kickoff is recorded. Next separate guard is a 1920x1080 Windowed protected 11111 run using scripts\start-vrising-automation-session.ps1 -Stage native-renderfunc-resource-d3d11-render-scale to validate same-device D3D11 pair properties and dimensions; still do not combine command-buffer access or DLSS evaluate in the same step. Latest proof: $($nativeRenderFuncResourceNativePointerRenderScaleGameplayDoc.FullName)"
         }
 
         return "Native EASU native-pointer observation and render-scale control both have runtime evidence, but not yet in the same protected gameplay proof. Next step is a 1920x1080 Windowed protected 11111 run using scripts\start-vrising-automation-session.ps1 -Stage native-renderfunc-resource-native-pointer-render-scale; expected evidence is EASU tuple=input=960x540 output=1920x1080 plus non-zero source/destination nativePtr values while D3D11/DLSS/evaluate stay zero."

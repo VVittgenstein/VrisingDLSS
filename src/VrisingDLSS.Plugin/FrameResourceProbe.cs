@@ -165,6 +165,7 @@ internal static class FrameResourceProbe
     private static bool NativeRenderFuncResourceTupleProbeEnabled;
     private static bool NativeRenderFuncResourceResolveProbeEnabled;
     private static bool NativeRenderFuncResourceNativePointerProbeEnabled;
+    private static bool NativeRenderFuncResourceD3D11ProbeEnabled;
     private static bool NativeRenderFuncEntryInstallAttempted;
     private static bool NativeRenderFuncEntryInstalled;
     private static bool NativeRenderFuncEntryCountAdvancedLogged;
@@ -173,6 +174,7 @@ internal static class FrameResourceProbe
     private static bool NativeRenderFuncResourceTupleAdvancedLogged;
     private static bool NativeRenderFuncResourceResolveAdvancedLogged;
     private static bool NativeRenderFuncResourceNativePointerAdvancedLogged;
+    private static bool NativeRenderFuncResourceD3D11AdvancedLogged;
     private static bool RenderGraphGetTextureProbeEnabled;
     private static bool DlssPassResourceProbeEnabled;
     private static bool RenderGraphGetTextureDiagnosticLoggingEnabled;
@@ -253,10 +255,12 @@ internal static class FrameResourceProbe
         bool enableNativeRenderFuncResourceTupleProbe = false,
         bool enableNativeRenderFuncResourceResolveProbe = false,
         bool enableNativeRenderFuncResourceNativePointerProbe = false,
+        bool enableNativeRenderFuncResourceD3D11Probe = false,
         bool enableRenderGraphGetTextureProbe = true,
         bool enableDlssPassResourceProbe = false)
     {
-        var nativeRenderFuncResourceTupleRequested = enableNativeRenderFuncResourceTupleProbe || enableNativeRenderFuncResourceResolveProbe || enableNativeRenderFuncResourceNativePointerProbe;
+        var nativeRenderFuncResourceNativePointerRequested = enableNativeRenderFuncResourceNativePointerProbe || enableNativeRenderFuncResourceD3D11Probe;
+        var nativeRenderFuncResourceTupleRequested = enableNativeRenderFuncResourceTupleProbe || enableNativeRenderFuncResourceResolveProbe || nativeRenderFuncResourceNativePointerRequested;
         var nativeRenderFuncResourceIdentityRequested = enableNativeRenderFuncResourceIdentityProbe || nativeRenderFuncResourceTupleRequested;
         var nativeRenderFuncArgumentRequested = enableNativeRenderFuncArgumentProbe || nativeRenderFuncResourceIdentityRequested;
         var nativeRenderFuncEntryRequested = enableNativeRenderFuncEntryProbe || nativeRenderFuncArgumentRequested;
@@ -296,7 +300,8 @@ internal static class FrameResourceProbe
             NativeRenderFuncResourceIdentityProbeEnabled = NativeRenderFuncResourceIdentityProbeEnabled || nativeRenderFuncResourceIdentityRequested;
             NativeRenderFuncResourceTupleProbeEnabled = NativeRenderFuncResourceTupleProbeEnabled || nativeRenderFuncResourceTupleRequested;
             NativeRenderFuncResourceResolveProbeEnabled = NativeRenderFuncResourceResolveProbeEnabled || enableNativeRenderFuncResourceResolveProbe;
-            NativeRenderFuncResourceNativePointerProbeEnabled = NativeRenderFuncResourceNativePointerProbeEnabled || enableNativeRenderFuncResourceNativePointerProbe;
+            NativeRenderFuncResourceNativePointerProbeEnabled = NativeRenderFuncResourceNativePointerProbeEnabled || nativeRenderFuncResourceNativePointerRequested;
+            NativeRenderFuncResourceD3D11ProbeEnabled = NativeRenderFuncResourceD3D11ProbeEnabled || enableNativeRenderFuncResourceD3D11Probe;
             RenderGraphGetTextureProbeEnabled = RenderGraphGetTextureProbeEnabled || enableRenderGraphGetTextureProbe;
             DlssPassResourceProbeEnabled = DlssPassResourceProbeEnabled || enableDlssPassResourceProbe;
             RenderGraphGetTextureDiagnosticLoggingEnabled = RenderGraphGetTextureDiagnosticLoggingEnabled || ShouldEnableRenderGraphGetTextureDiagnosticLogging(
@@ -344,7 +349,8 @@ internal static class FrameResourceProbe
         NativeRenderFuncResourceIdentityProbeEnabled = nativeRenderFuncResourceIdentityRequested;
         NativeRenderFuncResourceTupleProbeEnabled = nativeRenderFuncResourceTupleRequested;
         NativeRenderFuncResourceResolveProbeEnabled = enableNativeRenderFuncResourceResolveProbe;
-        NativeRenderFuncResourceNativePointerProbeEnabled = enableNativeRenderFuncResourceNativePointerProbe;
+        NativeRenderFuncResourceNativePointerProbeEnabled = nativeRenderFuncResourceNativePointerRequested;
+        NativeRenderFuncResourceD3D11ProbeEnabled = enableNativeRenderFuncResourceD3D11Probe;
         RenderGraphGetTextureProbeEnabled = enableRenderGraphGetTextureProbe;
         DlssPassResourceProbeEnabled = enableDlssPassResourceProbe;
         RenderGraphGetTextureDiagnosticLoggingEnabled = ShouldEnableRenderGraphGetTextureDiagnosticLogging(
@@ -488,6 +494,10 @@ internal static class FrameResourceProbe
         if (NativeRenderFuncResourceNativePointerProbeEnabled)
         {
             log.LogWarning("Native render-func resource native-pointer preflight enabled. It passively observes engine-owned GetTexture returns only for the proven EASU source/destination handles; it does not run D3D11 validation, touch command buffers, or evaluate DLSS.");
+        }
+        if (NativeRenderFuncResourceD3D11ProbeEnabled)
+        {
+            log.LogWarning("Native render-func resource D3D11 preflight enabled. It validates only the proven EASU source/destination native texture pair for D3D11 device/dimensions; no command-buffer access or DLSS evaluate.");
         }
         if (DlssPassResourceProbeEnabled)
         {
@@ -814,6 +824,7 @@ internal static class FrameResourceProbe
             NativeRenderFuncResourceTupleProbeEnabled = false;
             NativeRenderFuncResourceResolveProbeEnabled = false;
             NativeRenderFuncResourceNativePointerProbeEnabled = false;
+            NativeRenderFuncResourceD3D11ProbeEnabled = false;
             NativeRenderFuncEntryInstallAttempted = false;
             NativeRenderFuncEntryInstalled = false;
             NativeRenderFuncEntryCountAdvancedLogged = false;
@@ -822,6 +833,7 @@ internal static class FrameResourceProbe
             NativeRenderFuncResourceTupleAdvancedLogged = false;
             NativeRenderFuncResourceResolveAdvancedLogged = false;
             NativeRenderFuncResourceNativePointerAdvancedLogged = false;
+            NativeRenderFuncResourceD3D11AdvancedLogged = false;
             RenderGraphGetTextureProbeEnabled = false;
             DlssPassResourceProbeEnabled = false;
             RenderGraphGetTextureDiagnosticLoggingEnabled = false;
@@ -4574,6 +4586,7 @@ internal static class FrameResourceProbe
             TryGetUnityFrameCount(out var frameCount) ? frameCount : -1);
 
         bool shouldLogAdvanced = false;
+        bool shouldProbeD3D11Pair = false;
         NativeRenderFuncResourceNativePointerObservation? sourceObservation;
         NativeRenderFuncResourceNativePointerObservation? destinationObservation;
         lock (Sync)
@@ -4596,6 +4609,15 @@ internal static class FrameResourceProbe
                 NativeRenderFuncResourceNativePointerAdvancedLogged = true;
                 shouldLogAdvanced = true;
             }
+
+            if (sourceObservation.HasValue
+                && destinationObservation.HasValue
+                && NativeRenderFuncResourceD3D11ProbeEnabled
+                && !NativeRenderFuncResourceD3D11AdvancedLogged)
+            {
+                NativeRenderFuncResourceD3D11AdvancedLogged = true;
+                shouldProbeD3D11Pair = true;
+            }
         }
 
         if (shouldLog)
@@ -4607,11 +4629,49 @@ internal static class FrameResourceProbe
         {
             log.LogInfo($"Native render-func resource native-pointer advanced: source=({FormatNativeRenderFuncResourceNativePointerObservation(sourceObservation.Value)}); destination=({FormatNativeRenderFuncResourceNativePointerObservation(destinationObservation.Value)}); targetCompile={target.CompileCount}; targetManagedPassData=0x{target.ManagedPassDataPointer:X}; tuple={target.TupleSummary}");
         }
+
+        if (shouldProbeD3D11Pair && sourceObservation.HasValue && destinationObservation.HasValue)
+        {
+            TryLogNativeRenderFuncResourceD3D11Pair(log, sourceObservation.Value, destinationObservation.Value, target);
+        }
     }
 
     private static string FormatNativeRenderFuncResourceNativePointerObservation(NativeRenderFuncResourceNativePointerObservation observation)
     {
         return $"handle=\"{observation.ResourceHandle}\"; nativePtr=0x{observation.Pointer.ToInt64():X}; nativeOwner={observation.NativeOwnerSummary}; result={observation.ResultSummary}; frame={observation.FrameCount}";
+    }
+
+    private static void TryLogNativeRenderFuncResourceD3D11Pair(
+        ManualLogSource log,
+        NativeRenderFuncResourceNativePointerObservation sourceObservation,
+        NativeRenderFuncResourceNativePointerObservation destinationObservation,
+        NativeRenderFuncResourceNativePointerTarget target)
+    {
+        try
+        {
+            var bridge = Bridge;
+            if (bridge is null)
+            {
+                log.LogWarning("Native render-func resource D3D11 pair failed: native bridge was unavailable.");
+                return;
+            }
+
+            var success = bridge.ProbeD3D11TexturePair(sourceObservation.Pointer, destinationObservation.Pointer);
+            var status = bridge.GetD3D11TexturePairProbeStatus();
+            var message = $"Native render-func resource D3D11 pair {(success ? "advanced" : "failed")}: source=({FormatNativeRenderFuncResourceNativePointerObservation(sourceObservation)}); destination=({FormatNativeRenderFuncResourceNativePointerObservation(destinationObservation)}); targetCompile={target.CompileCount}; targetManagedPassData=0x{target.ManagedPassDataPointer:X}; tuple={target.TupleSummary}; {status}";
+            if (success)
+            {
+                log.LogInfo(message);
+            }
+            else
+            {
+                log.LogWarning(message);
+            }
+        }
+        catch (Exception ex)
+        {
+            log.LogWarning($"Native render-func resource D3D11 pair failed: {GetExceptionMessage(ex)}");
+        }
     }
 
     private static bool ShouldLogRenderGraphGetTexture(int count)

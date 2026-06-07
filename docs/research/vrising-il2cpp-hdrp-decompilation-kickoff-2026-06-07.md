@@ -114,11 +114,15 @@ This explains the runtime native-pointer proof: the EASU `source` and
   important: resource conversion happens inside the official render func, right
   before command-buffer submission.
 - The next guard should not combine DLSS evaluate. It should first use the
-  source-aligned EASU boundary to validate one of:
-  - focused source/destination D3D11 device/dimension properties, or
-  - whether the raw `RenderGraphContext` argument at
-    `_EdgeAdaptiveSpatialUpsampling_b__1066_0` can safely expose or be correlated
-    with `ctx.cmd`/command-buffer submission timing.
+  source-aligned EASU boundary to validate whether the raw
+  `RenderGraphContext` argument at `_EdgeAdaptiveSpatialUpsampling_b__1066_0`
+  can safely expose or be correlated with `ctx.cmd`/command-buffer submission
+  timing.
+- The focused source/destination D3D11 device/dimension guard has now passed in
+  protected gameplay; see
+  `docs/development/native-renderfunc-resource-d3d11-render-scale-gameplay-result-2026-06-07.md`.
+  The proven pair is `sameDevice=yes`, `source=960x540`,
+  `destination=1920x1080`, and `scale=(2.000x,2.000x)`.
 
 ## Next Questions
 
@@ -129,9 +133,10 @@ This explains the runtime native-pointer proof: the EASU `source` and
 2. If not, can a separate source-guided managed hook observe only EASU pass
    data and `ctx.cmd` at this exact generated render func without reproducing
    the earlier broad generated-render-func crash?
-3. Should the next runtime guard validate D3D11/device/dimension properties of
-   the already proven EASU native pointers first, before any command-buffer
-   experiment?
+3. What is the smallest reversible command-buffer preflight that proves timing
+   and handle validity without calling NGX or DLSS evaluate?
 
-Conservative answer for now: do the D3D11/device/dimension guard first, because
-it is a smaller step and does not require command-buffer access or NGX evaluate.
+Conservative answer for now: the D3D11/device/dimension guard is complete.
+The next separate guard should test command-buffer boundary access/correlation
+near the generated EASU or official DLSS render func, still without NGX
+initialization or DLSS evaluate.
