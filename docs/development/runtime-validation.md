@@ -1270,4 +1270,32 @@ Current helper smoke status:
   `960x540`; the next guard should correlate this boundary with the already
   proven EASU/native render-func `1920x1080` output boundary before any
   no-write evaluate or visible-output work.
+- Follow-up stage `hdrp-easu-input-output-correlation-render-scale` is
+  implemented as a default-off source-guided correlation preflight and
+  protected-gameplay validated; see
+  `docs/development/hdrp-easu-input-output-correlation-preflight-implementation-2026-06-07.md`.
+  It combines the gameplay-proven `DarkForeground.Render(...)` global
+  depth/motion snapshot with the focused EASU source/output native-pointer
+  observation under mod-owned render scale. The stage intentionally keeps D3D11
+  validation, command-buffer plugin events, NGX feature lifecycle, DLSS
+  evaluate, user rendering, and visible write-back disabled. Static validation
+  passed: all PowerShell scripts parsed, C# Release build succeeded with `0`
+  warnings/errors, and dry-run config showed only the intended toggles. Runtime
+  iteration `r1` correctly rejected stale EASU frame `4` versus HDRP frame
+  `5281`; `r2` exposed a false-positive hazard where stale EASU tuple handles
+  later resolved to `60x34` bloom/CoC resources, so pass criteria were tightened
+  to require actual EASU source/destination observation dimensions. Protected
+  gameplay proof `r3` passed at true `1920x1080` Windowed with V Rising
+  `FsrQualityMode=Off`: analyzer reported `HDRP/EASU Input Output
+  Correlation=Pass`, `HDRP PostProcess Render Args Global Textures=Pass`,
+  `Native RenderFunc Resource Native Pointer=Pass`, and `Stage 2C Render-Scale
+  Control Probe=Pass`. Key evidence preserved `hdrpFrame=3005`,
+  `easuSourceFrame=3005`, `easuDestinationFrame=3005`, frame deltas `0`, HDRP
+  color/depth/motion at `960x540`, EASU source `TAA Destination_960x540`, EASU
+  destination `Edge Adaptive Spatial Upsampling_1920x1080`, and tuple
+  `input=960x540; output=1920x1080`. Counts: correlation advanced `1`, broad
+  `RenderGraph.GetTexture` `0`, D3D11 pair advanced/failed `0`, command-buffer
+  event/payload advanced `0`, NGX `0`, `ExecuteDLSS` `0`, visible write-back
+  `0`, crash/access-violation `0`, and save restore `ChangeCount=0`. See
+  `docs/development/hdrp-easu-input-output-correlation-render-scale-gameplay-result-2026-06-07.md`.
 - Current route decision: DLSS itself does not depend on FSR. The final MVP validation must keep V Rising `FsrQualityMode=Off` for baseline and candidate, while the mod controls render scale/upscale through HDRP dynamic-resolution/DLSS-path integration. The next gate is no longer tuple existence; it is visual correctness, performance, resize/reset, fallback behavior, and release-boundary validation.

@@ -98,6 +98,9 @@ function Get-ConfiguredStage {
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassRenderFuncMetadataProbe") { return "rendergraph-renderfunc-metadata" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphCompiledPassInfoProbe") { return "rendergraph-compiled-pass-info" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphExecuteDelegateProbe") { return "rendergraph-execute-delegate" }
+    if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableHdrpPostProcessRenderArgsGlobalTextureProbe") -and
+        (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncResourceNativePointerProbe") -and
+        (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "hdrp-easu-input-output-correlation-render-scale" }
     if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferEventProbe") -and
         (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "native-renderfunc-commandbuffer-event-render-scale" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferEventProbe") { return "native-renderfunc-commandbuffer-event" }
@@ -306,6 +309,7 @@ function Get-NextRecommendation {
     $nativeRenderFuncContext = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Context"
     $nativeRenderFuncResourceD3D11 = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Resource D3D11"
     $nativeRenderFuncResourceNativePointer = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Resource Native Pointer"
+    $hdrpEasuInputOutputCorrelation = Get-FirstStageStatus -Results $LogResults -StagePrefix "HDRP/EASU Input Output Correlation"
     $nativeRenderFuncResourceResolve = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Resource Resolve"
     $nativeRenderFuncResourceTuple = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Resource Tuple"
     $nativeRenderFuncResourceIdentity = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Resource Identity"
@@ -348,6 +352,21 @@ function Get-NextRecommendation {
         }
 
         return "The latest dlss-user-rendering gameplay log did not accept an FSR Off Super Resolution tuple: the main candidate stayed color=1920x1080 output=1920x1080. Before rerunning the same runtime proof, use the targeted render-scale diagnostic to check for `Render-scale control member write did not stick`, `RTHandles.SetHardwareDynamicResolutionState=true`, and whether the gameplay camera/main targets remain full-size."
+    }
+
+    if ($hdrpEasuInputOutputCorrelation -eq "Pass" -and $renderScaleControl -eq "Pass") {
+        $hdrpEasuCorrelationGameplayDoc = Get-ChildItem -LiteralPath (Join-Path $Root "docs\development") -Filter "hdrp-easu-input-output-correlation-render-scale-gameplay-result-*.md" -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+        if ($hdrpEasuCorrelationGameplayDoc) {
+            return "HDRP DarkForeground low-resolution color/depth/motion input and focused EASU low-resolution source/full-size output native-pointer observations now have a combined protected gameplay correlation proof. Next separate guard can build a no-evaluate native payload descriptor that carries EASU color/output plus HDRP depth/motion pointers toward the proven ctx.cmd boundary; still do not combine D3D11 validation, NGX feature lifecycle, or DLSS evaluate in the same step. Latest proof: $($hdrpEasuCorrelationGameplayDoc.FullName)"
+        }
+
+        return "HDRP/EASU input-output correlation has runtime evidence. Next separate guard can build a no-evaluate native payload descriptor that carries EASU color/output plus HDRP depth/motion pointers toward the proven ctx.cmd boundary; still do not combine D3D11 validation, NGX feature lifecycle, or DLSS evaluate in the same step."
+    }
+
+    if ($hdrpEasuInputOutputCorrelation -eq "Partial") {
+        return "HDRP/EASU input-output correlation started but did not prove aligned low-resolution HDRP color/depth/motion plus full-size EASU output in the same run. Inspect `HDRP/EASU input-output correlation status #` lines, frame deltas, and whether DarkForeground depth/motion reached the EASU input dimensions before moving to a native payload descriptor."
     }
 
     if ($hdrpPostProcessRenderArgsGlobalTextures -eq "Pass" -and $renderScaleControl -eq "Pass") {

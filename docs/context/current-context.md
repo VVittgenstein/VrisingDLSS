@@ -1353,3 +1353,40 @@ As of the read-only RenderGraph pass-map runtime result:
   boundary, but output at that boundary remains `960x540`; the next guard should
   correlate this input side with the already proven EASU/native render-func
   `1920x1080` output side before no-write evaluate or visible-output work.
+- Follow-up stage `hdrp-easu-input-output-correlation-render-scale` is now
+  implemented and protected-gameplay validated; see
+  `docs/development/hdrp-easu-input-output-correlation-preflight-implementation-2026-06-07.md`.
+  It adds a shared correlation state between `HdrpPostProcessRenderArgsProbe`
+  and `FrameResourceProbe`. HDRP records the latest `DarkForeground.Render`
+  input snapshot only after global depth and motion native pointers are both
+  non-zero; EASU records the focused source/destination native-pointer
+  observation when both pointers are available. The pass line is
+  `HDRP/EASU input-output correlation advanced:` and requires HDRP camera/color
+  to match the EASU input dimensions, HDRP depth/motion to contain the same
+  input dimensions, the EASU tuple to upscale to a larger output, and HDRP/EASU
+  `Time.frameCount` deltas to stay within five frames. The stage enables
+  render-scale control plus focused EASU native-pointer observation, but keeps
+  D3D11 validation, command-buffer plugin events, NGX feature lifecycle, DLSS
+  evaluate, user rendering, and visible write-back disabled.
+- Runtime iteration `hdrp-easu-input-output-correlation-render-scale-gameplay-1080p-20260607-r1`
+  was Partial: stale EASU frame `4` could not correlate with first HDRP frame
+  `5281`. `r2` initially looked like a pass but manual evidence review caught a
+  false-positive: stale EASU tuple handles had later resolved to `CoC/Bloom`
+  `60x34` resources. The analyzer and code were tightened so pass requires
+  actual EASU source observation matching input dimensions and actual EASU
+  destination observation matching output dimensions, and the focused EASU
+  target may re-arm on later compiles while correlation is pending.
+- Protected gameplay proof `hdrp-easu-input-output-correlation-render-scale-gameplay-1080p-20260607-r3`
+  passed; see
+  `docs/development/hdrp-easu-input-output-correlation-render-scale-gameplay-result-2026-06-07.md`.
+  Key evidence: `hdrpFrame=3005`, `easuSourceFrame=3005`,
+  `easuDestinationFrame=3005`, frame deltas `0`, HDRP
+  `CameraColor_960x540`, `CameraDepthStencil_960x540`, `Motion Vectors_960x540`,
+  EASU source `TAA Destination_960x540`, EASU destination
+  `Edge Adaptive Spatial Upsampling_1920x1080`, tuple
+  `input=960x540; output=1920x1080`, D3D11 pair `0`, command-buffer event/payload
+  `0`, NGX `0`, `ExecuteDLSS` `0`, visible write-back `0`,
+  `CrashEventCount=0`, and save restore `ChangeCount=0`. Next guard: build a
+  no-evaluate native payload descriptor carrying EASU color/output plus HDRP
+  depth/motion pointers toward the already-proven EASU `ctx.cmd` boundary, still
+  without combining D3D11 validation, NGX lifecycle, or DLSS evaluate.

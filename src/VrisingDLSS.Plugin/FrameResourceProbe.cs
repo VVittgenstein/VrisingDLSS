@@ -932,6 +932,7 @@ internal static class FrameResourceProbe
             NativeRenderFuncResourceResolveProbeEnabled = false;
             NativeRenderFuncResourceNativePointerProbeEnabled = false;
             NativeRenderFuncResourceD3D11ProbeEnabled = false;
+            HdrpEasuInputOutputCorrelationProbeState.Reset();
             NativeRenderFuncEntryInstallAttempted = false;
             NativeRenderFuncEntryInstalled = false;
             NativeRenderFuncEntryCountAdvancedLogged = false;
@@ -3036,10 +3037,12 @@ internal static class FrameResourceProbe
                 lock (Sync)
                 {
                     var current = NativeRenderFuncResourceNativePointerArmedTarget;
+                    var allowCorrelationTargetRefresh = HdrpEasuInputOutputCorrelationProbeState.ShouldRefreshEasuOutput();
                     targetChanged = !current.HasValue
+                        || (allowCorrelationTargetRefresh && current.Value.CompileCount != target.CompileCount)
                         || !string.Equals(current.Value.SourceResourceHandle, target.SourceResourceHandle, StringComparison.Ordinal)
                         || !string.Equals(current.Value.DestinationResourceHandle, target.DestinationResourceHandle, StringComparison.Ordinal);
-                    if (targetChanged && !NativeRenderFuncResourceNativePointerAdvancedLogged)
+                    if (targetChanged && (!NativeRenderFuncResourceNativePointerAdvancedLogged || allowCorrelationTargetRefresh))
                     {
                         NativeRenderFuncResourceNativePointerArmedTarget = target;
                         NativeRenderFuncResourceNativePointerSourceObservation = null;
@@ -5269,7 +5272,8 @@ internal static class FrameResourceProbe
         NativeRenderFuncResourceNativePointerTarget target;
         lock (Sync)
         {
-            if (NativeRenderFuncResourceNativePointerAdvancedLogged || !NativeRenderFuncResourceNativePointerArmedTarget.HasValue)
+            if ((NativeRenderFuncResourceNativePointerAdvancedLogged && !HdrpEasuInputOutputCorrelationProbeState.ShouldRefreshEasuOutput())
+                || !NativeRenderFuncResourceNativePointerArmedTarget.HasValue)
             {
                 return;
             }
@@ -5390,6 +5394,20 @@ internal static class FrameResourceProbe
         if (shouldProbeD3D11Pair && sourceObservation.HasValue && destinationObservation.HasValue)
         {
             TryLogNativeRenderFuncResourceD3D11Pair(log, sourceObservation.Value, destinationObservation.Value, target);
+        }
+
+        if (sourceObservation.HasValue && destinationObservation.HasValue)
+        {
+            HdrpEasuInputOutputCorrelationProbeState.RecordEasuOutput(
+                log,
+                new HdrpEasuInputOutputCorrelationProbeState.EasuOutputSnapshot(
+                    sourceObservation.Value.FrameCount,
+                    destinationObservation.Value.FrameCount,
+                    target.CompileCount,
+                    $"0x{target.ManagedPassDataPointer:X}",
+                    target.TupleSummary,
+                    FormatNativeRenderFuncResourceNativePointerObservation(sourceObservation.Value),
+                    FormatNativeRenderFuncResourceNativePointerObservation(destinationObservation.Value)));
         }
 
         if (NativeRenderFuncCommandBufferPayloadProbeEnabled && sourceObservation.HasValue && destinationObservation.HasValue)

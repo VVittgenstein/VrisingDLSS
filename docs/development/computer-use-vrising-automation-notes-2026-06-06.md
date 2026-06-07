@@ -823,3 +823,34 @@ Result:
 - Cleanup closed the game, restored ClientSettings/config/native state,
   archived the changed post-run save state, and restored the `11111` save with
   `ChangeCount=0`.
+
+## HDRP/EASU Input Output Correlation + Render Scale Gameplay Notes
+
+Run labels:
+
+- `hdrp-easu-input-output-correlation-render-scale-gameplay-1080p-20260607-r1`
+- `hdrp-easu-input-output-correlation-render-scale-gameplay-1080p-20260607-r2`
+- `hdrp-easu-input-output-correlation-render-scale-gameplay-1080p-20260607-r3`
+
+Result:
+
+- Computer Use selected the real `VRising` Unity window, not the BepInEx
+  console.
+- The main-menu screenshot was `1283x751`; the Chinese Continue entry was
+  clicked at approximately `(205,354)`.
+- No keyboard, movement, or gameplay keys were sent in any run.
+- `r1` was Partial because EASU source/output native pointers were captured at
+  frame `4`, while the first HDRP `DarkForeground.Render(...)` snapshot arrived
+  at frame `5281`.
+- `r2` caught a false-positive hazard: stale EASU tuple handles later resolved
+  to `60x34` bloom/CoC resources, so the analyzer was tightened to require the
+  actual EASU source and destination observations to match input/output sizes.
+- `r3` passed. Evidence showed `hdrpFrame=3005`,
+  `easuSourceFrame=3005`, `easuDestinationFrame=3005`, frame deltas `0`, HDRP
+  color/depth/motion at `960x540`, EASU source `TAA Destination_960x540`, and
+  EASU destination `Edge Adaptive Spatial Upsampling_1920x1080`.
+- The proof did not run D3D11 pair validation, command-buffer plugin events,
+  NGX, DLSS evaluate, user rendering, or visible write-back.
+- Each run cleanup closed the game, restored ClientSettings/config/native state,
+  archived the changed post-run save state, and restored the `11111` save with
+  `ChangeCount=0`.

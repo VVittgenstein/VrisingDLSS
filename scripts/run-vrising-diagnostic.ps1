@@ -38,6 +38,7 @@ param(
         "native-renderfunc-resource-native-pointer",
         "native-renderfunc-resource-native-pointer-render-scale",
         "native-renderfunc-resource-d3d11-render-scale",
+        "hdrp-easu-input-output-correlation-render-scale",
         "native-renderfunc-context-render-scale",
         "native-renderfunc-commandbuffer-event-render-scale",
         "native-renderfunc-commandbuffer-payload-render-scale",

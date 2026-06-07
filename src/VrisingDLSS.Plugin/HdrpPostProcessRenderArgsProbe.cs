@@ -22,6 +22,8 @@ internal static class HdrpPostProcessRenderArgsProbe
     private static Type? HarmonyType;
     private static bool Installed;
     private static bool GlobalTextureSnapshotEnabled;
+    private static bool UnityTimeLookupAttempted;
+    private static PropertyInfo? UnityTimeFrameCountProperty;
 
     internal static void Install(ManualLogSource log, bool enableGlobalTextureSnapshot)
     {
@@ -33,6 +35,10 @@ internal static class HdrpPostProcessRenderArgsProbe
 
         Log = log;
         GlobalTextureSnapshotEnabled = enableGlobalTextureSnapshot;
+        if (enableGlobalTextureSnapshot)
+        {
+            HdrpEasuInputOutputCorrelationProbeState.Reset(active: true);
+        }
 
         var assemblies = AppDomain.CurrentDomain.GetAssemblies();
         var harmonyType = FindRuntimeType(assemblies, "HarmonyLib.Harmony");
@@ -147,6 +153,9 @@ internal static class HdrpPostProcessRenderArgsProbe
                 GlobalTextureAdvancedLogged = false;
             }
             GlobalTextureSnapshotEnabled = false;
+            UnityTimeLookupAttempted = false;
+            UnityTimeFrameCountProperty = null;
+            HdrpEasuInputOutputCorrelationProbeState.Reset();
         }
     }
 
@@ -167,7 +176,8 @@ internal static class HdrpPostProcessRenderArgsProbe
                 count = CallCount;
             }
 
-            if (!ShouldLogCall(count))
+            var shouldLogCall = ShouldLogCall(count);
+            if (!shouldLogCall && !GlobalTextureSnapshotEnabled)
             {
                 return;
             }
@@ -181,15 +191,20 @@ internal static class HdrpPostProcessRenderArgsProbe
             var cameraSummary = DescribeCamera(__1);
             var sourceSummary = DescribeRtHandle("source", __2);
             var destinationSummary = DescribeRtHandle("destination", __3);
+            var frameCount = TryGetUnityFrameCount(out var currentFrame) ? currentFrame : -1;
 
-            log.LogInfo(
-                $"HDRP postprocess render args snapshot #{count}: " +
-                $"method={methodLabel}; " +
-                $"{DescribeCommandBuffer(__0)}; " +
-                $"{cameraSummary}; " +
-                $"{sourceSummary}; " +
-                $"{destinationSummary}" +
-                (globalTextureSummary is null ? string.Empty : $"; {globalTextureSummary}"));
+            if (shouldLogCall)
+            {
+                log.LogInfo(
+                    $"HDRP postprocess render args snapshot #{count}: " +
+                    $"method={methodLabel}; " +
+                    $"frame={frameCount}; " +
+                    $"{DescribeCommandBuffer(__0)}; " +
+                    $"{cameraSummary}; " +
+                    $"{sourceSummary}; " +
+                    $"{destinationSummary}" +
+                    (globalTextureSummary is null ? string.Empty : $"; {globalTextureSummary}"));
+            }
 
             if (GlobalTextureSnapshotEnabled && hasDepthNativePointer && hasMotionNativePointer)
             {
@@ -203,11 +218,22 @@ internal static class HdrpPostProcessRenderArgsProbe
                     }
                 }
 
+                HdrpEasuInputOutputCorrelationProbeState.RecordHdrpInput(
+                    log,
+                    new HdrpEasuInputOutputCorrelationProbeState.HdrpInputSnapshot(
+                        count,
+                        frameCount,
+                        methodLabel,
+                        cameraSummary,
+                        sourceSummary,
+                        destinationSummary,
+                        globalTextureSummary ?? "globalTextures=unavailable"));
+
                 if (shouldLogAdvanced)
                 {
                     log.LogInfo(
                         $"HDRP postprocess render args global textures advanced: " +
-                        $"method={methodLabel}; {cameraSummary}; {sourceSummary}; {destinationSummary}; {globalTextureSummary}");
+                        $"method={methodLabel}; frame={frameCount}; {cameraSummary}; {sourceSummary}; {destinationSummary}; {globalTextureSummary}");
                 }
             }
         }
@@ -471,6 +497,35 @@ internal static class HdrpPostProcessRenderArgsProbe
             || count == 30
             || count == 100
             || count == 300;
+    }
+
+    private static bool TryGetUnityFrameCount(out int frameCount)
+    {
+        frameCount = 0;
+        try
+        {
+            if (!UnityTimeLookupAttempted)
+            {
+                UnityTimeLookupAttempted = true;
+                UnityTimeFrameCountProperty = AppDomain.CurrentDomain.GetAssemblies()
+                    .Select(assembly => assembly.GetType("UnityEngine.Time", throwOnError: false))
+                    .FirstOrDefault(type => type is not null)
+                    ?.GetProperty("frameCount", BindingFlags.Public | BindingFlags.Static);
+            }
+
+            var value = UnityTimeFrameCountProperty?.GetValue(null);
+            if (value is int intValue)
+            {
+                frameCount = intValue;
+                return true;
+            }
+
+            return value is not null && int.TryParse(value.ToString(), out frameCount);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static bool CanPatch(MethodInfo method)

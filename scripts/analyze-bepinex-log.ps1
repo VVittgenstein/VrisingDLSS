@@ -292,6 +292,13 @@ $results.Add((New-StageResult `
     -StartedPatterns @("Native render-func resource D3D11 preflight enabled", "Native render-func resource native-pointer target armed:", "Native render-func resource native-pointer status #")))
 
 $results.Add((New-StageResult `
+    -Stage "HDRP/EASU Input Output Correlation" `
+    -PassPatterns @("easuSourceMatchesEasuInput=True; easuDestinationMatchesEasuOutput=True") `
+    -FailPatterns @("Native render-func entry probe failed:", "Native render-func entry detour dispose failed:", "RenderGraph pass-list logging failed", "Native render-func resource native-pointer data=not found", "HDRP postprocess render args probe failed to patch", "HDRP postprocess render args probe prefix failed:", "HDRP postprocess render args probe uninstall failed:") `
+    -BlockedPatterns @("HDRP postprocess render args probe blocked:", "_CameraDepthTexture=null", "_CameraMotionVectorsTexture=null") `
+    -StartedPatterns @("HDRP/EASU input-output correlation status #", "HDRP postprocess render args probe installed:", "Native render-func resource native-pointer target armed:")))
+
+$results.Add((New-StageResult `
     -Stage "HDRP Custom PostProcess Registration" `
     -PassPatterns @("Custom post-process registration probe installed:") `
     -FailPatterns @("Custom post-process registration probe failed:", "Custom post-process registration probe uninstall failed:") `
