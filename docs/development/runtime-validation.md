@@ -679,8 +679,25 @@ Current Stage 8A status:
   restored loader config, release-safe native, ClientSettings, and no game
   process remained. See
   `docs/development/native-renderfunc-resource-tuple-runtime-result-2026-06-07.md`.
-  Next proof is protected `11111` gameplay with save backup/restore and no
-  movement keys.
+  Protected `11111` gameplay proof
+  `native-renderfunc-resource-tuple-gameplay-1080p-20260607-r1` also passed at
+  true `1920x1080` Windowed. Computer Use clicked the Chinese Continue /
+  `11111` area once at `(205, 354)` and sent no movement/gameplay keys.
+  Gameplay screenshot showed quest text, character, health bar, and action bar.
+  Analyzer reported `Native RenderFunc Resource Tuple=Pass`; first tuple
+  advanced line appeared at `compile=4` with
+  `managedPassData=0x2151E640D80`, `nativeLastPassData=0x2151E640D80`,
+  `passDataMatches=True`, and `tupleReady=True`; final tuple status reached
+  `#900` with `entryCount=897` and `sampleCount=897`; final argument status
+  reached `entryCount=1032`, `sampleCount=1032`, all four raw pointer
+  categories nonzero `1032/1032`; `RenderGraph GetTexture call #=0`; actual
+  native/DLSS evaluate/probe patterns `0`; `CrashEventCount=0`. Cleanup
+  restored config, native DLL, ClientSettings, no game process remained, and the
+  protected save restored to `ChangeCount=0`. See
+  `docs/development/native-renderfunc-resource-tuple-gameplay-result-2026-06-07.md`.
+  Next engineering step is the first separately guarded resource-resolution
+  preflight, default-off and menu-first, still without command-buffer access or
+  DLSS evaluate.
 - See `docs/research/stage8a-rendergraph-search-2026-06-05.md` for the official-source search that supports this route decision.
 
 ## Stage 8B: First Guarded DLSS Evaluate Diagnostic

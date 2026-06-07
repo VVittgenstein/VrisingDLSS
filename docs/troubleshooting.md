@@ -532,9 +532,16 @@ Analyzer line: `Native RenderFunc Resource Tuple=Pass`. Evidence:
 `CrashEventCount=0`. See
 `docs/development/native-renderfunc-resource-tuple-runtime-result-2026-06-07.md`.
 
+Protected `11111` gameplay proof also passed with the same safety boundary:
+Computer Use clicked Continue once at `(205, 354)`, sent no movement keys,
+observed gameplay HUD/character/action bar, analyzer reported
+`Native RenderFunc Resource Tuple=Pass`, `GetTexture=0`, actual DLSS/NGX
+evaluate/probe `0`, `CrashEventCount=0`, and save restore `ChangeCount=0`. See
+`docs/development/native-renderfunc-resource-tuple-gameplay-result-2026-06-07.md`.
+
 Treat this as tuple metadata proof only; it is still not actual texture/resource
-resolution, command-buffer, or evaluate proof. The next proof is protected
-`11111` gameplay with save backup/restore and no movement keys.
+resolution, command-buffer, or evaluate proof. The next engineering step is a
+separately guarded resource-resolution preflight, default-off and menu-first.
 
 ## RenderGraph Execute-Delegate Probe
 

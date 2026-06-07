@@ -499,3 +499,24 @@ Result:
 - Cleanup closed the game, restored ClientSettings/config/native state, archived
   the changed post-run save state, and restored the `11111` save with
   `ChangeCount=0`.
+
+## Native RenderFunc Resource Tuple Gameplay Proof Notes
+
+Run label: `native-renderfunc-resource-tuple-gameplay-1080p-20260607-r1`.
+
+Result:
+
+- Computer Use selected the real `VRising` Unity window, not the BepInEx
+  console.
+- The main menu screenshot was `1283x751`; the known Chinese Continue / `11111`
+  area was clicked once at `(205, 354)`.
+- After five seconds the game was on the loading/connecting screen. After about
+  `45` seconds, Computer Use observed gameplay with quest text, character,
+  health bar, and action bar visible.
+- The original Computer Use gameplay screenshot included part of a neighboring
+  window on the right, so raw and cropped gameplay screenshot artifacts were
+  both saved for review.
+- No movement or gameplay keys were sent.
+- Cleanup closed the game, restored ClientSettings/config/native state, archived
+  the changed post-run save state, and restored the `11111` save with
+  `ChangeCount=0`.

@@ -315,7 +315,7 @@ function Get-NextRecommendation {
             return "Native render-func resource tuple menu and protected 11111 gameplay proofs passed. Next engineering step is deciding the first separately guarded resource-resolution preflight; still no command-buffer access or DLSS evaluate without another explicit preflight. Latest proof: $($nativeRenderFuncResourceTupleGameplayDoc.FullName)"
         }
 
-        return "Native render-func resource tuple menu preflight passed in available logs. Next step is a protected 11111 gameplay proof at 1920x1080 Windowed using scripts\start-vrising-automation-session.ps1 -Stage native-renderfunc-resource-tuple; no GetTexture, command-buffer access, texture resolution, or DLSS evaluate."
+        return "Native render-func resource tuple menu preflight passed in available logs, but no protected gameplay result document was found. Next step is a protected 11111 gameplay proof at 1920x1080 Windowed using scripts\start-vrising-automation-session.ps1 -Stage native-renderfunc-resource-tuple; no GetTexture, command-buffer access, texture resolution, or DLSS evaluate."
     }
 
     if ($nativeRenderFuncResourceIdentity -eq "Pass") {
@@ -326,8 +326,13 @@ function Get-NextRecommendation {
         if ($nativeRenderFuncResourceIdentityGameplayDoc) {
             $nativeRenderFuncResourceTupleImplementationDoc = Join-Path $Root "docs\development\native-renderfunc-resource-tuple-preflight-implementation-2026-06-07.md"
             $nativeRenderFuncResourceTupleRuntimeDoc = Join-Path $Root "docs\development\native-renderfunc-resource-tuple-runtime-result-2026-06-07.md"
+            $nativeRenderFuncResourceTupleGameplayDoc = Join-Path $Root "docs\development\native-renderfunc-resource-tuple-gameplay-result-2026-06-07.md"
+            if (Test-Path -LiteralPath $nativeRenderFuncResourceTupleGameplayDoc) {
+                return "Native render-func resource identity menu/protected gameplay proofs passed, and native-renderfunc-resource-tuple menu/protected gameplay proofs passed. Next engineering step is deciding the first separately guarded resource-resolution preflight; still no command-buffer access or DLSS evaluate without another explicit preflight. Latest proof: $nativeRenderFuncResourceTupleGameplayDoc"
+            }
+
             if (Test-Path -LiteralPath $nativeRenderFuncResourceTupleRuntimeDoc) {
-                return "Native render-func resource identity menu/protected gameplay proofs passed, and native-renderfunc-resource-tuple menu proof passed. Next step is protected 11111 gameplay proof at 1920x1080 Windowed using scripts\start-vrising-automation-session.ps1 -Stage native-renderfunc-resource-tuple, with save backup/restore, no movement keys, and still no GetTexture, command-buffer access, texture resolution, or DLSS evaluate."
+                return "Native render-func resource identity menu/protected gameplay proofs passed, and native-renderfunc-resource-tuple menu proof passed, but no protected gameplay result document was found. Next step is protected 11111 gameplay proof at 1920x1080 Windowed using scripts\start-vrising-automation-session.ps1 -Stage native-renderfunc-resource-tuple, with save backup/restore, no movement keys, and still no GetTexture, command-buffer access, texture resolution, or DLSS evaluate."
             }
 
             if (Test-Path -LiteralPath $nativeRenderFuncResourceTupleImplementationDoc) {

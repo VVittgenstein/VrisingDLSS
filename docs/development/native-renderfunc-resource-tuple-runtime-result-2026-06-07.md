@@ -1,6 +1,8 @@
 # Native RenderFunc Resource Tuple Runtime Result - 2026-06-07
 
-Status: menu-only runtime proof passed.
+Status: menu-only runtime proof passed. Protected gameplay proof also passed
+later; see
+`docs/development/native-renderfunc-resource-tuple-gameplay-result-2026-06-07.md`.
 
 ## Question
 
@@ -106,10 +108,6 @@ Local config after cleanup returned to loader-safe defaults:
 ## Interpretation
 
 This proves menu-only tuple metadata availability at the focused native EASU
-render-func boundary. It does not prove protected gameplay safety, actual
-texture/resource resolution, command-buffer availability, or DLSS evaluate
-safety.
-
-Next proof should be a protected `11111` gameplay run with save backup/restore
-and Computer Use Continue-click automation, still with no movement keys and no
-command-buffer or DLSS evaluate work.
+render-func boundary. The protected `11111` gameplay proof has now also passed.
+Continue from
+`docs/development/native-renderfunc-resource-tuple-gameplay-result-2026-06-07.md`.

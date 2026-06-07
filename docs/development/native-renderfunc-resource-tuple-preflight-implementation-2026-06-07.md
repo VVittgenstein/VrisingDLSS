@@ -1,7 +1,7 @@
 # Native RenderFunc Resource Tuple Preflight Implementation - 2026-06-07
 
-Status: implemented, statically validated, and menu-runtime validated.
-Protected gameplay proof is still pending.
+Status: implemented, statically validated, menu-runtime validated, and
+protected-gameplay validated.
 
 ## Question
 
@@ -114,25 +114,43 @@ Menu-only proof passed at true `1920x1080` Windowed on 2026-06-07:
 See
 `docs/development/native-renderfunc-resource-tuple-runtime-result-2026-06-07.md`.
 
-## Next Runtime Test
+## Protected Gameplay Proof
 
-Protected `11111` gameplay proof, at true `1920x1080` Windowed, after backing
-up the protected save:
+Protected `11111` gameplay proof passed at true `1920x1080` Windowed on
+2026-06-07:
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start-vrising-automation-session.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-resource-tuple -ArtifactLabel native-renderfunc-resource-tuple-gameplay-1080p-20260607-r1 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3
-```
+- artifact label:
+  `native-renderfunc-resource-tuple-gameplay-1080p-20260607-r1`;
+- Computer Use selected the real Unity `VRising` window and clicked the visible
+  Chinese Continue / `11111` entry once at `(205, 354)`;
+- no movement keys or gameplay keyboard input were sent;
+- gameplay screenshot showed quest text, character, health bar, and action bar;
+- analyzer reported `Native RenderFunc Resource Tuple=Pass`;
+- first tuple advanced line appeared at `compile=4`;
+- `managedPassData=0x2151E640D80`;
+- `nativeLastPassData=0x2151E640D80`;
+- `passDataMatches=True`;
+- `tupleReady=True`;
+- tuple metadata included `input=1920x1080`, `output=1920x1080`,
+  focused `source` TextureHandle identity, and focused `destination`
+  TextureHandle identity;
+- final tuple status reached `#900` with `entryCount=897` and
+  `sampleCount=897`;
+- final argument status reached `entryCount=1032`, `sampleCount=1032`, and all
+  four raw pointer categories nonzero `1032/1032`;
+- `RenderGraph GetTexture call #=0`;
+- actual DLSS/NGX evaluate/probe patterns `0`;
+- `CrashEventCount=0`;
+- cleanup restored loader-safe config, release-safe native state,
+  `ClientSettings.json`, and left no V Rising/UnityCrashHandler process;
+- the protected save was restored with `ChangeCount=0` after archiving one
+  changed post-run state.
 
-Pass signal: analyzer reports `Native RenderFunc Resource Tuple=Pass`, log
-contains `Native render-func resource tuple advanced:`, tuple output includes
-`input=...x...`, `output=...x...`, `source=...`, `destination=...`,
-`passDataMatches=True`, and `tupleReady=True`.
+See
+`docs/development/native-renderfunc-resource-tuple-gameplay-result-2026-06-07.md`.
 
-Fail signal: startup crash, detour failure, pass-list logging failure,
-`Native render-func resource tuple data=not found`, missing dimensions or
-TextureHandle identities, any `GetTexture` steady-state discovery, or any
-DLSS/NGX evaluate/probe pattern.
+## Next Engineering Step
 
-Gameplay cleanup must additionally restore the protected `11111` save to
-`ChangeCount=0` after archiving any changed post-run state. No movement keys or
-gameplay keyboard input are allowed.
+Design the first separately guarded resource-resolution preflight using the
+proven native render-func tuple metadata as the locator. Keep it default-off,
+menu-first, and still separate from command-buffer access and DLSS evaluate.
