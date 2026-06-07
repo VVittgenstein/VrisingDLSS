@@ -672,6 +672,18 @@ internal static class FrameResourceProbe
             }
         }
 
+        if (NativeRenderFuncResourceNativePointerProbeEnabled
+            && !DlssEvaluateInputProbeEnabled
+            && TryPatchRenderGraphGetTextureMethod(
+                log,
+                assemblies,
+                harmonyMethodConstructor,
+                patchMethod,
+                patchedMethodKeys))
+        {
+            patched++;
+        }
+
         if (RenderGraphPassBoundaryProbeEnabled
             && TryPatchRenderGraphExecutionScopeMethod(
                 log,

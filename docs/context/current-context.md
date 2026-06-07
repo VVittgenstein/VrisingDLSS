@@ -776,6 +776,19 @@ As of the read-only RenderGraph pass-map runtime result:
   generated render funcs through Harmony, use D3D11 validation, touch command
   buffers, or evaluate DLSS. Static Release build, PowerShell parser
   validation, `git diff --check`, dry config validation, package creation, and
-  Thunderstore package validation passed. No game launch has been run for this
-  new stage yet. The next runtime step is a true `1920x1080` Windowed
-  menu-only proof for `native-renderfunc-resource-native-pointer`.
+  Thunderstore package validation passed. The first menu run
+  `native-renderfunc-resource-native-pointer-20260607-142048` was stable but
+  partial because GetTexture postfix installation still lived under the
+  `DlssEvaluateInputProbeEnabled` branch. A narrow install-condition fix was
+  applied, then the true `1920x1080` Windowed menu proof
+  `native-renderfunc-resource-native-pointer-20260607-142357` passed:
+  analyzer `Native RenderFunc Resource Native Pointer=Pass`,
+  `CrashEventCount=0`, GetTexture postfix patched, EASU target armed at
+  `compile=4`, source `nativePtr=0x22815E176A0`, destination
+  `nativePtr=0x22815E194E0`, `RenderGraph GetTexture call #=0`, D3D11/NGX/DLSS
+  evaluate patterns `0`, and cleanup restored loader config, native DLL, and
+  ClientSettings with no game process left. See
+  `docs/development/native-renderfunc-resource-native-pointer-runtime-result-2026-06-07.md`.
+  The next runtime step is a protected `11111` gameplay proof for
+  `native-renderfunc-resource-native-pointer`; still no command-buffer access,
+  D3D11 validation, or DLSS evaluate in the same step.

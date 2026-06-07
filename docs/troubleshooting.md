@@ -600,6 +600,19 @@ Expected menu proof command:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-resource-native-pointer -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3
 ```
 
+Menu proof result on 2026-06-07:
+
+- The first run was stable but partial because GetTexture postfix installation
+  was still gated by `DlssEvaluateInputProbeEnabled`.
+- After a narrow install-condition fix, the second run passed at true
+  `1920x1080` Windowed: GetTexture postfix patched, EASU target armed,
+  `Native render-func resource native-pointer advanced:` appeared with non-zero
+  source/destination native pointers, `CrashEventCount=0`, no broad
+  `RenderGraph GetTexture call #`, no D3D11/NGX/DLSS evaluate patterns, and
+  cleanup restored config, native DLL, and ClientSettings.
+- See
+  `docs/development/native-renderfunc-resource-native-pointer-runtime-result-2026-06-07.md`.
+
 ## RenderGraph Execute-Delegate Probe
 
 `EnableRenderGraphExecuteDelegateProbe` is disabled by default and is read-only.

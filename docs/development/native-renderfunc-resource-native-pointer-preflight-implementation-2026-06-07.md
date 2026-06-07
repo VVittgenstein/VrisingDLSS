@@ -1,6 +1,7 @@
 # Native RenderFunc Resource Native-Pointer Preflight Implementation - 2026-06-07
 
-Status: implemented and statically validated. No game launch in this pass.
+Status: implemented, statically validated, and menu-runtime validated. Protected
+gameplay proof is still pending.
 
 ## Question
 
@@ -96,7 +97,10 @@ Menu-only proof at true `1920x1080` Windowed:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-resource-native-pointer -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3
 ```
 
-Do not run protected gameplay until the menu proof has clean crash/log evidence.
+Menu proof has now passed; see
+`docs/development/native-renderfunc-resource-native-pointer-runtime-result-2026-06-07.md`.
+Do not add command-buffer access, D3D11 validation, or DLSS evaluate to this
+stage.
 
 ## Validation
 
@@ -117,3 +121,19 @@ Local validation completed without launching V Rising:
 - `scripts\validate-thunderstore-package.ps1 -PackagePath dist\VrisingDLSS-0.1.0-thunderstore.zip`
   passed, including the packaged default
   `EnableNativeRenderFuncResourceNativePointerProbe = false`.
+
+Runtime validation:
+
+- The first menu proof,
+  `native-renderfunc-resource-native-pointer-20260607-142048`, was stable but
+  partial: it armed the EASU target but did not install GetTexture postfix
+  because the patch request still lived under `DlssEvaluateInputProbeEnabled`.
+- A narrow install-condition fix moved native-pointer GetTexture postfix
+  installation outside that branch while preserving
+  `EnableRenderGraphGetTextureProbe=false`.
+- The second menu proof,
+  `native-renderfunc-resource-native-pointer-20260607-142357`, passed at true
+  `1920x1080` Windowed with `CrashEventCount=0`,
+  `Frame resource RenderGraph GetTexture postfix patched:`, and
+  `Native render-func resource native-pointer advanced:` showing non-zero
+  source/destination native pointers.
