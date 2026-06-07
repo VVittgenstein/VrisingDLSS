@@ -98,6 +98,9 @@ function Get-ConfiguredStage {
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassRenderFuncMetadataProbe") { return "rendergraph-renderfunc-metadata" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphCompiledPassInfoProbe") { return "rendergraph-compiled-pass-info" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphExecuteDelegateProbe") { return "rendergraph-execute-delegate" }
+    if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferEventProbe") -and
+        (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "native-renderfunc-commandbuffer-event-render-scale" }
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferEventProbe") { return "native-renderfunc-commandbuffer-event" }
     if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncContextProbe") -and
         (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "native-renderfunc-context-render-scale" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncContextProbe") { return "native-renderfunc-context" }
@@ -288,6 +291,7 @@ function Get-NextRecommendation {
     $superResolutionFrameSequence = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 9A"
     $visibleWriteback = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 10A"
     $userRendering = Get-FirstStageStatus -Results $LogResults -StagePrefix "DLSS User Rendering Candidate"
+    $nativeRenderFuncCommandBufferEvent = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc CommandBuffer Event"
     $nativeRenderFuncContext = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Context"
     $nativeRenderFuncResourceD3D11 = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Resource D3D11"
     $nativeRenderFuncResourceNativePointer = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Resource Native Pointer"
@@ -332,6 +336,17 @@ function Get-NextRecommendation {
         }
 
         return "The latest dlss-user-rendering gameplay log did not accept an FSR Off Super Resolution tuple: the main candidate stayed color=1920x1080 output=1920x1080. Before rerunning the same runtime proof, use the targeted render-scale diagnostic to check for `Render-scale control member write did not stick`, `RTHandles.SetHardwareDynamicResolutionState=true`, and whether the gameplay camera/main targets remain full-size."
+    }
+
+    if ($nativeRenderFuncCommandBufferEvent -eq "Pass" -and $renderScaleControl -eq "Pass") {
+        $nativeRenderFuncCommandBufferEventGameplayDoc = Get-ChildItem -LiteralPath (Join-Path $Root "docs\development") -Filter "native-renderfunc-commandbuffer-event-render-scale-gameplay-result-*.md" -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+        if ($nativeRenderFuncCommandBufferEventGameplayDoc) {
+            return "Native EASU ctx.cmd no-op plugin event and render-scale control have a combined protected gameplay proof. Next source-guided guard can design a separately gated native callback payload/lifecycle proof at this same boundary, still without DLSS evaluate or visible write-back in the same step. Latest proof: $($nativeRenderFuncCommandBufferEventGameplayDoc.FullName)"
+        }
+
+        return "Native EASU ctx.cmd no-op plugin event and render-scale control both have runtime evidence, but not yet in the same protected gameplay proof. Next step is a 1920x1080 Windowed protected 11111 run using scripts\start-vrising-automation-session.ps1 -Stage native-renderfunc-commandbuffer-event-render-scale; expected evidence is the native render event callback count advancing while GetTexture/native pointer/D3D11/DLSS/evaluate stay zero."
     }
 
     if ($nativeRenderFuncContext -eq "Pass" -and $renderScaleControl -eq "Pass") {

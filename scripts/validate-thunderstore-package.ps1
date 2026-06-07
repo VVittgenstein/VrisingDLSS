@@ -312,6 +312,7 @@ try {
             "EnableNativeRenderFuncEntryProbe = false",
             "EnableNativeRenderFuncArgumentProbe = false",
             "EnableNativeRenderFuncContextProbe = false",
+            "EnableNativeRenderFuncCommandBufferEventProbe = false",
             "EnableNativeRenderFuncResourceIdentityProbe = false",
             "EnableNativeRenderFuncResourceTupleProbe = false",
             "EnableNativeRenderFuncResourceResolveProbe = false",

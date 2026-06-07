@@ -718,3 +718,30 @@ Result:
 - Cleanup closed the game, restored ClientSettings/config/native state,
   archived the changed post-run save state, and restored the `11111` save with
   `ChangeCount=0`.
+
+## Native RenderFunc CommandBuffer Event + Render Scale Gameplay Notes
+
+Run label:
+`native-renderfunc-commandbuffer-event-render-scale-gameplay-1080p-20260607-r1`.
+
+Result:
+
+- Computer Use selected the real `VRising` Unity window, not the BepInEx
+  console.
+- The main-menu screenshot was `1283x751`; the Chinese Continue entry was
+  clicked once at `(205,354)`.
+- The click went straight to gameplay after loading; no save-list interaction
+  was needed.
+- After about `50` seconds, Computer Use observed gameplay with HUD, quest
+  text, character, minimap, health bar, and action bar visible.
+- No keyboard, movement, or gameplay keys were sent.
+- A passive window capture helper produced the valid gameplay screenshot:
+  `artifacts/gameplay-automation/GameplayScreenshot-native-renderfunc-commandbuffer-event-render-scale-gameplay-1080p-20260607-r1.png`.
+- Runtime proof passed: the focused EASU native render-func boundary issued one
+  native no-op plugin event through `ctx.cmd`, the native render-event callback
+  advanced from `0` to `1`, and `lastEventId=260607`.
+- The proof did not pass texture resources, validate D3D11 resources, load NGX,
+  or evaluate DLSS.
+- Cleanup closed the game, restored ClientSettings/config/native state,
+  archived the changed post-run save state, and restored the `11111` save with
+  `ChangeCount=0`.

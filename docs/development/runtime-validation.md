@@ -1171,4 +1171,24 @@ Current helper smoke status:
   protected save with `ChangeCount=0`. The next guard should be a separate
   no-op command-buffer/plugin-event timing proof at this same boundary; still
   do not combine DLSS evaluate in the same step.
+- The protected gameplay proof
+  `native-renderfunc-commandbuffer-event-render-scale-gameplay-1080p-20260607-r1`
+  validated that separate timing guard. With V Rising `FsrQualityMode=Off`, true
+  `1920x1080` Windowed, and mod-owned render scale, the focused EASU native
+  render-func callback issued exactly one native no-op plugin event through the
+  live `RenderGraphContext.cmd`. Analyzer reported `Native RenderFunc
+  CommandBuffer Event=Pass`, `Native RenderFunc Context=Pass`, `Native
+  RenderFunc Resource Tuple=Pass`, `Stage 2C Render-Scale Control Probe=Pass`,
+  and native bridge API version `13`. Evidence preserved the EASU
+  `tuple=input=960x540; output=1920x1080`, read
+  `lastCmd=0x243BCB10E40`, and logged `Native render-func command-buffer event
+  advanced: issueAttempts=1; issueSuccesses=1; issueFailures=0; beforeCount=0;
+  currentCount=1; lastEventId=260607`. Final sampled status reached
+  `callbackReached=True`. The run kept broad `RenderGraph.GetTexture`,
+  native-pointer/D3D11 probes, NGX, DLSS evaluate, and user-rendering disabled;
+  reported `CrashEventCount=0`; restored config/native/ClientSettings; left no
+  game process; and restored the protected save with `ChangeCount=0`. The next
+  guard should be driven by local IL2CPP/HDRP decompilation/static xrefs and
+  prove a minimal native callback payload/lifecycle at this same boundary,
+  still without DLSS evaluate or visible write-back.
 - Current route decision: DLSS itself does not depend on FSR. The final MVP validation must keep V Rising `FsrQualityMode=Off` for baseline and candidate, while the mod controls render scale/upscale through HDRP dynamic-resolution/DLSS-path integration. The next gate is no longer tuple existence; it is visual correctness, performance, resize/reset, fallback behavior, and release-boundary validation.

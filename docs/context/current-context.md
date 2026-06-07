@@ -1220,3 +1220,36 @@ As of the read-only RenderGraph pass-map runtime result:
   evaluate, resize/reset handling, visual correctness, or performance. The next
   guard should be a separate no-op command-buffer/plugin-event timing proof at
   this same boundary, still without DLSS evaluate.
+- Follow-up stage `native-renderfunc-commandbuffer-event-render-scale` is
+  implemented and protected-gameplay validated; see
+  `docs/development/native-renderfunc-commandbuffer-event-render-scale-gameplay-result-2026-06-07.md`.
+  The stage reuses the focused EASU entry/context/tuple proof, issues one
+  native no-op plugin event through the live `RenderGraphContext.cmd`, and
+  verifies that the native render-event callback count advances to
+  `lastEventId=260607`. It does not pass texture resources through the event,
+  validate D3D11 resources, load NGX, evaluate DLSS, or write visible output.
+  Menu smoke passed first with `Native RenderFunc CommandBuffer Event=Pass`,
+  event count `0 -> 1`, `issueFailures=0`, broad `RenderGraph.GetTexture` `0`,
+  native-pointer/D3D11/NGX/DLSS/evaluate patterns `0`, and
+  `CrashEventCount=0`. Protected gameplay proof then passed with V Rising
+  `FsrQualityMode=Off`, true `1920x1080` Windowed, and the protected `11111`
+  fixture. Analyzer reported `Stage 2C Render-Scale Control Probe=Pass`,
+  `Native RenderFunc Context=Pass`, `Native RenderFunc CommandBuffer
+  Event=Pass`, `Native RenderFunc Resource Tuple=Pass`, and native bridge API
+  version `13`. Key evidence preserved the EASU
+  `tuple=input=960x540; output=1920x1080`, read
+  `lastCmd=0x243BCB10E40`, issued `eventId=260607`, and reached final status
+  `callbackReached=True`, `issueAttempts=1`, `issueSuccesses=1`,
+  `issueFailures=0`, `currentCount=1`, `lastEventId=260607`. Counts:
+  command-buffer event advanced `1`, status lines `142`, broad
+  `RenderGraph.GetTexture` `0`, native-pointer/D3D11/NGX/DLSS/evaluate
+  patterns `0`, native entry/detour failures `0`, crash patterns `0`.
+  Cleanup restored loader config, ClientSettings, release-safe native state,
+  left no V Rising process, and restored the protected save with
+  `ChangeCount=0`. This proves command-buffer/plugin-event timing at the
+  official-boundary-adjacent EASU execution window, but still does not prove
+  texture payload handoff, NGX lifecycle, DLSS evaluate, resize/reset behavior,
+  visible correctness, or performance. The next route should use local
+  IL2CPP/HDRP decompilation/static xrefs as the primary map, then add a
+  separately gated native callback payload/lifecycle proof at this same
+  boundary.
