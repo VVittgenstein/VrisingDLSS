@@ -733,6 +733,19 @@ As of the read-only RenderGraph pass-map runtime result:
   still does not call `GetTexture(TextureHandle&)`, read native texture
   pointers, use D3D11 probes, touch command buffers, patch generated render
   funcs through Harmony, or evaluate DLSS. Static Release build, PowerShell
-  parser validation, `git diff --check`, and dry config validation passed. Next
-  proof is a true `1920x1080` Windowed menu-only run of
-  `native-renderfunc-resource-resolve`.
+  parser validation, `git diff --check`, dry config validation,
+  Thunderstore package validation, and loader-safe config restore passed. The
+  true `1920x1080` Windowed menu proof
+  `native-renderfunc-resource-resolve-20260607-134221` passed:
+  analyzer `Native RenderFunc Resource Resolve=Pass`, `CrashEventCount=0`,
+  `resourceReady=True` count `80`, `textureResourceReady=True` count `80`,
+  `graphicsReady=True` count `0`, `RenderGraph GetTexture call #=0`, native
+  texture/D3D11/ExecuteDLSS/NGX patterns `0`, and cleanup restored loader config,
+  native DLL, and ClientSettings with no game process left. This is
+  `TextureResource` metadata proof only; both handles still had
+  `graphicsResource=null`. See
+  `docs/development/native-renderfunc-resource-resolve-runtime-result-2026-06-07.md`.
+  Next proof is protected `11111` gameplay for the same
+  `native-renderfunc-resource-resolve` stage at `1920x1080` Windowed, still with
+  no movement keys, save restore, no `GetTexture`, no native pointer reads, no
+  command-buffer access, and no DLSS evaluate.

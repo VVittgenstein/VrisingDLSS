@@ -170,12 +170,34 @@ The local V Rising config was restored to loader-safe state with:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\write-diagnostic-config.ps1 -GamePath "C:\Software\VRising" -Stage loader
 ```
 
+## Menu Runtime Result
+
+The first menu runtime proof passed at true `1920x1080` Windowed:
+
+- Run label: `native-renderfunc-resource-resolve-20260607-134221`
+- Analyzer: `Native RenderFunc Resource Resolve=Pass`
+- `CrashEventCount=0`
+- `resourceReady=True`: `80`
+- `textureResourceReady=True`: `80`
+- `graphicsReady=True`: `0`
+- `RenderGraph GetTexture call #`: `0`
+- Native texture validation / D3D11 texture probe / `ExecuteDLSS` / NGX: `0`
+- Cleanup restored loader config, release-safe native DLL state, and
+  ClientSettings; no V Rising or UnityCrashHandler process remained.
+
+See
+`docs/development/native-renderfunc-resource-resolve-runtime-result-2026-06-07.md`.
+
+Interpretation: both focused handles resolved to `TextureResource` metadata, but
+both had `graphicsResource=null`. This confirms the stage is useful metadata
+evidence, not actual native texture-pointer availability.
+
 ## Next Runtime Test
 
-Menu-only proof first, at true `1920x1080` Windowed:
+Protected `11111` gameplay proof next, at true `1920x1080` Windowed:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-resource-resolve -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start-vrising-automation-session.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-resource-resolve -SetClientResolution -SetClientWindowMode -ClientWindowMode 3
 ```
 
 Pass signal: analyzer reports `Native RenderFunc Resource Resolve=Pass`, log

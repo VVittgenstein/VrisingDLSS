@@ -558,9 +558,16 @@ Windowed:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath "C:\Software\VRising" -Stage native-renderfunc-resource-resolve -DurationSeconds 75 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3
 ```
 
-Expected analyzer line: `Native RenderFunc Resource Resolve=Pass`. Treat this
-as `TextureResource` metadata proof only; `graphicsResourceReady=False` is a
-diagnostic finding, not actual native texture-pointer proof.
+The first menu proof passed as
+`native-renderfunc-resource-resolve-20260607-134221` at true `1920x1080`
+Windowed. Analyzer reported `Native RenderFunc Resource Resolve=Pass`;
+`resourceReady=True` appeared `80` times, `textureResourceReady=True` appeared
+`80` times, `graphicsReady=True` appeared `0` times, and no `GetTexture`,
+native texture/D3D11, `ExecuteDLSS`, or NGX pattern appeared. Treat this as
+`TextureResource` metadata proof only; `graphicsResourceReady=False` is a
+diagnostic finding, not actual native texture-pointer proof. Next proof is the
+protected `11111` gameplay run of the same stage with save restore and no
+movement keys.
 
 ## RenderGraph Execute-Delegate Probe
 
