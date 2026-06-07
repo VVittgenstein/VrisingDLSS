@@ -18,6 +18,9 @@ internal sealed class NativeBridge
     private SetRenderEventTexturePayloadDelegate? _setRenderEventTexturePayload;
     private GetIntDelegate? _getRenderEventTexturePayloadConsumedCount;
     private GetStringPointerDelegate? _getRenderEventTexturePayloadStatus;
+    private SetRenderEventFrameDescriptorPayloadDelegate? _setRenderEventFrameDescriptorPayload;
+    private GetIntDelegate? _getRenderEventFrameDescriptorPayloadConsumedCount;
+    private GetStringPointerDelegate? _getRenderEventFrameDescriptorPayloadStatus;
     private SetRenderEventDlssFeatureCreatePayloadDelegate? _setRenderEventDlssFeatureCreatePayload;
     private GetIntDelegate? _getRenderEventDlssFeatureCreateConsumedCount;
     private GetStringPointerDelegate? _getRenderEventDlssFeatureCreateStatus;
@@ -74,6 +77,9 @@ internal sealed class NativeBridge
         _setRenderEventTexturePayload = GetOptionalExport<SetRenderEventTexturePayloadDelegate>("VrisingDlss_SetRenderEventTexturePayload");
         _getRenderEventTexturePayloadConsumedCount = GetOptionalExport<GetIntDelegate>("VrisingDlss_GetRenderEventTexturePayloadConsumedCount");
         _getRenderEventTexturePayloadStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetRenderEventTexturePayloadStatus");
+        _setRenderEventFrameDescriptorPayload = GetOptionalExport<SetRenderEventFrameDescriptorPayloadDelegate>("VrisingDlss_SetRenderEventFrameDescriptorPayload");
+        _getRenderEventFrameDescriptorPayloadConsumedCount = GetOptionalExport<GetIntDelegate>("VrisingDlss_GetRenderEventFrameDescriptorPayloadConsumedCount");
+        _getRenderEventFrameDescriptorPayloadStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetRenderEventFrameDescriptorPayloadStatus");
         _setRenderEventDlssFeatureCreatePayload = GetOptionalExport<SetRenderEventDlssFeatureCreatePayloadDelegate>("VrisingDlss_SetRenderEventDlssFeatureCreatePayload");
         _getRenderEventDlssFeatureCreateConsumedCount = GetOptionalExport<GetIntDelegate>("VrisingDlss_GetRenderEventDlssFeatureCreateConsumedCount");
         _getRenderEventDlssFeatureCreateStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetRenderEventDlssFeatureCreateStatus");
@@ -126,6 +132,39 @@ internal sealed class NativeBridge
     internal int GetRenderEventTexturePayloadConsumedCount() => _getRenderEventTexturePayloadConsumedCount?.Invoke() ?? -1;
 
     internal string GetRenderEventTexturePayloadStatus() => PtrToString(_getRenderEventTexturePayloadStatus?.Invoke() ?? IntPtr.Zero);
+
+    internal bool SetRenderEventFrameDescriptorPayload(
+        IntPtr sourceTexturePtr,
+        IntPtr destinationTexturePtr,
+        IntPtr depthTexturePtr,
+        IntPtr motionTexturePtr,
+        int inputWidth,
+        int inputHeight,
+        int outputWidth,
+        int outputHeight,
+        int hdrpFrame,
+        int easuSourceFrame,
+        int easuDestinationFrame,
+        int eventId,
+        int sequence) =>
+        _setRenderEventFrameDescriptorPayload?.Invoke(
+            sourceTexturePtr,
+            destinationTexturePtr,
+            depthTexturePtr,
+            motionTexturePtr,
+            inputWidth,
+            inputHeight,
+            outputWidth,
+            outputHeight,
+            hdrpFrame,
+            easuSourceFrame,
+            easuDestinationFrame,
+            eventId,
+            sequence) == 1;
+
+    internal int GetRenderEventFrameDescriptorPayloadConsumedCount() => _getRenderEventFrameDescriptorPayloadConsumedCount?.Invoke() ?? -1;
+
+    internal string GetRenderEventFrameDescriptorPayloadStatus() => PtrToString(_getRenderEventFrameDescriptorPayloadStatus?.Invoke() ?? IntPtr.Zero);
 
     internal bool SetRenderEventDlssFeatureCreatePayload(
         IntPtr sourceTexturePtr,
@@ -391,6 +430,22 @@ internal sealed class NativeBridge
     private delegate int SetRenderEventTexturePayloadDelegate(
         IntPtr sourceTexturePtr,
         IntPtr destinationTexturePtr,
+        int eventId,
+        int sequence);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate int SetRenderEventFrameDescriptorPayloadDelegate(
+        IntPtr sourceTexturePtr,
+        IntPtr destinationTexturePtr,
+        IntPtr depthTexturePtr,
+        IntPtr motionTexturePtr,
+        int inputWidth,
+        int inputHeight,
+        int outputWidth,
+        int outputHeight,
+        int hdrpFrame,
+        int easuSourceFrame,
+        int easuDestinationFrame,
         int eventId,
         int sequence);
 

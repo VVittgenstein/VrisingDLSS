@@ -33,6 +33,27 @@ namespace
         int sequence = 0;
     };
 
+    struct RenderEventFrameDescriptorPayload
+    {
+        IUnknown* source = nullptr;
+        IUnknown* destination = nullptr;
+        IUnknown* depth = nullptr;
+        IUnknown* motion = nullptr;
+        void* sourcePointer = nullptr;
+        void* destinationPointer = nullptr;
+        void* depthPointer = nullptr;
+        void* motionPointer = nullptr;
+        int inputWidth = 0;
+        int inputHeight = 0;
+        int outputWidth = 0;
+        int outputHeight = 0;
+        int hdrpFrame = -1;
+        int easuSourceFrame = -1;
+        int easuDestinationFrame = -1;
+        int eventId = 0;
+        int sequence = 0;
+    };
+
     struct RenderEventDlssFeatureCreatePayload
     {
         RenderEventTexturePayload textures;
@@ -55,6 +76,16 @@ namespace
     std::mutex g_renderEventTexturePayloadMutex;
     RenderEventTexturePayload g_renderEventTexturePayload;
     char g_renderEventTexturePayloadStatus[1536] = "render event texture payload probe has not run";
+    std::atomic<int> g_renderEventFrameDescriptorPayloadSetAttempts{0};
+    std::atomic<int> g_renderEventFrameDescriptorPayloadSetSuccesses{0};
+    std::atomic<int> g_renderEventFrameDescriptorPayloadSetFailures{0};
+    std::atomic<int> g_renderEventFrameDescriptorPayloadConsumedCount{0};
+    std::atomic<int> g_renderEventFrameDescriptorPayloadConsumedFailures{0};
+    std::atomic<int> g_renderEventFrameDescriptorPayloadLastSequence{0};
+    std::atomic<int> g_renderEventFrameDescriptorPayloadLastEventId{-1};
+    std::mutex g_renderEventFrameDescriptorPayloadMutex;
+    RenderEventFrameDescriptorPayload g_renderEventFrameDescriptorPayload;
+    char g_renderEventFrameDescriptorPayloadStatus[2400] = "render event frame descriptor payload probe has not run";
     std::atomic<int> g_renderEventDlssFeatureCreatePayloadSetAttempts{0};
     std::atomic<int> g_renderEventDlssFeatureCreatePayloadSetSuccesses{0};
     std::atomic<int> g_renderEventDlssFeatureCreatePayloadSetFailures{0};
@@ -95,6 +126,7 @@ namespace
     using NgxParameterGetUIntFunc = NgxResult(__cdecl*)(void* parameters, const char* name, unsigned int* outValue);
 
     void TryConsumeRenderEventTexturePayload(int eventId);
+    void TryConsumeRenderEventFrameDescriptorPayload(int eventId);
     void TryConsumeRenderEventDlssFeatureCreatePayload(int eventId);
 #if defined(VRISINGDLSS_ENABLE_NGX_SDK_WRAPPER)
     int ProbeDlssFeatureCreateWithSdkWrapper(
@@ -115,6 +147,7 @@ namespace
         g_lastRenderEventId.store(eventId);
         g_renderEventCount.fetch_add(1);
         TryConsumeRenderEventTexturePayload(eventId);
+        TryConsumeRenderEventFrameDescriptorPayload(eventId);
         TryConsumeRenderEventDlssFeatureCreatePayload(eventId);
     }
 
@@ -339,6 +372,52 @@ namespace
         payload->sequence = 0;
     }
 
+    void ReleaseRenderEventFrameDescriptorPayload(RenderEventFrameDescriptorPayload* payload)
+    {
+        if (payload == nullptr)
+        {
+            return;
+        }
+
+        if (payload->source != nullptr)
+        {
+            payload->source->Release();
+            payload->source = nullptr;
+        }
+
+        if (payload->destination != nullptr)
+        {
+            payload->destination->Release();
+            payload->destination = nullptr;
+        }
+
+        if (payload->depth != nullptr)
+        {
+            payload->depth->Release();
+            payload->depth = nullptr;
+        }
+
+        if (payload->motion != nullptr)
+        {
+            payload->motion->Release();
+            payload->motion = nullptr;
+        }
+
+        payload->sourcePointer = nullptr;
+        payload->destinationPointer = nullptr;
+        payload->depthPointer = nullptr;
+        payload->motionPointer = nullptr;
+        payload->inputWidth = 0;
+        payload->inputHeight = 0;
+        payload->outputWidth = 0;
+        payload->outputHeight = 0;
+        payload->hdrpFrame = -1;
+        payload->easuSourceFrame = -1;
+        payload->easuDestinationFrame = -1;
+        payload->eventId = 0;
+        payload->sequence = 0;
+    }
+
     void ReleaseRenderEventDlssFeatureCreatePayload(RenderEventDlssFeatureCreatePayload* payload)
     {
         if (payload == nullptr)
@@ -368,6 +447,24 @@ namespace
             g_renderEventTexturePayloadSetFailures.load(),
             g_renderEventTexturePayloadConsumedCount.load(),
             g_renderEventTexturePayloadConsumedFailures.load(),
+            eventId,
+            sequence);
+    }
+
+    void SetRenderEventFrameDescriptorPayloadFailureStatus(const char* label, const char* detail, int eventId, int sequence)
+    {
+        std::lock_guard<std::mutex> lock(g_renderEventFrameDescriptorPayloadMutex);
+        std::snprintf(
+            g_renderEventFrameDescriptorPayloadStatus,
+            sizeof(g_renderEventFrameDescriptorPayloadStatus),
+            "render event frame descriptor payload %s failed: %s; setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d",
+            label,
+            detail,
+            g_renderEventFrameDescriptorPayloadSetAttempts.load(),
+            g_renderEventFrameDescriptorPayloadSetSuccesses.load(),
+            g_renderEventFrameDescriptorPayloadSetFailures.load(),
+            g_renderEventFrameDescriptorPayloadConsumedCount.load(),
+            g_renderEventFrameDescriptorPayloadConsumedFailures.load(),
             eventId,
             sequence);
     }
@@ -505,6 +602,79 @@ namespace
         ReleaseEvaluateTextureInfo(&source);
         ReleaseEvaluateTextureInfo(&destination);
         ReleaseRenderEventTexturePayload(&payload);
+    }
+
+    void TryConsumeRenderEventFrameDescriptorPayload(int eventId)
+    {
+        RenderEventFrameDescriptorPayload payload{};
+        {
+            std::lock_guard<std::mutex> lock(g_renderEventFrameDescriptorPayloadMutex);
+            if (g_renderEventFrameDescriptorPayload.source == nullptr
+                || g_renderEventFrameDescriptorPayload.destination == nullptr
+                || g_renderEventFrameDescriptorPayload.depth == nullptr
+                || g_renderEventFrameDescriptorPayload.motion == nullptr
+                || g_renderEventFrameDescriptorPayload.eventId != eventId)
+            {
+                return;
+            }
+
+            payload = g_renderEventFrameDescriptorPayload;
+            g_renderEventFrameDescriptorPayload = {};
+        }
+
+        if (payload.inputWidth <= 0
+            || payload.inputHeight <= 0
+            || payload.outputWidth <= 0
+            || payload.outputHeight <= 0)
+        {
+            g_renderEventFrameDescriptorPayloadConsumedFailures.fetch_add(1);
+            SetRenderEventFrameDescriptorPayloadFailureStatus("consume", "descriptor dimensions were not positive", eventId, payload.sequence);
+            ReleaseRenderEventFrameDescriptorPayload(&payload);
+            return;
+        }
+
+        if (!(payload.outputWidth > payload.inputWidth && payload.outputHeight > payload.inputHeight))
+        {
+            g_renderEventFrameDescriptorPayloadConsumedFailures.fetch_add(1);
+            SetRenderEventFrameDescriptorPayloadFailureStatus("consume", "descriptor output was not larger than input", eventId, payload.sequence);
+            ReleaseRenderEventFrameDescriptorPayload(&payload);
+            return;
+        }
+
+        const int sourceDelta = payload.easuSourceFrame - payload.hdrpFrame;
+        const int destinationDelta = payload.easuDestinationFrame - payload.hdrpFrame;
+        const int consumed = g_renderEventFrameDescriptorPayloadConsumedCount.fetch_add(1) + 1;
+        g_renderEventFrameDescriptorPayloadLastSequence.store(payload.sequence);
+        g_renderEventFrameDescriptorPayloadLastEventId.store(eventId);
+        {
+            std::lock_guard<std::mutex> lock(g_renderEventFrameDescriptorPayloadMutex);
+            std::snprintf(
+                g_renderEventFrameDescriptorPayloadStatus,
+                sizeof(g_renderEventFrameDescriptorPayloadStatus),
+                "render event frame descriptor payload consumed: setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d; sourcePtr=%p; destinationPtr=%p; depthPtr=%p; motionPtr=%p; input=%dx%d; output=%dx%d; hdrpFrame=%d; easuSourceFrame=%d; easuDestinationFrame=%d; sourceFrameDelta=%d; destinationFrameDelta=%d; validation=D3D11-not-queried; ngx=not-loaded; evaluate=not-run",
+                g_renderEventFrameDescriptorPayloadSetAttempts.load(),
+                g_renderEventFrameDescriptorPayloadSetSuccesses.load(),
+                g_renderEventFrameDescriptorPayloadSetFailures.load(),
+                consumed,
+                g_renderEventFrameDescriptorPayloadConsumedFailures.load(),
+                eventId,
+                payload.sequence,
+                payload.sourcePointer,
+                payload.destinationPointer,
+                payload.depthPointer,
+                payload.motionPointer,
+                payload.inputWidth,
+                payload.inputHeight,
+                payload.outputWidth,
+                payload.outputHeight,
+                payload.hdrpFrame,
+                payload.easuSourceFrame,
+                payload.easuDestinationFrame,
+                sourceDelta,
+                destinationDelta);
+        }
+
+        ReleaseRenderEventFrameDescriptorPayload(&payload);
     }
 
     void TryConsumeRenderEventDlssFeatureCreatePayload(int eventId)
@@ -2269,7 +2439,7 @@ extern "C"
 {
     int __cdecl VrisingDlss_GetBridgeApiVersion()
     {
-        return 15;
+        return 16;
     }
 
     const char* __cdecl VrisingDlss_GetBridgeVersion()
@@ -2373,6 +2543,118 @@ extern "C"
     {
         std::lock_guard<std::mutex> lock(g_renderEventTexturePayloadMutex);
         return g_renderEventTexturePayloadStatus;
+    }
+
+    int __cdecl VrisingDlss_SetRenderEventFrameDescriptorPayload(
+        void* sourceTexturePtr,
+        void* destinationTexturePtr,
+        void* depthTexturePtr,
+        void* motionTexturePtr,
+        int inputWidth,
+        int inputHeight,
+        int outputWidth,
+        int outputHeight,
+        int hdrpFrame,
+        int easuSourceFrame,
+        int easuDestinationFrame,
+        int eventId,
+        int sequence)
+    {
+        g_renderEventFrameDescriptorPayloadSetAttempts.fetch_add(1);
+        if (sourceTexturePtr == nullptr
+            || destinationTexturePtr == nullptr
+            || depthTexturePtr == nullptr
+            || motionTexturePtr == nullptr)
+        {
+            g_renderEventFrameDescriptorPayloadSetFailures.fetch_add(1);
+            SetRenderEventFrameDescriptorPayloadFailureStatus("set", "one or more frame descriptor pointers were null", eventId, sequence);
+            return 0;
+        }
+
+        if (sourceTexturePtr == destinationTexturePtr)
+        {
+            g_renderEventFrameDescriptorPayloadSetFailures.fetch_add(1);
+            SetRenderEventFrameDescriptorPayloadFailureStatus("set", "source and destination pointers were identical", eventId, sequence);
+            return 0;
+        }
+
+        if (inputWidth <= 0
+            || inputHeight <= 0
+            || outputWidth <= 0
+            || outputHeight <= 0
+            || !(outputWidth > inputWidth && outputHeight > inputHeight))
+        {
+            g_renderEventFrameDescriptorPayloadSetFailures.fetch_add(1);
+            SetRenderEventFrameDescriptorPayloadFailureStatus("set", "frame descriptor dimensions were invalid", eventId, sequence);
+            return 0;
+        }
+
+        IUnknown* source = static_cast<IUnknown*>(sourceTexturePtr);
+        IUnknown* destination = static_cast<IUnknown*>(destinationTexturePtr);
+        IUnknown* depth = static_cast<IUnknown*>(depthTexturePtr);
+        IUnknown* motion = static_cast<IUnknown*>(motionTexturePtr);
+        source->AddRef();
+        destination->AddRef();
+        depth->AddRef();
+        motion->AddRef();
+
+        {
+            std::lock_guard<std::mutex> lock(g_renderEventFrameDescriptorPayloadMutex);
+            ReleaseRenderEventFrameDescriptorPayload(&g_renderEventFrameDescriptorPayload);
+            g_renderEventFrameDescriptorPayload.source = source;
+            g_renderEventFrameDescriptorPayload.destination = destination;
+            g_renderEventFrameDescriptorPayload.depth = depth;
+            g_renderEventFrameDescriptorPayload.motion = motion;
+            g_renderEventFrameDescriptorPayload.sourcePointer = sourceTexturePtr;
+            g_renderEventFrameDescriptorPayload.destinationPointer = destinationTexturePtr;
+            g_renderEventFrameDescriptorPayload.depthPointer = depthTexturePtr;
+            g_renderEventFrameDescriptorPayload.motionPointer = motionTexturePtr;
+            g_renderEventFrameDescriptorPayload.inputWidth = inputWidth;
+            g_renderEventFrameDescriptorPayload.inputHeight = inputHeight;
+            g_renderEventFrameDescriptorPayload.outputWidth = outputWidth;
+            g_renderEventFrameDescriptorPayload.outputHeight = outputHeight;
+            g_renderEventFrameDescriptorPayload.hdrpFrame = hdrpFrame;
+            g_renderEventFrameDescriptorPayload.easuSourceFrame = easuSourceFrame;
+            g_renderEventFrameDescriptorPayload.easuDestinationFrame = easuDestinationFrame;
+            g_renderEventFrameDescriptorPayload.eventId = eventId;
+            g_renderEventFrameDescriptorPayload.sequence = sequence;
+            std::snprintf(
+                g_renderEventFrameDescriptorPayloadStatus,
+                sizeof(g_renderEventFrameDescriptorPayloadStatus),
+                "render event frame descriptor payload pending: setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d; sourcePtr=%p; destinationPtr=%p; depthPtr=%p; motionPtr=%p; input=%dx%d; output=%dx%d; hdrpFrame=%d; easuSourceFrame=%d; easuDestinationFrame=%d; validation=D3D11-not-queried; ngx=not-loaded; evaluate=not-run",
+                g_renderEventFrameDescriptorPayloadSetAttempts.load(),
+                g_renderEventFrameDescriptorPayloadSetSuccesses.load() + 1,
+                g_renderEventFrameDescriptorPayloadSetFailures.load(),
+                g_renderEventFrameDescriptorPayloadConsumedCount.load(),
+                g_renderEventFrameDescriptorPayloadConsumedFailures.load(),
+                eventId,
+                sequence,
+                sourceTexturePtr,
+                destinationTexturePtr,
+                depthTexturePtr,
+                motionTexturePtr,
+                inputWidth,
+                inputHeight,
+                outputWidth,
+                outputHeight,
+                hdrpFrame,
+                easuSourceFrame,
+                easuDestinationFrame);
+        }
+
+        g_renderEventFrameDescriptorPayloadSetSuccesses.fetch_add(1);
+        return 1;
+    }
+
+    int __cdecl VrisingDlss_GetRenderEventFrameDescriptorPayloadConsumedCount()
+    {
+        return g_renderEventFrameDescriptorPayloadConsumedCount.load();
+    }
+
+    const char* __cdecl VrisingDlss_GetRenderEventFrameDescriptorPayloadStatus()
+    {
+        std::lock_guard<std::mutex> lock(g_renderEventFrameDescriptorPayloadMutex);
+        return g_renderEventFrameDescriptorPayloadStatus;
     }
 
     int __cdecl VrisingDlss_SetRenderEventDlssFeatureCreatePayload(

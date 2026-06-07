@@ -98,6 +98,9 @@ function Get-ConfiguredStage {
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassRenderFuncMetadataProbe") { return "rendergraph-renderfunc-metadata" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphCompiledPassInfoProbe") { return "rendergraph-compiled-pass-info" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphExecuteDelegateProbe") { return "rendergraph-execute-delegate" }
+    if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferFrameDescriptorProbe") -and
+        (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "native-renderfunc-commandbuffer-frame-descriptor-render-scale" }
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferFrameDescriptorProbe") { return "native-renderfunc-commandbuffer-frame-descriptor" }
     if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableHdrpPostProcessRenderArgsGlobalTextureProbe") -and
         (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncResourceNativePointerProbe") -and
         (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "hdrp-easu-input-output-correlation-render-scale" }
@@ -304,6 +307,7 @@ function Get-NextRecommendation {
     $visibleWriteback = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 10A"
     $userRendering = Get-FirstStageStatus -Results $LogResults -StagePrefix "DLSS User Rendering Candidate"
     $nativeRenderFuncCommandBufferDlssFeatureCreate = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc CommandBuffer DLSS Feature Create"
+    $nativeRenderFuncCommandBufferFrameDescriptor = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc CommandBuffer Frame Descriptor"
     $nativeRenderFuncCommandBufferPayload = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc CommandBuffer Payload"
     $nativeRenderFuncCommandBufferEvent = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc CommandBuffer Event"
     $nativeRenderFuncContext = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Context"
@@ -352,6 +356,21 @@ function Get-NextRecommendation {
         }
 
         return "The latest dlss-user-rendering gameplay log did not accept an FSR Off Super Resolution tuple: the main candidate stayed color=1920x1080 output=1920x1080. Before rerunning the same runtime proof, use the targeted render-scale diagnostic to check for `Render-scale control member write did not stick`, `RTHandles.SetHardwareDynamicResolutionState=true`, and whether the gameplay camera/main targets remain full-size."
+    }
+
+    if ($nativeRenderFuncCommandBufferFrameDescriptor -eq "Pass" -and $renderScaleControl -eq "Pass") {
+        $nativeRenderFuncCommandBufferFrameDescriptorGameplayDoc = Get-ChildItem -LiteralPath (Join-Path $Root "docs\development") -Filter "native-renderfunc-commandbuffer-frame-descriptor-render-scale-gameplay-result-*.md" -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+        if ($nativeRenderFuncCommandBufferFrameDescriptorGameplayDoc) {
+            return "Native EASU ctx.cmd frame-descriptor payload now carries EASU source/output plus HDRP depth/motion pointers in a combined protected gameplay proof without D3D11 validation, NGX, evaluate, or visible write-back. Next source-guided guard can decide between validating this four-texture tuple with a separately gated D3D11/SR input check or wiring it into a bounded no-write DLSS frame-sequence evaluate preflight. Latest proof: $($nativeRenderFuncCommandBufferFrameDescriptorGameplayDoc.FullName)"
+        }
+
+        return "Native EASU ctx.cmd frame-descriptor payload carries EASU source/output plus HDRP depth/motion pointers with render-scale evidence. Next step should be a protected 1920x1080 gameplay proof document, then a separate guard for either D3D11/SR input validation or bounded no-write evaluate."
+    }
+
+    if ($nativeRenderFuncCommandBufferFrameDescriptor -eq "Partial") {
+        return "Native frame-descriptor payload started but did not prove set/issue/consume. Inspect frame descriptor status lines, HDRP/EASU frame deltas, and whether descriptor status reports D3D11-not-queried/ngx=not-loaded/evaluate=not-run before moving to any validation/evaluate step."
     }
 
     if ($hdrpEasuInputOutputCorrelation -eq "Pass" -and $renderScaleControl -eq "Pass") {

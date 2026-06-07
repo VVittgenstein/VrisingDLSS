@@ -854,3 +854,29 @@ Result:
 - Each run cleanup closed the game, restored ClientSettings/config/native state,
   archived the changed post-run save state, and restored the `11111` save with
   `ChangeCount=0`.
+
+## Native RenderFunc CommandBuffer Frame Descriptor + Render Scale Gameplay Notes
+
+Run label:
+`native-renderfunc-commandbuffer-frame-descriptor-render-scale-gameplay-1080p-20260607-r1`.
+
+Result:
+
+- Computer Use selected the real `VRising` Unity window, not the BepInEx
+  console.
+- The main-menu screenshot was `1283x751`; the Chinese Continue entry was
+  clicked once at `(204,352)`.
+- The click went to the loading screen, then into gameplay after about `35`
+  seconds.
+- No keyboard, movement, or gameplay keys were sent.
+- Runtime proof passed: the correlated EASU source/output pointers plus HDRP
+  depth/motion pointers were set as one native frame descriptor and consumed
+  from a focused EASU `ctx.cmd` plugin event with `eventId=260610`.
+- Evidence showed same-frame `hdrpFrame=4110`, `easuSourceFrame=4110`,
+  `easuDestinationFrame=4110`, `input=960x540`, `output=1920x1080`,
+  `validation=D3D11-not-queried`, `ngx=not-loaded`, and `evaluate=not-run`.
+- The proof did not run D3D11 pair validation, NGX, DLSS evaluate, user
+  rendering, or actual visible write-back.
+- Cleanup closed the game, restored ClientSettings/config/native state,
+  archived the changed post-run save state, and restored the `11111` save with
+  `ChangeCount=0`.

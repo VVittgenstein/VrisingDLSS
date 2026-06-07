@@ -36,6 +36,51 @@ internal static class HdrpEasuInputOutputCorrelationProbeState
         }
     }
 
+    internal static bool TryGetFrameDescriptor(out FrameDescriptorSnapshot descriptor)
+    {
+        lock (Sync)
+        {
+            descriptor = default;
+            if (!Active || !LatestHdrpInput.HasValue || !LatestEasuOutput.HasValue)
+            {
+                return false;
+            }
+
+            var hdrp = LatestHdrpInput.Value;
+            var easu = LatestEasuOutput.Value;
+            if (hdrp.DepthPointer == IntPtr.Zero
+                || hdrp.MotionPointer == IntPtr.Zero
+                || easu.SourcePointer == IntPtr.Zero
+                || easu.DestinationPointer == IntPtr.Zero
+                || !TryBuildCorrelationFactsLocked(hdrp, easu, out var facts)
+                || !facts.Ready)
+            {
+                return false;
+            }
+
+            descriptor = new FrameDescriptorSnapshot(
+                easu.SourcePointer,
+                easu.DestinationPointer,
+                hdrp.DepthPointer,
+                hdrp.MotionPointer,
+                facts.InputWidth,
+                facts.InputHeight,
+                facts.OutputWidth,
+                facts.OutputHeight,
+                hdrp.FrameCount,
+                easu.SourceFrameCount,
+                easu.DestinationFrameCount,
+                easu.TargetCompile,
+                hdrp.MethodLabel,
+                easu.TargetManagedPassData,
+                easu.TupleSummary,
+                hdrp.GlobalTextureSummary,
+                easu.SourceObservation,
+                easu.DestinationObservation);
+            return true;
+        }
+    }
+
     internal static void RecordHdrpInput(ManualLogSource? log, HdrpInputSnapshot snapshot)
     {
         string? advanced;
@@ -73,37 +118,7 @@ internal static class HdrpEasuInputOutputCorrelationProbeState
 
         var hdrp = LatestHdrpInput.Value;
         var easu = LatestEasuOutput.Value;
-        if (!TryParseEasuTuple(easu.TupleSummary, out var inputWidth, out var inputHeight, out var outputWidth, out var outputHeight))
-        {
-            return null;
-        }
-
-        var inputToken = $"{inputWidth}x{inputHeight}";
-        var outputToken = $"{outputWidth}x{outputHeight}";
-        var hdrpCameraMatchesEasuInput = Contains(hdrp.CameraSummary, $"actualWidth={inputWidth}")
-            && Contains(hdrp.CameraSummary, $"actualHeight={inputHeight}");
-        var hdrpColorMatchesEasuInput = Contains(hdrp.SourceSummary, inputToken);
-        var hdrpDepthMotionMatchEasuInput = Contains(hdrp.GlobalTextureSummary, inputToken);
-        var easuSourceMatchesEasuInput = Contains(easu.SourceObservation, inputToken);
-        var easuDestinationMatchesEasuOutput = Contains(easu.DestinationObservation, outputToken);
-        var easuUpscales = outputWidth > inputWidth && outputHeight > inputHeight;
-        var sourceFrameDelta = TryGetFrameDelta(hdrp.FrameCount, easu.SourceFrameCount, out var sourceFrameDeltaValue)
-            ? sourceFrameDeltaValue.ToString()
-            : "unknown";
-        var destinationFrameDelta = TryGetFrameDelta(hdrp.FrameCount, easu.DestinationFrameCount, out var destinationFrameDeltaValue)
-            ? destinationFrameDeltaValue.ToString()
-            : "unknown";
-        var frameDeltaWithinWindow = sourceFrameDeltaValue.HasValue
-            && destinationFrameDeltaValue.HasValue
-            && Math.Abs(sourceFrameDeltaValue.Value) <= MaxCorrelationFrameDelta
-            && Math.Abs(destinationFrameDeltaValue.Value) <= MaxCorrelationFrameDelta;
-        if (!hdrpCameraMatchesEasuInput
-            || !hdrpColorMatchesEasuInput
-            || !hdrpDepthMotionMatchEasuInput
-            || !easuSourceMatchesEasuInput
-            || !easuDestinationMatchesEasuOutput
-            || !easuUpscales
-            || !frameDeltaWithinWindow)
+        if (!TryBuildCorrelationFactsLocked(hdrp, easu, out var facts) || !facts.Ready)
         {
             return null;
         }
@@ -113,17 +128,54 @@ internal static class HdrpEasuInputOutputCorrelationProbeState
             $"hdrpFrame={hdrp.FrameCount}; " +
             $"easuSourceFrame={easu.SourceFrameCount}; " +
             $"easuDestinationFrame={easu.DestinationFrameCount}; " +
-            $"sourceFrameDelta={sourceFrameDelta}; " +
-            $"destinationFrameDelta={destinationFrameDelta}; " +
-            $"frameDeltaWithinWindow={frameDeltaWithinWindow}; " +
-            $"hdrpCameraMatchesEasuInput={hdrpCameraMatchesEasuInput}; " +
-            $"hdrpColorMatchesEasuInput={hdrpColorMatchesEasuInput}; " +
-            $"hdrpDepthMotionMatchEasuInput={hdrpDepthMotionMatchEasuInput}; " +
-            $"easuSourceMatchesEasuInput={easuSourceMatchesEasuInput}; " +
-            $"easuDestinationMatchesEasuOutput={easuDestinationMatchesEasuOutput}; " +
-            $"easuUpscales={easuUpscales}; " +
+            $"sourceFrameDelta={facts.SourceFrameDeltaText}; " +
+            $"destinationFrameDelta={facts.DestinationFrameDeltaText}; " +
+            $"frameDeltaWithinWindow={facts.FrameDeltaWithinWindow}; " +
+            $"hdrpCameraMatchesEasuInput={facts.HdrpCameraMatchesEasuInput}; " +
+            $"hdrpColorMatchesEasuInput={facts.HdrpColorMatchesEasuInput}; " +
+            $"hdrpDepthMotionMatchEasuInput={facts.HdrpDepthMotionMatchEasuInput}; " +
+            $"easuSourceMatchesEasuInput={facts.EasuSourceMatchesEasuInput}; " +
+            $"easuDestinationMatchesEasuOutput={facts.EasuDestinationMatchesEasuOutput}; " +
+            $"easuUpscales={facts.EasuUpscales}; " +
             $"hdrp=(call={hdrp.CallCount}; method={hdrp.MethodLabel}; {hdrp.CameraSummary}; {hdrp.SourceSummary}; {hdrp.DestinationSummary}; {hdrp.GlobalTextureSummary}); " +
             $"easu=(source=({easu.SourceObservation}); destination=({easu.DestinationObservation}); targetCompile={easu.TargetCompile}; targetManagedPassData={easu.TargetManagedPassData}; tuple={easu.TupleSummary})";
+    }
+
+    private static bool TryBuildCorrelationFactsLocked(HdrpInputSnapshot hdrp, EasuOutputSnapshot easu, out CorrelationFacts facts)
+    {
+        facts = default;
+        if (!TryParseEasuTuple(easu.TupleSummary, out var inputWidth, out var inputHeight, out var outputWidth, out var outputHeight))
+        {
+            return false;
+        }
+
+        var inputToken = $"{inputWidth}x{inputHeight}";
+        var outputToken = $"{outputWidth}x{outputHeight}";
+        var sourceFrameDeltaText = TryGetFrameDelta(hdrp.FrameCount, easu.SourceFrameCount, out var sourceFrameDeltaValue)
+            ? sourceFrameDeltaValue.GetValueOrDefault().ToString()
+            : "unknown";
+        var destinationFrameDeltaText = TryGetFrameDelta(hdrp.FrameCount, easu.DestinationFrameCount, out var destinationFrameDeltaValue)
+            ? destinationFrameDeltaValue.GetValueOrDefault().ToString()
+            : "unknown";
+
+        facts = new CorrelationFacts(
+            inputWidth,
+            inputHeight,
+            outputWidth,
+            outputHeight,
+            Contains(hdrp.CameraSummary, $"actualWidth={inputWidth}") && Contains(hdrp.CameraSummary, $"actualHeight={inputHeight}"),
+            Contains(hdrp.SourceSummary, inputToken),
+            Contains(hdrp.GlobalTextureSummary, inputToken),
+            Contains(easu.SourceObservation, inputToken),
+            Contains(easu.DestinationObservation, outputToken),
+            outputWidth > inputWidth && outputHeight > inputHeight,
+            sourceFrameDeltaValue.HasValue
+                && destinationFrameDeltaValue.HasValue
+                && Math.Abs(sourceFrameDeltaValue.Value) <= MaxCorrelationFrameDelta
+                && Math.Abs(destinationFrameDeltaValue.Value) <= MaxCorrelationFrameDelta,
+            sourceFrameDeltaText,
+            destinationFrameDeltaText);
+        return true;
     }
 
     private static string? TryBuildStatusMessageLocked(string source)
@@ -202,9 +254,13 @@ internal static class HdrpEasuInputOutputCorrelationProbeState
         string CameraSummary,
         string SourceSummary,
         string DestinationSummary,
-        string GlobalTextureSummary);
+        string GlobalTextureSummary,
+        IntPtr DepthPointer,
+        IntPtr MotionPointer);
 
     internal readonly record struct EasuOutputSnapshot(
+        IntPtr SourcePointer,
+        IntPtr DestinationPointer,
         int SourceFrameCount,
         int DestinationFrameCount,
         int TargetCompile,
@@ -212,4 +268,49 @@ internal static class HdrpEasuInputOutputCorrelationProbeState
         string TupleSummary,
         string SourceObservation,
         string DestinationObservation);
+
+    internal readonly record struct FrameDescriptorSnapshot(
+        IntPtr SourcePointer,
+        IntPtr DestinationPointer,
+        IntPtr DepthPointer,
+        IntPtr MotionPointer,
+        int InputWidth,
+        int InputHeight,
+        int OutputWidth,
+        int OutputHeight,
+        int HdrpFrame,
+        int EasuSourceFrame,
+        int EasuDestinationFrame,
+        int TargetCompile,
+        string HdrpMethodLabel,
+        string TargetManagedPassData,
+        string TupleSummary,
+        string HdrpGlobalTextureSummary,
+        string EasuSourceObservation,
+        string EasuDestinationObservation);
+
+    private readonly record struct CorrelationFacts(
+        int InputWidth,
+        int InputHeight,
+        int OutputWidth,
+        int OutputHeight,
+        bool HdrpCameraMatchesEasuInput,
+        bool HdrpColorMatchesEasuInput,
+        bool HdrpDepthMotionMatchEasuInput,
+        bool EasuSourceMatchesEasuInput,
+        bool EasuDestinationMatchesEasuOutput,
+        bool EasuUpscales,
+        bool FrameDeltaWithinWindow,
+        string SourceFrameDeltaText,
+        string DestinationFrameDeltaText)
+    {
+        internal bool Ready =>
+            HdrpCameraMatchesEasuInput
+            && HdrpColorMatchesEasuInput
+            && HdrpDepthMotionMatchEasuInput
+            && EasuSourceMatchesEasuInput
+            && EasuDestinationMatchesEasuOutput
+            && EasuUpscales
+            && FrameDeltaWithinWindow;
+    }
 }

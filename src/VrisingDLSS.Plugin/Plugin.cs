@@ -105,6 +105,7 @@ public sealed class Plugin : BasePlugin
             || _config.EnableNativeRenderFuncContextProbe.Value
             || _config.EnableNativeRenderFuncCommandBufferEventProbe.Value
             || _config.EnableNativeRenderFuncCommandBufferPayloadProbe.Value
+            || _config.EnableNativeRenderFuncCommandBufferFrameDescriptorProbe.Value
             || _config.EnableNativeRenderFuncCommandBufferDlssFeatureCreateProbe.Value
             || _config.EnableNativeRenderFuncResourceIdentityProbe.Value
             || _config.EnableNativeRenderFuncResourceTupleProbe.Value
@@ -269,6 +270,7 @@ public sealed class Plugin : BasePlugin
             _config?.EnableNativeRenderFuncContextProbe.Value ?? false,
             _config?.EnableNativeRenderFuncCommandBufferEventProbe.Value ?? false,
             _config?.EnableNativeRenderFuncCommandBufferPayloadProbe.Value ?? false,
+            _config?.EnableNativeRenderFuncCommandBufferFrameDescriptorProbe.Value ?? false,
             _config?.EnableNativeRenderFuncCommandBufferDlssFeatureCreateProbe.Value ?? false,
             _config?.EnableNativeRenderFuncResourceIdentityProbe.Value ?? false,
             _config?.EnableNativeRenderFuncResourceTupleProbe.Value ?? false,

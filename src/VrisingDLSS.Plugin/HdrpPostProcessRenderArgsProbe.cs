@@ -184,8 +184,10 @@ internal static class HdrpPostProcessRenderArgsProbe
 
             var hasDepthNativePointer = false;
             var hasMotionNativePointer = false;
+            var depthNativePointer = IntPtr.Zero;
+            var motionNativePointer = IntPtr.Zero;
             var globalTextureSummary = GlobalTextureSnapshotEnabled
-                ? DescribeGlobalTextureSnapshot(out hasDepthNativePointer, out hasMotionNativePointer)
+                ? DescribeGlobalTextureSnapshot(out hasDepthNativePointer, out hasMotionNativePointer, out depthNativePointer, out motionNativePointer)
                 : null;
             var methodLabel = HookTargetCatalog.FormatMethod(__originalMethod);
             var cameraSummary = DescribeCamera(__1);
@@ -227,7 +229,9 @@ internal static class HdrpPostProcessRenderArgsProbe
                         cameraSummary,
                         sourceSummary,
                         destinationSummary,
-                        globalTextureSummary ?? "globalTextures=unavailable"));
+                        globalTextureSummary ?? "globalTextures=unavailable",
+                        depthNativePointer,
+                        motionNativePointer));
 
                 if (shouldLogAdvanced)
                 {
@@ -301,16 +305,21 @@ internal static class HdrpPostProcessRenderArgsProbe
         return $"{role}={{{string.Join(", ", parts)}}}";
     }
 
-    private static string DescribeGlobalTextureSnapshot(out bool hasDepthNativePointer, out bool hasMotionNativePointer)
+    private static string DescribeGlobalTextureSnapshot(
+        out bool hasDepthNativePointer,
+        out bool hasMotionNativePointer,
+        out IntPtr depthNativePointer,
+        out IntPtr motionNativePointer)
     {
-        var depth = DescribeGlobalTexture("_CameraDepthTexture", out hasDepthNativePointer);
-        var motion = DescribeGlobalTexture("_CameraMotionVectorsTexture", out hasMotionNativePointer);
+        var depth = DescribeGlobalTexture("_CameraDepthTexture", out hasDepthNativePointer, out depthNativePointer);
+        var motion = DescribeGlobalTexture("_CameraMotionVectorsTexture", out hasMotionNativePointer, out motionNativePointer);
         return $"globalTextures=[{depth}; {motion}]";
     }
 
-    private static string DescribeGlobalTexture(string textureName, out bool hasNativePointer)
+    private static string DescribeGlobalTexture(string textureName, out bool hasNativePointer, out IntPtr nativePointer)
     {
         hasNativePointer = false;
+        nativePointer = IntPtr.Zero;
         try
         {
             var texture = TryGetGlobalTexture(textureName);
@@ -319,7 +328,7 @@ internal static class HdrpPostProcessRenderArgsProbe
                 return $"{textureName}=null";
             }
 
-            var nativePointer = TryGetNativeTexturePtr(texture);
+            nativePointer = TryGetNativeTexturePtr(texture);
             hasNativePointer = nativePointer != IntPtr.Zero;
             var pointerSummary = hasNativePointer
                 ? $"0x{nativePointer.ToInt64():X}"

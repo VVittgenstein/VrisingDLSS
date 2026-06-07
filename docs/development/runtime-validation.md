@@ -1298,4 +1298,32 @@ Current helper smoke status:
   event/payload advanced `0`, NGX `0`, `ExecuteDLSS` `0`, visible write-back
   `0`, crash/access-violation `0`, and save restore `ChangeCount=0`. See
   `docs/development/hdrp-easu-input-output-correlation-render-scale-gameplay-result-2026-06-07.md`.
+- Follow-up stage `native-renderfunc-commandbuffer-frame-descriptor-render-scale`
+  is implemented and protected-gameplay validated; see
+  `docs/development/native-renderfunc-commandbuffer-frame-descriptor-render-scale-preflight-implementation-2026-06-07.md`
+  and
+  `docs/development/native-renderfunc-commandbuffer-frame-descriptor-render-scale-gameplay-result-2026-06-07.md`.
+  It carries the correlated EASU source/output pointers plus HDRP depth/motion
+  pointers through one focused EASU `ctx.cmd` plugin event as a no-evaluate
+  native frame descriptor. Native bridge API version is now `16`. Protected
+  gameplay proof
+  `native-renderfunc-commandbuffer-frame-descriptor-render-scale-gameplay-1080p-20260607-r1`
+  passed at true `1920x1080` Windowed with V Rising `FsrQualityMode=Off` and
+  mod-owned render scale. Analyzer reported `Native RenderFunc CommandBuffer
+  Frame Descriptor=Pass`, `HDRP/EASU Input Output Correlation=Pass`, `HDRP
+  PostProcess Render Args Global Textures=Pass`, `Native RenderFunc
+  Context=Pass`, `Native RenderFunc Resource Tuple=Pass`, and `Native
+  RenderFunc Resource Native Pointer=Pass`. Key evidence preserved
+  `hdrpFrame=4110`, `easuSourceFrame=4110`, `easuDestinationFrame=4110`, frame
+  deltas `0`, descriptor pointers for source/destination/depth/motion,
+  `input=960x540`, `output=1920x1080`, `eventId=260610`, `consumed=1`,
+  `validation=D3D11-not-queried`, `ngx=not-loaded`, and `evaluate=not-run`.
+  Counts: descriptor advanced `1`, descriptor set advanced `1`,
+  D3D11 pair advanced/failed `0`, broad `RenderGraph.GetTexture` `0`,
+  `ExecuteDLSS` `0`, `DLSS user rendering` `0`, actual visible write-back `0`,
+  crash/access-violation `0`, and save restore `ChangeCount=0`. This proves the
+  four-pointer descriptor can be transported at the official-boundary-adjacent
+  EASU command-buffer callback. It still does not prove D3D11 compatibility for
+  all four resources, DLSS evaluate, resize/reset behavior, visual correctness,
+  legal runtime distribution, or performance.
 - Current route decision: DLSS itself does not depend on FSR. The final MVP validation must keep V Rising `FsrQualityMode=Off` for baseline and candidate, while the mod controls render scale/upscale through HDRP dynamic-resolution/DLSS-path integration. The next gate is no longer tuple existence; it is visual correctness, performance, resize/reset, fallback behavior, and release-boundary validation.
