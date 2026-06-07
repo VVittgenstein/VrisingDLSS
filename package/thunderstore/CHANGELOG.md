@@ -8,6 +8,7 @@
 - Added a guarded render-scale control diagnostic for FSR Off testing; default package config keeps it disabled.
 - Added a default-off native RenderGraph render-func context diagnostic; it reads the focused EASU `RenderGraphContext.cmd` identity without issuing command-buffer work or evaluating DLSS.
 - Added a default-off native RenderGraph render-func command-buffer event diagnostic; it issues one focused no-op plugin event and verifies native callback timing without passing resources or evaluating DLSS.
+- Added a default-off native RenderGraph render-func command-buffer payload diagnostic; it consumes the focused EASU source/output texture payload from a no-op plugin event without NGX, DLSS evaluate, or visible write-back.
 - Added read-only HDRP hook probe.
 - Added optional read-only Harmony call probe with a conservative target list.
 - Added native bridge smoke-test interface.

@@ -23,8 +23,28 @@
 
 namespace
 {
+    struct RenderEventTexturePayload
+    {
+        IUnknown* source = nullptr;
+        IUnknown* destination = nullptr;
+        void* sourcePointer = nullptr;
+        void* destinationPointer = nullptr;
+        int eventId = 0;
+        int sequence = 0;
+    };
+
     std::atomic<int> g_renderEventCount{0};
     std::atomic<int> g_lastRenderEventId{-1};
+    std::atomic<int> g_renderEventTexturePayloadSetAttempts{0};
+    std::atomic<int> g_renderEventTexturePayloadSetSuccesses{0};
+    std::atomic<int> g_renderEventTexturePayloadSetFailures{0};
+    std::atomic<int> g_renderEventTexturePayloadConsumedCount{0};
+    std::atomic<int> g_renderEventTexturePayloadConsumedFailures{0};
+    std::atomic<int> g_renderEventTexturePayloadLastSequence{0};
+    std::atomic<int> g_renderEventTexturePayloadLastEventId{-1};
+    std::mutex g_renderEventTexturePayloadMutex;
+    RenderEventTexturePayload g_renderEventTexturePayload;
+    char g_renderEventTexturePayloadStatus[1536] = "render event texture payload probe has not run";
     std::mutex g_probeStatusMutex;
     char g_d3d11ProbeStatus[512] = "D3D11 texture probe has not run";
     char g_d3d11TexturePairProbeStatus[1024] = "D3D11 texture pair probe has not run";
@@ -54,10 +74,13 @@ namespace
     using NgxParameterGetIntFunc = NgxResult(__cdecl*)(void* parameters, const char* name, int* outValue);
     using NgxParameterGetUIntFunc = NgxResult(__cdecl*)(void* parameters, const char* name, unsigned int* outValue);
 
+    void TryConsumeRenderEventTexturePayload(int eventId);
+
     void VRISINGDLSS_RENDER_EVENT_CALL OnRenderEvent(int eventId)
     {
         g_lastRenderEventId.store(eventId);
         g_renderEventCount.fetch_add(1);
+        TryConsumeRenderEventTexturePayload(eventId);
     }
 
     void SetD3D11ProbeStatus(const char* message)
@@ -254,6 +277,166 @@ namespace
     bool EvaluateInputDimensionsMatch(const EvaluateTextureInfo& reference, const EvaluateTextureInfo& candidate)
     {
         return reference.width == candidate.width && reference.height == candidate.height;
+    }
+
+    void ReleaseRenderEventTexturePayload(RenderEventTexturePayload* payload)
+    {
+        if (payload == nullptr)
+        {
+            return;
+        }
+
+        if (payload->source != nullptr)
+        {
+            payload->source->Release();
+            payload->source = nullptr;
+        }
+
+        if (payload->destination != nullptr)
+        {
+            payload->destination->Release();
+            payload->destination = nullptr;
+        }
+
+        payload->sourcePointer = nullptr;
+        payload->destinationPointer = nullptr;
+        payload->eventId = 0;
+        payload->sequence = 0;
+    }
+
+    void SetRenderEventTexturePayloadFailureStatus(const char* label, const char* detail, int eventId, int sequence)
+    {
+        std::lock_guard<std::mutex> lock(g_renderEventTexturePayloadMutex);
+        std::snprintf(
+            g_renderEventTexturePayloadStatus,
+            sizeof(g_renderEventTexturePayloadStatus),
+            "render event texture payload %s failed: %s; setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d",
+            label,
+            detail,
+            g_renderEventTexturePayloadSetAttempts.load(),
+            g_renderEventTexturePayloadSetSuccesses.load(),
+            g_renderEventTexturePayloadSetFailures.load(),
+            g_renderEventTexturePayloadConsumedCount.load(),
+            g_renderEventTexturePayloadConsumedFailures.load(),
+            eventId,
+            sequence);
+    }
+
+    void TryConsumeRenderEventTexturePayload(int eventId)
+    {
+        RenderEventTexturePayload payload{};
+        {
+            std::lock_guard<std::mutex> lock(g_renderEventTexturePayloadMutex);
+            if (g_renderEventTexturePayload.source == nullptr
+                || g_renderEventTexturePayload.destination == nullptr
+                || g_renderEventTexturePayload.eventId != eventId)
+            {
+                return;
+            }
+
+            payload = g_renderEventTexturePayload;
+            g_renderEventTexturePayload = {};
+        }
+
+        EvaluateTextureInfo source{};
+        EvaluateTextureInfo destination{};
+        char error[384] = {};
+        bool success = TryDescribeEvaluateTexture(
+            "source",
+            payload.sourcePointer,
+            &source,
+            error,
+            sizeof(error));
+        if (success)
+        {
+            success = TryDescribeEvaluateTexture(
+                "destination",
+                payload.destinationPointer,
+                &destination,
+                error,
+                sizeof(error));
+        }
+
+        if (!success)
+        {
+            g_renderEventTexturePayloadConsumedFailures.fetch_add(1);
+            SetRenderEventTexturePayloadFailureStatus("consume", error, eventId, payload.sequence);
+            ReleaseEvaluateTextureInfo(&source);
+            ReleaseEvaluateTextureInfo(&destination);
+            ReleaseRenderEventTexturePayload(&payload);
+            return;
+        }
+
+        if (source.device != destination.device)
+        {
+            g_renderEventTexturePayloadConsumedFailures.fetch_add(1);
+            SetRenderEventTexturePayloadFailureStatus(
+                "consume",
+                "source and destination were not on the same D3D11 device",
+                eventId,
+                payload.sequence);
+            ReleaseEvaluateTextureInfo(&source);
+            ReleaseEvaluateTextureInfo(&destination);
+            ReleaseRenderEventTexturePayload(&payload);
+            return;
+        }
+
+        if (!(destination.width > source.width && destination.height > source.height))
+        {
+            char message[256];
+            std::snprintf(
+                message,
+                sizeof(message),
+                "destination was not larger than source; source=%ux%u destination=%ux%u",
+                source.width,
+                source.height,
+                destination.width,
+                destination.height);
+            g_renderEventTexturePayloadConsumedFailures.fetch_add(1);
+            SetRenderEventTexturePayloadFailureStatus("consume", message, eventId, payload.sequence);
+            ReleaseEvaluateTextureInfo(&source);
+            ReleaseEvaluateTextureInfo(&destination);
+            ReleaseRenderEventTexturePayload(&payload);
+            return;
+        }
+
+        const double widthScale = static_cast<double>(destination.width) / static_cast<double>(source.width);
+        const double heightScale = static_cast<double>(destination.height) / static_cast<double>(source.height);
+        const int consumed = g_renderEventTexturePayloadConsumedCount.fetch_add(1) + 1;
+        g_renderEventTexturePayloadLastSequence.store(payload.sequence);
+        g_renderEventTexturePayloadLastEventId.store(eventId);
+        {
+            std::lock_guard<std::mutex> lock(g_renderEventTexturePayloadMutex);
+            std::snprintf(
+                g_renderEventTexturePayloadStatus,
+                sizeof(g_renderEventTexturePayloadStatus),
+                "render event texture payload consumed: setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d; sourcePtr=%p; destinationPtr=%p; sameDevice=yes; source=%ux%u fmt=%u mips=%u array=%u; destination=%ux%u fmt=%u mips=%u array=%u; scale=(%.3fx,%.3fx)",
+                g_renderEventTexturePayloadSetAttempts.load(),
+                g_renderEventTexturePayloadSetSuccesses.load(),
+                g_renderEventTexturePayloadSetFailures.load(),
+                consumed,
+                g_renderEventTexturePayloadConsumedFailures.load(),
+                eventId,
+                payload.sequence,
+                payload.sourcePointer,
+                payload.destinationPointer,
+                source.width,
+                source.height,
+                static_cast<unsigned int>(source.format),
+                source.mipLevels,
+                source.arraySize,
+                destination.width,
+                destination.height,
+                static_cast<unsigned int>(destination.format),
+                destination.mipLevels,
+                destination.arraySize,
+                widthScale,
+                heightScale);
+        }
+
+        ReleaseEvaluateTextureInfo(&source);
+        ReleaseEvaluateTextureInfo(&destination);
+        ReleaseRenderEventTexturePayload(&payload);
     }
 
     bool TryQueryD3D11Resource(
@@ -1862,7 +2045,7 @@ extern "C"
 {
     int __cdecl VrisingDlss_GetBridgeApiVersion()
     {
-        return 13;
+        return 14;
     }
 
     const char* __cdecl VrisingDlss_GetBridgeVersion()
@@ -1901,6 +2084,71 @@ extern "C"
             g_lastRenderEventId.load());
 
         return status;
+    }
+
+    int __cdecl VrisingDlss_SetRenderEventTexturePayload(
+        void* sourceTexturePtr,
+        void* destinationTexturePtr,
+        int eventId,
+        int sequence)
+    {
+        g_renderEventTexturePayloadSetAttempts.fetch_add(1);
+        if (sourceTexturePtr == nullptr || destinationTexturePtr == nullptr)
+        {
+            g_renderEventTexturePayloadSetFailures.fetch_add(1);
+            SetRenderEventTexturePayloadFailureStatus("set", "source or destination pointer was null", eventId, sequence);
+            return 0;
+        }
+
+        if (sourceTexturePtr == destinationTexturePtr)
+        {
+            g_renderEventTexturePayloadSetFailures.fetch_add(1);
+            SetRenderEventTexturePayloadFailureStatus("set", "source and destination pointers were identical", eventId, sequence);
+            return 0;
+        }
+
+        IUnknown* source = static_cast<IUnknown*>(sourceTexturePtr);
+        IUnknown* destination = static_cast<IUnknown*>(destinationTexturePtr);
+        source->AddRef();
+        destination->AddRef();
+
+        {
+            std::lock_guard<std::mutex> lock(g_renderEventTexturePayloadMutex);
+            ReleaseRenderEventTexturePayload(&g_renderEventTexturePayload);
+            g_renderEventTexturePayload.source = source;
+            g_renderEventTexturePayload.destination = destination;
+            g_renderEventTexturePayload.sourcePointer = sourceTexturePtr;
+            g_renderEventTexturePayload.destinationPointer = destinationTexturePtr;
+            g_renderEventTexturePayload.eventId = eventId;
+            g_renderEventTexturePayload.sequence = sequence;
+            std::snprintf(
+                g_renderEventTexturePayloadStatus,
+                sizeof(g_renderEventTexturePayloadStatus),
+                "render event texture payload pending: setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d; sourcePtr=%p; destinationPtr=%p",
+                g_renderEventTexturePayloadSetAttempts.load(),
+                g_renderEventTexturePayloadSetSuccesses.load() + 1,
+                g_renderEventTexturePayloadSetFailures.load(),
+                g_renderEventTexturePayloadConsumedCount.load(),
+                g_renderEventTexturePayloadConsumedFailures.load(),
+                eventId,
+                sequence,
+                sourceTexturePtr,
+                destinationTexturePtr);
+        }
+
+        g_renderEventTexturePayloadSetSuccesses.fetch_add(1);
+        return 1;
+    }
+
+    int __cdecl VrisingDlss_GetRenderEventTexturePayloadConsumedCount()
+    {
+        return g_renderEventTexturePayloadConsumedCount.load();
+    }
+
+    const char* __cdecl VrisingDlss_GetRenderEventTexturePayloadStatus()
+    {
+        std::lock_guard<std::mutex> lock(g_renderEventTexturePayloadMutex);
+        return g_renderEventTexturePayloadStatus;
     }
 
     int __cdecl VrisingDlss_ProbeD3D11Texture(void* nativeTexturePtr)

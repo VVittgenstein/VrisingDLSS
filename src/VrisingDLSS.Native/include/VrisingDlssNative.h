@@ -15,6 +15,13 @@ extern "C"
     VRISINGDLSS_API int __cdecl VrisingDlss_GetRenderEventCount();
     VRISINGDLSS_API int __cdecl VrisingDlss_GetLastRenderEventId();
     VRISINGDLSS_API const char* __cdecl VrisingDlss_GetRenderEventStatus();
+    VRISINGDLSS_API int __cdecl VrisingDlss_SetRenderEventTexturePayload(
+        void* sourceTexturePtr,
+        void* destinationTexturePtr,
+        int eventId,
+        int sequence);
+    VRISINGDLSS_API int __cdecl VrisingDlss_GetRenderEventTexturePayloadConsumedCount();
+    VRISINGDLSS_API const char* __cdecl VrisingDlss_GetRenderEventTexturePayloadStatus();
     VRISINGDLSS_API int __cdecl VrisingDlss_ProbeD3D11Texture(void* nativeTexturePtr);
     VRISINGDLSS_API const char* __cdecl VrisingDlss_GetD3D11ProbeStatus();
     VRISINGDLSS_API int __cdecl VrisingDlss_ProbeD3D11TexturePair(void* sourceTexturePtr, void* destinationTexturePtr);

@@ -40,6 +40,7 @@ param(
         "native-renderfunc-resource-d3d11-render-scale",
         "native-renderfunc-context-render-scale",
         "native-renderfunc-commandbuffer-event-render-scale",
+        "native-renderfunc-commandbuffer-payload-render-scale",
         "custom-postprocess-registration",
         "custom-postprocess-render-entry",
         "hdrp-postprocess-boundary",

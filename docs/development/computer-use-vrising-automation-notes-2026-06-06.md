@@ -745,3 +745,28 @@ Result:
 - Cleanup closed the game, restored ClientSettings/config/native state,
   archived the changed post-run save state, and restored the `11111` save with
   `ChangeCount=0`.
+
+## Native RenderFunc CommandBuffer Payload + Render Scale Gameplay Notes
+
+Run label:
+`native-renderfunc-commandbuffer-payload-render-scale-gameplay-1080p-20260607-r1`.
+
+Result:
+
+- Computer Use selected the real `VRising` Unity window, not the BepInEx
+  console.
+- The main-menu screenshot was `1283x751`; the Chinese Continue entry was
+  clicked once at `(205,354)`.
+- The click went to the loading screen, then into gameplay after about `55`
+  seconds; no save-list interaction was needed.
+- No keyboard, movement, or gameplay keys were sent.
+- A passive window capture helper produced the valid gameplay screenshot:
+  `artifacts/gameplay-automation/GameplayScreenshot-native-renderfunc-commandbuffer-payload-render-scale-gameplay-1080p-20260607-r1.png`.
+- Runtime proof passed: the focused EASU source/output native texture pointers
+  were set as a native pending payload and consumed from one `ctx.cmd` plugin
+  event with `eventId=260608`, `sameDevice=yes`, `source=960x540`, and
+  `destination=1920x1080`.
+- The proof did not load NGX, evaluate DLSS, or write visible output.
+- Cleanup closed the game, restored ClientSettings/config/native state,
+  archived the changed post-run save state, and restored the `11111` save with
+  `ChangeCount=0`.

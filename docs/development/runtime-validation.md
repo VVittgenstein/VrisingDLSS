@@ -1191,4 +1191,25 @@ Current helper smoke status:
   guard should be driven by local IL2CPP/HDRP decompilation/static xrefs and
   prove a minimal native callback payload/lifecycle at this same boundary,
   still without DLSS evaluate or visible write-back.
+- The protected gameplay proof
+  `native-renderfunc-commandbuffer-payload-render-scale-gameplay-1080p-20260607-r1`
+  validated that payload/lifecycle guard. Native bridge API version is now
+  `14`. With V Rising `FsrQualityMode=Off`, true `1920x1080` Windowed, and
+  mod-owned render scale, the focused EASU source/output native texture
+  pointers were set as a native pending payload and consumed from one
+  command-buffer-issued plugin event with `eventId=260608`. Analyzer reported
+  `Native RenderFunc CommandBuffer Payload=Pass`, `Native RenderFunc
+  Context=Pass`, `Native RenderFunc Resource Native Pointer=Pass`, `Native
+  RenderFunc Resource Tuple=Pass`, and `Stage 2C Render-Scale Control
+  Probe=Pass`. Evidence preserved `tuple=input=960x540; output=1920x1080`,
+  `issueSuccesses=1`, `consumed=1`, `lastEventId=260608`, `sameDevice=yes`,
+  `source=960x540 fmt=26`, `destination=1920x1080 fmt=26`, and
+  `scale=(2.000x,2.000x)`. The run kept broad `RenderGraph.GetTexture`, the
+  separate native D3D11 pair probe, NGX, DLSS evaluate, and user-rendering
+  disabled; reported `CrashEventCount=0`; restored config/native/ClientSettings;
+  left no game process; and restored the protected save with `ChangeCount=0`.
+  The next runtime guard should remain source/decompilation-guided and either
+  find depth/motion-vector payloads at an equivalent official boundary or add a
+  local SDK-wrapper-only DLSS frame-sequence lifecycle preflight at this exact
+  callback boundary before any visible write-back.
 - Current route decision: DLSS itself does not depend on FSR. The final MVP validation must keep V Rising `FsrQualityMode=Off` for baseline and candidate, while the mod controls render scale/upscale through HDRP dynamic-resolution/DLSS-path integration. The next gate is no longer tuple existence; it is visual correctness, performance, resize/reset, fallback behavior, and release-boundary validation.

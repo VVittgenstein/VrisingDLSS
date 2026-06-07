@@ -15,6 +15,9 @@ internal sealed class NativeBridge
     private GetIntDelegate? _getRenderEventCount;
     private GetIntDelegate? _getLastRenderEventId;
     private GetStringPointerDelegate? _getRenderEventStatus;
+    private SetRenderEventTexturePayloadDelegate? _setRenderEventTexturePayload;
+    private GetIntDelegate? _getRenderEventTexturePayloadConsumedCount;
+    private GetStringPointerDelegate? _getRenderEventTexturePayloadStatus;
     private ProbePointerDelegate? _probeD3D11Texture;
     private GetStringPointerDelegate? _getD3D11ProbeStatus;
     private ProbePointerPairDelegate? _probeD3D11TexturePair;
@@ -65,6 +68,9 @@ internal sealed class NativeBridge
         _getRenderEventCount = GetOptionalExport<GetIntDelegate>("VrisingDlss_GetRenderEventCount");
         _getLastRenderEventId = GetOptionalExport<GetIntDelegate>("VrisingDlss_GetLastRenderEventId");
         _getRenderEventStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetRenderEventStatus");
+        _setRenderEventTexturePayload = GetOptionalExport<SetRenderEventTexturePayloadDelegate>("VrisingDlss_SetRenderEventTexturePayload");
+        _getRenderEventTexturePayloadConsumedCount = GetOptionalExport<GetIntDelegate>("VrisingDlss_GetRenderEventTexturePayloadConsumedCount");
+        _getRenderEventTexturePayloadStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetRenderEventTexturePayloadStatus");
         _probeD3D11Texture = GetOptionalExport<ProbePointerDelegate>("VrisingDlss_ProbeD3D11Texture");
         _getD3D11ProbeStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetD3D11ProbeStatus");
         _probeD3D11TexturePair = GetOptionalExport<ProbePointerPairDelegate>("VrisingDlss_ProbeD3D11TexturePair");
@@ -107,6 +113,13 @@ internal sealed class NativeBridge
     internal int GetLastRenderEventId() => _getLastRenderEventId?.Invoke() ?? -1;
 
     internal string GetRenderEventStatus() => PtrToString(_getRenderEventStatus?.Invoke() ?? IntPtr.Zero);
+
+    internal bool SetRenderEventTexturePayload(IntPtr sourceTexturePtr, IntPtr destinationTexturePtr, int eventId, int sequence) =>
+        _setRenderEventTexturePayload?.Invoke(sourceTexturePtr, destinationTexturePtr, eventId, sequence) == 1;
+
+    internal int GetRenderEventTexturePayloadConsumedCount() => _getRenderEventTexturePayloadConsumedCount?.Invoke() ?? -1;
+
+    internal string GetRenderEventTexturePayloadStatus() => PtrToString(_getRenderEventTexturePayloadStatus?.Invoke() ?? IntPtr.Zero);
 
     internal bool ProbeD3D11Texture(IntPtr nativeTexturePtr) => _probeD3D11Texture?.Invoke(nativeTexturePtr) == 1;
 
@@ -342,6 +355,13 @@ internal sealed class NativeBridge
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate int ProbePointerPairDelegate(IntPtr firstPointer, IntPtr secondPointer);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate int SetRenderEventTexturePayloadDelegate(
+        IntPtr sourceTexturePtr,
+        IntPtr destinationTexturePtr,
+        int eventId,
+        int sequence);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
     private delegate int ProbeWideStringDelegate([MarshalAs(UnmanagedType.LPWStr)] string value);

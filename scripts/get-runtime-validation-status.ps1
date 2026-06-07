@@ -101,6 +101,9 @@ function Get-ConfiguredStage {
     if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferEventProbe") -and
         (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "native-renderfunc-commandbuffer-event-render-scale" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferEventProbe") { return "native-renderfunc-commandbuffer-event" }
+    if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferPayloadProbe") -and
+        (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "native-renderfunc-commandbuffer-payload-render-scale" }
+    if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncCommandBufferPayloadProbe") { return "native-renderfunc-commandbuffer-payload" }
     if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncContextProbe") -and
         (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "native-renderfunc-context-render-scale" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeRenderFuncContextProbe") { return "native-renderfunc-context" }
@@ -291,6 +294,7 @@ function Get-NextRecommendation {
     $superResolutionFrameSequence = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 9A"
     $visibleWriteback = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 10A"
     $userRendering = Get-FirstStageStatus -Results $LogResults -StagePrefix "DLSS User Rendering Candidate"
+    $nativeRenderFuncCommandBufferPayload = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc CommandBuffer Payload"
     $nativeRenderFuncCommandBufferEvent = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc CommandBuffer Event"
     $nativeRenderFuncContext = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Context"
     $nativeRenderFuncResourceD3D11 = Get-FirstStageStatus -Results $LogResults -StagePrefix "Native RenderFunc Resource D3D11"
@@ -336,6 +340,17 @@ function Get-NextRecommendation {
         }
 
         return "The latest dlss-user-rendering gameplay log did not accept an FSR Off Super Resolution tuple: the main candidate stayed color=1920x1080 output=1920x1080. Before rerunning the same runtime proof, use the targeted render-scale diagnostic to check for `Render-scale control member write did not stick`, `RTHandles.SetHardwareDynamicResolutionState=true`, and whether the gameplay camera/main targets remain full-size."
+    }
+
+    if ($nativeRenderFuncCommandBufferPayload -eq "Pass" -and $renderScaleControl -eq "Pass") {
+        $nativeRenderFuncCommandBufferPayloadGameplayDoc = Get-ChildItem -LiteralPath (Join-Path $Root "docs\development") -Filter "native-renderfunc-commandbuffer-payload-render-scale-gameplay-result-*.md" -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+        if ($nativeRenderFuncCommandBufferPayloadGameplayDoc) {
+            return "Native EASU ctx.cmd texture-payload consume and render-scale control have a combined protected gameplay proof. Next source-guided guard can evaluate whether this exact callback lifecycle can carry the DLSS frame-sequence create/evaluate state, still behind SDK-wrapper/local gates and without broad GetTexture discovery. Latest proof: $($nativeRenderFuncCommandBufferPayloadGameplayDoc.FullName)"
+        }
+
+        return "Native EASU ctx.cmd texture-payload consume and render-scale control both have runtime evidence, but not yet in the same protected gameplay proof. Next step is a 1920x1080 Windowed protected 11111 run using scripts\start-vrising-automation-session.ps1 -Stage native-renderfunc-commandbuffer-payload-render-scale; expected evidence is payload set, event issue, native consumed count advancing, same-device 960x540 -> 1920x1080 status, and no NGX/DLSS/evaluate/visible write-back."
     }
 
     if ($nativeRenderFuncCommandBufferEvent -eq "Pass" -and $renderScaleControl -eq "Pass") {

@@ -249,6 +249,12 @@ $results.Add((New-StageResult `
     -StartedPatterns @("Native render-func command-buffer event preflight enabled", "Native render-func command-buffer event status #")))
 
 $results.Add((New-StageResult `
+    -Stage "Native RenderFunc CommandBuffer Payload" `
+    -PassPatterns @("Native render-func command-buffer payload advanced:") `
+    -FailPatterns @("Native render-func entry probe failed:", "Native render-func entry detour dispose failed:", "Native render-func command-buffer payload set failed:", "Native render-func command-buffer payload event failed:", "render event texture payload set failed:", "render event texture payload consume failed:", "RenderGraph pass-list logging failed") `
+    -StartedPatterns @("Native render-func command-buffer payload preflight enabled", "Native render-func command-buffer payload status #", "Native render-func command-buffer payload set advanced:")))
+
+$results.Add((New-StageResult `
     -Stage "Native RenderFunc Resource Identity" `
     -PassPatterns @("Native render-func resource identity advanced:") `
     -FailPatterns @("Native render-func entry probe failed:", "Native render-func entry detour dispose failed:", "RenderGraph pass-list logging failed", "Native render-func resource identity data=not found") `
