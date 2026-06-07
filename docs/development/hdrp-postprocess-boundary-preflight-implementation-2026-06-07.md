@@ -1,10 +1,12 @@
 # HDRP PostProcess Boundary Preflight Implementation - 2026-06-07
 
-Status: implemented, statically validated, and menu-runtime partial. Runtime
-result is recorded in
-`docs/development/hdrp-postprocess-boundary-menu-result-2026-06-07.md`.
+Status: implemented, statically validated, menu-runtime partial, and protected
+gameplay pass. Runtime results are recorded in
+`docs/development/hdrp-postprocess-boundary-menu-result-2026-06-07.md` and
+`docs/development/hdrp-postprocess-boundary-gameplay-result-2026-06-07.md`.
 Runtime r1/r2 rejected the all-target direct Harmony patch shape; r3 proved the
 active ProjectM-only target set is menu-stable but not reached in the main menu.
+Protected gameplay r1 then proved `DarkForeground.Render(...)` is reached.
 
 ## Question
 
@@ -205,6 +207,32 @@ but did not reach a ProjectM custom postprocess render override in the menu:
 - D3D11/NGX/DLSS/evaluate patterns: `0`
 - cleanup restored loader config, release-safe native, and `ClientSettings.json`
 
-Decision: keep the ProjectM-only stage and run a protected `11111` gameplay
-proof next. If gameplay also produces no call, reject this ProjectM custom
-postprocess render route as a practical evaluate-boundary candidate.
+Decision after menu: keep the ProjectM-only stage and run a protected `11111`
+gameplay proof.
+
+## Gameplay Runtime Result
+
+Run `hdrp-postprocess-boundary-gameplay-1080p-20260607-r1` passed in the
+protected `11111` fixture at true `1920x1080` Windowed:
+
+- Computer Use clicked the known Continue / `11111` entry once at `(205,354)`.
+- No keyboard or movement input was sent.
+- Gameplay screenshot showed HUD, quest text, character, health/action bar, and
+  minimap.
+- `CrashEventCount=0`
+- patched ProjectM concrete `Render(...)` methods: `6`
+- `HDRP postprocess boundary probe call #` log lines: `29`
+- highest sampled call number: `6300`
+- hit method:
+  `DarkForeground.Render(CommandBuffer, HDCamera, RTHandle, RTHandle)`
+- `RenderGraph GetTexture call #`: `0`
+- D3D11/NGX/DLSS/evaluate patterns: `0`
+- prefix/patch failures: `0`
+- cleanup restored loader config, release-safe native, and
+  `ClientSettings.json`
+- the protected `11111` save was restored with `ChangeCount=0`
+
+Decision: promote `DarkForeground.Render(...)` to a gameplay-proven
+BepInEx/Harmony-accessible HDRP custom postprocess command-buffer boundary. The
+next safe step is a separate no-native resource-argument snapshot from that
+boundary, not DLSS evaluate.

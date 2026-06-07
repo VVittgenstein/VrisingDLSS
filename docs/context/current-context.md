@@ -967,7 +967,26 @@ As of the read-only RenderGraph pass-map runtime result:
   The result is a stable partial: ProjectM-only patching is safe in the menu,
   but the menu did not invoke those renders. See
   `docs/development/hdrp-postprocess-boundary-menu-result-2026-06-07.md`.
-  Next runtime step is a protected `11111` gameplay proof at true `1920x1080`
-  Windowed with this ProjectM-only stage and no movement keys. If gameplay also
-  produces no `HDRP postprocess boundary probe call #`, reject this ProjectM
-  custom postprocess render route as a practical evaluate-boundary candidate.
+  Protected gameplay proof
+  `hdrp-postprocess-boundary-gameplay-1080p-20260607-r1` then passed in the
+  `11111` fixture at true `1920x1080` Windowed. Computer Use selected the real
+  `VRising` Unity window, clicked the known Chinese Continue / `11111` entry
+  once at `(205,354)`, waited about `45` seconds, and sent no keyboard or
+  movement input. Gameplay screenshot showed HUD, quest text, character,
+  health/action bar, and minimap. Analyzer reported
+  `HDRP PostProcess Boundary=Pass`; the log patched `6` ProjectM concrete
+  `Render(...)` overrides and recorded `29` sampled call lines from
+  `DarkForeground.Render(CommandBuffer cmd, HDCamera camera, RTHandle source,
+  RTHandle destination) -> Void`, with the highest sampled call number `6300`.
+  `RenderGraph GetTexture call #`, D3D11, NGX, DLSS/evaluate, prefix failure,
+  patch failure, exception, and error counts were all `0`.
+  `CrashEventCount=0`; cleanup restored loader config, ClientSettings, and the
+  release-safe native DLL; no V Rising process remained. Gameplay entry added
+  one autosave before restore, the changed state was archived, and the
+  protected `11111` save was restored with `ChangeCount=0`. See
+  `docs/development/hdrp-postprocess-boundary-gameplay-result-2026-06-07.md`.
+  Decision: promote `DarkForeground.Render(...)` to a gameplay-proven
+  BepInEx/Harmony-accessible HDRP custom postprocess command-buffer boundary.
+  Next step should be a separate default-off no-native resource-argument
+  snapshot from this boundary, not direct DLSS evaluate and not broad
+  steady-state `GetTexture` discovery.

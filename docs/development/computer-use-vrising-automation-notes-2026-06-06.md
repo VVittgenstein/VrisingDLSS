@@ -520,3 +520,23 @@ Result:
 - Cleanup closed the game, restored ClientSettings/config/native state, archived
   the changed post-run save state, and restored the `11111` save with
   `ChangeCount=0`.
+
+## HDRP PostProcess Boundary Gameplay Proof Notes
+
+Run label: `hdrp-postprocess-boundary-gameplay-1080p-20260607-r1`.
+
+Result:
+
+- Computer Use selected the real `VRising` Unity window, not the BepInEx
+  console.
+- The main menu screenshot was `1283x751`; the known Chinese Continue / `11111`
+  entry was clicked once at `(205,354)`.
+- After about `45` seconds, Computer Use observed gameplay with HUD, quest text,
+  character, health/action bar, and minimap visible.
+- No keyboard, movement, or gameplay keys were sent.
+- The proof saved
+  `artifacts/gameplay-automation/ComputerUseGameplay-hdrp-postprocess-boundary-gameplay-1080p-20260607-r1.jpg`
+  and matching JSON metadata.
+- Cleanup closed the game, restored ClientSettings/config/native state, archived
+  the changed post-run save state, and restored the `11111` save with
+  `ChangeCount=0`.
