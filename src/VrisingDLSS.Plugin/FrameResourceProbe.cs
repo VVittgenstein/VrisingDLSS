@@ -36,6 +36,7 @@ internal static class FrameResourceProbe
     private const int NativeRenderFuncCommandBufferPayloadEventId = 260608;
     private const int MaxNativeRenderFuncCommandBufferFrameDescriptorStatusLogs = 80;
     private const int NativeRenderFuncCommandBufferFrameDescriptorEventId = 260610;
+    private const int NativeRenderFuncCommandBufferFrameDescriptorD3D11EventId = 260611;
     private const int MaxNativeRenderFuncCommandBufferDlssFeatureCreateStatusLogs = 80;
     private const int NativeRenderFuncCommandBufferDlssFeatureCreateEventId = 260609;
     private const int MaxNativeRenderFuncResourceIdentityStatusLogs = 80;
@@ -206,6 +207,7 @@ internal static class FrameResourceProbe
     private static bool NativeRenderFuncCommandBufferEventProbeEnabled;
     private static bool NativeRenderFuncCommandBufferPayloadProbeEnabled;
     private static bool NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled;
+    private static bool NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled;
     private static bool NativeRenderFuncCommandBufferDlssFeatureCreateProbeEnabled;
     private static bool NativeRenderFuncResourceIdentityProbeEnabled;
     private static bool NativeRenderFuncResourceTupleProbeEnabled;
@@ -303,6 +305,19 @@ internal static class FrameResourceProbe
     private static int NativeRenderFuncEntryCandidateObservationCount;
     private static string? NativeRenderFuncEntryCandidatePassName;
     private static string? NativeRenderFuncEntryCandidateMethodSummary;
+
+    private static bool NativeRenderFuncCommandBufferFrameDescriptorAnyProbeEnabled =>
+        NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled || NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled;
+
+    private static int NativeRenderFuncCommandBufferFrameDescriptorActiveEventId =>
+        NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled
+            ? NativeRenderFuncCommandBufferFrameDescriptorD3D11EventId
+            : NativeRenderFuncCommandBufferFrameDescriptorEventId;
+
+    private static string NativeRenderFuncCommandBufferFrameDescriptorLogLabel =>
+        NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled
+            ? "Native render-func command-buffer frame descriptor D3D11"
+            : "Native render-func command-buffer frame descriptor";
     private static object? NativeRenderFuncEntryDetour;
     private static NativeRenderFuncEntryDelegate? NativeRenderFuncEntryReplacementDelegate;
     private static NativeRenderFuncEntryDelegate? NativeRenderFuncEntryOriginalDelegate;
@@ -346,6 +361,7 @@ internal static class FrameResourceProbe
         bool enableNativeRenderFuncCommandBufferEventProbe = false,
         bool enableNativeRenderFuncCommandBufferPayloadProbe = false,
         bool enableNativeRenderFuncCommandBufferFrameDescriptorProbe = false,
+        bool enableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe = false,
         bool enableNativeRenderFuncCommandBufferDlssFeatureCreateProbe = false,
         bool enableNativeRenderFuncResourceIdentityProbe = false,
         bool enableNativeRenderFuncResourceTupleProbe = false,
@@ -357,7 +373,7 @@ internal static class FrameResourceProbe
     {
         var nativeRenderFuncCommandBufferEventRequested = enableNativeRenderFuncCommandBufferEventProbe;
         var nativeRenderFuncCommandBufferPayloadRequested = enableNativeRenderFuncCommandBufferPayloadProbe;
-        var nativeRenderFuncCommandBufferFrameDescriptorRequested = enableNativeRenderFuncCommandBufferFrameDescriptorProbe;
+        var nativeRenderFuncCommandBufferFrameDescriptorRequested = enableNativeRenderFuncCommandBufferFrameDescriptorProbe || enableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe;
         var nativeRenderFuncCommandBufferDlssFeatureCreateRequested = enableNativeRenderFuncCommandBufferDlssFeatureCreateProbe;
         var nativeRenderFuncContextRequested = enableNativeRenderFuncContextProbe || nativeRenderFuncCommandBufferEventRequested || nativeRenderFuncCommandBufferPayloadRequested || nativeRenderFuncCommandBufferFrameDescriptorRequested || nativeRenderFuncCommandBufferDlssFeatureCreateRequested;
         var nativeRenderFuncResourceNativePointerRequested = enableNativeRenderFuncResourceNativePointerProbe || enableNativeRenderFuncResourceD3D11Probe || nativeRenderFuncCommandBufferPayloadRequested || nativeRenderFuncCommandBufferFrameDescriptorRequested || nativeRenderFuncCommandBufferDlssFeatureCreateRequested;
@@ -401,7 +417,8 @@ internal static class FrameResourceProbe
             NativeRenderFuncContextProbeEnabled = NativeRenderFuncContextProbeEnabled || nativeRenderFuncContextRequested;
             NativeRenderFuncCommandBufferEventProbeEnabled = NativeRenderFuncCommandBufferEventProbeEnabled || nativeRenderFuncCommandBufferEventRequested;
             NativeRenderFuncCommandBufferPayloadProbeEnabled = NativeRenderFuncCommandBufferPayloadProbeEnabled || nativeRenderFuncCommandBufferPayloadRequested;
-            NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled = NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled || nativeRenderFuncCommandBufferFrameDescriptorRequested;
+            NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled = NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled || enableNativeRenderFuncCommandBufferFrameDescriptorProbe;
+            NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled = NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled || enableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe;
             NativeRenderFuncCommandBufferDlssFeatureCreateProbeEnabled = NativeRenderFuncCommandBufferDlssFeatureCreateProbeEnabled || nativeRenderFuncCommandBufferDlssFeatureCreateRequested;
             NativeRenderFuncResourceIdentityProbeEnabled = NativeRenderFuncResourceIdentityProbeEnabled || nativeRenderFuncResourceIdentityRequested;
             NativeRenderFuncResourceTupleProbeEnabled = NativeRenderFuncResourceTupleProbeEnabled || nativeRenderFuncResourceTupleRequested;
@@ -455,7 +472,8 @@ internal static class FrameResourceProbe
         NativeRenderFuncContextProbeEnabled = nativeRenderFuncContextRequested;
         NativeRenderFuncCommandBufferEventProbeEnabled = nativeRenderFuncCommandBufferEventRequested;
         NativeRenderFuncCommandBufferPayloadProbeEnabled = nativeRenderFuncCommandBufferPayloadRequested;
-        NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled = nativeRenderFuncCommandBufferFrameDescriptorRequested;
+        NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled = enableNativeRenderFuncCommandBufferFrameDescriptorProbe;
+        NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled = enableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe;
         NativeRenderFuncCommandBufferDlssFeatureCreateProbeEnabled = nativeRenderFuncCommandBufferDlssFeatureCreateRequested;
         NativeRenderFuncResourceIdentityProbeEnabled = nativeRenderFuncResourceIdentityRequested;
         NativeRenderFuncResourceTupleProbeEnabled = nativeRenderFuncResourceTupleRequested;
@@ -603,6 +621,10 @@ internal static class FrameResourceProbe
         if (NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled)
         {
             log.LogWarning("Native render-func command-buffer frame-descriptor preflight enabled. It carries focused EASU source/output plus HDRP depth/motion native pointers through one ctx.cmd plugin event and records descriptor metadata only; no D3D11 validation, NGX, DLSS evaluate, or visible write-back.");
+        }
+        if (NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled)
+        {
+            log.LogWarning("Native render-func command-buffer frame-descriptor D3D11 preflight enabled. It carries focused EASU source/output plus HDRP depth/motion native pointers through one ctx.cmd plugin event and validates their D3D11 texture/device/dimension shape only; no NGX, DLSS evaluate, or visible write-back.");
         }
         if (NativeRenderFuncCommandBufferDlssFeatureCreateProbeEnabled)
         {
@@ -955,6 +977,7 @@ internal static class FrameResourceProbe
             NativeRenderFuncCommandBufferEventProbeEnabled = false;
             NativeRenderFuncCommandBufferPayloadProbeEnabled = false;
             NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled = false;
+            NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled = false;
             NativeRenderFuncCommandBufferDlssFeatureCreateProbeEnabled = false;
             NativeRenderFuncResourceIdentityProbeEnabled = false;
             NativeRenderFuncResourceTupleProbeEnabled = false;
@@ -3084,7 +3107,7 @@ internal static class FrameResourceProbe
                 {
                     var current = NativeRenderFuncResourceNativePointerArmedTarget;
                     var allowCorrelationTargetRefresh = HdrpEasuInputOutputCorrelationProbeState.ShouldRefreshEasuOutput();
-                    var allowFrameDescriptorTargetRefresh = NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled
+                    var allowFrameDescriptorTargetRefresh = NativeRenderFuncCommandBufferFrameDescriptorAnyProbeEnabled
                         && Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorSetSuccessCount) <= 0;
                     targetChanged = !current.HasValue
                         || ((allowCorrelationTargetRefresh || allowFrameDescriptorTargetRefresh) && current.Value.CompileCount != target.CompileCount)
@@ -3750,7 +3773,7 @@ internal static class FrameResourceProbe
 
     private static void TryLogNativeRenderFuncCommandBufferFrameDescriptorStatus(int compileCount)
     {
-        if (!NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled)
+        if (!NativeRenderFuncCommandBufferFrameDescriptorAnyProbeEnabled)
         {
             return;
         }
@@ -3771,10 +3794,12 @@ internal static class FrameResourceProbe
         var beforeConsumed = Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorBeforeConsumedCount);
         var consumedCount = bridge.GetRenderEventFrameDescriptorPayloadConsumedCount();
         var lastEventId = bridge.GetLastRenderEventId();
+        var eventId = NativeRenderFuncCommandBufferFrameDescriptorActiveEventId;
+        var label = NativeRenderFuncCommandBufferFrameDescriptorLogLabel;
         var callbackReached = consumedCount > beforeConsumed
             && consumedCount >= 0
             && beforeConsumed >= 0
-            && lastEventId == NativeRenderFuncCommandBufferFrameDescriptorEventId;
+            && lastEventId == eventId;
         var callbackPtr = Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorCallbackPtr);
         var commandBufferPtr = Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorLastCommandBufferPtr);
         var sequence = Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorSequence);
@@ -3813,12 +3838,12 @@ internal static class FrameResourceProbe
 
         if (shouldLog)
         {
-            log.LogInfo($"Native render-func command-buffer frame descriptor status #{statusLogCount}: compile={compileCount}; installed={NativeRenderFuncEntryInstalled}; setAttempts={setAttempts}; setSuccesses={setSuccesses}; setFailures={setFailures}; issueAttempts={issueAttempts}; issueSuccesses={issueSuccesses}; issueFailures={issueFailures}; beforeConsumed={beforeConsumed}; consumed={consumedCount}; lastEventId={lastEventId}; callbackReached={callbackReached}; callback=0x{callbackPtr:X}; lastCmd=0x{commandBufferPtr:X}; eventId={NativeRenderFuncCommandBufferFrameDescriptorEventId}; sequence={sequence}; status=\"{status ?? "unknown"}\"; failure=\"{failure ?? "none"}\"; candidatePointer=0x{pointer.ToInt64():X}; pass=\"{passName ?? "unknown"}\"");
+            log.LogInfo($"{label} status #{statusLogCount}: compile={compileCount}; installed={NativeRenderFuncEntryInstalled}; setAttempts={setAttempts}; setSuccesses={setSuccesses}; setFailures={setFailures}; issueAttempts={issueAttempts}; issueSuccesses={issueSuccesses}; issueFailures={issueFailures}; beforeConsumed={beforeConsumed}; consumed={consumedCount}; lastEventId={lastEventId}; callbackReached={callbackReached}; callback=0x{callbackPtr:X}; lastCmd=0x{commandBufferPtr:X}; eventId={eventId}; sequence={sequence}; status=\"{status ?? "unknown"}\"; failure=\"{failure ?? "none"}\"; candidatePointer=0x{pointer.ToInt64():X}; pass=\"{passName ?? "unknown"}\"");
         }
 
         if (shouldLogAdvanced)
         {
-            log.LogInfo($"Native render-func command-buffer frame descriptor advanced: setAttempts={setAttempts}; setSuccesses={setSuccesses}; setFailures={setFailures}; issueAttempts={issueAttempts}; issueSuccesses={issueSuccesses}; issueFailures={issueFailures}; beforeConsumed={beforeConsumed}; consumed={consumedCount}; lastEventId={lastEventId}; callback=0x{callbackPtr:X}; lastCmd=0x{commandBufferPtr:X}; eventId={NativeRenderFuncCommandBufferFrameDescriptorEventId}; sequence={sequence}; status=\"{status ?? "unknown"}\"; pass=\"{passName ?? "unknown"}\"");
+            log.LogInfo($"{label} advanced: setAttempts={setAttempts}; setSuccesses={setSuccesses}; setFailures={setFailures}; issueAttempts={issueAttempts}; issueSuccesses={issueSuccesses}; issueFailures={issueFailures}; beforeConsumed={beforeConsumed}; consumed={consumedCount}; lastEventId={lastEventId}; callback=0x{callbackPtr:X}; lastCmd=0x{commandBufferPtr:X}; eventId={eventId}; sequence={sequence}; status=\"{status ?? "unknown"}\"; pass=\"{passName ?? "unknown"}\"");
         }
     }
 
@@ -4043,7 +4068,7 @@ internal static class FrameResourceProbe
                 TryIssueNativeRenderFuncCommandBufferPayloadEvent(commandBuffer, commandBufferPtr);
             }
 
-            if (NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled)
+            if (NativeRenderFuncCommandBufferFrameDescriptorAnyProbeEnabled)
             {
                 TryIssueNativeRenderFuncCommandBufferFrameDescriptorEvent(commandBuffer, commandBufferPtr);
             }
@@ -4262,7 +4287,7 @@ internal static class FrameResourceProbe
                 NativeRenderFuncCommandBufferFrameDescriptorLastFailure = null;
             }
 
-            issuePluginEvent.Invoke(commandBuffer, new object[] { callback, NativeRenderFuncCommandBufferFrameDescriptorEventId });
+            issuePluginEvent.Invoke(commandBuffer, new object[] { callback, NativeRenderFuncCommandBufferFrameDescriptorActiveEventId });
             Interlocked.Increment(ref NativeRenderFuncCommandBufferFrameDescriptorIssueSuccessCount);
         }
         catch (Exception ex)
@@ -4279,7 +4304,7 @@ internal static class FrameResourceProbe
             NativeRenderFuncCommandBufferFrameDescriptorLastFailure = failure;
         }
 
-        Log?.LogWarning($"Native render-func command-buffer frame descriptor event failed: {failure}");
+        Log?.LogWarning($"{NativeRenderFuncCommandBufferFrameDescriptorLogLabel} event failed: {failure}");
     }
 
     private static void TryIssueNativeRenderFuncCommandBufferDlssFeatureCreateEvent(object commandBuffer, IntPtr commandBufferPtr)
@@ -5471,7 +5496,7 @@ internal static class FrameResourceProbe
         NativeRenderFuncResourceNativePointerTarget target;
         lock (Sync)
         {
-            var shouldKeepRefreshingForFrameDescriptor = NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled
+            var shouldKeepRefreshingForFrameDescriptor = NativeRenderFuncCommandBufferFrameDescriptorAnyProbeEnabled
                 && Volatile.Read(ref NativeRenderFuncCommandBufferFrameDescriptorSetSuccessCount) <= 0;
             if ((NativeRenderFuncResourceNativePointerAdvancedLogged
                     && !HdrpEasuInputOutputCorrelationProbeState.ShouldRefreshEasuOutput()
@@ -5620,7 +5645,7 @@ internal static class FrameResourceProbe
             TrySetNativeRenderFuncCommandBufferPayload(log, sourceObservation.Value, destinationObservation.Value, target);
         }
 
-        if (NativeRenderFuncCommandBufferFrameDescriptorProbeEnabled && sourceObservation.HasValue && destinationObservation.HasValue)
+        if (NativeRenderFuncCommandBufferFrameDescriptorAnyProbeEnabled && sourceObservation.HasValue && destinationObservation.HasValue)
         {
             TrySetNativeRenderFuncCommandBufferFrameDescriptorPayload(log, sourceObservation.Value, destinationObservation.Value, target);
         }
@@ -5754,7 +5779,7 @@ internal static class FrameResourceProbe
                     NativeRenderFuncCommandBufferFrameDescriptorLastFailure = "HDRP/EASU frame descriptor was not ready";
                 }
 
-                log.LogInfo($"Native render-func command-buffer frame descriptor waiting: source=({FormatNativeRenderFuncResourceNativePointerObservation(sourceObservation)}); destination=({FormatNativeRenderFuncResourceNativePointerObservation(destinationObservation)}); targetCompile={target.CompileCount}; targetManagedPassData=0x{target.ManagedPassDataPointer:X}; tuple={target.TupleSummary}; reason=\"HDRP/EASU descriptor not ready\"");
+                log.LogInfo($"{NativeRenderFuncCommandBufferFrameDescriptorLogLabel} waiting: source=({FormatNativeRenderFuncResourceNativePointerObservation(sourceObservation)}); destination=({FormatNativeRenderFuncResourceNativePointerObservation(destinationObservation)}); targetCompile={target.CompileCount}; targetManagedPassData=0x{target.ManagedPassDataPointer:X}; tuple={target.TupleSummary}; reason=\"HDRP/EASU descriptor not ready\"");
                 Interlocked.Exchange(ref NativeRenderFuncCommandBufferFrameDescriptorSetAttemptCount, 0);
                 return;
             }
@@ -5770,20 +5795,36 @@ internal static class FrameResourceProbe
             var sequence = Interlocked.Increment(ref NativeRenderFuncCommandBufferFrameDescriptorSequence);
             var beforeConsumed = bridge.GetRenderEventFrameDescriptorPayloadConsumedCount();
             Interlocked.Exchange(ref NativeRenderFuncCommandBufferFrameDescriptorBeforeConsumedCount, beforeConsumed);
-            var success = bridge.SetRenderEventFrameDescriptorPayload(
-                descriptor.SourcePointer,
-                descriptor.DestinationPointer,
-                descriptor.DepthPointer,
-                descriptor.MotionPointer,
-                descriptor.InputWidth,
-                descriptor.InputHeight,
-                descriptor.OutputWidth,
-                descriptor.OutputHeight,
-                descriptor.HdrpFrame,
-                descriptor.EasuSourceFrame,
-                descriptor.EasuDestinationFrame,
-                NativeRenderFuncCommandBufferFrameDescriptorEventId,
-                sequence);
+            var eventId = NativeRenderFuncCommandBufferFrameDescriptorActiveEventId;
+            var success = NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled
+                ? bridge.SetRenderEventFrameDescriptorD3D11ValidationPayload(
+                    descriptor.SourcePointer,
+                    descriptor.DestinationPointer,
+                    descriptor.DepthPointer,
+                    descriptor.MotionPointer,
+                    descriptor.InputWidth,
+                    descriptor.InputHeight,
+                    descriptor.OutputWidth,
+                    descriptor.OutputHeight,
+                    descriptor.HdrpFrame,
+                    descriptor.EasuSourceFrame,
+                    descriptor.EasuDestinationFrame,
+                    eventId,
+                    sequence)
+                : bridge.SetRenderEventFrameDescriptorPayload(
+                    descriptor.SourcePointer,
+                    descriptor.DestinationPointer,
+                    descriptor.DepthPointer,
+                    descriptor.MotionPointer,
+                    descriptor.InputWidth,
+                    descriptor.InputHeight,
+                    descriptor.OutputWidth,
+                    descriptor.OutputHeight,
+                    descriptor.HdrpFrame,
+                    descriptor.EasuSourceFrame,
+                    descriptor.EasuDestinationFrame,
+                    eventId,
+                    sequence);
             var status = bridge.GetRenderEventFrameDescriptorPayloadStatus();
             lock (Sync)
             {
@@ -5791,7 +5832,7 @@ internal static class FrameResourceProbe
                 NativeRenderFuncCommandBufferFrameDescriptorLastFailure = success ? null : status;
             }
 
-            var message = $"Native render-func command-buffer frame descriptor set {(success ? "advanced" : "failed")}: source=({FormatNativeRenderFuncResourceNativePointerObservation(sourceObservation)}); destination=({FormatNativeRenderFuncResourceNativePointerObservation(destinationObservation)}); depthMotion=({descriptor.HdrpGlobalTextureSummary}); targetCompile={target.CompileCount}; targetManagedPassData=0x{target.ManagedPassDataPointer:X}; tuple={target.TupleSummary}; descriptorFrames=hdrp:{descriptor.HdrpFrame},easuSource:{descriptor.EasuSourceFrame},easuDestination:{descriptor.EasuDestinationFrame}; size=input:{descriptor.InputWidth}x{descriptor.InputHeight},output:{descriptor.OutputWidth}x{descriptor.OutputHeight}; beforeConsumed={beforeConsumed}; eventId={NativeRenderFuncCommandBufferFrameDescriptorEventId}; sequence={sequence}; status=\"{status}\"";
+            var message = $"{NativeRenderFuncCommandBufferFrameDescriptorLogLabel} set {(success ? "advanced" : "failed")}: source=({FormatNativeRenderFuncResourceNativePointerObservation(sourceObservation)}); destination=({FormatNativeRenderFuncResourceNativePointerObservation(destinationObservation)}); depthMotion=({descriptor.HdrpGlobalTextureSummary}); targetCompile={target.CompileCount}; targetManagedPassData=0x{target.ManagedPassDataPointer:X}; tuple={target.TupleSummary}; descriptorFrames=hdrp:{descriptor.HdrpFrame},easuSource:{descriptor.EasuSourceFrame},easuDestination:{descriptor.EasuDestinationFrame}; size=input:{descriptor.InputWidth}x{descriptor.InputHeight},output:{descriptor.OutputWidth}x{descriptor.OutputHeight}; beforeConsumed={beforeConsumed}; eventId={eventId}; sequence={sequence}; status=\"{status}\"";
             if (success)
             {
                 Interlocked.Increment(ref NativeRenderFuncCommandBufferFrameDescriptorSetSuccessCount);
@@ -5817,7 +5858,7 @@ internal static class FrameResourceProbe
             NativeRenderFuncCommandBufferFrameDescriptorLastFailure = failure;
         }
 
-        Log?.LogWarning($"Native render-func command-buffer frame descriptor set failed: {failure}");
+        Log?.LogWarning($"{NativeRenderFuncCommandBufferFrameDescriptorLogLabel} set failed: {failure}");
     }
 
     private static void TrySetNativeRenderFuncCommandBufferDlssFeatureCreatePayload(

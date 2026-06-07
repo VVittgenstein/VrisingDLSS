@@ -19,6 +19,7 @@ internal sealed class NativeBridge
     private GetIntDelegate? _getRenderEventTexturePayloadConsumedCount;
     private GetStringPointerDelegate? _getRenderEventTexturePayloadStatus;
     private SetRenderEventFrameDescriptorPayloadDelegate? _setRenderEventFrameDescriptorPayload;
+    private SetRenderEventFrameDescriptorPayloadDelegate? _setRenderEventFrameDescriptorD3D11ValidationPayload;
     private GetIntDelegate? _getRenderEventFrameDescriptorPayloadConsumedCount;
     private GetStringPointerDelegate? _getRenderEventFrameDescriptorPayloadStatus;
     private SetRenderEventDlssFeatureCreatePayloadDelegate? _setRenderEventDlssFeatureCreatePayload;
@@ -78,6 +79,7 @@ internal sealed class NativeBridge
         _getRenderEventTexturePayloadConsumedCount = GetOptionalExport<GetIntDelegate>("VrisingDlss_GetRenderEventTexturePayloadConsumedCount");
         _getRenderEventTexturePayloadStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetRenderEventTexturePayloadStatus");
         _setRenderEventFrameDescriptorPayload = GetOptionalExport<SetRenderEventFrameDescriptorPayloadDelegate>("VrisingDlss_SetRenderEventFrameDescriptorPayload");
+        _setRenderEventFrameDescriptorD3D11ValidationPayload = GetOptionalExport<SetRenderEventFrameDescriptorPayloadDelegate>("VrisingDlss_SetRenderEventFrameDescriptorD3D11ValidationPayload");
         _getRenderEventFrameDescriptorPayloadConsumedCount = GetOptionalExport<GetIntDelegate>("VrisingDlss_GetRenderEventFrameDescriptorPayloadConsumedCount");
         _getRenderEventFrameDescriptorPayloadStatus = GetOptionalExport<GetStringPointerDelegate>("VrisingDlss_GetRenderEventFrameDescriptorPayloadStatus");
         _setRenderEventDlssFeatureCreatePayload = GetOptionalExport<SetRenderEventDlssFeatureCreatePayloadDelegate>("VrisingDlss_SetRenderEventDlssFeatureCreatePayload");
@@ -148,6 +150,35 @@ internal sealed class NativeBridge
         int eventId,
         int sequence) =>
         _setRenderEventFrameDescriptorPayload?.Invoke(
+            sourceTexturePtr,
+            destinationTexturePtr,
+            depthTexturePtr,
+            motionTexturePtr,
+            inputWidth,
+            inputHeight,
+            outputWidth,
+            outputHeight,
+            hdrpFrame,
+            easuSourceFrame,
+            easuDestinationFrame,
+            eventId,
+            sequence) == 1;
+
+    internal bool SetRenderEventFrameDescriptorD3D11ValidationPayload(
+        IntPtr sourceTexturePtr,
+        IntPtr destinationTexturePtr,
+        IntPtr depthTexturePtr,
+        IntPtr motionTexturePtr,
+        int inputWidth,
+        int inputHeight,
+        int outputWidth,
+        int outputHeight,
+        int hdrpFrame,
+        int easuSourceFrame,
+        int easuDestinationFrame,
+        int eventId,
+        int sequence) =>
+        _setRenderEventFrameDescriptorD3D11ValidationPayload?.Invoke(
             sourceTexturePtr,
             destinationTexturePtr,
             depthTexturePtr,

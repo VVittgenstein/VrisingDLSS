@@ -36,6 +36,20 @@ extern "C"
         int easuDestinationFrame,
         int eventId,
         int sequence);
+    VRISINGDLSS_API int __cdecl VrisingDlss_SetRenderEventFrameDescriptorD3D11ValidationPayload(
+        void* sourceTexturePtr,
+        void* destinationTexturePtr,
+        void* depthTexturePtr,
+        void* motionTexturePtr,
+        int inputWidth,
+        int inputHeight,
+        int outputWidth,
+        int outputHeight,
+        int hdrpFrame,
+        int easuSourceFrame,
+        int easuDestinationFrame,
+        int eventId,
+        int sequence);
     VRISINGDLSS_API int __cdecl VrisingDlss_GetRenderEventFrameDescriptorPayloadConsumedCount();
     VRISINGDLSS_API const char* __cdecl VrisingDlss_GetRenderEventFrameDescriptorPayloadStatus();
     VRISINGDLSS_API int __cdecl VrisingDlss_SetRenderEventDlssFeatureCreatePayload(

@@ -261,6 +261,12 @@ $results.Add((New-StageResult `
     -StartedPatterns @("Native render-func command-buffer frame-descriptor preflight enabled", "Native render-func command-buffer frame descriptor status #", "Native render-func command-buffer frame descriptor set advanced:")))
 
 $results.Add((New-StageResult `
+    -Stage "Native RenderFunc CommandBuffer Frame Descriptor D3D11" `
+    -PassPatterns @("Native render-func command-buffer frame descriptor D3D11 advanced:") `
+    -FailPatterns @("Native render-func entry probe failed:", "Native render-func entry detour dispose failed:", "Native render-func command-buffer frame descriptor D3D11 set failed:", "Native render-func command-buffer frame descriptor D3D11 event failed:", "render event frame descriptor payload set failed:", "render event frame descriptor payload consume failed:", "D3D11 validation failed:", "RenderGraph pass-list logging failed") `
+    -StartedPatterns @("Native render-func command-buffer frame-descriptor D3D11 preflight enabled", "Native render-func command-buffer frame descriptor D3D11 status #", "Native render-func command-buffer frame descriptor D3D11 set advanced:")))
+
+$results.Add((New-StageResult `
     -Stage "Native RenderFunc CommandBuffer DLSS Feature Create" `
     -PassPatterns @("Native render-func command-buffer DLSS feature-create advanced:") `
     -FailPatterns @("Native render-func entry probe failed:", "Native render-func entry detour dispose failed:", "Native render-func command-buffer DLSS feature-create set failed:", "Native render-func command-buffer DLSS feature-create event failed:", "render event DLSS feature-create payload set failed:", "render event DLSS feature-create payload consume failed:", "render event DLSS feature-create payload create failed:", "RenderGraph pass-list logging failed") `

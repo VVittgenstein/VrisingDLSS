@@ -1326,4 +1326,31 @@ Current helper smoke status:
   EASU command-buffer callback. It still does not prove D3D11 compatibility for
   all four resources, DLSS evaluate, resize/reset behavior, visual correctness,
   legal runtime distribution, or performance.
+- Follow-up stage
+  `native-renderfunc-commandbuffer-frame-descriptor-d3d11-render-scale` is
+  implemented and protected-gameplay validated; see
+  `docs/development/native-renderfunc-commandbuffer-frame-descriptor-d3d11-render-scale-preflight-implementation-2026-06-07.md`
+  and
+  `docs/development/native-renderfunc-commandbuffer-frame-descriptor-d3d11-render-scale-gameplay-result-2026-06-07.md`.
+  It adds default-off
+  `Diagnostics.EnableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe=false`.
+  Native bridge API version is now `17`. Protected gameplay proof
+  `native-renderfunc-commandbuffer-frame-descriptor-d3d11-render-scale-gameplay-1080p-20260607-r1`
+  passed at true `1920x1080` Windowed with V Rising `FsrQualityMode=Off` and
+  mod-owned render scale. Analyzer reported `Native RenderFunc CommandBuffer
+  Frame Descriptor D3D11=Pass`, `HDRP/EASU Input Output Correlation=Pass`,
+  `HDRP PostProcess Render Args Global Textures=Pass`, `Native RenderFunc
+  Context=Pass`, `Native RenderFunc Resource Tuple=Pass`, and `Native
+  RenderFunc Resource Native Pointer=Pass`. Key evidence preserved
+  `input=960x540`, `output=1920x1080`, `eventId=260611`, `consumed=1`,
+  `validation=D3D11-succeeded`, `sameDevice=yes`, source/depth/motion at
+  `960x540`, destination at `1920x1080`, `scale=(2.000x,2.000x)`,
+  `ngx=not-loaded`, and `evaluate=not-run`. Counts: D3D11 descriptor advanced
+  `1`, D3D11 descriptor set advanced `1`, consumed-status lines `22`,
+  D3D11 validation failures `0`, `ExecuteDLSS` `0`, `DLSS user rendering` `0`,
+  actual visible write-back `0`, crash/access-violation `0`, and save restore
+  `ChangeCount=0`. This proves the four-resource descriptor is a coherent
+  same-device D3D11 Super Resolution shape at the EASU `ctx.cmd` boundary, but
+  still does not prove DLSS evaluate, NGX feature reuse, resize/reset behavior,
+  visual correctness, legal runtime distribution, or performance.
 - Current route decision: DLSS itself does not depend on FSR. The final MVP validation must keep V Rising `FsrQualityMode=Off` for baseline and candidate, while the mod controls render scale/upscale through HDRP dynamic-resolution/DLSS-path integration. The next gate is no longer tuple existence; it is visual correctness, performance, resize/reset, fallback behavior, and release-boundary validation.

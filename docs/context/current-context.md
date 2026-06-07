@@ -1420,3 +1420,35 @@ As of the read-only RenderGraph pass-map runtime result:
   should be separate D3D11/SR input validation for this four-resource descriptor
   or a bounded no-write evaluate preflight at the same callback, not a return to
   broad steady-state `GetTexture` discovery.
+- Follow-up stage
+  `native-renderfunc-commandbuffer-frame-descriptor-d3d11-render-scale` is now
+  implemented and protected-gameplay validated; see
+  `docs/development/native-renderfunc-commandbuffer-frame-descriptor-d3d11-render-scale-preflight-implementation-2026-06-07.md`
+  and
+  `docs/development/native-renderfunc-commandbuffer-frame-descriptor-d3d11-render-scale-gameplay-result-2026-06-07.md`.
+  It adds default-off
+  `Diagnostics.EnableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe=false`.
+  Native bridge API version is now `17`. The stage reuses the source-guided
+  HDRP/EASU correlation, carries EASU source/output plus HDRP depth/motion
+  native pointers through one focused EASU `RenderGraphContext.cmd` plugin
+  event with `eventId=260611`, and validates only D3D11 resource/device/
+  dimension shape. Protected gameplay proof
+  `native-renderfunc-commandbuffer-frame-descriptor-d3d11-render-scale-gameplay-1080p-20260607-r1`
+  passed at true `1920x1080` Windowed with V Rising `FsrQualityMode=Off`,
+  mod-owned render scale, and the protected `11111` fixture. Computer Use
+  clicked Continue once and sent no movement keys. Analyzer reported `Native
+  RenderFunc CommandBuffer Frame Descriptor D3D11=Pass`, `HDRP/EASU Input
+  Output Correlation=Pass`, `HDRP PostProcess Render Args Global Textures=Pass`,
+  `Native RenderFunc Context=Pass`, `Native RenderFunc Resource Tuple=Pass`,
+  and `Native RenderFunc Resource Native Pointer=Pass`. Key evidence preserved
+  same-frame `hdrpFrame=3675`, `easuSourceFrame=3675`,
+  `easuDestinationFrame=3675`, `input=960x540`, `output=1920x1080`,
+  `validation=D3D11-succeeded`, `sameDevice=yes`, source/depth/motion at
+  `960x540`, destination at `1920x1080`, `scale=(2.000x,2.000x)`,
+  `ngx=not-loaded`, and `evaluate=not-run`. Counts: D3D11 descriptor advanced
+  `1`, set advanced `1`, consumed-status lines `22`, D3D11 validation failures
+  `0`, `ExecuteDLSS` `0`, `DLSS user rendering` `0`, actual visible write-back
+  `0`, crash/access-violation `0`, and save restore `ChangeCount=0`. The next
+  guard should be a bounded SDK-wrapper-only no-write DLSS frame-sequence
+  evaluate at the same callback boundary; keep visible write-back and broad
+  `RenderGraph.GetTexture` disabled.

@@ -40,6 +40,7 @@ param(
         "native-renderfunc-commandbuffer-event-render-scale",
         "native-renderfunc-commandbuffer-payload-render-scale",
         "native-renderfunc-commandbuffer-frame-descriptor-render-scale",
+        "native-renderfunc-commandbuffer-frame-descriptor-d3d11-render-scale",
         "native-renderfunc-commandbuffer-dlss-create-render-scale",
         "custom-postprocess-registration",
         "custom-postprocess-render-entry",
@@ -118,6 +119,7 @@ function New-ConfigMap {
             EnableNativeRenderFuncCommandBufferEventProbe = "false"
             EnableNativeRenderFuncCommandBufferPayloadProbe = "false"
             EnableNativeRenderFuncCommandBufferFrameDescriptorProbe = "false"
+            EnableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe = "false"
             EnableNativeRenderFuncCommandBufferDlssFeatureCreateProbe = "false"
             EnableNativeRenderFuncResourceIdentityProbe = "false"
             EnableNativeRenderFuncResourceTupleProbe = "false"
@@ -497,6 +499,22 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableNativeRenderFuncArgumentProbe = "true"
             $Config.Diagnostics.EnableNativeRenderFuncContextProbe = "true"
             $Config.Diagnostics.EnableNativeRenderFuncCommandBufferFrameDescriptorProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncResourceIdentityProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncResourceTupleProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncResourceNativePointerProbe = "true"
+            $Config.Diagnostics.EnableHdrpPostProcessRenderArgsProbe = "true"
+            $Config.Diagnostics.EnableHdrpPostProcessRenderArgsGlobalTextureProbe = "true"
+            $Config.Diagnostics.EnableRenderScaleControlProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
+            $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+            $Config.Diagnostics.EnableHookProbe = "false"
+        }
+        "native-renderfunc-commandbuffer-frame-descriptor-d3d11-render-scale" {
+            $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncEntryProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncArgumentProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncContextProbe = "true"
+            $Config.Diagnostics.EnableNativeRenderFuncCommandBufferFrameDescriptorD3D11Probe = "true"
             $Config.Diagnostics.EnableNativeRenderFuncResourceIdentityProbe = "true"
             $Config.Diagnostics.EnableNativeRenderFuncResourceTupleProbe = "true"
             $Config.Diagnostics.EnableNativeRenderFuncResourceNativePointerProbe = "true"
