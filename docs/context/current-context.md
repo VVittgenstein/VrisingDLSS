@@ -1076,3 +1076,29 @@ As of the read-only RenderGraph pass-map runtime result:
   should focus on a separate EASU source/destination resource-resolution or
   native-pointer guard, not another broad `GetTexture` route or immediate DLSS
   evaluate.
+- Follow-up script-only stage `native-renderfunc-resource-resolve-render-scale`
+  is implemented and protected-gameplay validated; see
+  `docs/development/native-renderfunc-resource-resolve-render-scale-gameplay-result-2026-06-07.md`.
+  The stage combines the focused EASU `TextureResource` metadata resolve path
+  with `RenderScaleControlProbe`, while leaving broad `GetTexture`, actual
+  native texture pointer reads, D3D11 validation, NGX/DLSS evaluate,
+  command-buffer work, and broad hook scan disabled. With V Rising
+  `FsrQualityMode=Off`, true `1920x1080` Windowed, and the protected `11111`
+  fixture, analyzer reported `Native RenderFunc Resource Resolve=Pass` and
+  `Stage 2C Render-Scale Control Probe=Pass`. The first resolve advanced line
+  at `compile=4` matched native and managed EASU pass data and reported
+  `tuple=input=960x540; output=1920x1080`, `resourceReady=True`,
+  `textureResourceReady=True`, and `graphicsReady=False`; final status reached
+  `#8100` with the same shape. Counts: `tuple=input=960x540;
+  output=1920x1080` `216`, same-size tuple `0`, `resourceReady=True` `104`,
+  `textureResourceReady=True` `104`, `graphicsReady=True` `0`,
+  `GetCurrentScale=0.5` `31`, `GetResolvedScale=(0.50, 0.50)` `31`,
+  `RenderGraph GetTexture` `0`, actual native texture pointer read patterns
+  `0`, D3D11/NGX/DLSS/evaluate patterns `0`, resolve failure/access-violation
+  patterns `0`, `CrashEventCount=0`. Cleanup restored loader config,
+  ClientSettings, release-safe native state, left no V Rising process, and
+  restored the protected save with `ChangeCount=0`. This proves metadata
+  resolution for the proven SR-sized EASU handles; next work should be a
+  separately guarded focused EASU native-pointer observation under render
+  scale, still without command-buffer work, D3D11 validation, or DLSS evaluate
+  in the same step.

@@ -613,3 +613,27 @@ Result:
 - Cleanup closed the game, restored ClientSettings/config/native state,
   archived the changed post-run save state, and restored the `11111` save with
   `ChangeCount=0`.
+
+## Native RenderFunc Resource Resolve + Render Scale Gameplay Notes
+
+Run label:
+`native-renderfunc-resource-resolve-render-scale-gameplay-1080p-20260607-r1`.
+
+Result:
+
+- Computer Use selected the real `VRising` Unity window, not the BepInEx
+  console.
+- The main-menu screenshot was `1283x751`; the known Chinese Continue / `11111`
+  entry was clicked once at `(205,354)`.
+- The click went straight to the loading screen; no save-list interaction was
+  needed.
+- After about `45` seconds, Computer Use observed gameplay with HUD, quest
+  text, character, minimap, health bar, and action bar visible.
+- No keyboard, movement, or gameplay keys were sent.
+- Player log confirmed local `11111` entry and `TopDownCamera`
+  created/assigned.
+- A passive window capture helper also produced the valid gameplay screenshot:
+  `artifacts/gameplay-automation/CaptureGameplay-native-renderfunc-resource-resolve-render-scale-gameplay-1080p-20260607-r1.png`.
+- Cleanup closed the game, restored ClientSettings/config/native state,
+  archived the changed post-run save state, and restored the `11111` save with
+  `ChangeCount=0`.

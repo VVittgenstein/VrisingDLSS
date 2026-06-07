@@ -34,6 +34,7 @@ param(
         "native-renderfunc-resource-tuple",
         "native-renderfunc-resource-tuple-render-scale",
         "native-renderfunc-resource-resolve",
+        "native-renderfunc-resource-resolve-render-scale",
         "native-renderfunc-resource-native-pointer",
         "custom-postprocess-registration",
         "custom-postprocess-render-entry",
