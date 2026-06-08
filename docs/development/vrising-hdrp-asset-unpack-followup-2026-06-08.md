@@ -45,6 +45,15 @@ environment:
 - `UnityPy 1.25.0`
 - `TypeTreeGeneratorAPI 0.0.10`
 
+This pass is now reproducible through:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\inspect-vrising-hdrp-assets.ps1 -GamePath C:\Software\VRising -Json
+```
+
+The script launches no game process, modifies no game files, and reports
+`LaunchesGame=false` / `ModifiesGameFiles=false`.
+
 Tooling note: `TypeTreeGeneratorAPI.load_il2cpp()` failed against the local
 `GameAssembly.dll` / metadata v31 pair, but `load_local_dll_folder()` succeeded
 with the Il2CppDumper `DummyDll` folder and generated usable type trees for
@@ -65,6 +74,9 @@ Key serialized value:
 | --- | --- |
 | `GraphicsSettings.m_CustomRenderPipeline.m_FileID` | `1` |
 | `GraphicsSettings.m_CustomRenderPipeline.m_PathID` | `9008` |
+| Inspector script status | `Pass` |
+| Inspector script `LaunchesGame` | `false` |
+| Inspector script `ModifiesGameFiles` | `false` |
 
 The corresponding `MonoBehaviour` in `globalgamemanagers.assets` is:
 

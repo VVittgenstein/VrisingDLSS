@@ -2033,6 +2033,12 @@ As of the read-only RenderGraph pass-map runtime result:
   `ProjectM.ContestAreaEffect`. This promotes the asset evidence from raw
   strings to serialized active-asset values and further explains why official
   HDRP DLSS is not scheduled normally.
+- The HDRP asset unpack is now repeatable with
+  `scripts\inspect-vrising-hdrp-assets.ps1 -GamePath C:\Software\VRising -Json`.
+  The script launches no game process, modifies no game files, and reports
+  `Status=Pass`, `LaunchesGame=false`, `ModifiesGameFiles=false`,
+  `ActiveAssetName=HDRP DefaultSettings`, `UseRenderGraph=1`, `EnableDLSS=0`,
+  and `UpsampleFilterName=EdgeAdaptiveScalingUpres` on the current local install.
 - Automation session protected-save support was added after the contract-bind
   preflight. `scripts/start-vrising-automation-session.ps1` now accepts
   `-ProtectSave -SaveDir <local-save-dir>` and records `SaveBackupDir`,
