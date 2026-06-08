@@ -2289,3 +2289,15 @@ As of the read-only RenderGraph pass-map runtime result:
   depending on fragile PowerShell formatting when checking
   `ConfiguredStage=loader`, `LaunchesGame=False`, and whether the current
   recommendation still points to the protected contract-bind proof.
+- `scripts\test-vrising-local-decompilation-investigation.ps1` now wraps the
+  systematic V Rising HDRP/DLSS decompilation investigation as a no-runtime
+  guard. Without `-GamePath` it checks the clean-room documentation contract:
+  evidence/inference separation, target-question coverage, rejected unsafe
+  boundaries, and the contract-bind -> bounded no-write -> NGX evaluate next
+  chain. With `-GamePath C:\Software\VRising -RequireLocalEvidence` it also
+  reruns the read-only local evidence chain: static HDRP route anchors, ProjectM
+  FSR/no-DLSS focused search, HDRP asset unpack, native `DLSSPass` stub entry
+  bytes, and the official DLSS vs EASU resource-contract split. GitHub Actions
+  runs the doc/contract half, while local readiness with `-GamePath` runs the
+  full game-file evidence path. This does not approve or distribute any
+  decompiled game code or assets.

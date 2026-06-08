@@ -106,6 +106,7 @@ $runtimeDistributionContractRequirement = "DLSS runtime distribution approval ga
 $contractBindStageRequirement = "Contract-bind render-scale stage dry-run remains no-native/no-evaluate and launch-safe before gameplay automation."
 $contractAnalyzerRequirement = "HDRP DLSS schedule analyzer recognizes the contract-bind success shape and rejects evaluate-polluted logs without launching or modifying the game."
 $runtimeNextRecommendationContractRequirement = "Runtime status recommendations defer the known-regressed EASU ctx.cmd user-rendering candidate to the official-equivalent contract-bind route instead of sending the next run back to the same candidate."
+$localDecompilationInvestigationRequirement = "Systematic local decompilation investigation keeps clean-room evidence/inference boundaries and, when GamePath is available, rechecks HDRP route anchors, inert DLSSPass bodies, asset gates, and the official DLSS vs EASU contract split without launching or modifying the game."
 $localSaveFixtureRequirement = "Local V Rising save fixture resolver finds exactly one usable Continue target named 11111 without launching or modifying the game."
 $renderGraphBoundaryRouteRequirement = "RenderGraph boundary route guard keeps mod-owned RenderGraph pass injection rejected as the normal route without launching or modifying the game."
 $runtimeDistributionRequirement = "Normal-user DLSS runtime distribution path is approved and does not require ad hoc manual DLL downloads."
@@ -293,6 +294,7 @@ if (Test-Path -LiteralPath $workflowPath) {
         -and $workflowText -match "test-hdrp-dlss-contract-bind-stage\.ps1\s+-RequirePass" `
         -and $workflowText -match "test-hdrp-dlss-schedule-analyzer-contract\.ps1" `
         -and $workflowText -match "test-runtime-next-recommendation-contract\.ps1" `
+        -and $workflowText -match "test-vrising-local-decompilation-investigation\.ps1" `
         -and $workflowText -match "test-rendergraph-boundary-route-status\.ps1\s+-RequirePass" `
         -and $workflowText -match "actions/upload-artifact@v4"
     $items.Add((New-ReadinessItem `
@@ -534,6 +536,51 @@ $items.Add((New-ReadinessItem `
     -Status $renderGraphBoundaryRouteStatus `
     -Evidence $renderGraphBoundaryRouteEvidence))
 
+$localDecompilationArgs = @{
+    Root = $resolvedRoot
+    Json = $true
+}
+if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
+    $localDecompilationArgs["GamePath"] = $GamePath
+    $localDecompilationArgs["RequireLocalEvidence"] = $true
+}
+$localDecompilationGuard = Invoke-CapturedCommand -Command {
+    & (Join-Path $resolvedRoot "scripts\test-vrising-local-decompilation-investigation.ps1") @localDecompilationArgs
+}
+$localDecompilationStatus = "Blocked"
+$localDecompilationEvidence = "Local decompilation investigation guard did not produce evidence."
+if ($localDecompilationGuard.Succeeded) {
+    try {
+        $localDecompilationReport = $localDecompilationGuard.Output | ConvertFrom-Json
+        $localDecompilationLaunchesGame = [bool]$localDecompilationReport.LaunchesGame
+        $localDecompilationModifiesGameFiles = [bool]$localDecompilationReport.ModifiesGameFiles
+        $localDecompilationStatus = if ($localDecompilationReport.Status -eq "Pass" `
+                -and -not $localDecompilationLaunchesGame `
+                -and -not $localDecompilationModifiesGameFiles) {
+            "Pass"
+        } elseif ($localDecompilationReport.Status -eq "Fail") {
+            "Fail"
+        } else {
+            "Blocked"
+        }
+        $localDecompilationEvidence = "Status=$($localDecompilationReport.Status); LocalEvidence=$($localDecompilationReport.LocalEvidenceStatus); Checks=$($localDecompilationReport.CheckCount); FailedChecks=$(@($localDecompilationReport.FailedChecks).Count); LaunchesGame=$($localDecompilationReport.LaunchesGame); ModifiesGameFiles=$($localDecompilationReport.ModifiesGameFiles); StaticRoute=$($localDecompilationReport.Evidence.StaticRouteStatus); NativeStub=$($localDecompilationReport.Evidence.NativeStubStatus); OfficialContract=$($localDecompilationReport.Evidence.OfficialContractStatus); Next=$($localDecompilationReport.Summary.NextBoundary)"
+        if (@($localDecompilationReport.Issues).Count -gt 0) {
+            $localDecompilationEvidence = "$localDecompilationEvidence; Issues=$(@($localDecompilationReport.Issues) -join ' | ')"
+        }
+    } catch {
+        $localDecompilationStatus = "Blocked"
+        $localDecompilationEvidence = "Failed to parse local decompilation investigation guard JSON: $($_.Exception.Message); Output=$($localDecompilationGuard.Output)"
+    }
+} else {
+    $localDecompilationEvidence = "Local decompilation investigation guard failed: $($localDecompilationGuard.Output)"
+}
+
+$items.Add((New-ReadinessItem `
+    -Area "Evidence" `
+    -Requirement $localDecompilationInvestigationRequirement `
+    -Status $localDecompilationStatus `
+    -Evidence $localDecompilationEvidence))
+
 if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
     $runtimeArgs = @{
         Root = $resolvedRoot
@@ -754,6 +801,11 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
         -Requirement $dlssNativeStubRequirement `
         -Status "Missing" `
         -Evidence "Pass -GamePath to include local HDRP DLSS native-stub audit evidence."))
+    $items.Add((New-ReadinessItem `
+        -Area "Evidence" `
+        -Requirement $officialDlssContractRequirement `
+        -Status "Missing" `
+        -Evidence "Pass -GamePath to include local HDRP DLSS official-contract guard evidence."))
 
     $items.Add((New-ReadinessItem `
         -Area "Runtime" `
