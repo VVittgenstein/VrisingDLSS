@@ -380,6 +380,36 @@ rerun. The first likely experiment is official feature flags plus invert-axis
 parity, with reset/lifecycle parity either included if tiny or left for the next
 focused patch.
 
+## Official Flags/Invert Paired Result
+
+The official-HDRP-like feature flag and invert-axis parity experiment has now
+run as `official-flags-paired-user-rendering-1080p-20260608-r2`; see
+`docs/development/official-hdrp-dlss-flag-invert-paired-result-2026-06-08.md`.
+
+The patch was active and technically clean:
+
+- candidate logs included `flags=0x0000002B` and `invertAxis=(0,1)`;
+- `DLSS user rendering evaluate succeeded from native command-buffer EASU
+  ctx.cmd`;
+- `RenderGraph GetTexture call #=0`;
+- no crash/access-violation/driver evidence;
+- cleanup restored release-safe state and the protected save to `ChangeCount=0`.
+
+It did not fix performance:
+
+| Metric | Baseline | Candidate | Delta |
+| --- | ---: | ---: | ---: |
+| Average FPS | 202.794 | 128.745 | -36.514% |
+| 1% low FPS | 151.105 | 97.431 | -35.521% |
+| P95 frame time | 6.004 ms | 9.251 ms | +54.081% |
+| Average GPU utilization | 97.143% | 54.643% | -42.500 pp |
+| Average GPU power | 136.757 W | 90.929 W | -45.828 W |
+
+Conclusion: feature flags and invert axes were real mismatches and should stay
+aligned with official HDRP behavior, but they are not the core FPS blocker. The
+remaining symptom is still pipeline/placement/synchronization shaped: lower GPU
+utilization and power while frame time worsens.
+
 ## System Snapshot Harness Follow-Up
 
 After the user pointed out the old `203-205 FPS` baseline versus the later

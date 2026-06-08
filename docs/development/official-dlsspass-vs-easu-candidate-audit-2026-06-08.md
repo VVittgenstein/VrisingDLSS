@@ -90,6 +90,12 @@ user-rendering path. The remaining highest-value source-backed differences are:
    absent/no-op.
 
 The next runtime test should not be another blind API 21 rerun. The first small
-code patch, official feature flags plus invert-axis parity, is now implemented
-and build-validated. Rerun the same protected 1080p baseline/candidate shape
-with Computer Use kept connected during capture and disconnected after cleanup.
+code patch, official feature flags plus invert-axis parity, has now been
+runtime-tested and rejected as the performance fix:
+`official-flags-paired-user-rendering-1080p-20260608-r2` proved
+`flags=0x0000002B` and `invertAxis=(0,1)` in the candidate log, but still
+regressed average FPS `202.794 -> 128.745`, 1% low `151.105 -> 97.431`, and P95
+frame time `6.004 ms -> 9.251 ms`. Keep the parity patch for correctness, but
+do not rerun the same EASU `ctx.cmd` shape unchanged. The next source-backed
+route should focus on pass boundary, resource declaration/order, lifecycle, and
+synchronization differences.

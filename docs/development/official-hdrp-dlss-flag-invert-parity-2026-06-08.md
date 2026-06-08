@@ -1,7 +1,8 @@
 # Official HDRP DLSS Flag/Invert Parity - 2026-06-08
 
-Status: implemented and non-runtime build-validated. Runtime performance still
-requires a protected paired game run.
+Status: implemented, build-validated, and protected-runtime tested. Runtime
+performance still fails; see
+`docs/development/official-hdrp-dlss-flag-invert-paired-result-2026-06-08.md`.
 
 ## Question
 
@@ -73,20 +74,26 @@ compile failure; rerunning with the absolute VS BuildTools CMake path passed.
 
 ## Next Runtime Guard
 
-Do not call this MVP-ready. The next game run should be a named protected paired
-test with this hypothesis:
+This guard has now run as
+`official-flags-paired-user-rendering-1080p-20260608-r2` and failed the
+performance gate:
+
+- Baseline/candidate average FPS: `202.794 -> 128.745` (`-36.514%`).
+- 1% low FPS: `151.105 -> 97.431` (`-35.521%`).
+- P95 frame time: `6.004 ms -> 9.251 ms` (`+54.081%`).
+- Candidate GPU utilization/power stayed low: `54.643%`, `90.929 W`.
+- Candidate logs proved the intended parity values:
+  `flags=0x0000002B` and `invertAxis=(0,1)`.
+- Cleanup restored release-safe state and the protected save to `ChangeCount=0`.
+
+Original guard hypothesis:
 
 > Official-HDRP-like feature flags (`0x2B`) plus invert-axis parity reduce the
 > current user-rendering candidate's low-GPU-utilization performance regression
 > without losing clean DLSS evaluate evidence.
 
-Use the established `1920x1080` Windowed protected fixture first:
-
-- V Rising `FsrQualityMode=Off`.
-- Protected local/private `11111` save, restored to `ChangeCount=0`.
-- Computer Use kept connected during performance capture and disconnected after
-  cleanup.
-- Capture wider system snapshots for baseline and candidate.
-- Confirm candidate logs include `flags=0x0000002B`, `invertAxis=(0,1)`,
-  `RenderGraph GetTexture call #=0`, clean user-rendering evaluate evidence, and
-  no crash/access-violation/driver evidence.
+Result: rejected as the performance fix. Keep the code-level parity because it
+matches official HDRP behavior, but do not rerun the same shape unchanged. The
+next work should move to boundary/lifecycle parity around the official
+`"DLSS destination"`/DLSSData RenderGraph boundary or another no-DLSS
+pass-boundary proof.

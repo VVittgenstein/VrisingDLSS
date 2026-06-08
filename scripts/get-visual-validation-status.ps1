@@ -572,7 +572,7 @@ if (Test-Path -LiteralPath $reviewResolved) {
 }
 
 if (@($issues | Where-Object { $_ -like "Candidate * regressed*" -or $_ -like "Candidate P95 frame time worsened*" }).Count -gt 0) {
-    $nextRecommendation = "Older GetTexture/driver candidate visual-performance evidence is stale and not MVP-safe. Current source-guided command-buffer user-rendering evidence passed protected gameplay with RenderGraph.GetTexture=0. The next visual/performance candidate should use CandidateStage dlss-user-rendering with V Rising FSR Off and -ProtectSave -SaveDir <local-save-dir>, collect paired screenshots plus controlled performance proof, restore the save to ChangeCount=0, then add human review before normal-user promotion."
+    $nextRecommendation = "Do not rerun the same EASU ctx.cmd dlss-user-rendering candidate unchanged. Current evidence, including the official-HDRP flag/invert parity run, proves clean DLSS evaluate with RenderGraph.GetTexture=0 but still fails performance with low GPU utilization. Next work should change the boundary/lifecycle/resource-order/synchronization hypothesis, then rerun a protected paired comparison with V Rising FSR Off, automatic system snapshots, and protected save restore."
 }
 
 if ($issues.Count -gt 0) {

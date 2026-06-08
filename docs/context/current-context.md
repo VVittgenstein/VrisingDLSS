@@ -1821,3 +1821,19 @@ As of the read-only RenderGraph pass-map runtime result:
   enabled. The current EASU `ctx.cmd` route stays the only proven visible-output
   boundary; any closer official-equivalent boundary must replace/augment the
   missing execution body and start with a no-DLSS/no-native proof.
+- Official-HDRP-like feature flag and invert-axis parity was protected-runtime
+  tested in `official-flags-paired-user-rendering-1080p-20260608-r2`; see
+  `docs/development/official-hdrp-dlss-flag-invert-paired-result-2026-06-08.md`.
+  The run used true `1920x1080` Windowed, V Rising FSR Off, protected `11111`
+  save, Computer Use Continue clicks only, SDK-wrapper native/runtime for the
+  candidate, and automatic before/after system snapshots. The candidate log
+  proved `flags=0x0000002B`, `invertAxis=(0,1)`, `DLSS user rendering evaluate
+  succeeded`, `input=960x540 output=1920x1080`, `RenderGraph GetTexture=0`, no
+  crash/driver evidence, and cleanup restored release-safe state plus protected
+  save `ChangeCount=0`. Performance still failed badly: average FPS
+  `202.794 -> 128.745`, 1% low `151.105 -> 97.431`, P95 `6.004 ms ->
+  9.251 ms`, GPU util `97.143% -> 54.643%`, power `136.757 W -> 90.929 W`.
+  Therefore official flags/invert parity is kept for correctness but rejected
+  as the FPS fix. Do not rerun the same EASU `ctx.cmd` candidate shape
+  unchanged; next work should target boundary/lifecycle/resource-order or
+  synchronization differences versus official HDRP.
