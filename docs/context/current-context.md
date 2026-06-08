@@ -2079,7 +2079,9 @@ As of the read-only RenderGraph pass-map runtime result:
   `ClientWindowMode=3`. With the current local save directory supplied, the
   session dry-run also preserved `ProtectSave=true` and
   `RestoresProtectedSave=true`. `get-release-readiness-status.ps1` now includes
-  this guard as an `Evidence` readiness item.
+  this guard as an `Evidence` readiness item. The GitHub Actions package
+  workflow now runs the config-only guard before packaging, and the Automation
+  readiness check requires that CI step to remain present.
 - `scripts/get-runtime-validation-status.ps1` was updated after that deferral
   so a safe live `loader` config/log no longer sends the next-action advice
   back to the old hook-probe ladder when the repository already contains the

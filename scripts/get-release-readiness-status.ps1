@@ -183,6 +183,7 @@ if (Test-Path -LiteralPath $workflowPath) {
     $workflowOk = $workflowText -match "windows-2022" `
         -and $workflowText -match "validate-thunderstore-package\.ps1" `
         -and $workflowText -match "package-thunderstore\.ps1" `
+        -and $workflowText -match "test-hdrp-dlss-contract-bind-stage\.ps1" `
         -and $workflowText -match "actions/upload-artifact@v4"
     $items.Add((New-ReadinessItem `
         -Area "Automation" `

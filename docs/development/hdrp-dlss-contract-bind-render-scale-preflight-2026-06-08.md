@@ -218,6 +218,9 @@ through `-SaveDir`, confirming the automation session dry-run preserves
 `scripts\get-release-readiness-status.ps1` now includes this guard as an
 `Evidence` readiness item. With `-GamePath`, it includes the diagnostic dry-run
 plan check; without `-GamePath`, it still checks the stage config matrix.
+The GitHub Actions package workflow also runs the same config-only guard on
+`windows-2022` before packaging, and release readiness now requires that CI guard
+step to remain present.
 
 When Computer Use is available again, resume with the protected session command
 above, using a fresh artifact label such as

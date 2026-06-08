@@ -45,6 +45,10 @@ jobs:
         shell: pwsh
         run: .\scripts\check-release-boundary.ps1
 
+      - name: Guard contract-bind diagnostic stage
+        shell: pwsh
+        run: .\scripts\test-hdrp-dlss-contract-bind-stage.ps1
+
       - name: Package Thunderstore zip
         shell: pwsh
         run: .\scripts\package-thunderstore.ps1
