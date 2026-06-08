@@ -48,6 +48,7 @@ $requiredApprovalMarkers = @(
 )
 
 $missingApprovalMarkers = @()
+$emptyApprovalMarkers = @()
 $placeholderMatches = @()
 $approvalText = ""
 if ($approvalExists) {
@@ -55,6 +56,15 @@ if ($approvalExists) {
     foreach ($marker in $requiredApprovalMarkers) {
         if ($approvalText.IndexOf($marker, [System.StringComparison]::OrdinalIgnoreCase) -lt 0) {
             $missingApprovalMarkers += $marker
+            continue
+        }
+
+        if ($marker.EndsWith(":", [System.StringComparison]::Ordinal)) {
+            $escapedMarker = [regex]::Escape($marker)
+            $markerMatch = [regex]::Match($approvalText, "(?im)^\s*$escapedMarker\s*(?<value>\S.*)?$")
+            if (-not $markerMatch.Success -or [string]::IsNullOrWhiteSpace($markerMatch.Groups["value"].Value)) {
+                $emptyApprovalMarkers += $marker
+            }
         }
     }
 
@@ -62,6 +72,9 @@ if ($approvalExists) {
     $placeholderMatches = @([regex]::Matches($approvalText, $placeholderPattern) | ForEach-Object { $_.Value } | Select-Object -Unique)
     if ($missingApprovalMarkers.Count -gt 0) {
         [void]$issues.Add("Approval record is missing required markers: $($missingApprovalMarkers -join ', ')")
+    }
+    if ($emptyApprovalMarkers.Count -gt 0) {
+        [void]$issues.Add("Approval record has empty required marker values: $($emptyApprovalMarkers -join ', ')")
     }
     if ($placeholderMatches.Count -gt 0) {
         [void]$issues.Add("Approval record still contains placeholders: $($placeholderMatches -join ', ')")
@@ -89,6 +102,7 @@ $result = [pscustomobject]@{
     ApprovalExists = $approvalExists
     RequiredApprovalMarkerCount = $requiredApprovalMarkers.Count
     MissingApprovalMarkers = @($missingApprovalMarkers)
+    EmptyApprovalMarkers = @($emptyApprovalMarkers)
     PlaceholderCount = $placeholderMatches.Count
     Placeholders = @($placeholderMatches)
     Issues = @($issues)

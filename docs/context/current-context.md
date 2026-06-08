@@ -2165,7 +2165,9 @@ As of the read-only RenderGraph pass-map runtime result:
   `scripts\test-dlss-runtime-distribution-gate.ps1`. The validator is
   no-launch/no-modification and currently reports `Status=Blocked`,
   `RuntimeDistributionApproved=false`, `GateExists=true`, and
-  `ApprovalExists=false`.
+  `ApprovalExists=false`. A future approval should start from
+  `docs/release/dlss-runtime-distribution-approval.template.md`; the validator
+  rejects missing markers, empty marker values, and placeholder text.
 - `scripts/get-runtime-validation-status.ps1` was updated after that deferral
   so a safe live `loader` config/log no longer sends the next-action advice
   back to the old hook-probe ladder when the repository already contains the

@@ -580,7 +580,7 @@ if ($runtimeDistributionGate.Succeeded) {
         } else {
             "Blocked"
         }
-        $runtimeDistributionEvidence = "Status=$($runtimeDistributionReport.Status); Approved=$($runtimeDistributionReport.RuntimeDistributionApproved); GateExists=$($runtimeDistributionReport.GateExists); ApprovalExists=$($runtimeDistributionReport.ApprovalExists); RequiredMarkers=$($runtimeDistributionReport.RequiredApprovalMarkerCount); MissingMarkers=$(@($runtimeDistributionReport.MissingApprovalMarkers).Count); PlaceholderCount=$($runtimeDistributionReport.PlaceholderCount); Gate=$($runtimeDistributionReport.GatePath); Approval=$($runtimeDistributionReport.ApprovalPath)"
+        $runtimeDistributionEvidence = "Status=$($runtimeDistributionReport.Status); Approved=$($runtimeDistributionReport.RuntimeDistributionApproved); GateExists=$($runtimeDistributionReport.GateExists); ApprovalExists=$($runtimeDistributionReport.ApprovalExists); RequiredMarkers=$($runtimeDistributionReport.RequiredApprovalMarkerCount); MissingMarkers=$(@($runtimeDistributionReport.MissingApprovalMarkers).Count); EmptyMarkers=$(@($runtimeDistributionReport.EmptyApprovalMarkers).Count); PlaceholderCount=$($runtimeDistributionReport.PlaceholderCount); Gate=$($runtimeDistributionReport.GatePath); Approval=$($runtimeDistributionReport.ApprovalPath)"
         if (@($runtimeDistributionReport.Issues).Count -gt 0) {
             $runtimeDistributionEvidence = "$runtimeDistributionEvidence; Issues=$(@($runtimeDistributionReport.Issues) -join ' | ')"
         }

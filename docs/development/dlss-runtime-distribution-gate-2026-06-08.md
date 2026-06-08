@@ -64,8 +64,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\test-dlss-runtime-di
 With no approval record, the validator reports `Status=Blocked`,
 `RuntimeDistributionApproved=false`, `LaunchesGame=false`, and
 `ModifiesGameFiles=false`. If an approval record is added later, it must pass
-the validator's required-marker and placeholder checks before readiness can mark
-this gate as `Pass`.
+the validator's required-marker, non-empty marker-value, and placeholder checks
+before readiness can mark this gate as `Pass`. Use
+`docs/release/dlss-runtime-distribution-approval.template.md` as the starting
+shape for that future approval, but do not copy it to the live approval path
+until all fields are resolved.
 
 ## Accepted Future Evidence
 
