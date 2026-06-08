@@ -47,6 +47,13 @@ Approval Date: TBD
   download instructions are not approvable MVP runtime routes.
 - If `Runtime Route:` is `Bundled NVIDIA DLSS SDK runtime`, `Runtime Files:` must
   name `nvngx_dlss.dll` and `Checksums:` must include a SHA256 value.
+- If `Runtime Route:` is `Bundled NVIDIA DLSS SDK runtime`, the approval must
+  identify an official NVIDIA/DLSS source URL, state that the runtime is
+  production/release and non-watermarked, record a valid NVIDIA signature check,
+  name the NVIDIA RTX SDKs license/`LICENSE.txt`, include NVIDIA/DLSS trademark
+  wording, explicitly address https://developer.nvidia.com/sw-notification, and
+  name the updates to `check-release-boundary.ps1`,
+  `validate-thunderstore-package.ps1`, and `ThirdPartyNotices`.
 - If the selected path bundles runtime files, update release-boundary and package
   validation before approving.
 - If the selected path uses an installer or dependency, describe the exact

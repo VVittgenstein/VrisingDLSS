@@ -57,16 +57,16 @@ $checks = New-Object System.Collections.Generic.List[object]
 $approvedBundled = Write-Approval -Name "DlssRuntimeDistributionApprovalSyntheticBundled.md" -Lines @(
     "# DLSS Runtime Distribution Approval",
     "Runtime Route: Bundled NVIDIA DLSS SDK runtime",
-    "Runtime Source: NVIDIA/DLSS GitHub release v310.6.0",
+    "Runtime Source: NVIDIA/DLSS GitHub release v310.6.0 at https://github.com/NVIDIA/DLSS/releases/tag/v310.6.0",
     "Source Evidence URLs: https://github.com/NVIDIA/DLSS https://github.com/NVIDIA/DLSS/releases/tag/v310.6.0 https://github.com/NVIDIA/DLSS/blob/main/LICENSE.txt",
     "Runtime Version: 310.6.0.0",
-    "Runtime Files: nvngx_dlss.dll",
+    "Runtime Files: nvngx_dlss.dll; production release runtime; non-watermarked; SignatureStatus=Valid; Signer=NVIDIA Corporation",
     "Checksums: SHA256=099B3E1E3AD3F226DE621FE570B26CC554CC775E2606BE23EB222D6245674070",
-    "License Notices: NVIDIA RTX SDKs license terms reviewed for this route.",
+    "License Notices: NVIDIA RTX SDKs license LICENSE.txt reviewed for this route.",
     "Trademark Wording: NVIDIA and DLSS are trademarks or registered trademarks of NVIDIA Corporation.",
     "User Installation Behavior: Runtime ships with the mod package after release-boundary approval.",
-    "NVIDIA Notification Handling: DLSS SDK notification requirement reviewed before public release.",
-    "Package Validation Updates: Release boundary and package validation updated for the exact runtime file.",
+    "NVIDIA Notification Handling: DLSS SDK notification requirement reviewed at https://developer.nvidia.com/sw-notification before public release.",
+    "Package Validation Updates: check-release-boundary.ps1, validate-thunderstore-package.ps1, and ThirdPartyNotices updated for the exact runtime file.",
     "Release Boundary Decision: Approved only for this exact bundled NVIDIA runtime route.",
     "Reviewer: VrisingDLSS release reviewer",
     "Approval Date: 2026-06-08"
@@ -84,13 +84,13 @@ $badRoute = Write-Approval -Name "DlssRuntimeDistributionApprovalSyntheticThirdP
     "Runtime Source: TechPowerUp DLSS DLL mirror",
     "Source Evidence URLs: https://www.techpowerup.com/download/nvidia-dlss-dll/",
     "Runtime Version: 310.6.0.0",
-    "Runtime Files: nvngx_dlss.dll",
+    "Runtime Files: nvngx_dlss.dll; production release runtime; non-watermarked; SignatureStatus=Valid; Signer=NVIDIA Corporation",
     "Checksums: SHA256=099B3E1E3AD3F226DE621FE570B26CC554CC775E2606BE23EB222D6245674070",
-    "License Notices: Mirror download terms reviewed.",
+    "License Notices: NVIDIA RTX SDKs license LICENSE.txt reviewed for this route.",
     "Trademark Wording: NVIDIA and DLSS are trademarks or registered trademarks of NVIDIA Corporation.",
     "User Installation Behavior: User manually downloads a DLL from a third-party mirror.",
-    "NVIDIA Notification Handling: Not applicable for mirror route.",
-    "Package Validation Updates: None.",
+    "NVIDIA Notification Handling: DLSS SDK notification requirement reviewed at https://developer.nvidia.com/sw-notification before public release.",
+    "Package Validation Updates: check-release-boundary.ps1, validate-thunderstore-package.ps1, and ThirdPartyNotices updated for the exact runtime file.",
     "Release Boundary Decision: Approved third-party mirror route.",
     "Reviewer: VrisingDLSS release reviewer",
     "Approval Date: 2026-06-08"
@@ -105,16 +105,16 @@ Add-Check -Checks $checks `
 $missingUrl = Write-Approval -Name "DlssRuntimeDistributionApprovalSyntheticMissingUrl.md" -Lines @(
     "# DLSS Runtime Distribution Approval",
     "Runtime Route: Bundled NVIDIA DLSS SDK runtime",
-    "Runtime Source: NVIDIA/DLSS GitHub release v310.6.0",
+    "Runtime Source: NVIDIA/DLSS GitHub release v310.6.0 at https://github.com/NVIDIA/DLSS/releases/tag/v310.6.0",
     "Source Evidence URLs: NVIDIA DLSS release page",
     "Runtime Version: 310.6.0.0",
-    "Runtime Files: nvngx_dlss.dll",
+    "Runtime Files: nvngx_dlss.dll; production release runtime; non-watermarked; SignatureStatus=Valid; Signer=NVIDIA Corporation",
     "Checksums: SHA256=099B3E1E3AD3F226DE621FE570B26CC554CC775E2606BE23EB222D6245674070",
-    "License Notices: NVIDIA RTX SDKs license terms reviewed for this route.",
+    "License Notices: NVIDIA RTX SDKs license LICENSE.txt reviewed for this route.",
     "Trademark Wording: NVIDIA and DLSS are trademarks or registered trademarks of NVIDIA Corporation.",
     "User Installation Behavior: Runtime ships with the mod package after release-boundary approval.",
-    "NVIDIA Notification Handling: DLSS SDK notification requirement reviewed before public release.",
-    "Package Validation Updates: Release boundary and package validation updated for the exact runtime file.",
+    "NVIDIA Notification Handling: DLSS SDK notification requirement reviewed at https://developer.nvidia.com/sw-notification before public release.",
+    "Package Validation Updates: check-release-boundary.ps1, validate-thunderstore-package.ps1, and ThirdPartyNotices updated for the exact runtime file.",
     "Release Boundary Decision: Approved only for this exact bundled NVIDIA runtime route.",
     "Reviewer: VrisingDLSS release reviewer",
     "Approval Date: 2026-06-08"
@@ -129,16 +129,16 @@ Add-Check -Checks $checks `
 $missingChecksum = Write-Approval -Name "DlssRuntimeDistributionApprovalSyntheticMissingChecksum.md" -Lines @(
     "# DLSS Runtime Distribution Approval",
     "Runtime Route: Bundled NVIDIA DLSS SDK runtime",
-    "Runtime Source: NVIDIA/DLSS GitHub release v310.6.0",
+    "Runtime Source: NVIDIA/DLSS GitHub release v310.6.0 at https://github.com/NVIDIA/DLSS/releases/tag/v310.6.0",
     "Source Evidence URLs: https://github.com/NVIDIA/DLSS/releases/tag/v310.6.0",
     "Runtime Version: 310.6.0.0",
-    "Runtime Files: nvngx_dlss.dll",
+    "Runtime Files: nvngx_dlss.dll; production release runtime; non-watermarked; SignatureStatus=Valid; Signer=NVIDIA Corporation",
     "Checksums: Signed by NVIDIA",
-    "License Notices: NVIDIA RTX SDKs license terms reviewed for this route.",
+    "License Notices: NVIDIA RTX SDKs license LICENSE.txt reviewed for this route.",
     "Trademark Wording: NVIDIA and DLSS are trademarks or registered trademarks of NVIDIA Corporation.",
     "User Installation Behavior: Runtime ships with the mod package after release-boundary approval.",
-    "NVIDIA Notification Handling: DLSS SDK notification requirement reviewed before public release.",
-    "Package Validation Updates: Release boundary and package validation updated for the exact runtime file.",
+    "NVIDIA Notification Handling: DLSS SDK notification requirement reviewed at https://developer.nvidia.com/sw-notification before public release.",
+    "Package Validation Updates: check-release-boundary.ps1, validate-thunderstore-package.ps1, and ThirdPartyNotices updated for the exact runtime file.",
     "Release Boundary Decision: Approved only for this exact bundled NVIDIA runtime route.",
     "Reviewer: VrisingDLSS release reviewer",
     "Approval Date: 2026-06-08"
@@ -150,6 +150,78 @@ Add-Check -Checks $checks `
     -Passed ($missingChecksumResult.Status -eq "Fail" -and @($missingChecksumResult.Issues | Where-Object { $_ -like "*SHA256*" }).Count -gt 0) `
     -Evidence "Status=$($missingChecksumResult.Status); Issues=$(@($missingChecksumResult.Issues) -join ' | ')"
 
+$missingProductionSignature = Write-Approval -Name "DlssRuntimeDistributionApprovalSyntheticMissingProductionSignature.md" -Lines @(
+    "# DLSS Runtime Distribution Approval",
+    "Runtime Route: Bundled NVIDIA DLSS SDK runtime",
+    "Runtime Source: NVIDIA/DLSS GitHub release v310.6.0 at https://github.com/NVIDIA/DLSS/releases/tag/v310.6.0",
+    "Source Evidence URLs: https://github.com/NVIDIA/DLSS https://github.com/NVIDIA/DLSS/releases/tag/v310.6.0 https://github.com/NVIDIA/DLSS/blob/main/LICENSE.txt",
+    "Runtime Version: 310.6.0.0",
+    "Runtime Files: nvngx_dlss.dll",
+    "Checksums: SHA256=099B3E1E3AD3F226DE621FE570B26CC554CC775E2606BE23EB222D6245674070",
+    "License Notices: NVIDIA RTX SDKs license LICENSE.txt reviewed for this route.",
+    "Trademark Wording: NVIDIA and DLSS are trademarks or registered trademarks of NVIDIA Corporation.",
+    "User Installation Behavior: Runtime ships with the mod package after release-boundary approval.",
+    "NVIDIA Notification Handling: DLSS SDK notification requirement reviewed at https://developer.nvidia.com/sw-notification before public release.",
+    "Package Validation Updates: check-release-boundary.ps1, validate-thunderstore-package.ps1, and ThirdPartyNotices updated for the exact runtime file.",
+    "Release Boundary Decision: Approved only for this exact bundled NVIDIA runtime route.",
+    "Reviewer: VrisingDLSS release reviewer",
+    "Approval Date: 2026-06-08"
+)
+
+$missingProductionSignatureResult = Invoke-Gate -ApprovalPath $missingProductionSignature
+Add-Check -Checks $checks `
+    -Name "synthetic bundled approval without production and signature evidence is rejected" `
+    -Passed ($missingProductionSignatureResult.Status -eq "Fail" -and @($missingProductionSignatureResult.Issues | Where-Object { $_ -like "*production*" -or $_ -like "*signature*" }).Count -ge 2) `
+    -Evidence "Status=$($missingProductionSignatureResult.Status); Issues=$(@($missingProductionSignatureResult.Issues) -join ' | ')"
+
+$missingNotification = Write-Approval -Name "DlssRuntimeDistributionApprovalSyntheticMissingNotificationUrl.md" -Lines @(
+    "# DLSS Runtime Distribution Approval",
+    "Runtime Route: Bundled NVIDIA DLSS SDK runtime",
+    "Runtime Source: NVIDIA/DLSS GitHub release v310.6.0 at https://github.com/NVIDIA/DLSS/releases/tag/v310.6.0",
+    "Source Evidence URLs: https://github.com/NVIDIA/DLSS https://github.com/NVIDIA/DLSS/releases/tag/v310.6.0 https://github.com/NVIDIA/DLSS/blob/main/LICENSE.txt",
+    "Runtime Version: 310.6.0.0",
+    "Runtime Files: nvngx_dlss.dll; production release runtime; non-watermarked; SignatureStatus=Valid; Signer=NVIDIA Corporation",
+    "Checksums: SHA256=099B3E1E3AD3F226DE621FE570B26CC554CC775E2606BE23EB222D6245674070",
+    "License Notices: NVIDIA RTX SDKs license LICENSE.txt reviewed for this route.",
+    "Trademark Wording: NVIDIA and DLSS are trademarks or registered trademarks of NVIDIA Corporation.",
+    "User Installation Behavior: Runtime ships with the mod package after release-boundary approval.",
+    "NVIDIA Notification Handling: Notification considered but no URL recorded.",
+    "Package Validation Updates: check-release-boundary.ps1, validate-thunderstore-package.ps1, and ThirdPartyNotices updated for the exact runtime file.",
+    "Release Boundary Decision: Approved only for this exact bundled NVIDIA runtime route.",
+    "Reviewer: VrisingDLSS release reviewer",
+    "Approval Date: 2026-06-08"
+)
+
+$missingNotificationResult = Invoke-Gate -ApprovalPath $missingNotification
+Add-Check -Checks $checks `
+    -Name "synthetic bundled approval without NVIDIA notification URL is rejected" `
+    -Passed ($missingNotificationResult.Status -eq "Fail" -and @($missingNotificationResult.Issues | Where-Object { $_ -like "*notification URL*" }).Count -gt 0) `
+    -Evidence "Status=$($missingNotificationResult.Status); Issues=$(@($missingNotificationResult.Issues) -join ' | ')"
+
+$missingPackageValidation = Write-Approval -Name "DlssRuntimeDistributionApprovalSyntheticMissingPackageValidation.md" -Lines @(
+    "# DLSS Runtime Distribution Approval",
+    "Runtime Route: Bundled NVIDIA DLSS SDK runtime",
+    "Runtime Source: NVIDIA/DLSS GitHub release v310.6.0 at https://github.com/NVIDIA/DLSS/releases/tag/v310.6.0",
+    "Source Evidence URLs: https://github.com/NVIDIA/DLSS https://github.com/NVIDIA/DLSS/releases/tag/v310.6.0 https://github.com/NVIDIA/DLSS/blob/main/LICENSE.txt",
+    "Runtime Version: 310.6.0.0",
+    "Runtime Files: nvngx_dlss.dll; production release runtime; non-watermarked; SignatureStatus=Valid; Signer=NVIDIA Corporation",
+    "Checksums: SHA256=099B3E1E3AD3F226DE621FE570B26CC554CC775E2606BE23EB222D6245674070",
+    "License Notices: NVIDIA RTX SDKs license LICENSE.txt reviewed for this route.",
+    "Trademark Wording: NVIDIA and DLSS are trademarks or registered trademarks of NVIDIA Corporation.",
+    "User Installation Behavior: Runtime ships with the mod package after release-boundary approval.",
+    "NVIDIA Notification Handling: DLSS SDK notification requirement reviewed at https://developer.nvidia.com/sw-notification before public release.",
+    "Package Validation Updates: General package review completed.",
+    "Release Boundary Decision: Approved only for this exact bundled NVIDIA runtime route.",
+    "Reviewer: VrisingDLSS release reviewer",
+    "Approval Date: 2026-06-08"
+)
+
+$missingPackageValidationResult = Invoke-Gate -ApprovalPath $missingPackageValidation
+Add-Check -Checks $checks `
+    -Name "synthetic bundled approval without concrete package validation updates is rejected" `
+    -Passed ($missingPackageValidationResult.Status -eq "Fail" -and @($missingPackageValidationResult.Issues | Where-Object { $_ -like "*package/release-boundary validation updates*" }).Count -gt 0) `
+    -Evidence "Status=$($missingPackageValidationResult.Status); Issues=$(@($missingPackageValidationResult.Issues) -join ' | ')"
+
 $failedChecks = @($checks.ToArray() | Where-Object { -not $_.Passed })
 $result = [pscustomobject]@{
     Status = $(if ($failedChecks.Count -eq 0) { "Pass" } else { "Fail" })
@@ -158,7 +230,7 @@ $result = [pscustomobject]@{
     CheckCount = $checks.Count
     FailedChecks = $failedChecks
     Checks = @($checks.ToArray())
-    SyntheticApprovalPaths = @($approvedBundled, $badRoute, $missingUrl, $missingChecksum)
+    SyntheticApprovalPaths = @($approvedBundled, $badRoute, $missingUrl, $missingChecksum, $missingProductionSignature, $missingNotification, $missingPackageValidation)
 }
 
 if ($Json) {

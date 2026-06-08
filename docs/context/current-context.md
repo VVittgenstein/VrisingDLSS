@@ -2301,3 +2301,17 @@ As of the read-only RenderGraph pass-map runtime result:
   runs the doc/contract half, while local readiness with `-GamePath` runs the
   full game-file evidence path. This does not approve or distribute any
   decompiled game code or assets.
+- The DLSS runtime distribution gate is stricter now. A future bundled
+  NVIDIA-runtime approval must do more than name `nvngx_dlss.dll` and a SHA256:
+  it must identify an official NVIDIA/DLSS source URL, state that the runtime is
+  production/release and non-watermarked, record a valid NVIDIA signature check,
+  name the NVIDIA RTX SDKs license or `LICENSE.txt`, include NVIDIA/DLSS
+  trademark wording, explicitly address
+  `https://developer.nvidia.com/sw-notification`, describe the package/drag-in
+  install behavior, and name updates to `check-release-boundary.ps1`,
+  `validate-thunderstore-package.ps1`, and `ThirdPartyNotices`. The synthetic
+  guard now has seven cases: one valid bundled-route shape and six rejected
+  shapes for third-party/manual routes, missing URL, missing SHA256, missing
+  production/signature evidence, missing NVIDIA notification URL, and missing
+  concrete package-validation updates. The live runtime-distribution gate still
+  correctly reports `Status=Blocked` because no approval record exists.

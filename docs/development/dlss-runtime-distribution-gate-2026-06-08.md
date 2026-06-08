@@ -85,15 +85,18 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\test-dlss-runtime-di
 
 That guard uses synthetic approval records to make sure a valid bundled NVIDIA
 SDK route can pass while rejected third-party/manual-download routes, missing
-source URLs, and missing SHA256 checksums fail.
+source URLs, missing SHA256 checksums, missing production/non-watermarked or
+NVIDIA signature evidence, missing NVIDIA notification URL handling, and missing
+package/release-boundary validation updates fail.
 
 ## Accepted Future Evidence
 
 One of these would close this gate:
 
 - an approved bundled-runtime path with exact `nvngx_dlss.dll` provenance,
-  version, source evidence URLs, license/notice text, and package validation
-  updates; or
+  version, source evidence URLs, production/non-watermarked and NVIDIA signature
+  evidence, license/notice text, trademark wording, notification handling, and
+  package validation updates; or
 - an approved installer/dependency path that obtains the runtime from an
   authoritative source without requiring users to manually download or copy an
   arbitrary DLL; or

@@ -83,13 +83,22 @@ non-empty template fields. A live approval must:
 - avoid third-party mirror, DLSS Swapper, arbitrary/user-supplied DLL, and
   manual DLL-download routes;
 - for bundled NVIDIA DLSS SDK runtime approval, name `nvngx_dlss.dll` and include
-  a SHA256 checksum.
+  a SHA256 checksum;
+- for bundled NVIDIA DLSS SDK runtime approval, identify an official
+  NVIDIA/DLSS source URL, state that the runtime is production/release and
+  non-watermarked, record a valid NVIDIA signature check, name the NVIDIA RTX
+  SDKs license or `LICENSE.txt`, include NVIDIA/DLSS trademark wording,
+  explicitly address https://developer.nvidia.com/sw-notification, describe the
+  drag-in/package install behavior, and name the required updates to
+  `check-release-boundary.ps1`, `validate-thunderstore-package.ps1`, and
+  `ThirdPartyNotices`.
 
 `scripts\test-dlss-runtime-distribution-gate-contract.ps1` protects those
 semantics with synthetic approval records: one bundled NVIDIA SDK approval shape
-must pass, while third-party/manual, missing-URL, and missing-SHA256 shapes must
-fail. The GitHub Actions package workflow now runs this no-launch/no-modify
-contract guard before packaging.
+must pass, while third-party/manual, missing-URL, missing-SHA256,
+missing-production/signature, missing-notification-URL, and
+missing-package-validation-update shapes must fail. The GitHub Actions package
+workflow now runs this no-launch/no-modify contract guard before packaging.
 
 Until then, `scripts\test-dlss-runtime-distribution-gate.ps1` must keep
 `RuntimeDistributionApproved=false`, and release readiness must keep the runtime

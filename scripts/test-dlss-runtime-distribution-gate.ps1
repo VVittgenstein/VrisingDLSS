@@ -111,13 +111,60 @@ if ($approvalExists) {
     }
 
     if ($runtimeRoute -eq "Bundled NVIDIA DLSS SDK runtime") {
+        $runtimeSource = [string]$markerValues["Runtime Source:"]
         $runtimeFiles = [string]$markerValues["Runtime Files:"]
         $checksums = [string]$markerValues["Checksums:"]
+        $licenseNotices = [string]$markerValues["License Notices:"]
+        $trademarkWording = [string]$markerValues["Trademark Wording:"]
+        $userInstallationBehavior = [string]$markerValues["User Installation Behavior:"]
+        $notificationHandling = [string]$markerValues["NVIDIA Notification Handling:"]
+        $packageValidationUpdates = [string]$markerValues["Package Validation Updates:"]
+        $releaseBoundaryDecision = [string]$markerValues["Release Boundary Decision:"]
+        $bundledFieldsText = @(
+            $runtimeSource,
+            $sourceEvidenceUrls,
+            $runtimeFiles,
+            $checksums,
+            $licenseNotices,
+            $trademarkWording,
+            $userInstallationBehavior,
+            $notificationHandling,
+            $packageValidationUpdates,
+            $releaseBoundaryDecision
+        ) -join "`n"
+
+        if ($runtimeSource -notmatch '(?i)(github\.com/NVIDIA/DLSS|developer\.nvidia\.com)') {
+            [void]$issues.Add("Bundled NVIDIA DLSS SDK runtime approval must identify an authoritative NVIDIA/DLSS source.")
+        }
+        if ($sourceEvidenceUrls -notmatch '(?i)(github\.com/NVIDIA/DLSS|developer\.nvidia\.com)') {
+            [void]$issues.Add("Bundled NVIDIA DLSS SDK runtime approval must include an official NVIDIA/DLSS source URL.")
+        }
         if ($runtimeFiles -notmatch '(?i)\bnvngx_dlss\.dll\b') {
             [void]$issues.Add("Bundled NVIDIA DLSS SDK runtime approval must name nvngx_dlss.dll in Runtime Files.")
         }
         if ($checksums -notmatch '(?i)\bSHA256\b.*\b[0-9A-F]{64}\b') {
             [void]$issues.Add("Bundled NVIDIA DLSS SDK runtime approval must include a SHA256 checksum.")
+        }
+        if ($bundledFieldsText -notmatch '(?i)\b(production|release)\b' -or $bundledFieldsText -notmatch '(?i)non[- ]?watermarked|no\s+watermark') {
+            [void]$issues.Add("Bundled NVIDIA DLSS SDK runtime approval must state that the runtime is production/release and non-watermarked.")
+        }
+        if ($bundledFieldsText -notmatch '(?i)(signed\s+by\s+NVIDIA|SignatureStatus\s*=\s*Valid|valid\s+NVIDIA\s+signature)') {
+            [void]$issues.Add("Bundled NVIDIA DLSS SDK runtime approval must record a valid NVIDIA signature check.")
+        }
+        if ($licenseNotices -notmatch '(?i)(NVIDIA RTX SDKs license|LICENSE\.txt|RTX SDKs)') {
+            [void]$issues.Add("Bundled NVIDIA DLSS SDK runtime approval must name the NVIDIA RTX SDKs license notice source.")
+        }
+        if ($trademarkWording -notmatch '(?i)\bNVIDIA\b' -or $trademarkWording -notmatch '(?i)\bDLSS\b') {
+            [void]$issues.Add("Bundled NVIDIA DLSS SDK runtime approval must include NVIDIA and DLSS trademark wording.")
+        }
+        if ($notificationHandling -notmatch '(?i)developer\.nvidia\.com/sw-notification') {
+            [void]$issues.Add("Bundled NVIDIA DLSS SDK runtime approval must explicitly address the NVIDIA SDK notification URL.")
+        }
+        if ($packageValidationUpdates -notmatch '(?i)check-release-boundary\.ps1' -or $packageValidationUpdates -notmatch '(?i)validate-thunderstore-package\.ps1' -or $packageValidationUpdates -notmatch '(?i)ThirdPartyNotices') {
+            [void]$issues.Add("Bundled NVIDIA DLSS SDK runtime approval must name the package/release-boundary validation updates, including check-release-boundary.ps1, validate-thunderstore-package.ps1, and ThirdPartyNotices.")
+        }
+        if ($userInstallationBehavior -notmatch '(?i)(ships\s+with|bundled\s+with|included\s+in).*(mod|package|Thunderstore)') {
+            [void]$issues.Add("Bundled NVIDIA DLSS SDK runtime approval must describe a drag-in/package install path that does not require manual DLL sourcing.")
         }
     }
 }
