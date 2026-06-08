@@ -572,7 +572,7 @@ if (Test-Path -LiteralPath $reviewResolved) {
 }
 
 if (@($issues | Where-Object { $_ -like "Candidate * regressed*" -or $_ -like "Candidate P95 frame time worsened*" }).Count -gt 0) {
-    $nextRecommendation = "Do not rerun the same EASU ctx.cmd dlss-user-rendering candidate unchanged. Current evidence, including the official-HDRP flag/invert parity run, proves clean DLSS evaluate with RenderGraph.GetTexture=0 but still fails performance with low GPU utilization. The local static HDRP/DLSS route audit shows the official pass shell exists while the built-in DLSS execution body is no-op-style/stubbed, and the m_DLSSPass xref audit shows the official activation/object chain is absent or inert. Next work should design a no-native official-equivalent RenderGraph/pass boundary; hdrp-dlss-schedule-gate is only a later menu classifier."
+    $nextRecommendation = "Do not rerun the same EASU ctx.cmd dlss-user-rendering candidate unchanged. Current evidence, including the official-HDRP flag/invert parity run, proves clean DLSS evaluate with RenderGraph.GetTexture=0 but still fails performance with low GPU utilization. The local static HDRP/DLSS route audit shows the official pass shell exists while the built-in DLSS execution body is no-op-style/stubbed, the m_DLSSPass xref audit shows the official activation/object chain is absent or inert, and the official-equivalent boundary audit shows the existing EASU->Final chain is observable while new mod-owned pass injection is rejected by prior coreclr crash evidence. Next work should compare the engine-owned EASU->Final chain against the official DLSS resource contract without camera-gate probing or new pass injection."
 }
 
 if ($issues.Count -gt 0) {

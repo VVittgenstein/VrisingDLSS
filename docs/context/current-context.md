@@ -1935,3 +1935,21 @@ As of the read-only RenderGraph pass-map runtime result:
   likely fix; keep `hdrp-dlss-schedule-gate` only as a later menu classifier,
   and make the mainline next step a no-native official-equivalent RenderGraph
   boundary proof that is cheap before any NGX evaluate is reintroduced.
+- Official-equivalent RenderGraph boundary feasibility is now recorded in
+  `docs/development/official-equivalent-rendergraph-boundary-feasibility-2026-06-08.md`.
+  No V Rising runtime was launched. The old `RenderGraphDiagnosticPass`
+  evidence answers the generic managed-pass question: `AddRenderPass` /
+  `SetRenderFunc` can configure a mod-owned pass with `hasRenderFunc=True`, but
+  the 2026-06-05 protected gameplay attempt crashed `VRising.exe` in
+  `coreclr.dll` (`c0000005`) before any diagnostic render-func log, so new
+  mod-owned pass injection remains rejected for the normal route. The
+  `hdrp-dlss-schedule-audit` analyzer now extracts existing EASU/FinalPass
+  chain evidence: on the archived 2026-06-08 menu audit it reports
+  `EasuPassDataSnapshots=75`, `EasuRenderFuncMetadata=75`,
+  `EasuCompiledPassInfo=36`, `EasuFinalSourceChains=73`,
+  `FinalPassDataSnapshots=87`, `MotionVectorPassMentions=233`, and
+  `DeepLearningSuperSamplingPass=0`. Current decision: next proof should compare
+  the engine-owned EASU->Final chain against the official DLSS resource contract
+  and keep using the already-proven EASU `ctx.cmd` descriptor boundary for
+  bounded no-native/no-evaluate or no-write work, not camera-gate probing or new
+  pass injection.

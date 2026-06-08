@@ -406,7 +406,7 @@ $summary = [pscustomobject]@{
     NextRecommendation = if ($mvpReady) {
         "MVP evidence is complete. Prepare a final release review."
     } elseif ([string]::IsNullOrWhiteSpace($GamePath)) {
-        "Pass -GamePath to include local runtime evidence. Current MVP route is paused on direct runtime probing: use the static HDRP/DLSS route and m_DLSSPass xref audits to design a no-native official-equivalent RenderGraph/pass boundary, with hdrp-dlss-schedule-gate reserved only as a later menu classifier."
+        "Pass -GamePath to include local runtime evidence. Current MVP route is paused on direct runtime probing: use the static HDRP/DLSS route, m_DLSSPass xref, and official-equivalent RenderGraph boundary audits to compare the existing EASU->Final chain against the official DLSS resource contract; avoid camera-gate probing and new mod-owned pass injection."
     } elseif ($visualStatus.Status -ne "Pass" -and $visualStatus.HumanReviewStatus -eq "Pending") {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
@@ -477,7 +477,7 @@ $summary = [pscustomobject]@{
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
         } else {
-            "Do not rerun the same EASU ctx.cmd candidate unchanged. Use the static HDRP/DLSS route and m_DLSSPass xref audits to design a no-native official-equivalent RenderGraph/pass boundary; reserve hdrp-dlss-schedule-gate only as a later menu classifier."
+            "Do not rerun the same EASU ctx.cmd candidate unchanged. Use the static HDRP/DLSS route, m_DLSSPass xref, and official-equivalent RenderGraph boundary audits to compare the existing EASU->Final chain against the official DLSS resource contract; reserve hdrp-dlss-schedule-gate only as a later menu classifier and do not inject a new mod-owned RenderGraph pass."
         }
     } else {
         "Validate image correctness, output selection, resize/reset handling, and fallback behavior before public release."
