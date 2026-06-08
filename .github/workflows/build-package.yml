@@ -49,6 +49,10 @@ jobs:
         shell: pwsh
         run: .\scripts\test-hdrp-dlss-contract-bind-stage.ps1 -RequirePass
 
+      - name: Guard contract analyzer verdicts
+        shell: pwsh
+        run: .\scripts\test-hdrp-dlss-schedule-analyzer-contract.ps1
+
       - name: Guard RenderGraph boundary route decision
         shell: pwsh
         run: .\scripts\test-rendergraph-boundary-route-status.ps1 -RequirePass

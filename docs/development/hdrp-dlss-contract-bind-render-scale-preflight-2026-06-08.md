@@ -256,6 +256,49 @@ now forwards that object as `NextRuntimeProofPlan`, so automation can discover
 the protected start/Computer Use/stop/analyze plan from the readiness entrypoint
 without launching V Rising or parsing prose recommendations.
 
+## Analyzer Contract Guard - 2026-06-08
+
+`scripts\test-hdrp-dlss-schedule-analyzer-contract.ps1` now protects the
+schedule analyzer's target verdicts without launching V Rising or modifying game
+files. It creates synthetic local dry-run logs for:
+
+- the desired contract-bind success shape: an engine-owned
+  `Uber Post -> Edge Adaptive Spatial Upsampling -> Final Pass` chain with
+  `960x540 -> 1920x1080` EASU, same-log HDRP source/depth/motion inputs, no
+  official DLSS pass, and no native evaluate;
+- the same log polluted with a DLSS user-rendering evaluate success.
+
+Local result:
+
+```text
+Status=Pass
+LaunchesGame=false
+ModifiesGameFiles=false
+CheckCount=6
+```
+
+The expected positive analyzer verdict is:
+
+```text
+Status=NoOfficialDlssPassObserved
+Contract.Status=EasuSuperResolutionChainWithHdrpDepthMotionObservedButContractIncomplete
+```
+
+The polluted synthetic log must be rejected as `Status=Fail`. Release readiness
+now includes this as an `Evidence` item, and the GitHub Actions package workflow
+runs the guard before packaging.
+
+## Deferred Runtime Attempt 2 - 2026-06-08 19:56 +08:00
+
+The next resumed attempt again stopped before launch because Computer Use
+returned `Windows computer-use client is closed` on both the initial lightweight
+probe and the required retry. No V Rising process was started, no loader/client
+configuration was written, and the protected `11111` save was not touched.
+
+Follow-up work stayed no-runtime: the analyzer contract guard above was added so
+the next successful gameplay log has a machine-checked target verdict before any
+bounded no-write cost proof or visible DLSS write-back is attempted.
+
 When Computer Use is available again, resume with the protected session command
 above, using a fresh artifact label such as
 `hdrp-dlss-contract-bind-render-scale-1080p-gameplay-20260608-r2` if the earlier

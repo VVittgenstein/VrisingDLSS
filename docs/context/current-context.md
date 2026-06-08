@@ -2144,6 +2144,22 @@ As of the read-only RenderGraph pass-map runtime result:
   -GamePath C:\Software\VRising -Json` now forwards this same object as
   `NextRuntimeProofPlan`, making the protected start/Computer Use/stop/analyze
   plan discoverable from the readiness entrypoint without launching the game.
+- A later resumed attempt on 2026-06-08 19:56 +08:00 again deferred the same
+  protected gameplay proof before launch because Computer Use returned
+  `Windows computer-use client is closed` on both the lightweight probe and
+  retry. No V Rising process was started, no game/config/save files were
+  touched, and no fallback foreground key/mouse automation was used.
+- `scripts\test-hdrp-dlss-schedule-analyzer-contract.ps1` now protects the
+  schedule analyzer's target contract-bind verdicts without launching V Rising
+  or modifying game files. It creates synthetic logs for the desired
+  `Uber Post -> EASU -> Final Pass` `960x540 -> 1920x1080` shape with same-log
+  HDRP source/depth/motion evidence, and for the same log polluted by DLSS
+  evaluate. Local result is `Status=Pass`, `LaunchesGame=false`,
+  `ModifiesGameFiles=false`, `CheckCount=6`; the expected positive analyzer
+  verdict is `NoOfficialDlssPassObserved` plus
+  `EasuSuperResolutionChainWithHdrpDepthMotionObservedButContractIncomplete`,
+  while the polluted log must fail. Release readiness includes this as an
+  `Evidence` item, and GitHub Actions now runs it before packaging.
 - `scripts\test-rendergraph-boundary-route-status.ps1 -RequirePass -Json`
   now makes the mod-owned RenderGraph boundary decision repeatable without
   launching V Rising or modifying game files. It validates the old

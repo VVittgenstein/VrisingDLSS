@@ -100,6 +100,7 @@ $configTemplatePath = Join-Path $resolvedRoot "package\thunderstore\VrisingDLSS.
 $hdrpAssetRequirement = "Local HDRP asset unpack identifies the active render pipeline asset and DLSS/upscaler gates without launching or modifying the game."
 $dlssNativeStubRequirement = "Local HDRP DLSS native-stub audit confirms the official DLSS activation/execution body is inert while the RenderGraph shell remains non-stub without launching or modifying the game."
 $contractBindStageRequirement = "Contract-bind render-scale stage dry-run remains no-native/no-evaluate and launch-safe before gameplay automation."
+$contractAnalyzerRequirement = "HDRP DLSS schedule analyzer recognizes the contract-bind success shape and rejects evaluate-polluted logs without launching or modifying the game."
 $localSaveFixtureRequirement = "Local V Rising save fixture resolver finds exactly one usable Continue target named 11111 without launching or modifying the game."
 $renderGraphBoundaryRouteRequirement = "RenderGraph boundary route guard keeps mod-owned RenderGraph pass injection rejected as the normal route without launching or modifying the game."
 $runtimeDistributionRequirement = "Normal-user DLSS runtime distribution path is approved and does not require ad hoc manual DLL downloads."
@@ -195,6 +196,7 @@ if (Test-Path -LiteralPath $workflowPath) {
         -and $workflowText -match "validate-thunderstore-package\.ps1" `
         -and $workflowText -match "package-thunderstore\.ps1" `
         -and $workflowText -match "test-hdrp-dlss-contract-bind-stage\.ps1\s+-RequirePass" `
+        -and $workflowText -match "test-hdrp-dlss-schedule-analyzer-contract\.ps1" `
         -and $workflowText -match "test-rendergraph-boundary-route-status\.ps1\s+-RequirePass" `
         -and $workflowText -match "actions/upload-artifact@v4"
     $items.Add((New-ReadinessItem `
@@ -314,6 +316,43 @@ $items.Add((New-ReadinessItem `
     -Requirement $contractBindStageRequirement `
     -Status $contractBindGuardStatus `
     -Evidence $contractBindGuardEvidence))
+
+$contractAnalyzerGuard = Invoke-CapturedCommand -Command {
+    & (Join-Path $resolvedRoot "scripts\test-hdrp-dlss-schedule-analyzer-contract.ps1") -Root $resolvedRoot -Json
+}
+$contractAnalyzerStatus = "Blocked"
+$contractAnalyzerEvidence = "Contract analyzer guard did not produce evidence."
+if ($contractAnalyzerGuard.Succeeded) {
+    try {
+        $contractAnalyzerReport = $contractAnalyzerGuard.Output | ConvertFrom-Json
+        $contractAnalyzerLaunchesGame = [bool]$contractAnalyzerReport.LaunchesGame
+        $contractAnalyzerModifiesGameFiles = [bool]$contractAnalyzerReport.ModifiesGameFiles
+        $contractAnalyzerStatus = if ($contractAnalyzerReport.Status -eq "Pass" `
+                -and -not $contractAnalyzerLaunchesGame `
+                -and -not $contractAnalyzerModifiesGameFiles) {
+            "Pass"
+        } elseif ($contractAnalyzerReport.Status -eq "Fail") {
+            "Fail"
+        } else {
+            "Blocked"
+        }
+        $contractAnalyzerEvidence = "Status=$($contractAnalyzerReport.Status); Checks=$($contractAnalyzerReport.CheckCount); FailedChecks=$(@($contractAnalyzerReport.FailedChecks).Count); LaunchesGame=$($contractAnalyzerReport.LaunchesGame); ModifiesGameFiles=$($contractAnalyzerReport.ModifiesGameFiles); ContractLog=$($contractAnalyzerReport.ContractLogPath); PollutedLog=$($contractAnalyzerReport.PollutedLogPath)"
+        if (@($contractAnalyzerReport.FailedChecks).Count -gt 0) {
+            $contractAnalyzerEvidence = "$contractAnalyzerEvidence; Failed=$(@($contractAnalyzerReport.FailedChecks | ForEach-Object { $_.Name }) -join ' | ')"
+        }
+    } catch {
+        $contractAnalyzerStatus = "Blocked"
+        $contractAnalyzerEvidence = "Failed to parse contract analyzer guard JSON: $($_.Exception.Message); Output=$($contractAnalyzerGuard.Output)"
+    }
+} else {
+    $contractAnalyzerEvidence = "Contract analyzer guard failed: $($contractAnalyzerGuard.Output)"
+}
+
+$items.Add((New-ReadinessItem `
+    -Area "Evidence" `
+    -Requirement $contractAnalyzerRequirement `
+    -Status $contractAnalyzerStatus `
+    -Evidence $contractAnalyzerEvidence))
 
 $renderGraphBoundaryRouteGuard = Invoke-CapturedCommand -Command {
     & (Join-Path $resolvedRoot "scripts\test-rendergraph-boundary-route-status.ps1") -Root $resolvedRoot -RequirePass -Json

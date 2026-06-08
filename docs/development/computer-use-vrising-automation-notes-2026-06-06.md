@@ -185,6 +185,11 @@ Result:
   blamed on save drift when protected restore ends with `ChangeCount=0`. Treat it
   as environment or measurement drift until wider process/CPU/GPU/power/temperature
   snapshots say otherwise.
+- If Computer Use returns `Windows computer-use client is closed` on both the
+  first lightweight probe and the required retry, keep the V Rising run deferred
+  before launch. Do not fall back to PowerShell `SendKeys` or other foreground
+  key/mouse automation for protected gameplay entry; continue with no-runtime
+  evidence work instead.
 
 ## HWDRS Render-Scale Follow-up
 
