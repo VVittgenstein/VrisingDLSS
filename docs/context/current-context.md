@@ -2036,3 +2036,11 @@ As of the read-only RenderGraph pass-map runtime result:
   `stop-vrising-automation-session.ps1`, require `SaveAfterRestoreChangeCount=0`,
   and analyze the BepInEx log with
   `scripts/analyze-hdrp-dlss-schedule-audit.ps1`.
+- `scripts/get-runtime-validation-status.ps1` was updated after that deferral
+  so a safe live `loader` config/log no longer sends the next-action advice
+  back to the old hook-probe ladder when the repository already contains the
+  2026-06-08 contract-bind, contract-analysis, and systematic-decompilation
+  evidence documents. With the current local game install it now reports
+  `ConfiguredStage=loader`, `LaunchesGame=False`, and recommends the protected
+  `hdrp-dlss-contract-bind-render-scale` gameplay proof while still preserving
+  the actual live-log stage results.

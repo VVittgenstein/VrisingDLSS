@@ -782,6 +782,15 @@ function Get-NextRecommendation {
         return "Stage 8A started but did not produce pass/blocked/fail evidence. If this was the main menu, run scripts\run-vrising-diagnostic.ps1 -GamePath `"$($Inspect.GamePath)`" -Stage dlss-evaluate-inputs -DurationSeconds 240 and enter a local/private gameplay scene, then preserve the archived log."
     }
 
+    $contractBindPreflightDoc = Join-Path $Root "docs\development\hdrp-dlss-contract-bind-render-scale-preflight-2026-06-08.md"
+    $contractAnalysisDoc = Join-Path $Root "docs\development\official-dlss-contract-vs-easu-chain-analysis-2026-06-08.md"
+    $systematicDecompilationDoc = Join-Path $Root "docs\development\vrising-systematic-local-decompilation-investigation-2026-06-08.md"
+    if ((Test-Path -LiteralPath $contractBindPreflightDoc) -and
+        (Test-Path -LiteralPath $contractAnalysisDoc) -and
+        (Test-Path -LiteralPath $systematicDecompilationDoc)) {
+        return "Current repository evidence has moved beyond the early hook-probe ladder. Next normal proof is the protected hdrp-dlss-contract-bind-render-scale gameplay run at true 1920x1080 Windowed: use scripts\start-vrising-automation-session.ps1 -Stage hdrp-dlss-contract-bind-render-scale -ProtectSave -SaveDir <local-save-dir>, click Continue/11111 once through Computer Use, send no movement keys, stop with scripts\stop-vrising-automation-session.ps1, require SaveAfterRestoreChangeCount=0, then analyze with scripts\analyze-hdrp-dlss-schedule-audit.ps1. If Computer Use is unavailable, keep this run deferred rather than falling back to foreground key scripts."
+    }
+
     $hook = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 2"
     if ($hook -ne "Pass") {
         return "Keep Stage loader config until the hook probe finds CustomVignette; review Hook target log lines."
