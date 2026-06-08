@@ -1873,3 +1873,51 @@ As of the read-only RenderGraph pass-map runtime result:
   aligned step is a menu-first, default-off, no-native schedule-gate design that
   observes whether the official pass shell appears when those gates are
   deliberately set, without patching `DLSSPass.Render`.
+- The schedule-gate design is now implemented and non-runtime validated; see
+  `docs/development/hdrp-dlss-schedule-gate-preflight-2026-06-08.md`. New
+  config key: `Diagnostics.EnableHdrpDlssScheduleGateProbe=false`. New stage:
+  `hdrp-dlss-schedule-gate`. The stage keeps `DLSS.EnableDLSS=false`, leaves
+  all native/evaluate/user-rendering probes off, disables broad
+  `RenderGraph.GetTexture`, and combines a focused
+  `HDRenderPipeline.SetupDLSSForCameraDataAndDynamicResHandler`
+  gate-mutating probe with existing
+  RenderGraph pass-list/resource-declaration/pass-data/render-func
+  metadata/compiled-info and `UpscalerStateProbe` logging. The probe mutates
+  only HDRP scheduling gates (`allowDynamicResolution`,
+  `allowDeepLearningSuperSampling`, `cameraRequestedDynamicRes`,
+  HDRP asset/out DRS `enabled=true`, `enableDLSS=true`,
+  `DLSSInjectionPoint=BeforePost`, Performance `50%`, etc.) and, in postfix,
+  forces
+  `cameraCanRenderDLSS=true` if official setup still leaves it false. It logs
+  `DLSSDetected`, `m_DLSSPass`, `m_DLSSPassEnabled`, camera fields, out DRS,
+  and asset DRS state so a later runtime result can distinguish camera gate
+  failure from a missing `DLSSPass` object/module. Build passed with 0 warnings
+  and dry-runs for `write-diagnostic-config.ps1` and
+  `run-vrising-diagnostic.ps1` accepted the new stage with
+  `LaunchesGame=False`. If this classification tool is run later, use a
+  menu-only true `1920x1080` Windowed
+  `scripts\run-vrising-diagnostic.ps1 -GamePath C:\Software\VRising -Stage
+  hdrp-dlss-schedule-gate -DurationSeconds 75 -SetClientResolution
+  -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080`, do not
+  click Continue or enter gameplay, then analyze with
+  `scripts\analyze-hdrp-dlss-schedule-audit.ps1`.
+- Systematic local static route audit is now recorded in
+  `docs/development/vrising-hdrp-dlss-route-static-audit-2026-06-08.md`.
+  No V Rising runtime was launched for this pass. The audit aligned local
+  Il2CppDumper output, BepInEx/interop wrapper evidence, UnityGraphics 2022.3
+  HDRP source, and prior runtime logs. Main finding: V Rising contains the
+  official HDRP DLSS route shell (`SetupDLSSForCameraDataAndDynamicResHandler`,
+  `GetPostprocessUpsampledOutputHandle`, `RenderPostProcess`,
+  `DoDLSSPasses`, `DoDLSSPass`, generated `DLSSData` render func, pass
+  strings, and resource structs), but the built-in DLSS execution body remains
+  unusable as-is because `DLSSPass.Render`, `BeginFrame`, `SetupDRSScaling`,
+  and `.ctor` all map to the same no-op-style stub RVA `0x171E170`. V Rising
+  also has real FSR/dynamic-resolution control through
+  `ProjectM.GraphicsSettingsManager` and `FSRQualityMode`, but no local
+  evidence yet shows a game-specific DLSS replacement layer. Therefore
+  schedule-gate is now classified as a later menu-only `m_DLSSPass`/gate
+  diagnostic, not the immediate performance-fix runtime. The mainline next
+  step is deeper static/local route work: prove `m_DLSSPass` creation/module
+  state where possible and design a no-native official-equivalent RenderGraph
+  pass boundary with explicit source/output/depth/motion resource declarations
+  before introducing NGX evaluate again.

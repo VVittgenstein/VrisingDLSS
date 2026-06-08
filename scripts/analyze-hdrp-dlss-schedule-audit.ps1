@@ -52,6 +52,9 @@ $counts = [ordered]@{
     AllowDeepLearningSuperSamplingFalse = Count-Regex -Text $text -Pattern "allowDeepLearningSuperSampling=False"
     CameraCanRenderDLSSTrue = Count-Regex -Text $text -Pattern "cameraCanRenderDLSS=True"
     CameraCanRenderDLSSFalse = Count-Regex -Text $text -Pattern "cameraCanRenderDLSS=False"
+    HdrpDlssScheduleGateLogs = Count-Regex -Text $text -Pattern "HDRP DLSS schedule-gate (prefix|postfix):"
+    HdrpDlssScheduleGateForcedCamera = Count-Regex -Text $text -Pattern "cameraCanRenderDLSS=False->True"
+    HdrpDlssScheduleGateMissingPass = Count-Regex -Text $text -Pattern "m_DLSSPass=null"
     RenderGraphGetTextureCalls = Count-Regex -Text $text -Pattern "RenderGraph GetTexture call #"
     UserRenderingCandidateStarted = Count-Regex -Text $text -Pattern "DLSS user rendering candidate enabled|Native render-func command-buffer DLSS user-rendering"
     DlssEvaluateSucceeded = Count-Regex -Text $text -Pattern "DLSS .*evaluate succeeded|DLSS user rendering evaluate succeeded"
@@ -65,7 +68,7 @@ if ($counts.AccessViolationIndicators -gt 0) {
 }
 
 if ($counts.UserRenderingCandidateStarted -gt 0 -or $counts.DlssEvaluateSucceeded -gt 0) {
-    [void]$issues.Add("The audit log contains user-rendering or DLSS evaluate evidence; this schedule audit should be read-only.")
+    [void]$issues.Add("The schedule log contains user-rendering or DLSS evaluate evidence; this audit/gate stage must not run the native evaluate path.")
 }
 
 if ($counts.RenderGraphGetTextureCalls -gt 0) {
@@ -92,10 +95,18 @@ $status = if ($issues.Count -gt 0) {
 
 $nextRecommendation = switch ($status) {
     "OfficialDlssPassObserved" {
-        "Use the logged DLSSData/resource declaration/render-func metadata to design a no-native official-equivalent boundary proof. Do not patch DLSSPass.Render directly."
+        if ($counts.HdrpDlssScheduleGateLogs -gt 0) {
+            "The schedule-gate probe made the official Deep Learning Super Sampling pass shell appear. Use the logged DLSSData/resource declaration/render-func metadata to design the next no-native official-equivalent boundary proof; do not patch DLSSPass.Render directly."
+        } else {
+            "Use the logged DLSSData/resource declaration/render-func metadata to design a no-native official-equivalent boundary proof. Do not patch DLSSPass.Render directly."
+        }
     }
     "NoOfficialDlssPassObserved" {
-        "Treat the official HDRP DLSS pass shell as absent under current V Rising settings. Next probe should explain which state gates it off, preferably through read-only HDCamera/GlobalDynamicResolutionSettings evidence before any state-changing patch."
+        if ($counts.HdrpDlssScheduleGateLogs -gt 0) {
+            "The schedule-gate probe ran but no official Deep Learning Super Sampling pass shell appeared. Treat camera/dynamic-resolution gates as insufficient and inspect whether m_DLSSPass/DLSSPass.Create/NVIDIA module availability is the remaining blocker."
+        } else {
+            "Treat the official HDRP DLSS pass shell as absent under current V Rising settings. Next probe should explain which state gates it off, preferably through read-only HDCamera/GlobalDynamicResolutionSettings evidence before any state-changing patch."
+        }
     }
     "Fail" {
         "Fix the audit pollution or crash indicator before using this log as boundary evidence."

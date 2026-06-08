@@ -55,10 +55,19 @@ public sealed class Plugin : BasePlugin
         {
             _log.LogWarning("DLSS cached tuple driver diagnostic is true. This probe stops steady-state GetTexture resource discovery after the first accepted tuple and drives that cached tuple from DynamicResolutionHandler.Update.");
         }
+        if (_config.EnableHdrpDlssScheduleGateProbe.Value)
+        {
+            _log.LogWarning("HDRP DLSS schedule-gate diagnostic is true. This mutates official HDRP scheduling gates for observation only and does not run the native/user-rendering DLSS evaluate path.");
+        }
 
         if (_config.EnableHookProbe.Value)
         {
             HookProbe.Run(_log);
+        }
+
+        if (_config.EnableHdrpDlssScheduleGateProbe.Value)
+        {
+            HdrpDlssScheduleGateProbe.Install(_log, _config.QualityMode.Value, _config.RenderScaleOverride.Value);
         }
 
         if (_config.EnableUpscalerStateProbe.Value)
@@ -176,6 +185,7 @@ public sealed class Plugin : BasePlugin
         {
             RenderThreadSmokeTest.Uninstall(_log);
             FrameResourceProbe.Uninstall(_log);
+            HdrpDlssScheduleGateProbe.Uninstall(_log);
             RenderScaleControlProbe.Uninstall(_log);
             UpscalerStateProbe.Uninstall(_log);
             HarmonyCallProbe.Uninstall(_log);

@@ -572,7 +572,7 @@ if (Test-Path -LiteralPath $reviewResolved) {
 }
 
 if (@($issues | Where-Object { $_ -like "Candidate * regressed*" -or $_ -like "Candidate P95 frame time worsened*" }).Count -gt 0) {
-    $nextRecommendation = "Do not rerun the same EASU ctx.cmd dlss-user-rendering candidate unchanged. Current evidence, including the official-HDRP flag/invert parity run, proves clean DLSS evaluate with RenderGraph.GetTexture=0 but still fails performance with low GPU utilization. The read-only hdrp-dlss-schedule-audit now shows the official Deep Learning Super Sampling pass is not scheduled under safe settings because cameraCanRenderDLSS remains false. Next work should design a default-off, menu-first, no-native schedule-gate probe before changing the gameplay candidate."
+    $nextRecommendation = "Do not rerun the same EASU ctx.cmd dlss-user-rendering candidate unchanged. Current evidence, including the official-HDRP flag/invert parity run, proves clean DLSS evaluate with RenderGraph.GetTexture=0 but still fails performance with low GPU utilization. The local static HDRP/DLSS route audit shows the official pass shell exists while the built-in DLSS execution body is no-op-style/stubbed, so next work should design a no-native official-equivalent RenderGraph/pass boundary; hdrp-dlss-schedule-gate is only a later menu-only m_DLSSPass/gate classifier."
 }
 
 if ($issues.Count -gt 0) {

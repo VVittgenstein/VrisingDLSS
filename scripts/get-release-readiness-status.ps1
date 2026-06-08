@@ -406,7 +406,7 @@ $summary = [pscustomobject]@{
     NextRecommendation = if ($mvpReady) {
         "MVP evidence is complete. Prepare a final release review."
     } elseif ([string]::IsNullOrWhiteSpace($GamePath)) {
-        "Pass -GamePath to include local runtime evidence. Current MVP next step is a default-off, menu-first, no-native schedule-gate design/probe informed by the hdrp-dlss-schedule-audit result: current safe settings do not schedule the official Deep Learning Super Sampling pass because cameraCanRenderDLSS remains false."
+        "Pass -GamePath to include local runtime evidence. Current MVP route is paused on direct runtime probing: use the static HDRP/DLSS route audit to design a no-native official-equivalent RenderGraph/pass boundary, with hdrp-dlss-schedule-gate reserved as a later menu-only m_DLSSPass/gate classifier."
     } elseif ($visualStatus.Status -ne "Pass" -and $visualStatus.HumanReviewStatus -eq "Pending") {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
@@ -477,7 +477,7 @@ $summary = [pscustomobject]@{
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
         } else {
-            "Do not rerun the same EASU ctx.cmd candidate unchanged. Use the hdrp-dlss-schedule-audit result to design a default-off, menu-first, no-native schedule-gate probe that tests whether setting the official HDRP DLSS gates creates the Deep Learning Super Sampling pass shell."
+            "Do not rerun the same EASU ctx.cmd candidate unchanged. Use the static HDRP/DLSS route audit to design a no-native official-equivalent RenderGraph/pass boundary; reserve hdrp-dlss-schedule-gate as a later menu-only m_DLSSPass/gate classifier."
         }
     } else {
         "Validate image correctness, output selection, resize/reset handling, and fallback behavior before public release."

@@ -23,6 +23,7 @@ param(
         "rendergraph-pass-declarations",
         "rendergraph-pass-data",
         "hdrp-dlss-schedule-audit",
+        "hdrp-dlss-schedule-gate",
         "rendergraph-renderfunc-metadata",
         "rendergraph-compiled-pass-info",
         "rendergraph-execute-delegate",
@@ -141,6 +142,7 @@ function New-ConfigMap {
             EnableRenderGraphGetTextureProbe = "true"
             EnableDlssPassResourceProbe = "false"
             EnableUpscalerStateProbe = "false"
+            EnableHdrpDlssScheduleGateProbe = "false"
             EnableRenderScaleControlProbe = "false"
             EnableDlssUserRenderingNoEvaluateProbe = "false"
             EnableDlssCachedTupleDriverProbe = "false"
@@ -325,6 +327,18 @@ function Set-SwitchesForStage {
         }
         "hdrp-dlss-schedule-audit" {
             $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
+            $Config.Diagnostics.EnableRenderGraphPassListProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphPassResourceDeclarationProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphPassDataSnapshotProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphPassRenderFuncMetadataProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphCompiledPassInfoProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
+            $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+            $Config.Diagnostics.EnableHookProbe = "false"
+            $Config.DLSS.EnableDLSS = "false"
+        }
+        "hdrp-dlss-schedule-gate" {
+            $Config.Diagnostics.EnableHdrpDlssScheduleGateProbe = "true"
             $Config.Diagnostics.EnableRenderGraphPassListProbe = "true"
             $Config.Diagnostics.EnableRenderGraphPassResourceDeclarationProbe = "true"
             $Config.Diagnostics.EnableRenderGraphPassDataSnapshotProbe = "true"

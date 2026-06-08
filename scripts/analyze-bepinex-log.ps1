@@ -213,6 +213,12 @@ $results.Add((New-StageResult `
     -StartedPatterns @("RenderGraph pass-list probe enabled", "RenderGraph pass-data snapshot probe enabled", "RenderGraph pass render-func metadata probe enabled", "RenderGraph compiled-pass-info probe enabled", "Upscaler state probe snapshot")))
 
 $results.Add((New-StageResult `
+    -Stage "HDRP DLSS Schedule Gate" `
+    -PassPatterns @("HDRP DLSS schedule-gate prefix:", "HDRP DLSS schedule-gate postfix:", "HDRP DLSS schedule-gate probe patched") `
+    -FailPatterns @("HDRP DLSS schedule-gate failed to patch", "HDRP DLSS schedule-gate prefix failed", "HDRP DLSS schedule-gate postfix failed", "HDRP DLSS schedule-gate member write did not stick", "DLSS user rendering evaluate succeeded from", "Native render-func command-buffer DLSS user-rendering", "RenderGraph GetTexture call #") `
+    -StartedPatterns @("HDRP DLSS schedule-gate probe enabled", "HDRP DLSS schedule-gate patched:")))
+
+$results.Add((New-StageResult `
     -Stage "RenderGraph RenderFunc Metadata" `
     -PassPatterns @("RenderGraph pass render-func metadata #") `
     -FailPatterns @("RenderGraph pass-list logging failed", "RenderGraph pass-list failed to patch", "RenderGraph pass-list target was not found", "RenderGraph pass render-func metadata renderFunc=not found", "RenderGraph pass render-func metadata typed read failed") `

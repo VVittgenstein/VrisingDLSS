@@ -56,6 +56,7 @@ internal sealed class ModConfig
     internal ConfigEntry<bool> EnableRenderGraphGetTextureProbe { get; }
     internal ConfigEntry<bool> EnableDlssPassResourceProbe { get; }
     internal ConfigEntry<bool> EnableUpscalerStateProbe { get; }
+    internal ConfigEntry<bool> EnableHdrpDlssScheduleGateProbe { get; }
     internal ConfigEntry<bool> EnableRenderScaleControlProbe { get; }
     internal ConfigEntry<bool> EnableDlssUserRenderingNoEvaluateProbe { get; }
     internal ConfigEntry<bool> EnableDlssCachedTupleDriverProbe { get; }
@@ -130,6 +131,7 @@ internal sealed class ModConfig
         EnableRenderGraphGetTextureProbe = config.Bind("Diagnostics", "EnableRenderGraphGetTextureProbe", true, "Patch RenderGraphResourceRegistry.GetTexture(TextureHandle&) for diagnostic resource discovery. Disable only for deliberate materialization-only isolation.");
         EnableDlssPassResourceProbe = config.Bind("Diagnostics", "EnableDlssPassResourceProbe", false, "High-risk research-only patching of DLSSPass resource helper methods. Does not patch DLSSPass.Render; leave false unless deliberate Stage 8A resource testing is intentional.");
         EnableUpscalerStateProbe = config.Bind("Diagnostics", "EnableUpscalerStateProbe", false, "Patch HDRP/dynamic-resolution/DLSS setup methods and log read-only camera/upscale state snapshots. Diagnostic only; does not change render scale.");
+        EnableHdrpDlssScheduleGateProbe = config.Bind("Diagnostics", "EnableHdrpDlssScheduleGateProbe", false, "Default-off no-native HDRP DLSS schedule-gate diagnostic. Mutates only camera/asset dynamic-resolution gates around SetupDLSSForCameraDataAndDynamicResHandler to see whether the official Deep Learning Super Sampling RenderGraph pass shell appears; does not patch DLSSPass.Render or evaluate DLSS.");
         EnableRenderScaleControlProbe = config.Bind("Diagnostics", "EnableRenderScaleControlProbe", false, "Experimental diagnostic that requests HDRP dynamic resolution at the selected DLSS quality's render-scale percentage while avoiding Unity's internal DLSS pass. Leave false unless deliberate local/private testing is intentional.");
         EnableDlssUserRenderingNoEvaluateProbe = config.Bind("Diagnostics", "EnableDlssUserRenderingNoEvaluateProbe", false, "Diagnostic-only control path that runs the user-rendering RenderGraph tuple discovery and Super Resolution input acceptance path but skips NGX evaluate/writeback.");
         EnableDlssCachedTupleDriverProbe = config.Bind("Diagnostics", "EnableDlssCachedTupleDriverProbe", false, "Diagnostic-only path that reuses the first accepted RenderGraph Super Resolution tuple from DynamicResolutionHandler.Update instead of continuing resource discovery on every GetTexture callback.");
