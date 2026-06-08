@@ -45,7 +45,9 @@ Required evidence:
 
 1. Paired baseline and candidate captures from the same stable gameplay scene.
 2. Candidate run log proving the selected DLSS route succeeded. For the normal-user MVP candidate this means `dlss-user-rendering` with `DLSS user rendering evaluate succeeded` and `sequenceSuccesses=...`; Stage 10A diagnostic comparisons still use visible write-back success with `sequenceSuccesses=30/30`.
-3. Baseline and candidate performance summaries from `scripts/capture-vrising-fps.ps1`.
+3. Baseline and candidate performance summaries from `scripts/capture-vrising-fps.ps1`,
+   plus the paired metrics CSV and before/after
+   `artifacts/system-snapshots/*.snapshot.json` files it emits by default.
 4. Valid screenshots at gameplay resolution. The readiness gate currently requires at least 1280x720.
 5. Human review tied to the exact image hashes, because automated pixel-difference statistics can catch gross capture failures but cannot prove temporal image quality.
 
@@ -88,6 +90,13 @@ The same status output reports baseline/candidate `AverageFps`, `OnePercentLowFp
 ## Performance Capture Rules
 
 Use the same graphics settings, camera, scene, window mode, and resolution for baseline and candidate. Prefer a GPU-bound scene; if GPU utilization is low, the result may not demonstrate DLSS benefit even if the rendering path works.
+
+Keep the system context around every performance capture. `scripts/capture-vrising-fps.ps1`
+must retain its default system metrics CSV and before/after snapshot behavior so
+negative or surprising results can be interpreted against CPU load, GPU
+utilization, GPU power, GPU temperature, VRAM use, and competing top processes.
+The no-runtime contract for this is
+`scripts/test-runtime-environment-snapshot-contract.ps1`.
 
 On Windows desktop scaling, capture helpers must report physical pixels rather than DPI-virtualized logical pixels. For example, a 3840x2160 display at 150% scaling can appear as 2560x1440 to a DPI-unaware PowerShell process. `scripts/capture-vrising-window.ps1` declares DPI awareness before enumerating and copying the V Rising client window so visual evidence can be checked against the actual output resolution.
 

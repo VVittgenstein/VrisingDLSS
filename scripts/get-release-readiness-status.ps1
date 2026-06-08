@@ -106,6 +106,7 @@ $runtimeDistributionContractRequirement = "DLSS runtime distribution approval ga
 $contractBindStageRequirement = "Contract-bind render-scale stage dry-run remains no-native/no-evaluate and launch-safe before gameplay automation."
 $contractAnalyzerRequirement = "HDRP DLSS schedule analyzer recognizes the contract-bind success shape and rejects evaluate-polluted logs without launching or modifying the game."
 $runtimeNextRecommendationContractRequirement = "Runtime status recommendations defer the known-regressed EASU ctx.cmd user-rendering candidate to the official-equivalent contract-bind route instead of sending the next run back to the same candidate."
+$runtimeEnvironmentSnapshotRequirement = "Runtime performance captures preserve before/after system snapshots with CPU, GPU utilization, power, temperature, memory, and top-process context without launching or modifying the game."
 $localDecompilationInvestigationRequirement = "Systematic local decompilation investigation keeps clean-room evidence/inference boundaries and, when GamePath is available, rechecks HDRP route anchors, inert DLSSPass bodies, asset gates, and the official DLSS vs EASU contract split without launching or modifying the game."
 $localSaveFixtureRequirement = "Local V Rising save fixture resolver finds exactly one usable Continue target named 11111 without launching or modifying the game."
 $renderGraphBoundaryRouteRequirement = "RenderGraph boundary route guard keeps mod-owned RenderGraph pass injection rejected as the normal route without launching or modifying the game."
@@ -294,6 +295,7 @@ if (Test-Path -LiteralPath $workflowPath) {
         -and $workflowText -match "test-hdrp-dlss-contract-bind-stage\.ps1\s+-RequirePass" `
         -and $workflowText -match "test-hdrp-dlss-schedule-analyzer-contract\.ps1" `
         -and $workflowText -match "test-runtime-next-recommendation-contract\.ps1" `
+        -and $workflowText -match "test-runtime-environment-snapshot-contract\.ps1" `
         -and $workflowText -match "test-vrising-local-decompilation-investigation\.ps1" `
         -and $workflowText -match "test-rendergraph-boundary-route-status\.ps1\s+-RequirePass" `
         -and $workflowText -match "actions/upload-artifact@v4"
@@ -496,6 +498,41 @@ $items.Add((New-ReadinessItem `
     -Requirement $runtimeNextRecommendationContractRequirement `
     -Status $runtimeNextRecommendationStatus `
     -Evidence $runtimeNextRecommendationEvidence))
+
+$runtimeEnvironmentSnapshotGuard = Invoke-CapturedCommand -Command {
+    & (Join-Path $resolvedRoot "scripts\test-runtime-environment-snapshot-contract.ps1") -Root $resolvedRoot -Json
+}
+$runtimeEnvironmentSnapshotStatus = "Blocked"
+$runtimeEnvironmentSnapshotEvidence = "Runtime environment snapshot contract guard did not produce evidence."
+if ($runtimeEnvironmentSnapshotGuard.Succeeded) {
+    try {
+        $runtimeEnvironmentSnapshotReport = $runtimeEnvironmentSnapshotGuard.Output | ConvertFrom-Json
+        $runtimeEnvironmentSnapshotStatus = if ($runtimeEnvironmentSnapshotReport.Status -eq "Pass" `
+                -and -not [bool]$runtimeEnvironmentSnapshotReport.LaunchesGame `
+                -and -not [bool]$runtimeEnvironmentSnapshotReport.ModifiesGameFiles) {
+            "Pass"
+        } elseif ($runtimeEnvironmentSnapshotReport.Status -eq "Fail") {
+            "Fail"
+        } else {
+            "Blocked"
+        }
+        $runtimeEnvironmentSnapshotEvidence = "Status=$($runtimeEnvironmentSnapshotReport.Status); Checks=$($runtimeEnvironmentSnapshotReport.CheckCount); FailedChecks=$(@($runtimeEnvironmentSnapshotReport.FailedChecks).Count); GpuAvailable=$($runtimeEnvironmentSnapshotReport.GpuAvailable); LaunchesGame=$($runtimeEnvironmentSnapshotReport.LaunchesGame); ModifiesGameFiles=$($runtimeEnvironmentSnapshotReport.ModifiesGameFiles); Snapshot=$($runtimeEnvironmentSnapshotReport.SnapshotPath)"
+        if (@($runtimeEnvironmentSnapshotReport.Issues).Count -gt 0) {
+            $runtimeEnvironmentSnapshotEvidence = "$runtimeEnvironmentSnapshotEvidence; Issues=$(@($runtimeEnvironmentSnapshotReport.Issues) -join ' | ')"
+        }
+    } catch {
+        $runtimeEnvironmentSnapshotStatus = "Blocked"
+        $runtimeEnvironmentSnapshotEvidence = "Failed to parse runtime environment snapshot guard JSON: $($_.Exception.Message); Output=$($runtimeEnvironmentSnapshotGuard.Output)"
+    }
+} else {
+    $runtimeEnvironmentSnapshotEvidence = "Runtime environment snapshot guard failed: $($runtimeEnvironmentSnapshotGuard.Output)"
+}
+
+$items.Add((New-ReadinessItem `
+    -Area "Evidence" `
+    -Requirement $runtimeEnvironmentSnapshotRequirement `
+    -Status $runtimeEnvironmentSnapshotStatus `
+    -Evidence $runtimeEnvironmentSnapshotEvidence))
 
 $renderGraphBoundaryRouteGuard = Invoke-CapturedCommand -Command {
     & (Join-Path $resolvedRoot "scripts\test-rendergraph-boundary-route-status.ps1") -Root $resolvedRoot -RequirePass -Json

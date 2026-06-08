@@ -73,6 +73,10 @@ jobs:
         shell: pwsh
         run: .\scripts\test-runtime-next-recommendation-contract.ps1
 
+      - name: Guard runtime environment snapshot contract
+        shell: pwsh
+        run: .\scripts\test-runtime-environment-snapshot-contract.ps1
+
       - name: Guard local decompilation investigation contract
         shell: pwsh
         run: .\scripts\test-vrising-local-decompilation-investigation.ps1

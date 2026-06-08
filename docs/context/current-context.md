@@ -2315,3 +2315,15 @@ As of the read-only RenderGraph pass-map runtime result:
   production/signature evidence, missing NVIDIA notification URL, and missing
   concrete package-validation updates. The live runtime-distribution gate still
   correctly reports `Status=Blocked` because no approval record exists.
+- `scripts\test-runtime-environment-snapshot-contract.ps1` now guards the
+  broader environment evidence requested for performance comparisons. It checks
+  that `capture-system-snapshot.ps1` can write no-launch CPU/memory/GPU/top
+  process JSON, that `capture-vrising-fps.ps1 -DryRun` defaults to system
+  metrics plus before/after snapshots, and that visual comparison performance
+  capture still routes through `capture-vrising-fps.ps1` without disabling
+  snapshots. Local smoke result is `Status=Pass`, `CheckCount=9`,
+  `GpuAvailable=True`, `LaunchesGame=False`, and `ModifiesGameFiles=False`.
+  Future paired runs should keep PresentMon frame metrics, per-interval process
+  and GPU CSV metrics, and `artifacts/system-snapshots/*.snapshot.json` files so
+  low-GPU-utilization regressions can be compared against process load,
+  temperature, power, VRAM, and environment drift.
