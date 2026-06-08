@@ -101,6 +101,7 @@ $hdrpAssetRequirement = "Local HDRP asset unpack identifies the active render pi
 $dlssNativeStubRequirement = "Local HDRP DLSS native-stub audit confirms the official DLSS activation/execution body is inert while the RenderGraph shell remains non-stub without launching or modifying the game."
 $officialDlssContractRequirement = "Local HDRP DLSS official-contract guard confirms DoDLSSPass needs color/depth/motion/bias resources while V Rising's active EASU path remains color-only, without launching or modifying the game."
 $phase0ChatlogRequirement = "Phase 0 chatlog reconstruction covers the 2026-06-04 source log in contiguous chronological chunks without launching or modifying the game."
+$phase1GameplayAutomationRequirement = "Phase 1 gameplay automation coverage preserves the proven automatic 11111 Continue route, protected 1920x1080 Windowed protocol, and Computer Use-only UI boundary without launching or modifying the game."
 $runtimeDistributionContractRequirement = "DLSS runtime distribution approval gate rejects semantic false positives such as third-party mirrors, missing source URLs, and bundled runtimes without SHA256 checksums."
 $contractBindStageRequirement = "Contract-bind render-scale stage dry-run remains no-native/no-evaluate and launch-safe before gameplay automation."
 $contractAnalyzerRequirement = "HDRP DLSS schedule analyzer recognizes the contract-bind success shape and rejects evaluate-polluted logs without launching or modifying the game."
@@ -189,6 +190,54 @@ $items.Add((New-ReadinessItem `
     -Status $phase0ChatlogStatus `
     -Evidence $phase0ChatlogEvidence))
 
+$phase1GameplayArgs = @{
+    Root = $resolvedRoot
+    Json = $true
+}
+if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
+    $phase1GameplayArgs["GamePath"] = $GamePath
+}
+$phase1GameplayGuard = Invoke-CapturedCommand -Command {
+    & (Join-Path $resolvedRoot "scripts\test-phase1-gameplay-automation-coverage.ps1") @phase1GameplayArgs
+}
+$phase1GameplayStatus = "Blocked"
+$phase1GameplayEvidence = "Phase 1 gameplay automation coverage guard did not produce evidence."
+if ($phase1GameplayGuard.Succeeded) {
+    try {
+        $phase1GameplayReport = $phase1GameplayGuard.Output | ConvertFrom-Json
+        $phase1GameplayStatus = if ($phase1GameplayReport.Status -eq "Pass" `
+                -and -not [bool]$phase1GameplayReport.LaunchesGame `
+                -and -not [bool]$phase1GameplayReport.ModifiesGameFiles) {
+            "Pass"
+        } elseif ($phase1GameplayReport.Status -eq "Fail") {
+            "Fail"
+        } else {
+            "Blocked"
+        }
+        $phase1GameplayEvidence = "Status=$($phase1GameplayReport.Status); Phase1=$($phase1GameplayReport.Phase1Status); SaveName=$($phase1GameplayReport.SaveName); LocalEvidence=$($phase1GameplayReport.LocalEvidenceStatus); Checks=$($phase1GameplayReport.CheckCount); FailedChecks=$(@($phase1GameplayReport.FailedChecks).Count); LaunchesGame=$($phase1GameplayReport.LaunchesGame); ModifiesGameFiles=$($phase1GameplayReport.ModifiesGameFiles)"
+        if ($phase1GameplayReport.SaveFixture) {
+            $phase1GameplayEvidence = "$phase1GameplayEvidence; SaveFixtureStatus=$($phase1GameplayReport.SaveFixture.Status); SaveFixtureMatchCount=$($phase1GameplayReport.SaveFixture.MatchCount)"
+        }
+        if ($phase1GameplayReport.ContractBindStage) {
+            $phase1GameplayEvidence = "$phase1GameplayEvidence; ContractBindStatus=$($phase1GameplayReport.ContractBindStage.Status); RequiresComputerUse=$($phase1GameplayReport.ContractBindStage.RequiresComputerUse); MovementKeysAllowed=$($phase1GameplayReport.ContractBindStage.MovementKeysAllowed)"
+        }
+        if (@($phase1GameplayReport.FailedChecks).Count -gt 0) {
+            $phase1GameplayEvidence = "$phase1GameplayEvidence; Failed=$(@($phase1GameplayReport.FailedChecks | ForEach-Object { $_.Name }) -join ' | ')"
+        }
+    } catch {
+        $phase1GameplayStatus = "Blocked"
+        $phase1GameplayEvidence = "Failed to parse Phase 1 gameplay automation guard JSON: $($_.Exception.Message); Output=$($phase1GameplayGuard.Output)"
+    }
+} else {
+    $phase1GameplayEvidence = "Phase 1 gameplay automation guard failed: $($phase1GameplayGuard.Output)"
+}
+
+$items.Add((New-ReadinessItem `
+    -Area "Evidence" `
+    -Requirement $phase1GameplayAutomationRequirement `
+    -Status $phase1GameplayStatus `
+    -Evidence $phase1GameplayEvidence))
+
 if (Test-Path -LiteralPath $configTemplatePath) {
     $configText = Get-Content -LiteralPath $configTemplatePath -Raw
     $hasModFolderConfig = $configText -match "\[General\]" -and $configText -match "\[Diagnostics\]" -and $configText -match "\[DLSS\]"
@@ -237,6 +286,7 @@ if (Test-Path -LiteralPath $workflowPath) {
         -and $workflowText -match "validate-thunderstore-package\.ps1" `
         -and $workflowText -match "package-thunderstore\.ps1" `
         -and $workflowText -match "test-chatlog-reconstruction-coverage\.ps1" `
+        -and $workflowText -match "test-phase1-gameplay-automation-coverage\.ps1" `
         -and $workflowText -match "test-dlss-runtime-distribution-gate-contract\.ps1" `
         -and $workflowText -match "test-dlss-mvp-safety-gates-contract\.ps1" `
         -and $workflowText -match "test-hdrp-dlss-contract-bind-stage\.ps1\s+-RequirePass" `

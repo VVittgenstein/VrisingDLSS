@@ -109,7 +109,7 @@ powershell -ExecutionPolicy Bypass -File scripts\package-thunderstore.ps1 -Allow
 
 ## GitHub Actions
 
-The repository workflow uses `windows-2022` with Visual Studio 2022 to avoid runner-image churn while `windows-latest` transitions to newer Visual Studio images. The workflow builds the C# plugin, configures the native bridge with the Visual Studio 17 2022 x64 generator, builds the native DLL, checks release boundaries, runs the Phase 0 chatlog reconstruction coverage guard, runs the DLSS runtime-distribution gate contract guard, runs the DLSS MVP safety gate contract guard, runs the contract-bind stage guard, runs the schedule-analyzer contract guard, runs the RenderGraph boundary route guard, packages the Thunderstore artifact, validates the zip, reports release readiness, and uploads the zip as an Actions artifact.
+The repository workflow uses `windows-2022` with Visual Studio 2022 to avoid runner-image churn while `windows-latest` transitions to newer Visual Studio images. The workflow builds the C# plugin, configures the native bridge with the Visual Studio 17 2022 x64 generator, builds the native DLL, checks release boundaries, runs the Phase 0 chatlog reconstruction coverage guard, runs the Phase 1 gameplay automation coverage guard, runs the DLSS runtime-distribution gate contract guard, runs the DLSS MVP safety gate contract guard, runs the contract-bind stage guard, runs the schedule-analyzer contract guard, runs the RenderGraph boundary route guard, packages the Thunderstore artifact, validates the zip, reports release readiness, and uploads the zip as an Actions artifact.
 
 ## Local Game Preflight
 

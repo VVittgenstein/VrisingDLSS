@@ -49,6 +49,10 @@ jobs:
         shell: pwsh
         run: .\scripts\test-chatlog-reconstruction-coverage.ps1
 
+      - name: Guard Phase 1 gameplay automation coverage
+        shell: pwsh
+        run: .\scripts\test-phase1-gameplay-automation-coverage.ps1
+
       - name: Guard DLSS runtime distribution gate semantics
         shell: pwsh
         run: .\scripts\test-dlss-runtime-distribution-gate-contract.ps1

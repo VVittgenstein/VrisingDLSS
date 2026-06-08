@@ -29,6 +29,11 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
   `chat-log-codex-2026-06-04-c2222419.md` has `3124` numbered messages, and
   `chatlog-2026-06-04-reconstruction.md` has `12` contiguous chunks from `1-34`
   through `2883-3124`, each with the required durable-context sections.
+- Phase 1 gameplay automation coverage is now machine-checked by
+  `scripts/test-phase1-gameplay-automation-coverage.ps1`: CI-safe mode validates
+  the durable route/protocol evidence, and local `-GamePath C:\Software\VRising`
+  mode also verifies the `11111` save fixture and protected contract-bind
+  dry-run without launching or modifying the game.
 - Search, source reading, upstream investigation, and route exploration are first-class work.
 - Every implementation/test loop should be small, reversible, and evidence-backed.
 - Automation into gameplay must be systematically explored before accepting semi-automatic gameplay testing.
