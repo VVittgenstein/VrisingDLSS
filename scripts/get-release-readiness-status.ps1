@@ -100,6 +100,7 @@ $configTemplatePath = Join-Path $resolvedRoot "package\thunderstore\VrisingDLSS.
 $hdrpAssetRequirement = "Local HDRP asset unpack identifies the active render pipeline asset and DLSS/upscaler gates without launching or modifying the game."
 $dlssNativeStubRequirement = "Local HDRP DLSS native-stub audit confirms the official DLSS activation/execution body is inert while the RenderGraph shell remains non-stub without launching or modifying the game."
 $officialDlssContractRequirement = "Local HDRP DLSS official-contract guard confirms DoDLSSPass needs color/depth/motion/bias resources while V Rising's active EASU path remains color-only, without launching or modifying the game."
+$phase0ChatlogRequirement = "Phase 0 chatlog reconstruction covers the 2026-06-04 source log in contiguous chronological chunks without launching or modifying the game."
 $runtimeDistributionContractRequirement = "DLSS runtime distribution approval gate rejects semantic false positives such as third-party mirrors, missing source URLs, and bundled runtimes without SHA256 checksums."
 $contractBindStageRequirement = "Contract-bind render-scale stage dry-run remains no-native/no-evaluate and launch-safe before gameplay automation."
 $contractAnalyzerRequirement = "HDRP DLSS schedule analyzer recognizes the contract-bind success shape and rejects evaluate-polluted logs without launching or modifying the game."
@@ -151,6 +152,43 @@ foreach ($doc in @(
         -Evidence $(if ($exists) { $doc.Path } else { "Missing $($doc.Path)" })))
 }
 
+$phase0ChatlogGuard = Invoke-CapturedCommand -Command {
+    & (Join-Path $resolvedRoot "scripts\test-chatlog-reconstruction-coverage.ps1") -Root $resolvedRoot -Json
+}
+$phase0ChatlogStatus = "Blocked"
+$phase0ChatlogEvidence = "Phase 0 chatlog reconstruction guard did not produce evidence."
+if ($phase0ChatlogGuard.Succeeded) {
+    try {
+        $phase0ChatlogReport = $phase0ChatlogGuard.Output | ConvertFrom-Json
+        $phase0ChatlogStatus = if ($phase0ChatlogReport.Status -eq "Pass" `
+                -and -not [bool]$phase0ChatlogReport.LaunchesGame `
+                -and -not [bool]$phase0ChatlogReport.ModifiesGameFiles) {
+            "Pass"
+        } elseif ($phase0ChatlogReport.Status -eq "Fail") {
+            "Fail"
+        } else {
+            "Blocked"
+        }
+        $firstChunk = @($phase0ChatlogReport.ChunkRanges | Select-Object -First 1)
+        $lastChunk = @($phase0ChatlogReport.ChunkRanges | Select-Object -Last 1)
+        $phase0ChatlogEvidence = "Status=$($phase0ChatlogReport.Status); SourceMessages=$($phase0ChatlogReport.SourceMessageCount); Chunks=$($phase0ChatlogReport.ChunkCount); First=$($firstChunk.MessageStart)-$($firstChunk.MessageEnd); Last=$($lastChunk.MessageStart)-$($lastChunk.MessageEnd); FailedChecks=$(@($phase0ChatlogReport.FailedChecks).Count); LaunchesGame=$($phase0ChatlogReport.LaunchesGame); ModifiesGameFiles=$($phase0ChatlogReport.ModifiesGameFiles)"
+        if (@($phase0ChatlogReport.FailedChecks).Count -gt 0) {
+            $phase0ChatlogEvidence = "$phase0ChatlogEvidence; Failed=$(@($phase0ChatlogReport.FailedChecks | ForEach-Object { $_.Name }) -join ' | ')"
+        }
+    } catch {
+        $phase0ChatlogStatus = "Blocked"
+        $phase0ChatlogEvidence = "Failed to parse Phase 0 chatlog guard JSON: $($_.Exception.Message); Output=$($phase0ChatlogGuard.Output)"
+    }
+} else {
+    $phase0ChatlogEvidence = "Phase 0 chatlog guard failed: $($phase0ChatlogGuard.Output)"
+}
+
+$items.Add((New-ReadinessItem `
+    -Area "Evidence" `
+    -Requirement $phase0ChatlogRequirement `
+    -Status $phase0ChatlogStatus `
+    -Evidence $phase0ChatlogEvidence))
+
 if (Test-Path -LiteralPath $configTemplatePath) {
     $configText = Get-Content -LiteralPath $configTemplatePath -Raw
     $hasModFolderConfig = $configText -match "\[General\]" -and $configText -match "\[Diagnostics\]" -and $configText -match "\[DLSS\]"
@@ -198,6 +236,7 @@ if (Test-Path -LiteralPath $workflowPath) {
     $workflowOk = $workflowText -match "windows-2022" `
         -and $workflowText -match "validate-thunderstore-package\.ps1" `
         -and $workflowText -match "package-thunderstore\.ps1" `
+        -and $workflowText -match "test-chatlog-reconstruction-coverage\.ps1" `
         -and $workflowText -match "test-dlss-runtime-distribution-gate-contract\.ps1" `
         -and $workflowText -match "test-dlss-mvp-safety-gates-contract\.ps1" `
         -and $workflowText -match "test-hdrp-dlss-contract-bind-stage\.ps1\s+-RequirePass" `

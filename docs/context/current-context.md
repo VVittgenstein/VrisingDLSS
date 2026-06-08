@@ -5,6 +5,8 @@ Rebuilt from:
 - `docs/chatlog/chat-log-codex-2026-06-04-c2222419.md`
 - `docs/chatlog/chat-log-codex-2026-06-05-110887f1.md`
 - Current repository state and readiness output on 2026-06-06
+- `scripts/test-chatlog-reconstruction-coverage.ps1` coverage guard on
+  2026-06-08
 
 ## Current Goal
 
@@ -23,6 +25,10 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
 - The previous long run had context degradation.
 - The old goal started as a search task but became implementation.
 - The first step must be rebuilding the 2026-06-04 long chatlog in durable local files.
+- Phase 0 coverage is now machine-checked: source log
+  `chat-log-codex-2026-06-04-c2222419.md` has `3124` numbered messages, and
+  `chatlog-2026-06-04-reconstruction.md` has `12` contiguous chunks from `1-34`
+  through `2883-3124`, each with the required durable-context sections.
 - Search, source reading, upstream investigation, and route exploration are first-class work.
 - Every implementation/test loop should be small, reversible, and evidence-backed.
 - Automation into gameplay must be systematically explored before accepting semi-automatic gameplay testing.

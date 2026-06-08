@@ -14,6 +14,17 @@ Parsing method:
 
 Tool calls, tool outputs, hidden reasoning, and command traces were intentionally omitted from the chatlog export, so this reconstruction records durable project context and message-level evidence rather than raw terminal traces.
 
+Coverage guard:
+
+- `scripts\test-chatlog-reconstruction-coverage.ps1 -Json` now verifies that
+  the source log has `3124` numbered messages and that this reconstruction has
+  `12` contiguous chunks from `1-34` through `2883-3124`.
+- The same guard verifies that each chunk contains the required durable-context
+  sections for user instructions, technical decisions, implemented changes,
+  evidence, failures/rejected routes, open blockers, and next step.
+- Latest local result is recorded in
+  `docs/development/phase-0-chatlog-reconstruction-coverage-2026-06-08.md`.
+
 ## Chunk 01 - Initial Intent, Research, PureDark Boundary
 
 Message/time range: `1-34`, 2026-06-04 21:49:29 to 22:06:24 CST.
