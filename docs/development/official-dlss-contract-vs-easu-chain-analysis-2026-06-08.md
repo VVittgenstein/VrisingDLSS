@@ -124,3 +124,21 @@ Still rejected for the normal route:
 - patching `DLSSPass.Render`;
 - returning to broad steady-state `RenderGraph.GetTexture` discovery;
 - rerunning the same visible EASU `ctx.cmd` DLSS candidate unchanged.
+
+## Follow-Up: Contract-Bind Stage
+
+The next proof is now scaffolded as
+`hdrp-dlss-contract-bind-render-scale`; see
+`docs/development/hdrp-dlss-contract-bind-render-scale-preflight-2026-06-08.md`.
+
+The analyzer now distinguishes:
+
+- `EasuChainObservedButContractIncomplete`
+- `EasuSuperResolutionChainObservedButContractIncomplete`
+- `EasuSuperResolutionChainWithHdrpDepthMotionObservedButContractIncomplete`
+- `OfficialDlssContractObserved`
+
+Only the third status is the intended next non-DLSS runtime proof. It still
+does not mean EASU is an official DLSS RenderGraph pass; it means the same log
+contains enough source/output/depth/motion evidence to justify a later bounded
+no-write cost proof.

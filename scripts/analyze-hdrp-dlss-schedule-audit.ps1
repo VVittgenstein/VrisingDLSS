@@ -61,6 +61,7 @@ $uberPassDataPattern = 'RenderGraph pass-data snapshot #[^\r\n]*compile=(?<compi
 $easuPassDataPattern = 'RenderGraph pass-data snapshot #[^\r\n]*compile=(?<compile>\d+);[^\r\n]*pass="Edge Adaptive Spatial Upsampling"[^\r\n]*inputWidth:value:[^=]+=(?<inputWidth>\d+); inputHeight:value:[^=]+=(?<inputHeight>\d+); outputWidth:value:[^=]+=(?<outputWidth>\d+); outputHeight:value:[^=]+=(?<outputHeight>\d+);[^\r\n]*source:texture:[^;\]]*index=(?<source>\d+); destination:texture:[^;\]]*index=(?<destination>\d+)'
 $finalPassDataPattern = 'RenderGraph pass-data snapshot #[^\r\n]*compile=(?<compile>\d+);[^\r\n]*pass="Final Pass"[^\r\n]*source:texture:[^;\]]*index=(?<source>\d+); destination:texture:[^;\]]*index=(?<destination>\d+)'
 $easuDeclarationPattern = 'RenderGraph pass declaration #[^\r\n]*compile=(?<compile>\d+);[^\r\n]*pass="Edge Adaptive Spatial Upsampling"[^\r\n]*declarations=\[(?<declarations>[^\r\n]*)\]'
+$hdrpPostprocessSnapshotPattern = 'HDRP postprocess render args snapshot #[^\r\n]*camera=\{[^\r\n]*actualWidth=(?<actualWidth>\d+), actualHeight=(?<actualHeight>\d+)[^\r\n]*source=\{[^\r\n]*width=(?<sourceWidth>\d+), height=(?<sourceHeight>\d+)[^\r\n]*globalTextures=\[_CameraDepthTexture=\{[^\r\n]*width=(?<depthWidth>\d+), height=(?<depthHeight>\d+)[^\r\n]*_CameraMotionVectorsTexture=\{[^\r\n]*width=(?<motionWidth>\d+), height=(?<motionHeight>\d+)'
 
 $uberRecords = New-Object System.Collections.Generic.List[object]
 $uberByCompile = @{}
@@ -112,6 +113,32 @@ foreach ($match in Get-RegexMatches -Text $text -Pattern $easuDeclarationPattern
     })
 }
 
+$hdrpInputRecords = New-Object System.Collections.Generic.List[object]
+foreach ($match in Get-RegexMatches -Text $text -Pattern $hdrpPostprocessSnapshotPattern) {
+    $actualWidth = Convert-GroupInt $match.Groups["actualWidth"]
+    $actualHeight = Convert-GroupInt $match.Groups["actualHeight"]
+    $sourceWidth = Convert-GroupInt $match.Groups["sourceWidth"]
+    $sourceHeight = Convert-GroupInt $match.Groups["sourceHeight"]
+    $depthWidth = Convert-GroupInt $match.Groups["depthWidth"]
+    $depthHeight = Convert-GroupInt $match.Groups["depthHeight"]
+    $motionWidth = Convert-GroupInt $match.Groups["motionWidth"]
+    $motionHeight = Convert-GroupInt $match.Groups["motionHeight"]
+
+    [void]$hdrpInputRecords.Add([pscustomobject]@{
+        ActualWidth = $actualWidth
+        ActualHeight = $actualHeight
+        SourceWidth = $sourceWidth
+        SourceHeight = $sourceHeight
+        DepthWidth = $depthWidth
+        DepthHeight = $depthHeight
+        MotionWidth = $motionWidth
+        MotionHeight = $motionHeight
+        SourceMatchesCamera = $null -ne $actualWidth -and $actualWidth -eq $sourceWidth -and $actualHeight -eq $sourceHeight
+        DepthMatchesCamera = $null -ne $actualWidth -and $actualWidth -eq $depthWidth -and $actualHeight -eq $depthHeight
+        MotionMatchesCamera = $null -ne $actualWidth -and $actualWidth -eq $motionWidth -and $actualHeight -eq $motionHeight
+    })
+}
+
 $finalByCompile = @{}
 foreach ($match in Get-RegexMatches -Text $text -Pattern $finalPassDataPattern) {
     $compile = Convert-GroupInt $match.Groups["compile"]
@@ -130,8 +157,10 @@ $easuFinalChainCount = 0
 $uberEasuChainCount = 0
 $completeUberEasuFinalChainCount = 0
 $completeSuperResolutionChainCount = 0
+$superResolutionChainWithHdrpDepthMotionCount = 0
 $firstEasuFinalChain = $null
 $firstCompleteUberEasuFinalChain = $null
+$firstSuperResolutionChainWithHdrpDepthMotion = $null
 foreach ($record in $easuRecords) {
     if ($null -eq $record.Compile) {
         continue
@@ -161,12 +190,29 @@ foreach ($record in $easuRecords) {
 
     if ($uberMatchesEasu -and $easuMatchesFinal) {
         $completeUberEasuFinalChainCount++
+        $matchingHdrpInput = $null
         if ($record.IsSuperResolution) {
             $completeSuperResolutionChainCount++
+            $matchingHdrpInput = $hdrpInputRecords |
+                Where-Object {
+                    $_.SourceMatchesCamera -and
+                    $_.DepthMatchesCamera -and
+                    $_.MotionMatchesCamera -and
+                    $_.ActualWidth -eq $record.InputWidth -and
+                    $_.ActualHeight -eq $record.InputHeight
+                } |
+                Select-Object -First 1
+            if ($matchingHdrpInput) {
+                $superResolutionChainWithHdrpDepthMotionCount++
+            }
         }
 
         if ($null -eq $firstCompleteUberEasuFinalChain) {
             $firstCompleteUberEasuFinalChain = "compile=$($record.Compile); uberDestination/easuSource=$($record.SourceIndex); easu=$($record.InputWidth)x$($record.InputHeight)->$($record.OutputWidth)x$($record.OutputHeight); easuDestination/finalSource=$($record.DestinationIndex); finalDestination=$($finalRecord.DestinationIndex)"
+        }
+
+        if ($null -eq $firstSuperResolutionChainWithHdrpDepthMotion -and $record.IsSuperResolution -and $matchingHdrpInput) {
+            $firstSuperResolutionChainWithHdrpDepthMotion = "compile=$($record.Compile); hdrp=$($matchingHdrpInput.ActualWidth)x$($matchingHdrpInput.ActualHeight); easu=$($record.InputWidth)x$($record.InputHeight)->$($record.OutputWidth)x$($record.OutputHeight); depth=$($matchingHdrpInput.DepthWidth)x$($matchingHdrpInput.DepthHeight); motion=$($matchingHdrpInput.MotionWidth)x$($matchingHdrpInput.MotionHeight)"
         }
     }
 }
@@ -196,9 +242,14 @@ $counts = [ordered]@{
     EasuFinalSourceChains = $easuFinalChainCount
     CompleteUberEasuFinalChains = $completeUberEasuFinalChainCount
     CompleteSuperResolutionChains = $completeSuperResolutionChainCount
+    SuperResolutionChainsWithHdrpDepthMotion = $superResolutionChainWithHdrpDepthMotionCount
     FinalPassMentions = Count-Regex -Text $text -Pattern "Final Pass"
     FinalPassDataSnapshots = $finalByCompile.Count
     MotionVectorPassMentions = Count-Regex -Text $text -Pattern 'pass="[^"]*Motion Vectors[^"]*"'
+    HdrpPostProcessRenderArgSnapshots = $hdrpInputRecords.Count
+    HdrpPostProcessDepthMotionInputMatches = @($hdrpInputRecords | Where-Object { $_.SourceMatchesCamera -and $_.DepthMatchesCamera -and $_.MotionMatchesCamera }).Count
+    HdrpEasuCorrelationAdvanced = Count-Regex -Text $text -Pattern "HDRP/EASU input-output correlation advanced:"
+    HdrpEasuCorrelationReady = Count-Regex -Text $text -Pattern "HDRP/EASU input-output correlation advanced:[^\r\n]*hdrpCameraMatchesEasuInput=True; hdrpColorMatchesEasuInput=True; hdrpDepthMotionMatchEasuInput=True; easuSourceMatchesEasuInput=True; easuDestinationMatchesEasuOutput=True; easuUpscales=True"
     UpscalerStateSnapshots = Count-Regex -Text $text -Pattern "Upscaler state probe snapshot"
     UpscalerStateCalls = Count-Regex -Text $text -Pattern "Upscaler state probe call #"
     HDCameraIsDLSSEnabledTrue = Count-Regex -Text $text -Pattern "IsDLSSEnabled=True"
@@ -221,6 +272,7 @@ $counts = [ordered]@{
 $boundaryDetails = [pscustomobject]@{
     FirstEasuFinalChain = $firstEasuFinalChain
     FirstCompleteUberEasuFinalChain = $firstCompleteUberEasuFinalChain
+    FirstSuperResolutionChainWithHdrpDepthMotion = $firstSuperResolutionChainWithHdrpDepthMotion
 }
 
 $officialContractObserved =
@@ -229,6 +281,7 @@ $officialContractObserved =
     $counts.DlssResourceDeclarations -gt 0
 $engineOwnedChainObserved = $counts.CompleteUberEasuFinalChains -gt 0
 $engineOwnedSuperResolutionChainObserved = $counts.CompleteSuperResolutionChains -gt 0
+$engineOwnedSuperResolutionChainWithHdrpDepthMotionObserved = $counts.SuperResolutionChainsWithHdrpDepthMotion -gt 0
 $easuDeclaresDepthMotion = $counts.EasuMultiReadDeclarations -gt 0 -or $counts.EasuNonZeroDepthAttachmentDeclarations -gt 0
 
 $contractMissing = New-Object System.Collections.Generic.List[string]
@@ -241,6 +294,9 @@ if (-not $engineOwnedChainObserved) {
 if ($engineOwnedChainObserved -and -not $engineOwnedSuperResolutionChainObserved) {
     [void]$contractMissing.Add("Observed EASU chain is same-sized in this log; use gameplay/render-scale evidence for SR-sized 960x540 -> 1920x1080 shape.")
 }
+if ($engineOwnedSuperResolutionChainObserved -and -not $engineOwnedSuperResolutionChainWithHdrpDepthMotionObserved) {
+    [void]$contractMissing.Add("No same-log HDRP source/depth/motion input snapshot was matched to the observed Super Resolution-sized EASU chain.")
+}
 if ($engineOwnedChainObserved -and -not $easuDeclaresDepthMotion) {
     [void]$contractMissing.Add("EASU pass declaration exposes source/destination only, not DLSS depth/motion reads; depth/motion must come from the separate HDRP postprocess/global texture correlation path.")
 }
@@ -250,6 +306,8 @@ if ($counts.MotionVectorPassMentions -eq 0) {
 
 $contractStatus = if ($officialContractObserved) {
     "OfficialDlssContractObserved"
+} elseif ($engineOwnedSuperResolutionChainWithHdrpDepthMotionObserved) {
+    "EasuSuperResolutionChainWithHdrpDepthMotionObservedButContractIncomplete"
 } elseif ($engineOwnedSuperResolutionChainObserved) {
     "EasuSuperResolutionChainObservedButContractIncomplete"
 } elseif ($engineOwnedChainObserved) {
@@ -263,6 +321,7 @@ $contractDetails = [pscustomobject]@{
     OfficialContractObserved = $officialContractObserved
     EngineOwnedChainObserved = $engineOwnedChainObserved
     EngineOwnedSuperResolutionChainObserved = $engineOwnedSuperResolutionChainObserved
+    EngineOwnedSuperResolutionChainWithHdrpDepthMotionObserved = $engineOwnedSuperResolutionChainWithHdrpDepthMotionObserved
     EasuDeclaresDepthMotion = $easuDeclaresDepthMotion
     MissingForOfficialEquivalentBoundary = $contractMissing.ToArray()
 }
@@ -310,6 +369,10 @@ $nextRecommendation = switch ($status) {
     "NoOfficialDlssPassObserved" {
         if ($counts.HdrpDlssScheduleGateLogs -gt 0) {
             "The schedule-gate probe ran but no official Deep Learning Super Sampling pass shell appeared. Treat this as confirmation that camera/dynamic-resolution gates are insufficient; use the local m_DLSSPass xref audit to continue toward a no-native official-equivalent RenderGraph boundary proof."
+        } elseif ($contractStatus -eq "EasuSuperResolutionChainWithHdrpDepthMotionObservedButContractIncomplete") {
+            "Treat the official HDRP DLSS pass shell as absent under current V Rising settings. This log binds an engine-owned Super Resolution-sized Uber->EASU->Final chain to HDRP source/depth/motion input evidence, but it remains incomplete as an official DLSS RenderGraph contract because EASU still does not declare depth/motion reads. Next work should be a bounded no-write cost proof before any visible DLSS write-back is retried."
+        } elseif ($contractStatus -eq "EasuSuperResolutionChainObservedButContractIncomplete") {
+            "Treat the official HDRP DLSS pass shell as absent under current V Rising settings. This log observes a Super Resolution-sized Uber->EASU->Final chain, but it does not bind HDRP source/depth/motion input evidence in the same log. Next work should enable the contract-bind stage or equivalent depth/motion correlation before any no-write cost proof."
         } elseif ($contractStatus -eq "EasuChainObservedButContractIncomplete") {
             "Treat the official HDRP DLSS pass shell as absent under current V Rising settings. Existing Uber->EASU->Final RenderGraph color/output chain evidence is present, but this log is not an official-equivalent DLSS contract: EASU is same-sized here and does not declare depth/motion reads. Next work should bind the separate HDRP depth/motion correlation evidence to this engine-owned chain or produce a bounded no-write proof; avoid camera-gate probing and new mod-owned pass injection."
         } elseif ($counts.EasuFinalSourceChains -gt 0 -and $counts.EasuRenderFuncMetadata -gt 0) {

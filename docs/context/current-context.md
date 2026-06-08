@@ -1970,3 +1970,24 @@ As of the read-only RenderGraph pass-map runtime result:
   HDRP depth/motion correlation to the observed `Uber->EASU->Final` chain in one
   no-native/no-evaluate run or produce a bounded no-write cost proof before any
   visible DLSS write-back is retried.
+- HDRP DLSS contract-bind render-scale preflight is now recorded in
+  `docs/development/hdrp-dlss-contract-bind-render-scale-preflight-2026-06-08.md`.
+  No V Rising runtime was launched. New stage:
+  `hdrp-dlss-contract-bind-render-scale`. It combines read-only RenderGraph
+  pass-list/declaration/pass-data/render-func/compiled-info probes with
+  `HdrpPostProcessRenderArgsGlobalTextureProbe`, render-scale control, and
+  upscaler-state while keeping `DLSS.EnableDLSS=false`,
+  `RenderGraph.GetTexture=false`, native render-func detours off, command-buffer
+  plugin events off, NGX/DLSS runtime/evaluate off, schedule-gate off, and
+  mod-owned RenderGraph pass injection off. The schedule-audit analyzer now
+  parses HDRP postprocess source/depth/motion snapshots and can report
+  `Contract.Status=EasuSuperResolutionChainWithHdrpDepthMotionObservedButContractIncomplete`
+  only when a same log contains an SR-sized `Uber->EASU->Final` chain plus HDRP
+  input/depth/motion dimensions matching EASU input. Dry-runs for
+  `write-diagnostic-config.ps1` and `run-vrising-diagnostic.ps1` accepted the
+  new stage with `LaunchesGame=False`. Old user-rendering logs that contain
+  evaluate evidence remain analyzer `Fail`, preventing polluted logs from being
+  mistaken for contract-bind proof. Next runtime step, if resumed, is a protected
+  gameplay run of this stage at true `1920x1080` Windowed with V Rising FSR Off,
+  followed by `analyze-hdrp-dlss-schedule-audit.ps1`; do not pass SDK-wrapper
+  native or DLSS runtime for this stage.

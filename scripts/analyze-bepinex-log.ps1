@@ -213,6 +213,12 @@ $results.Add((New-StageResult `
     -StartedPatterns @("RenderGraph pass-list probe enabled", "RenderGraph pass-data snapshot probe enabled", "RenderGraph pass render-func metadata probe enabled", "RenderGraph compiled-pass-info probe enabled", "Upscaler state probe snapshot")))
 
 $results.Add((New-StageResult `
+    -Stage "HDRP DLSS Contract Bind" `
+    -PassPatterns @("HDRP postprocess render args global textures advanced:", "HDRP postprocess render args snapshot #") `
+    -FailPatterns @("HDRP postprocess render args probe failed to patch", "HDRP postprocess render args probe prefix failed:", "RenderGraph pass-list logging failed", "RenderGraph pass-list failed to patch", "RenderGraph pass-list target was not found", "DLSS user rendering evaluate succeeded from", "Native render-func command-buffer DLSS user-rendering", "RenderGraph GetTexture call #") `
+    -StartedPatterns @("HDRP postprocess render args probe installed:", "RenderGraph pass-list probe enabled", "RenderGraph pass-data snapshot probe enabled", "RenderGraph pass render-func metadata probe enabled", "RenderGraph compiled-pass-info probe enabled")))
+
+$results.Add((New-StageResult `
     -Stage "HDRP DLSS Schedule Gate" `
     -PassPatterns @("HDRP DLSS schedule-gate prefix:", "HDRP DLSS schedule-gate postfix:", "HDRP DLSS schedule-gate probe patched") `
     -FailPatterns @("HDRP DLSS schedule-gate failed to patch", "HDRP DLSS schedule-gate prefix failed", "HDRP DLSS schedule-gate postfix failed", "HDRP DLSS schedule-gate member write did not stick", "DLSS user rendering evaluate succeeded from", "Native render-func command-buffer DLSS user-rendering", "RenderGraph GetTexture call #") `

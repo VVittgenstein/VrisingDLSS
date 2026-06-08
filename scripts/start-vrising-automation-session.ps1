@@ -26,6 +26,7 @@ param(
         "rendergraph-pass-declarations",
         "rendergraph-pass-data",
         "hdrp-dlss-schedule-audit",
+        "hdrp-dlss-contract-bind-render-scale",
         "hdrp-dlss-schedule-gate",
         "rendergraph-renderfunc-metadata",
         "rendergraph-compiled-pass-info",

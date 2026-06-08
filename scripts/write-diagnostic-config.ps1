@@ -23,6 +23,7 @@ param(
         "rendergraph-pass-declarations",
         "rendergraph-pass-data",
         "hdrp-dlss-schedule-audit",
+        "hdrp-dlss-contract-bind-render-scale",
         "hdrp-dlss-schedule-gate",
         "rendergraph-renderfunc-metadata",
         "rendergraph-compiled-pass-info",
@@ -332,6 +333,20 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableRenderGraphPassDataSnapshotProbe = "true"
             $Config.Diagnostics.EnableRenderGraphPassRenderFuncMetadataProbe = "true"
             $Config.Diagnostics.EnableRenderGraphCompiledPassInfoProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
+            $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+            $Config.Diagnostics.EnableHookProbe = "false"
+            $Config.DLSS.EnableDLSS = "false"
+        }
+        "hdrp-dlss-contract-bind-render-scale" {
+            $Config.Diagnostics.EnableRenderGraphPassListProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphPassResourceDeclarationProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphPassDataSnapshotProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphPassRenderFuncMetadataProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphCompiledPassInfoProbe = "true"
+            $Config.Diagnostics.EnableHdrpPostProcessRenderArgsProbe = "true"
+            $Config.Diagnostics.EnableHdrpPostProcessRenderArgsGlobalTextureProbe = "true"
+            $Config.Diagnostics.EnableRenderScaleControlProbe = "true"
             $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"
             $Config.Diagnostics.EnableHookProbe = "false"

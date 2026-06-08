@@ -93,6 +93,10 @@ function Get-ConfiguredStage {
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassBoundaryProbe") { return "rendergraph-pass-boundary" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassMapProbe") { return "rendergraph-pass-map" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableHdrpDlssScheduleGateProbe") { return "hdrp-dlss-schedule-gate" }
+    if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassListProbe") -and
+        (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassDataSnapshotProbe") -and
+        (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableHdrpPostProcessRenderArgsGlobalTextureProbe") -and
+        (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "hdrp-dlss-contract-bind-render-scale" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassListProbe") { return "rendergraph-pass-list" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassResourceDeclarationProbe") { return "rendergraph-pass-declarations" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassDataSnapshotProbe") { return "rendergraph-pass-data" }
