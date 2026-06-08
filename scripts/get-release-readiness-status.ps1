@@ -99,6 +99,7 @@ $workflowPath = Join-Path $resolvedRoot ".github\workflows\build-package.yml"
 $configTemplatePath = Join-Path $resolvedRoot "package\thunderstore\VrisingDLSS.cfg"
 $hdrpAssetRequirement = "Local HDRP asset unpack identifies the active render pipeline asset and DLSS/upscaler gates without launching or modifying the game."
 $dlssNativeStubRequirement = "Local HDRP DLSS native-stub audit confirms the official DLSS activation/execution body is inert while the RenderGraph shell remains non-stub without launching or modifying the game."
+$officialDlssContractRequirement = "Local HDRP DLSS official-contract guard confirms DoDLSSPass needs color/depth/motion/bias resources while V Rising's active EASU path remains color-only, without launching or modifying the game."
 $contractBindStageRequirement = "Contract-bind render-scale stage dry-run remains no-native/no-evaluate and launch-safe before gameplay automation."
 $contractAnalyzerRequirement = "HDRP DLSS schedule analyzer recognizes the contract-bind success shape and rejects evaluate-polluted logs without launching or modifying the game."
 $localSaveFixtureRequirement = "Local V Rising save fixture resolver finds exactly one usable Continue target named 11111 without launching or modifying the game."
@@ -504,6 +505,43 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
         -Requirement $dlssNativeStubRequirement `
         -Status $nativeStubStatus `
         -Evidence $nativeStubEvidence))
+
+    $officialContractGuard = Invoke-CapturedCommand -Command {
+        & (Join-Path $resolvedRoot "scripts\test-vrising-hdrp-dlss-official-contract.ps1") -Root $resolvedRoot -GamePath $GamePath -Json
+    }
+    $officialContractStatus = "Blocked"
+    $officialContractEvidence = "Official-contract guard did not produce evidence."
+    if ($officialContractGuard.Succeeded) {
+        try {
+            $officialContractReport = $officialContractGuard.Output | ConvertFrom-Json
+            $officialContractLaunchesGame = [bool]$officialContractReport.LaunchesGame
+            $officialContractModifiesGameFiles = [bool]$officialContractReport.ModifiesGameFiles
+            $officialContractStatus = if ($officialContractReport.Status -eq "Pass" `
+                    -and -not $officialContractLaunchesGame `
+                    -and -not $officialContractModifiesGameFiles) {
+                "Pass"
+            } elseif ($officialContractReport.Status -eq "Fail") {
+                "Fail"
+            } else {
+                "Blocked"
+            }
+            $officialContractEvidence = "Status=$($officialContractReport.Status); Checks=$($officialContractReport.CheckCount); FailedChecks=$(@($officialContractReport.FailedChecks).Count); LaunchesGame=$($officialContractReport.LaunchesGame); ModifiesGameFiles=$($officialContractReport.ModifiesGameFiles); Boundary=$($officialContractReport.Summary.BoundaryImplication)"
+            if (@($officialContractReport.FailedChecks).Count -gt 0) {
+                $officialContractEvidence = "$officialContractEvidence; Failed=$(@($officialContractReport.FailedChecks | ForEach-Object { $_.Name }) -join ' | ')"
+            }
+        } catch {
+            $officialContractStatus = "Blocked"
+            $officialContractEvidence = "Failed to parse official-contract guard JSON: $($_.Exception.Message); Output=$($officialContractGuard.Output)"
+        }
+    } else {
+        $officialContractEvidence = "Official-contract guard failed: $($officialContractGuard.Output)"
+    }
+
+    $items.Add((New-ReadinessItem `
+        -Area "Evidence" `
+        -Requirement $officialDlssContractRequirement `
+        -Status $officialContractStatus `
+        -Evidence $officialContractEvidence))
 
     $items.Add((New-ReadinessItem `
         -Area "Runtime" `

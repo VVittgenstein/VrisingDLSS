@@ -304,6 +304,34 @@ Useful evidence sources:
 - V Rising graphics settings symbols: useful for understanding why FSR/TAAU and
   dynamic-resolution state differs from pure upstream HDRP defaults.
 
+## Repeatable Official-Contract Guard
+
+Follow-up guard:
+`scripts\test-vrising-hdrp-dlss-official-contract.ps1 -GamePath C:\Software\VRising`
+now converts the key local decompilation/unpack findings into pass/fail evidence.
+It also fixes the static-route inspector's pass-data layout parsing so adjacent
+HDRP nested classes are not merged into one field list.
+
+Local guard result:
+
+```text
+Status=Pass
+LaunchesGame=false
+ModifiesGameFiles=false
+CheckCount=11
+```
+
+The guarded contract split is:
+
+- official `DoDLSSPass`: color source/output plus depth, motion vectors, bias
+  mask, reset-history, pre-exposure, camera, and DRS state;
+- active V Rising EASU path: source/destination scaling plus `FinalPass`, without
+  those DLSS-specific resources/parameters on EASU itself.
+
+This evidence is recorded in
+`docs/development/vrising-hdrp-dlss-official-contract-guard-2026-06-08.md` and is
+now included as a `GamePath`-gated release-readiness evidence item.
+
 ## Current Answer To The User's Target Questions
 
 ### Is V Rising's HDRP route consistent with Unity HDRP source?

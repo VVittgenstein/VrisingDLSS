@@ -2160,6 +2160,18 @@ As of the read-only RenderGraph pass-map runtime result:
   `EasuSuperResolutionChainWithHdrpDepthMotionObservedButContractIncomplete`,
   while the polluted log must fail. Release readiness includes this as an
   `Evidence` item, and GitHub Actions now runs it before packaging.
+- `scripts\inspect-vrising-hdrp-dlss-static-route.ps1` now parses each requested
+  `dump.cs` type block independently, stopping at the next type header, so
+  adjacent HDRP pass-data classes cannot merge into one field list.
+  `scripts\test-vrising-hdrp-dlss-official-contract.ps1 -GamePath
+  C:\Software\VRising -Json` wraps that inspector as a no-launch/no-modify
+  official-contract guard. Local result is `Status=Pass`,
+  `LaunchesGame=false`, `ModifiesGameFiles=false`, `CheckCount=11`. It asserts
+  that official `DoDLSSPass` needs color/depth/motion/bias plus
+  reset-history/pre-exposure/DRS state, while the active V Rising EASU path is
+  source/destination scaling followed by `FinalPass`. Release readiness includes
+  this as a `GamePath`-gated `Evidence` item; it is not a CI step because CI
+  does not have the local licensed game install.
 - `scripts\test-rendergraph-boundary-route-status.ps1 -RequirePass -Json`
   now makes the mod-owned RenderGraph boundary decision repeatable without
   launching V Rising or modifying game files. It validates the old

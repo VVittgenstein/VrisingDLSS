@@ -253,33 +253,42 @@ function Find-DumpTypeBlocks {
         [string[]]$TypePatterns
     )
 
-    $pattern = ($TypePatterns | ForEach-Object { [regex]::Escape($_) }) -join "|"
-    $lines = Invoke-RgLines -Arguments @("-n", "-A", "28", $pattern, $dumpCsPath)
+    foreach ($typePattern in $TypePatterns) {
+        $typeRegex = [regex]::Escape($typePattern) + '(\s|//|$)'
+        $lines = Invoke-RgLines -Arguments @("-n", "-A", "140", $typeRegex, $dumpCsPath)
+        $header = ""
+        $block = New-Object System.Collections.Generic.List[string]
 
-    $blocks = New-Object System.Collections.Generic.List[object]
-    $current = New-Object System.Collections.Generic.List[string]
+        foreach ($line in $lines) {
+            if ($line -eq "--") {
+                continue
+            }
 
-    foreach ($line in $lines) {
-        if ($line -eq "--") {
-            if ($current.Count -gt 0) {
-                [void]$blocks.Add([string[]]$current.ToArray())
-                $current.Clear()
+            $raw = ($line -replace '^[0-9]+[:-]', '').Trim()
+            if ([string]::IsNullOrWhiteSpace($header)) {
+                if ($raw -match '(public|private|internal)\s+(class|struct|enum)\s+') {
+                    $header = $raw
+                    [void]$block.Add($line)
+                }
+                continue
+            }
+
+            if ($raw -match '^(public|private|internal)\s+(class|struct|enum)\s+' -and $raw -ne $header) {
+                break
+            }
+
+            [void]$block.Add($line)
+        }
+
+        if ([string]::IsNullOrWhiteSpace($header)) {
+            [PSCustomObject]@{
+                Type = $typePattern
+                Found = $false
+                Fields = @()
             }
             continue
         }
-        [void]$current.Add($line)
-    }
-    if ($current.Count -gt 0) {
-        [void]$blocks.Add([string[]]$current.ToArray())
-    }
 
-    foreach ($block in $blocks) {
-        $header = @($block | Where-Object { $_ -match '(public|private|internal)\s+(class|struct|enum)\s+' } | Select-Object -First 1)
-        if ($header.Count -eq 0) {
-            continue
-        }
-
-        $typeName = ($header[0] -replace '^[0-9]+[:-]', '').Trim()
         $fields = New-Object System.Collections.Generic.List[object]
         foreach ($line in $block) {
             $raw = ($line -replace '^[0-9]+[:-]', '').Trim()
@@ -294,7 +303,8 @@ function Find-DumpTypeBlocks {
         }
 
         [PSCustomObject]@{
-            Type = $typeName
+            Type = $header
+            Found = $true
             Fields = @($fields.ToArray())
         }
     }
