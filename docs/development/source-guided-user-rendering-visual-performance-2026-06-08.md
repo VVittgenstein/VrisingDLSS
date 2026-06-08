@@ -352,6 +352,8 @@ flow in ways not covered by upstream Unity source.
 
 The source/decompilation comparison is recorded in
 `docs/development/official-dlsspass-vs-easu-candidate-audit-2026-06-08.md`.
+Fresh IL2CPP shell evidence is recorded in
+`docs/development/vrising-il2cpp-hdrp-dlss-shell-decompilation-2026-06-08.md`.
 
 Key findings:
 
@@ -367,11 +369,31 @@ Key findings:
 - Official HDRP writes a `"DLSS destination"` postprocess-upsampled output
   handle and then uses that as the source; the candidate writes into the EASU
   visible output target.
-- V Rising IL2CPP interops confirm the relevant HDRP DLSS symbols and tokens
-  exist locally, but no game-specific replacement of the upstream DLSS flow has
-  been proven from the wrapper files.
+- V Rising IL2CPP evidence confirms the HDRP DLSS pass shell, generated
+  `DoDLSSPass` render func, resource structs, and pass strings exist locally.
+  The execution methods that should submit NVIDIA work (`DLSSPass.Render`,
+  `BeginFrame`, and `SetupDRSScaling`) all map to the same no-op-style address,
+  so the built-in official renderer should not be treated as directly usable.
 
 Next runtime work should follow a small source-backed patch, not another blind
 rerun. The first likely experiment is official feature flags plus invert-axis
 parity, with reset/lifecycle parity either included if tiny or left for the next
 focused patch.
+
+## System Snapshot Harness Follow-Up
+
+After the user pointed out the old `203-205 FPS` baseline versus the later
+`156.105 FPS` baseline drift, the FPS helper was extended to capture wider
+machine context automatically:
+
+- New script: `scripts\capture-system-snapshot.ps1`.
+- `scripts\capture-vrising-fps.ps1` now records before/after snapshot paths in
+  every FPS summary unless `-SkipSystemSnapshots` is passed.
+- Each snapshot includes top CPU/memory processes, the target `VRising` process
+  row when present, OS memory, CPU summary, NVIDIA GPU utilization/memory/power/
+  temperature/clocks/driver/P-state, and any GPU process rows exposed by
+  `nvidia-smi`.
+
+This does not launch the game and does not decide the DLSS performance bug by
+itself. It makes the next paired run much easier to compare when baseline
+performance drifts for non-save reasons.

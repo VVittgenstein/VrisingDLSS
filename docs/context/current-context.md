@@ -1799,3 +1799,25 @@ As of the read-only RenderGraph pass-map runtime result:
   and `invertAxis=(0,1)`, while measuring whether low GPU utilization/FPS
   regression improves. Reset/lifecycle and official output-boundary parity
   remain separate follow-up variables.
+- User follow-up after the paired run emphasized that baseline drift should be
+  measured more broadly. `scripts\capture-vrising-fps.ps1` now captures
+  before/after system snapshots by default via the new
+  `scripts\capture-system-snapshot.ps1`. Snapshots include top CPU/memory
+  processes, target V Rising process row, CPU/memory summary, and NVIDIA GPU
+  driver/P-state/utilization/memory/power/temperature/clocks plus available GPU
+  process rows. This is meant to distinguish save-state issues from environment
+  or measurement drift when a protected save restore ends with `ChangeCount=0`.
+- Fresh local/private V Rising IL2CPP decompilation on 2026-06-08 is recorded in
+  `docs/development/vrising-il2cpp-hdrp-dlss-shell-decompilation-2026-06-08.md`.
+  Il2CppDumper succeeded against metadata/IL2CPP version `31` and wrote outputs
+  under `ref/decompilation-vrising-2026-06-08/il2cpp-dumper/`; Cpp2IL
+  `2022.0.7` was rejected because it only supports older metadata. The main
+  finding is that V Rising contains the HDRP DLSS pass shell, pass strings,
+  resource structs, helper methods, and generated `DoDLSSPass` render func, but
+  `DLSSPass.Render`, `DLSSPass.BeginFrame`, and
+  `DLSSPass.SetupDRSScaling` all map to the same no-op-style address
+  (`24240496` / `RVA 0x171E170`). Therefore the official Unity HDRP path remains
+  a semantic map, not a built-in NVIDIA implementation that can simply be
+  enabled. The current EASU `ctx.cmd` route stays the only proven visible-output
+  boundary; any closer official-equivalent boundary must replace/augment the
+  missing execution body and start with a no-DLSS/no-native proof.

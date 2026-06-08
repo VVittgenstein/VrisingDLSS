@@ -38,6 +38,17 @@ This patch intentionally does not change reset/history lifecycle behavior and
 does not move the output boundary away from EASU. Those remain separate
 variables.
 
+## Additional Decompilation Note
+
+Fresh V Rising IL2CPP evidence after this patch confirms that the local game
+contains the HDRP DLSS pass shell and resource structs, but
+`DLSSPass.Render`, `DLSSPass.BeginFrame`, and `DLSSPass.SetupDRSScaling` all map
+to the same no-op-style address (`24240496`, `RVA 0x171E170`). This does not
+invalidate the flag/invert parity patch: the patch is still source-backed
+behavioral alignment for our own NGX execution. It does mean that the next
+boundary search should not assume a callable built-in NVIDIA renderer is hiding
+behind the official `DLSSPass.Render` symbol.
+
 ## Validation
 
 Non-runtime validation passed:

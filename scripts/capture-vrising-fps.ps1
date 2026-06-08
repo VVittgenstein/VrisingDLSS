@@ -11,7 +11,10 @@ param(
     [string]$PresentMonPath = "C:\Software\PresentMon\PresentMon-2.4.1-x64.exe",
     [string]$NvidiaSmiPath = "nvidia-smi.exe",
     [string]$MetricsPath,
+    [string]$SystemSnapshotBeforePath,
+    [string]$SystemSnapshotAfterPath,
     [switch]$SkipSystemMetrics,
+    [switch]$SkipSystemSnapshots,
     [switch]$DryRun
 )
 
@@ -39,6 +42,7 @@ if ([string]::IsNullOrWhiteSpace($Root)) {
 
 $resolvedRoot = (Resolve-Path -LiteralPath $Root).Path
 $artifactRoot = Join-Path $resolvedRoot "artifacts\fps-validation"
+$snapshotRoot = Join-Path $resolvedRoot "artifacts\system-snapshots"
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 
 if ([string]::IsNullOrWhiteSpace($ArtifactLabel)) {
@@ -65,9 +69,23 @@ if ([string]::IsNullOrWhiteSpace($MetricsPath)) {
     $MetricsPath = Join-Path $resolvedRoot $MetricsPath
 }
 
+if ([string]::IsNullOrWhiteSpace($SystemSnapshotBeforePath)) {
+    $SystemSnapshotBeforePath = Join-Path $snapshotRoot "$ArtifactLabel.before.snapshot.json"
+} elseif (-not [System.IO.Path]::IsPathRooted($SystemSnapshotBeforePath)) {
+    $SystemSnapshotBeforePath = Join-Path $resolvedRoot $SystemSnapshotBeforePath
+}
+
+if ([string]::IsNullOrWhiteSpace($SystemSnapshotAfterPath)) {
+    $SystemSnapshotAfterPath = Join-Path $snapshotRoot "$ArtifactLabel.after.snapshot.json"
+} elseif (-not [System.IO.Path]::IsPathRooted($SystemSnapshotAfterPath)) {
+    $SystemSnapshotAfterPath = Join-Path $resolvedRoot $SystemSnapshotAfterPath
+}
+
 $targetPath = [System.IO.Path]::GetFullPath($OutputPath)
 $summaryTargetPath = [System.IO.Path]::GetFullPath($SummaryPath)
 $metricsTargetPath = [System.IO.Path]::GetFullPath($MetricsPath)
+$systemSnapshotBeforeTargetPath = [System.IO.Path]::GetFullPath($SystemSnapshotBeforePath)
+$systemSnapshotAfterTargetPath = [System.IO.Path]::GetFullPath($SystemSnapshotAfterPath)
 $presentMonResolved = [System.IO.Path]::GetFullPath($PresentMonPath)
 $nvidiaSmiResolved = $NvidiaSmiPath
 if (-not [System.IO.Path]::IsPathRooted($nvidiaSmiResolved)) {
@@ -90,8 +108,11 @@ $plan = [pscustomobject]@{
     NvidiaSmiPath = $nvidiaSmiResolved
     CsvPath = $targetPath
     MetricsPath = $(if ($SkipSystemMetrics) { "" } else { $metricsTargetPath })
+    SystemSnapshotBeforePath = $(if ($SkipSystemSnapshots) { "" } else { $systemSnapshotBeforeTargetPath })
+    SystemSnapshotAfterPath = $(if ($SkipSystemSnapshots) { "" } else { $systemSnapshotAfterTargetPath })
     SummaryPath = $summaryTargetPath
     CapturesSystemMetrics = -not [bool]$SkipSystemMetrics
+    CapturesSystemSnapshots = -not [bool]$SkipSystemSnapshots
     LaunchesGame = $false
 }
 
@@ -104,9 +125,38 @@ if (-not (Test-Path -LiteralPath $presentMonResolved)) {
     throw "PresentMon executable was not found: $presentMonResolved"
 }
 
-New-Item -ItemType Directory -Force -Path (Split-Path -Parent $targetPath), (Split-Path -Parent $summaryTargetPath), (Split-Path -Parent $metricsTargetPath) | Out-Null
+New-Item -ItemType Directory -Force -Path (Split-Path -Parent $targetPath), (Split-Path -Parent $summaryTargetPath), (Split-Path -Parent $metricsTargetPath), (Split-Path -Parent $systemSnapshotBeforeTargetPath), (Split-Path -Parent $systemSnapshotAfterTargetPath) | Out-Null
 
 $culture = [Globalization.CultureInfo]::InvariantCulture
+
+function Invoke-SystemSnapshot {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Reason
+    )
+
+    if ($SkipSystemSnapshots) {
+        return $null
+    }
+
+    try {
+        $snapshot = & (Join-Path $resolvedRoot "scripts\capture-system-snapshot.ps1") `
+            -OutputPath $Path `
+            -ArtifactLabel ([System.IO.Path]::GetFileNameWithoutExtension($Path)) `
+            -Root $resolvedRoot `
+            -ProcessName $ProcessName `
+            -ProcessId $ProcessId `
+            -NvidiaSmiPath $nvidiaSmiResolved `
+            -Reason $Reason
+        return $snapshot
+    } catch {
+        Write-Warning "System snapshot failed for ${Reason}: $($_.Exception.Message)"
+        return $null
+    }
+}
 
 function Convert-NullableDouble {
     param([string]$Value)
@@ -258,6 +308,8 @@ function New-FpsCaptureResult {
         FailureReason = $FailureReason
         CsvPath = $csvValue
         MetricsPath = $metricSummary.MetricsPath
+        SystemSnapshotBeforePath = $(if (-not $SkipSystemSnapshots -and (Test-Path -LiteralPath $systemSnapshotBeforeTargetPath)) { $systemSnapshotBeforeTargetPath } else { "" })
+        SystemSnapshotAfterPath = $(if (-not $SkipSystemSnapshots -and (Test-Path -LiteralPath $systemSnapshotAfterTargetPath)) { $systemSnapshotAfterTargetPath } else { "" })
         SummaryPath = $summaryTargetPath
         PresentMonPath = $presentMonResolved
         NvidiaSmiPath = $nvidiaSmiResolved
@@ -325,6 +377,7 @@ if ($DelaySeconds -gt 0) {
 }
 
 $logicalProcessorCount = [Environment]::ProcessorCount
+$null = Invoke-SystemSnapshot -Path $systemSnapshotBeforeTargetPath -Reason "before-fps-capture"
 $metricsJob = $null
 if (-not $SkipSystemMetrics) {
     $metricsJob = Start-Job -ScriptBlock {
@@ -442,6 +495,7 @@ try {
         Receive-Job -Job $metricsJob | Out-Null
         Remove-Job -Job $metricsJob -Force
     }
+    $null = Invoke-SystemSnapshot -Path $systemSnapshotAfterTargetPath -Reason "after-fps-capture"
 }
 
 if ($presentMonException) {

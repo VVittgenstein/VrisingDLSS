@@ -50,6 +50,21 @@ included in the GitHub/Thunderstore release package.
     - `-UseSdkWrapperNative`
     - `-DlssRuntimePath <local nvngx_dlss.dll>`
     The stop-session script restores the release-safe native DLL and loader config.
+11. For paired performance tests, keep Computer Use connected while FPS/system
+    capture is running so its overhead is consistent across baseline and
+    candidate. After the game exits and cleanup is verified, disconnect/close
+    the Computer Use session before starting the next non-UI work.
+12. Capture wide system context with every FPS run:
+    - current top CPU and memory processes;
+    - target `VRising` process CPU/memory row;
+    - GPU utilization, memory, power, temperature, clocks, and driver/P-state;
+    - before/after snapshots around the PresentMon capture window.
+    `scripts\capture-vrising-fps.ps1` now emits these paired snapshots by
+    default through `scripts\capture-system-snapshot.ps1`.
+13. Never send movement/gameplay keys during the protected `11111` fixture unless
+    a written protocol explicitly requires it. If accidental input happens,
+    complete cleanup and restore the protected save, then verify final
+    `ChangeCount=0`.
 
 ## Safety Boundary
 
@@ -161,6 +176,10 @@ Result:
   Continue proof created `AutoSave_24.save.gz` and rotated older autosaves. The save
   was restored from the pre-proof backup; future tests need the same backup/restore
   discipline.
+- A low baseline such as `156 FPS` after prior `203-205 FPS` runs should not be
+  blamed on save drift when protected restore ends with `ChangeCount=0`. Treat it
+  as environment or measurement drift until wider process/CPU/GPU/power/temperature
+  snapshots say otherwise.
 
 ## HWDRS Render-Scale Follow-up
 
