@@ -1697,3 +1697,26 @@ As of the read-only RenderGraph pass-map runtime result:
   without broad steady-state resource discovery. Keep decompiled game evidence
   local and summarized; do not copy proprietary method bodies or game assets
   into the public package.
+- First narrow source/decompilation-guided patch after that rerun is implemented
+  and build-validated; see
+  `docs/development/source-guided-dlss-parameter-alignment-2026-06-08.md`.
+  Unity HDRP source and V Rising IL2CPP interop showed that official
+  `DLSSPass` supplies per-frame jitter, motion-vector scale, pre-exposure, and
+  camera reset/history state, while the current command-buffer frame-sequence
+  route still used debug defaults (`jitter=(0,0)`, `mvScale=(1,1)`,
+  `preExposure=1.0`, config-only reset). Native bridge API version is now `21`.
+  `HdrpPostProcessRenderArgsProbe` reads `HDCamera.taaJitter`,
+  `GpuExposureValue()`, and `resetPostProcessingHistory`; the HDRP/EASU
+  descriptor now carries `jitter=(-taaJitter.xy)`,
+  `mvScale=(-inputWidth,-inputHeight)`, clamped `preExposure`, and camera reset
+  into native command-buffer scratch/persistent/visible/user-rendering payloads.
+  The native SDK-wrapper frame-sequence evaluate now sets NGX `InPreExposure`
+  from the payload and logs `jitter`, `mvScale`, and `preExposure`. Non-runtime
+  verification passed: C# Release, release-safe native, SDK-wrapper native, and
+  visual readiness remained `Blocked`. This does not yet prove runtime behavior
+  or performance. Next runtime guard should be a short protected
+  `1920x1080` Windowed candidate-only `dlss-user-rendering` run that verifies
+  API 21 logs show the new per-frame values, no crash, and clean restore before
+  another paired visual/performance run. Feature-create flags, AutoExposure vs
+  supplied pre-exposure, bias color mask, and resize/reset behavior remain
+  separate source-backed questions.

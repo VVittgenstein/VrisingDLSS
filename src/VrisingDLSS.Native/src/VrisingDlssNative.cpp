@@ -62,6 +62,11 @@ namespace
         unsigned long long applicationId = 0;
         int perfQualityValue = 0;
         int featureFlags = 0;
+        float jitterOffsetX = 0.0f;
+        float jitterOffsetY = 0.0f;
+        float motionVectorScaleX = 1.0f;
+        float motionVectorScaleY = 1.0f;
+        float preExposure = 1.0f;
         float sharpness = 0.0f;
         int reset = 0;
     };
@@ -168,6 +173,7 @@ namespace
         float jitterOffsetY,
         float motionVectorScaleX,
         float motionVectorScaleY,
+        float preExposure,
         float sharpness,
         int reset);
 
@@ -460,6 +466,11 @@ namespace
         payload->applicationId = 0;
         payload->perfQualityValue = 0;
         payload->featureFlags = 0;
+        payload->jitterOffsetX = 0.0f;
+        payload->jitterOffsetY = 0.0f;
+        payload->motionVectorScaleX = 1.0f;
+        payload->motionVectorScaleY = 1.0f;
+        payload->preExposure = 1.0f;
         payload->sharpness = 0.0f;
         payload->reset = 0;
     }
@@ -841,10 +852,11 @@ namespace
                 payload.applicationId,
                 payload.perfQualityValue,
                 payload.featureFlags,
-                0.0f,
-                0.0f,
-                1.0f,
-                1.0f,
+                payload.jitterOffsetX,
+                payload.jitterOffsetY,
+                payload.motionVectorScaleX,
+                payload.motionVectorScaleY,
+                payload.preExposure,
                 payload.sharpness,
                 payload.reset);
             std::snprintf(visibleWritebackStatus, sizeof(visibleWritebackStatus), "%s", g_dlssFrameSequenceStatus);
@@ -975,10 +987,11 @@ namespace
                 payload.applicationId,
                 payload.perfQualityValue,
                 payload.featureFlags,
-                0.0f,
-                0.0f,
-                1.0f,
-                1.0f,
+                payload.jitterOffsetX,
+                payload.jitterOffsetY,
+                payload.motionVectorScaleX,
+                payload.motionVectorScaleY,
+                payload.preExposure,
                 payload.sharpness,
                 payload.reset);
             std::snprintf(scratchStatus, sizeof(scratchStatus), "%s", g_dlssFrameSequenceStatus);
@@ -1811,6 +1824,7 @@ namespace
         float jitterOffsetY,
         float motionVectorScaleX,
         float motionVectorScaleY,
+        float preExposure,
         float sharpness,
         int reset)
     {
@@ -2072,7 +2086,7 @@ namespace
                 evalParams.InReset = appliedReset;
                 evalParams.InMVScaleX = motionVectorScaleX == 0.0f ? 1.0f : motionVectorScaleX;
                 evalParams.InMVScaleY = motionVectorScaleY == 0.0f ? 1.0f : motionVectorScaleY;
-                evalParams.InPreExposure = 1.0f;
+                evalParams.InPreExposure = preExposure == 0.0f ? 1.0f : preExposure;
                 evalParams.InExposureScale = 1.0f;
                 QueryPerformanceCounter(&timingEvaluateStart);
                 evaluateResult = NGX_D3D11_EVALUATE_DLSS_EXT(
@@ -2092,7 +2106,7 @@ namespace
                 std::snprintf(
                     message,
                     sizeof(message),
-                    "DLSS frame-sequence evaluate probe completed via %s; appId=%llu; recreated=%s; init=0x%08X; capability=0x%08X; available=%d(result=0x%08X); render=%ux%u; target=%ux%u; perfQuality=%d; flags=0x%08X; jitter=(%.4f,%.4f); mvScale=(%.4f,%.4f); sharpness=%.4f; requestedReset=%d; appliedReset=%d; sequenceCreates=%d; sequenceEvaluates=%d; evaluateSuccesses=%d; create=0x%08X; feature=%s; evaluateLast=0x%08X; nativeTimingMs=(describe=%.3f,query=%.3f,prepare=%.3f,evaluate=%.3f,total=%.3f)",
+                    "DLSS frame-sequence evaluate probe completed via %s; appId=%llu; recreated=%s; init=0x%08X; capability=0x%08X; available=%d(result=0x%08X); render=%ux%u; target=%ux%u; perfQuality=%d; flags=0x%08X; jitter=(%.4f,%.4f); mvScale=(%.4f,%.4f); preExposure=%.4f; sharpness=%.4f; requestedReset=%d; appliedReset=%d; sequenceCreates=%d; sequenceEvaluates=%d; evaluateSuccesses=%d; create=0x%08X; feature=%s; evaluateLast=0x%08X; nativeTimingMs=(describe=%.3f,query=%.3f,prepare=%.3f,evaluate=%.3f,total=%.3f)",
                     g_dlssFrameSequence.initRoute,
                     g_dlssFrameSequence.applicationId,
                     recreated ? "yes" : "no",
@@ -2110,6 +2124,7 @@ namespace
                     jitterOffsetY,
                     motionVectorScaleX == 0.0f ? 1.0f : motionVectorScaleX,
                     motionVectorScaleY == 0.0f ? 1.0f : motionVectorScaleY,
+                    preExposure == 0.0f ? 1.0f : preExposure,
                     sharpness,
                     reset,
                     appliedReset,
@@ -3206,6 +3221,11 @@ namespace
         unsigned long long applicationId,
         int perfQualityValue,
         int featureFlags,
+        float jitterOffsetX,
+        float jitterOffsetY,
+        float motionVectorScaleX,
+        float motionVectorScaleY,
+        float preExposure,
         float sharpness,
         int reset,
         bool persistentScratch,
@@ -3250,14 +3270,19 @@ namespace
         g_renderEventFrameDescriptorPayload.applicationId = applicationId;
         g_renderEventFrameDescriptorPayload.perfQualityValue = perfQualityValue;
         g_renderEventFrameDescriptorPayload.featureFlags = featureFlags;
+        g_renderEventFrameDescriptorPayload.jitterOffsetX = jitterOffsetX;
+        g_renderEventFrameDescriptorPayload.jitterOffsetY = jitterOffsetY;
+        g_renderEventFrameDescriptorPayload.motionVectorScaleX = motionVectorScaleX == 0.0f ? 1.0f : motionVectorScaleX;
+        g_renderEventFrameDescriptorPayload.motionVectorScaleY = motionVectorScaleY == 0.0f ? 1.0f : motionVectorScaleY;
+        g_renderEventFrameDescriptorPayload.preExposure = preExposure == 0.0f ? 1.0f : preExposure;
         g_renderEventFrameDescriptorPayload.sharpness = sharpness;
         g_renderEventFrameDescriptorPayload.reset = reset;
         std::snprintf(
             g_renderEventFrameDescriptorPayloadStatus,
             sizeof(g_renderEventFrameDescriptorPayloadStatus),
             persistentScratch
-                ? "render event frame descriptor DLSS persistent scratch evaluate pending: setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d; sourcePtr=%p; visibleDestinationPtr=%p; depthPtr=%p; motionPtr=%p; input=%dx%d; output=%dx%d; hdrpFrame=%d; easuSourceFrame=%d; easuDestinationFrame=%d; validation=D3D11-pending; scratchOutput=yes; visibleOutput=no; persistent=yes; targetSuccesses=%d; ngx=pending; evaluate=pending; appId=%llu; perfQuality=%d; flags=0x%08X; sharpness=%.4f; reset=%d"
-                : "render event frame descriptor DLSS scratch evaluate pending: setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d; sourcePtr=%p; visibleDestinationPtr=%p; depthPtr=%p; motionPtr=%p; input=%dx%d; output=%dx%d; hdrpFrame=%d; easuSourceFrame=%d; easuDestinationFrame=%d; validation=D3D11-pending; scratchOutput=yes; visibleOutput=no; persistent=no; targetSuccesses=%d; ngx=pending; evaluate=pending; appId=%llu; perfQuality=%d; flags=0x%08X; sharpness=%.4f; reset=%d",
+                ? "render event frame descriptor DLSS persistent scratch evaluate pending: setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d; sourcePtr=%p; visibleDestinationPtr=%p; depthPtr=%p; motionPtr=%p; input=%dx%d; output=%dx%d; hdrpFrame=%d; easuSourceFrame=%d; easuDestinationFrame=%d; validation=D3D11-pending; scratchOutput=yes; visibleOutput=no; persistent=yes; targetSuccesses=%d; ngx=pending; evaluate=pending; appId=%llu; perfQuality=%d; flags=0x%08X; jitter=(%.4f,%.4f); mvScale=(%.4f,%.4f); preExposure=%.4f; sharpness=%.4f; reset=%d"
+                : "render event frame descriptor DLSS scratch evaluate pending: setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d; sourcePtr=%p; visibleDestinationPtr=%p; depthPtr=%p; motionPtr=%p; input=%dx%d; output=%dx%d; hdrpFrame=%d; easuSourceFrame=%d; easuDestinationFrame=%d; validation=D3D11-pending; scratchOutput=yes; visibleOutput=no; persistent=no; targetSuccesses=%d; ngx=pending; evaluate=pending; appId=%llu; perfQuality=%d; flags=0x%08X; jitter=(%.4f,%.4f); mvScale=(%.4f,%.4f); preExposure=%.4f; sharpness=%.4f; reset=%d",
             g_renderEventFrameDescriptorPayloadSetAttempts.load(),
             g_renderEventFrameDescriptorPayloadSetSuccesses.load(),
             g_renderEventFrameDescriptorPayloadSetFailures.load(),
@@ -3280,6 +3305,11 @@ namespace
             applicationId,
             perfQualityValue,
             static_cast<unsigned int>(featureFlags),
+            g_renderEventFrameDescriptorPayload.jitterOffsetX,
+            g_renderEventFrameDescriptorPayload.jitterOffsetY,
+            g_renderEventFrameDescriptorPayload.motionVectorScaleX,
+            g_renderEventFrameDescriptorPayload.motionVectorScaleY,
+            g_renderEventFrameDescriptorPayload.preExposure,
             sharpness,
             reset);
         return 1;
@@ -3304,6 +3334,11 @@ namespace
         unsigned long long applicationId,
         int perfQualityValue,
         int featureFlags,
+        float jitterOffsetX,
+        float jitterOffsetY,
+        float motionVectorScaleX,
+        float motionVectorScaleY,
+        float preExposure,
         float sharpness,
         int reset,
         int targetEvaluateSuccesses)
@@ -3346,12 +3381,17 @@ namespace
         g_renderEventFrameDescriptorPayload.applicationId = applicationId;
         g_renderEventFrameDescriptorPayload.perfQualityValue = perfQualityValue;
         g_renderEventFrameDescriptorPayload.featureFlags = featureFlags;
+        g_renderEventFrameDescriptorPayload.jitterOffsetX = jitterOffsetX;
+        g_renderEventFrameDescriptorPayload.jitterOffsetY = jitterOffsetY;
+        g_renderEventFrameDescriptorPayload.motionVectorScaleX = motionVectorScaleX == 0.0f ? 1.0f : motionVectorScaleX;
+        g_renderEventFrameDescriptorPayload.motionVectorScaleY = motionVectorScaleY == 0.0f ? 1.0f : motionVectorScaleY;
+        g_renderEventFrameDescriptorPayload.preExposure = preExposure == 0.0f ? 1.0f : preExposure;
         g_renderEventFrameDescriptorPayload.sharpness = sharpness;
         g_renderEventFrameDescriptorPayload.reset = reset;
         std::snprintf(
             g_renderEventFrameDescriptorPayloadStatus,
             sizeof(g_renderEventFrameDescriptorPayloadStatus),
-            "render event frame descriptor DLSS visible write-back pending: setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d; sourcePtr=%p; visibleDestinationPtr=%p; depthPtr=%p; motionPtr=%p; input=%dx%d; output=%dx%d; hdrpFrame=%d; easuSourceFrame=%d; easuDestinationFrame=%d; validation=D3D11-pending; scratchOutput=no; visibleOutput=yes; persistent=yes; targetSuccesses=%d; ngx=pending; evaluate=pending; appId=%llu; perfQuality=%d; flags=0x%08X; sharpness=%.4f; reset=%d",
+            "render event frame descriptor DLSS visible write-back pending: setAttempts=%d; setSuccesses=%d; setFailures=%d; consumed=%d; consumeFailures=%d; eventId=%d; sequence=%d; sourcePtr=%p; visibleDestinationPtr=%p; depthPtr=%p; motionPtr=%p; input=%dx%d; output=%dx%d; hdrpFrame=%d; easuSourceFrame=%d; easuDestinationFrame=%d; validation=D3D11-pending; scratchOutput=no; visibleOutput=yes; persistent=yes; targetSuccesses=%d; ngx=pending; evaluate=pending; appId=%llu; perfQuality=%d; flags=0x%08X; jitter=(%.4f,%.4f); mvScale=(%.4f,%.4f); preExposure=%.4f; sharpness=%.4f; reset=%d",
             g_renderEventFrameDescriptorPayloadSetAttempts.load(),
             g_renderEventFrameDescriptorPayloadSetSuccesses.load(),
             g_renderEventFrameDescriptorPayloadSetFailures.load(),
@@ -3374,6 +3414,11 @@ namespace
             applicationId,
             perfQualityValue,
             static_cast<unsigned int>(featureFlags),
+            g_renderEventFrameDescriptorPayload.jitterOffsetX,
+            g_renderEventFrameDescriptorPayload.jitterOffsetY,
+            g_renderEventFrameDescriptorPayload.motionVectorScaleX,
+            g_renderEventFrameDescriptorPayload.motionVectorScaleY,
+            g_renderEventFrameDescriptorPayload.preExposure,
             sharpness,
             reset);
         return 1;
@@ -3384,7 +3429,7 @@ extern "C"
 {
     int __cdecl VrisingDlss_GetBridgeApiVersion()
     {
-        return 20;
+        return 21;
     }
 
     const char* __cdecl VrisingDlss_GetBridgeVersion()
@@ -3573,6 +3618,11 @@ extern "C"
         unsigned long long applicationId,
         int perfQualityValue,
         int featureFlags,
+        float jitterOffsetX,
+        float jitterOffsetY,
+        float motionVectorScaleX,
+        float motionVectorScaleY,
+        float preExposure,
         float sharpness,
         int reset)
     {
@@ -3595,6 +3645,11 @@ extern "C"
             applicationId,
             perfQualityValue,
             featureFlags,
+            jitterOffsetX,
+            jitterOffsetY,
+            motionVectorScaleX,
+            motionVectorScaleY,
+            preExposure,
             sharpness,
             reset,
             false,
@@ -3620,6 +3675,11 @@ extern "C"
         unsigned long long applicationId,
         int perfQualityValue,
         int featureFlags,
+        float jitterOffsetX,
+        float jitterOffsetY,
+        float motionVectorScaleX,
+        float motionVectorScaleY,
+        float preExposure,
         float sharpness,
         int reset,
         int targetEvaluateSuccesses)
@@ -3643,6 +3703,11 @@ extern "C"
             applicationId,
             perfQualityValue,
             featureFlags,
+            jitterOffsetX,
+            jitterOffsetY,
+            motionVectorScaleX,
+            motionVectorScaleY,
+            preExposure,
             sharpness,
             reset,
             true,
@@ -3668,6 +3733,11 @@ extern "C"
         unsigned long long applicationId,
         int perfQualityValue,
         int featureFlags,
+        float jitterOffsetX,
+        float jitterOffsetY,
+        float motionVectorScaleX,
+        float motionVectorScaleY,
+        float preExposure,
         float sharpness,
         int reset,
         int targetEvaluateSuccesses)
@@ -3691,6 +3761,11 @@ extern "C"
             applicationId,
             perfQualityValue,
             featureFlags,
+            jitterOffsetX,
+            jitterOffsetY,
+            motionVectorScaleX,
+            motionVectorScaleY,
+            preExposure,
             sharpness,
             reset,
             targetEvaluateSuccesses);
@@ -4863,6 +4938,7 @@ extern "C"
             jitterOffsetY,
             motionVectorScaleX,
             motionVectorScaleY,
+            1.0f,
             sharpness,
             reset);
 #endif

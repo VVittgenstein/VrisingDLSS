@@ -226,6 +226,11 @@ internal sealed class NativeBridge
         ulong applicationId,
         int perfQualityValue,
         int featureFlags,
+        float jitterOffsetX,
+        float jitterOffsetY,
+        float motionVectorScaleX,
+        float motionVectorScaleY,
+        float preExposure,
         float sharpness,
         int reset) =>
         _setRenderEventFrameDescriptorDlssScratchEvaluatePayload?.Invoke(
@@ -247,6 +252,11 @@ internal sealed class NativeBridge
             applicationId,
             perfQualityValue,
             featureFlags,
+            jitterOffsetX,
+            jitterOffsetY,
+            motionVectorScaleX,
+            motionVectorScaleY,
+            preExposure,
             sharpness,
             reset) == 1;
 
@@ -269,6 +279,11 @@ internal sealed class NativeBridge
         ulong applicationId,
         int perfQualityValue,
         int featureFlags,
+        float jitterOffsetX,
+        float jitterOffsetY,
+        float motionVectorScaleX,
+        float motionVectorScaleY,
+        float preExposure,
         float sharpness,
         int reset,
         int targetEvaluateSuccesses) =>
@@ -291,6 +306,11 @@ internal sealed class NativeBridge
             applicationId,
             perfQualityValue,
             featureFlags,
+            jitterOffsetX,
+            jitterOffsetY,
+            motionVectorScaleX,
+            motionVectorScaleY,
+            preExposure,
             sharpness,
             reset,
             targetEvaluateSuccesses) == 1;
@@ -314,6 +334,11 @@ internal sealed class NativeBridge
         ulong applicationId,
         int perfQualityValue,
         int featureFlags,
+        float jitterOffsetX,
+        float jitterOffsetY,
+        float motionVectorScaleX,
+        float motionVectorScaleY,
+        float preExposure,
         float sharpness,
         int reset,
         int targetEvaluateSuccesses) =>
@@ -336,6 +361,11 @@ internal sealed class NativeBridge
             applicationId,
             perfQualityValue,
             featureFlags,
+            jitterOffsetX,
+            jitterOffsetY,
+            motionVectorScaleX,
+            motionVectorScaleY,
+            preExposure,
             sharpness,
             reset,
             targetEvaluateSuccesses) == 1;
@@ -643,6 +673,11 @@ internal sealed class NativeBridge
         ulong applicationId,
         int perfQualityValue,
         int featureFlags,
+        float jitterOffsetX,
+        float jitterOffsetY,
+        float motionVectorScaleX,
+        float motionVectorScaleY,
+        float preExposure,
         float sharpness,
         int reset);
 
@@ -666,6 +701,11 @@ internal sealed class NativeBridge
         ulong applicationId,
         int perfQualityValue,
         int featureFlags,
+        float jitterOffsetX,
+        float jitterOffsetY,
+        float motionVectorScaleX,
+        float motionVectorScaleY,
+        float preExposure,
         float sharpness,
         int reset,
         int targetEvaluateSuccesses);

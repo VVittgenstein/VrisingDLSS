@@ -1,6 +1,7 @@
 using BepInEx.Logging;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 
@@ -190,7 +191,8 @@ internal static class HdrpPostProcessRenderArgsProbe
                 ? DescribeGlobalTextureSnapshot(out hasDepthNativePointer, out hasMotionNativePointer, out depthNativePointer, out motionNativePointer)
                 : null;
             var methodLabel = HookTargetCatalog.FormatMethod(__originalMethod);
-            var cameraSummary = DescribeCamera(__1);
+            var dlssFrameParameters = ReadDlssFrameParameters(__1);
+            var cameraSummary = DescribeCamera(__1, dlssFrameParameters);
             var sourceSummary = DescribeRtHandle("source", __2);
             var destinationSummary = DescribeRtHandle("destination", __3);
             var frameCount = TryGetUnityFrameCount(out var currentFrame) ? currentFrame : -1;
@@ -231,7 +233,11 @@ internal static class HdrpPostProcessRenderArgsProbe
                         destinationSummary,
                         globalTextureSummary ?? "globalTextures=unavailable",
                         depthNativePointer,
-                        motionNativePointer));
+                        motionNativePointer,
+                        dlssFrameParameters.JitterOffsetX,
+                        dlssFrameParameters.JitterOffsetY,
+                        dlssFrameParameters.PreExposure,
+                        dlssFrameParameters.ResetHistory));
 
                 if (shouldLogAdvanced)
                 {
@@ -269,7 +275,7 @@ internal static class HdrpPostProcessRenderArgsProbe
         return $"cmd={{{string.Join(", ", parts)}}}";
     }
 
-    private static string DescribeCamera(object? value)
+    private static string DescribeCamera(object? value, DlssFrameParameters dlssFrameParameters)
     {
         if (value is null)
         {
@@ -283,6 +289,7 @@ internal static class HdrpPostProcessRenderArgsProbe
         AppendMember(parts, value, "viewCount");
         AppendMember(parts, value, "isFirstFrame");
         AppendNestedUnityObject(parts, value, "camera");
+        parts.Add(dlssFrameParameters.Summary);
         return $"camera={{{string.Join(", ", parts)}}}";
     }
 
@@ -460,6 +467,115 @@ internal static class HdrpPostProcessRenderArgsProbe
         return false;
     }
 
+    private static bool TryInvokeParameterless(object value, string methodName, out object? result)
+    {
+        var type = value.GetType();
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+
+        var method = type.GetMethods(flags)
+            .FirstOrDefault(candidate =>
+                candidate.Name == methodName &&
+                candidate.GetParameters().Length == 0);
+        if (method is null)
+        {
+            result = null;
+            return false;
+        }
+
+        result = method.Invoke(value, Array.Empty<object>());
+        return true;
+    }
+
+    private static DlssFrameParameters ReadDlssFrameParameters(object? camera)
+    {
+        if (camera is null)
+        {
+            return DlssFrameParameters.Default;
+        }
+
+        var jitterX = 0.0f;
+        var jitterY = 0.0f;
+        var jitterAvailable = false;
+        if (TryReadMember(camera, "taaJitter", out var jitterValue)
+            && jitterValue is not null
+            && TryReadVectorComponent(jitterValue, "x", out var rawJitterX)
+            && TryReadVectorComponent(jitterValue, "y", out var rawJitterY))
+        {
+            jitterX = -rawJitterX;
+            jitterY = -rawJitterY;
+            jitterAvailable = true;
+        }
+
+        var preExposure = 1.0f;
+        var preExposureAvailable = false;
+        if (TryInvokeParameterless(camera, "GpuExposureValue", out var exposureValue)
+            && TryConvertSingle(exposureValue, out var rawExposure))
+        {
+            preExposure = Math.Min(2.0f, Math.Max(0.35f, rawExposure));
+            preExposureAvailable = true;
+        }
+
+        var resetHistory = false;
+        var resetAvailable = false;
+        if (TryReadMember(camera, "resetPostProcessingHistory", out var resetValue)
+            && TryConvertBoolean(resetValue, out resetHistory))
+        {
+            resetAvailable = true;
+        }
+
+        return new DlssFrameParameters(
+            jitterX,
+            jitterY,
+            preExposure,
+            resetHistory,
+            jitterAvailable,
+            preExposureAvailable,
+            resetAvailable);
+    }
+
+    private static bool TryReadVectorComponent(object value, string memberName, out float result)
+    {
+        result = 0.0f;
+        return TryReadMember(value, memberName, out var component)
+            && TryConvertSingle(component, out result);
+    }
+
+    private static bool TryConvertSingle(object? value, out float result)
+    {
+        result = 0.0f;
+        if (value is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            result = Convert.ToSingle(value, CultureInfo.InvariantCulture);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool TryConvertBoolean(object? value, out bool result)
+    {
+        result = false;
+        if (value is bool typed)
+        {
+            result = typed;
+            return true;
+        }
+
+        if (value is null)
+        {
+            return false;
+        }
+
+        return bool.TryParse(value.ToString(), out result);
+    }
+
     private static string FormatScalar(object? value)
     {
         if (value is null)
@@ -625,5 +741,36 @@ internal static class HdrpPostProcessRenderArgsProbe
         return ex is TargetInvocationException { InnerException: not null }
             ? ex.InnerException.Message
             : ex.Message;
+    }
+
+    private readonly record struct DlssFrameParameters(
+        float JitterOffsetX,
+        float JitterOffsetY,
+        float PreExposure,
+        bool ResetHistory,
+        bool JitterAvailable,
+        bool PreExposureAvailable,
+        bool ResetHistoryAvailable)
+    {
+        internal static DlssFrameParameters Default { get; } = new(
+            0.0f,
+            0.0f,
+            1.0f,
+            false,
+            false,
+            false,
+            false);
+
+        internal string Summary =>
+            string.Format(
+                CultureInfo.InvariantCulture,
+                "dlssFrameParams=jitter=({0:0.####},{1:0.####}),preExposure={2:0.####},resetHistory={3},available=(jitter:{4},preExposure:{5},reset:{6})",
+                JitterOffsetX,
+                JitterOffsetY,
+                PreExposure,
+                ResetHistory,
+                JitterAvailable,
+                PreExposureAvailable,
+                ResetHistoryAvailable);
     }
 }

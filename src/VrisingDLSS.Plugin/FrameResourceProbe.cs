@@ -5994,8 +5994,13 @@ internal static class FrameResourceProbe
                     DlssEvaluateSettings.ApplicationId,
                     DlssEvaluateSettings.PerfQualityValue,
                     DlssEvaluateSettings.FeatureFlags,
+                    descriptor.JitterOffsetX,
+                    descriptor.JitterOffsetY,
+                    descriptor.MotionVectorScaleX,
+                    descriptor.MotionVectorScaleY,
+                    descriptor.PreExposure,
                     DlssEvaluateSettings.Sharpness,
-                    DlssEvaluateSettings.Reset,
+                    descriptor.ResetHistory && DlssEvaluateSettings.Reset != 0 ? 1 : 0,
                     NativeRenderFuncCommandBufferDlssUserRenderingEnabled
                         ? TargetNativeRenderFuncCommandBufferDlssUserRenderingSuccesses
                         : TargetNativeRenderFuncCommandBufferDlssVisibleWritebackSuccesses)
@@ -6019,8 +6024,13 @@ internal static class FrameResourceProbe
                     DlssEvaluateSettings.ApplicationId,
                     DlssEvaluateSettings.PerfQualityValue,
                     DlssEvaluateSettings.FeatureFlags,
+                    descriptor.JitterOffsetX,
+                    descriptor.JitterOffsetY,
+                    descriptor.MotionVectorScaleX,
+                    descriptor.MotionVectorScaleY,
+                    descriptor.PreExposure,
                     DlssEvaluateSettings.Sharpness,
-                    DlssEvaluateSettings.Reset,
+                    descriptor.ResetHistory && DlssEvaluateSettings.Reset != 0 ? 1 : 0,
                     TargetNativeRenderFuncCommandBufferPersistentScratchEvaluateSuccesses)
                 : NativeRenderFuncCommandBufferDlssScratchEvaluateProbeEnabled
                 ? bridge.SetRenderEventFrameDescriptorDlssScratchEvaluatePayload(
@@ -6042,8 +6052,13 @@ internal static class FrameResourceProbe
                     DlssEvaluateSettings.ApplicationId,
                     DlssEvaluateSettings.PerfQualityValue,
                     DlssEvaluateSettings.FeatureFlags,
+                    descriptor.JitterOffsetX,
+                    descriptor.JitterOffsetY,
+                    descriptor.MotionVectorScaleX,
+                    descriptor.MotionVectorScaleY,
+                    descriptor.PreExposure,
                     DlssEvaluateSettings.Sharpness,
-                    DlssEvaluateSettings.Reset)
+                    descriptor.ResetHistory && DlssEvaluateSettings.Reset != 0 ? 1 : 0)
                 : NativeRenderFuncCommandBufferFrameDescriptorD3D11ProbeEnabled
                 ? bridge.SetRenderEventFrameDescriptorD3D11ValidationPayload(
                     descriptor.SourcePointer,

@@ -76,7 +76,13 @@ internal static class HdrpEasuInputOutputCorrelationProbeState
                 easu.TupleSummary,
                 hdrp.GlobalTextureSummary,
                 easu.SourceObservation,
-                easu.DestinationObservation);
+                easu.DestinationObservation,
+                hdrp.JitterOffsetX,
+                hdrp.JitterOffsetY,
+                -facts.InputWidth,
+                -facts.InputHeight,
+                hdrp.PreExposure,
+                hdrp.ResetHistory);
             return true;
         }
     }
@@ -137,6 +143,7 @@ internal static class HdrpEasuInputOutputCorrelationProbeState
             $"easuSourceMatchesEasuInput={facts.EasuSourceMatchesEasuInput}; " +
             $"easuDestinationMatchesEasuOutput={facts.EasuDestinationMatchesEasuOutput}; " +
             $"easuUpscales={facts.EasuUpscales}; " +
+            $"dlssEvaluateParams=jitter=({hdrp.JitterOffsetX:0.####},{hdrp.JitterOffsetY:0.####}),mvScale=({-facts.InputWidth},{-facts.InputHeight}),preExposure={hdrp.PreExposure:0.####},resetHistory={hdrp.ResetHistory}; " +
             $"hdrp=(call={hdrp.CallCount}; method={hdrp.MethodLabel}; {hdrp.CameraSummary}; {hdrp.SourceSummary}; {hdrp.DestinationSummary}; {hdrp.GlobalTextureSummary}); " +
             $"easu=(source=({easu.SourceObservation}); destination=({easu.DestinationObservation}); targetCompile={easu.TargetCompile}; targetManagedPassData={easu.TargetManagedPassData}; tuple={easu.TupleSummary})";
     }
@@ -256,7 +263,11 @@ internal static class HdrpEasuInputOutputCorrelationProbeState
         string DestinationSummary,
         string GlobalTextureSummary,
         IntPtr DepthPointer,
-        IntPtr MotionPointer);
+        IntPtr MotionPointer,
+        float JitterOffsetX,
+        float JitterOffsetY,
+        float PreExposure,
+        bool ResetHistory);
 
     internal readonly record struct EasuOutputSnapshot(
         IntPtr SourcePointer,
@@ -287,7 +298,13 @@ internal static class HdrpEasuInputOutputCorrelationProbeState
         string TupleSummary,
         string HdrpGlobalTextureSummary,
         string EasuSourceObservation,
-        string EasuDestinationObservation);
+        string EasuDestinationObservation,
+        float JitterOffsetX,
+        float JitterOffsetY,
+        float MotionVectorScaleX,
+        float MotionVectorScaleY,
+        float PreExposure,
+        bool ResetHistory);
 
     private readonly record struct CorrelationFacts(
         int InputWidth,

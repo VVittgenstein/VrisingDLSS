@@ -69,6 +69,11 @@ extern "C"
         unsigned long long applicationId,
         int perfQualityValue,
         int featureFlags,
+        float jitterOffsetX,
+        float jitterOffsetY,
+        float motionVectorScaleX,
+        float motionVectorScaleY,
+        float preExposure,
         float sharpness,
         int reset);
     VRISINGDLSS_API int __cdecl VrisingDlss_SetRenderEventFrameDescriptorDlssPersistentScratchEvaluatePayload(
@@ -90,6 +95,11 @@ extern "C"
         unsigned long long applicationId,
         int perfQualityValue,
         int featureFlags,
+        float jitterOffsetX,
+        float jitterOffsetY,
+        float motionVectorScaleX,
+        float motionVectorScaleY,
+        float preExposure,
         float sharpness,
         int reset,
         int targetEvaluateSuccesses);
@@ -112,6 +122,11 @@ extern "C"
         unsigned long long applicationId,
         int perfQualityValue,
         int featureFlags,
+        float jitterOffsetX,
+        float jitterOffsetY,
+        float motionVectorScaleX,
+        float motionVectorScaleY,
+        float preExposure,
         float sharpness,
         int reset,
         int targetEvaluateSuccesses);
