@@ -1,6 +1,7 @@
 # HDRP DLSS Schedule Audit Preflight - 2026-06-08
 
-Status: implemented as a no-runtime preflight; runtime execution still pending.
+Status: implemented and runtime-tested. Runtime result is recorded in
+`docs/development/hdrp-dlss-schedule-audit-runtime-result-2026-06-08.md`.
 
 ## Question
 

@@ -1851,3 +1851,25 @@ As of the read-only RenderGraph pass-map runtime result:
   pollution/failure. The next runtime action should run this stage at true
   `1920x1080` Windowed before any state-changing attempt to force official HDRP
   DLSS scheduling.
+- The read-only schedule audit has now been runtime-tested in
+  `hdrp-dlss-schedule-audit-1080p-menu-20260608-r1`; see
+  `docs/development/hdrp-dlss-schedule-audit-runtime-result-2026-06-08.md`.
+  It was a menu-only `1920x1080` Windowed run, did not enter gameplay, and
+  cleaned up with `CrashEventCount=0`, no remaining V Rising process,
+  release-safe native/config restored, and ClientSettings restored. Analyzer
+  status was `NoOfficialDlssPassObserved` with no issues: `93` RenderGraph
+  compile snapshots, `866` RenderGraph observation lines, EASU mentions `246`,
+  Final Pass mentions `299`, but `"Deep Learning Super Sampling"` pass,
+  `category=dlss`, DLSS pass data/declarations/render-func metadata,
+  `DLSS destination`, broad GetTexture calls, user-rendering/evaluate evidence,
+  and access-violation indicators were all `0`. The key gate signature was
+  `allowDeepLearningSuperSampling=True` but `cameraCanRenderDLSS=False`,
+  `GlobalDynamicResolutionSettings.enableDLSS=False`,
+  `HDCamera.IsDLSSEnabled=False`, and `UpsampleSyncPoint=AfterPost`. Local
+  Unity HDRP source confirms `IsDLSSEnabled()` returns `cameraCanRenderDLSS`,
+  and `SetupDLSSForCameraDataAndDynamicResHandler` only sets it true when the
+  camera requested dynamic resolution, DLSS is detected, camera DLSS is allowed,
+  HDRP asset `enableDLSS` is true, and HDRP dynamic resolution is enabled. Next
+  aligned step is a menu-first, default-off, no-native schedule-gate design that
+  observes whether the official pass shell appears when those gates are
+  deliberately set, without patching `DLSSPass.Render`.
