@@ -110,20 +110,34 @@ pass-data snapshots, even though it contains older HDRP/EASU correlation lines.
 
 ## Future Runtime Command
 
-When deliberately running this stage, use a protected gameplay session, true
-`1920x1080` Windowed, and V Rising FSR Off:
+When deliberately running this stage in gameplay, use a protected automation
+session, true `1920x1080` Windowed, and V Rising FSR Off. The session harness now
+accepts `-ProtectSave -SaveDir <local-save-dir>` so it backs up the local/private
+`11111` save before launch and the stop script restores it during cleanup:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-vrising-diagnostic.ps1 -GamePath C:\Software\VRising -Stage hdrp-dlss-contract-bind-render-scale -ArtifactLabel hdrp-dlss-contract-bind-render-scale-1080p-gameplay-<date>-r1 -DurationSeconds 90 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start-vrising-automation-session.ps1 -GamePath C:\Software\VRising -Stage hdrp-dlss-contract-bind-render-scale -ArtifactLabel hdrp-dlss-contract-bind-render-scale-1080p-gameplay-<date>-r1 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080 -ProtectSave -SaveDir "<local-save-dir>"
 ```
 
 Do not use `-UseSdkWrapperNative` or `-DlssRuntimePath`; this stage should not
 load NGX or evaluate DLSS.
 
+After the game window is ready, use Computer Use to select the real `VRising`
+window, click the known Continue / `11111` entry once, send no movement keys, and
+wait for the stable local/private scene. Then stop the session:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\stop-vrising-automation-session.ps1 -SessionPath "Z:\VrisingDLSS\artifacts\gameplay-automation\Session-hdrp-dlss-contract-bind-render-scale-1080p-gameplay-<date>-r1.json"
+```
+
+The cleanup must report `SaveRestored=True`, `SaveAfterRestoreChangeCount=0`,
+`RestoredLoaderConfig=True`, `RestoredClientSettings=True`,
+`RestoredBepInExConfig=True`, and `RemainingVRisingProcessCount=0`.
+
 After the run, analyze:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\analyze-hdrp-dlss-schedule-audit.ps1 -LogPath artifacts\runtime-logs\LogOutput-hdrp-dlss-contract-bind-render-scale-1080p-gameplay-<date>-r1.log -Json
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\analyze-hdrp-dlss-schedule-audit.ps1 -LogPath artifacts\gameplay-automation\LogOutput-hdrp-dlss-contract-bind-render-scale-1080p-gameplay-<date>-r1.log -Json
 ```
 
 ## Cleanup Expectations

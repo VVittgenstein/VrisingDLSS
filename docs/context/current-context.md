@@ -2013,3 +2013,15 @@ As of the read-only RenderGraph pass-map runtime result:
   contract, not as a callable implementation; do not patch `DLSSPass.Render` or
   force `m_DLSSPass` as the fix. Mainline remains contract-bind evidence, then
   bounded no-write cost proof, then NGX evaluate only if the boundary is cheap.
+- Automation session protected-save support was added after the contract-bind
+  preflight. `scripts/start-vrising-automation-session.ps1` now accepts
+  `-ProtectSave -SaveDir <local-save-dir>` and records `SaveBackupDir`,
+  `SaveBackupZipPath`, `SaveBackupManifestPath`, `RestoresProtectedSave`, and
+  `ArchiveChangedSave` in the session JSON. On failed starts it attempts to
+  restore immediately after closing V Rising. `scripts/stop-vrising-automation-session.ps1`
+  now restores protected saves after scoped V Rising processes are closed and
+  reports `SaveRestoreAttempted`, `SaveRestored`,
+  `SaveBeforeRestoreChangeCount`, `SaveAfterRestoreChangeCount`, and
+  `SaveCompareStatus`; protected-save restore failure makes cleanup fail. The
+  next `hdrp-dlss-contract-bind-render-scale` gameplay run should use this
+  built-in protection instead of a separate manual protect/restore pair.

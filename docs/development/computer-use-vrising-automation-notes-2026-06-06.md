@@ -36,14 +36,18 @@ included in the GitHub/Thunderstore release package.
    - `CrashEventCount=0`
    - `RestoredClientSettings=true` when resolution was changed
    - `RestoredLoaderConfig=true`
+   - `SaveRestored=true` and `SaveAfterRestoreChangeCount=0` when
+     `-ProtectSave` was used
    - `RemainingVRisingProcessCount=0`
 8. For the preferred constructive test shape, start sessions with:
    - `-SetClientResolution`
    - `-SetClientWindowMode -ClientWindowMode 3`
    This makes the player log report `fullScreenMode Windowed` and keeps the
    script-side screenshot at `1920x1080`.
-9. Before entering the `11111` save, back up its save directory. Gameplay entry can
-   rotate autosaves even if no further input is sent.
+9. Before entering the `11111` save, start the session with
+   `-ProtectSave -SaveDir <local-save-dir>`. Gameplay entry can rotate autosaves
+   even if no further input is sent; the session artifact records the backup and
+   the stop-session script restores it.
 10. For DLSS runtime gameplay sessions, use the session harness' diagnostic stage
     parameters rather than hand-editing config/native DLL state:
     - `-Stage dlss-user-rendering`
@@ -73,7 +77,7 @@ their responsibilities stay separate:
 
 - PowerShell: install local package, write loader config, temporarily edit
   `ClientSettings.json`, start V Rising, capture script-side logs/screenshots, stop the
-  process, restore settings/config, archive WER.
+  process, restore settings/config/save state, archive WER.
 - Computer Use: choose the visible app/window, snapshot the window, click/press keys
   when a written protocol allows it.
 

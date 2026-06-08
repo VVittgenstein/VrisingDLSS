@@ -87,6 +87,9 @@ param(
     [switch]$SetClientWindowMode,
     [ValidateRange(0, 3)]
     [int]$ClientWindowMode = 3,
+    [switch]$ProtectSave,
+    [string]$SaveDir,
+    [bool]$ArchiveChangedSave = $true,
     [switch]$SkipInstall,
     [switch]$DryRun
 )
@@ -109,6 +112,10 @@ if ($ScreenshotRetrySeconds -lt 1) {
     throw "ScreenshotRetrySeconds must be at least 1."
 }
 
+if ($ProtectSave -and [string]::IsNullOrWhiteSpace($SaveDir)) {
+    throw "ProtectSave requires -SaveDir pointing to the local/private V Rising save directory to back up and restore."
+}
+
 if ([string]::IsNullOrWhiteSpace($Root)) {
     $Root = Split-Path -Parent $PSScriptRoot
 }
@@ -126,6 +133,12 @@ if ([string]::IsNullOrWhiteSpace($ArtifactLabel)) {
 } else {
     $ArtifactLabel = $ArtifactLabel -replace "[^A-Za-z0-9_.-]", "-"
 }
+
+$saveDirResolved = ""
+if ($ProtectSave) {
+    $saveDirResolved = [System.IO.Path]::GetFullPath($SaveDir)
+}
+$saveProtectionLabel = "$ArtifactLabel-protected-save"
 
 if (-not (Test-Path -LiteralPath $exePath)) {
     throw "VRising.exe was not found: $exePath"
@@ -301,6 +314,7 @@ $plan = [pscustomobject]@{
         "A nonblank session screenshot",
         "Player log redirected to the artifact path",
         "ClientSettings backup path when -SetClientResolution or -SetClientWindowMode is used",
+        "Protected-save backup path when -ProtectSave is used",
         "Stage/native-DLL restore requirements when a diagnostic stage is used"
     )
     PassSignal = "Status=Ready and CleanupRequired=true in the session JSON."
@@ -331,6 +345,11 @@ $plan = [pscustomobject]@{
     RestoresLoaderConfig = $true
     RestoresBepInExConfig = $true
     RestoresReleaseSafeNative = [bool]$UseSdkWrapperNative
+    ProtectSave = [bool]$ProtectSave
+    SaveDir = $(if ($ProtectSave) { $saveDirResolved } else { "" })
+    SaveProtectionLabel = $(if ($ProtectSave) { $saveProtectionLabel } else { "" })
+    ArchiveChangedSave = $(if ($ProtectSave) { $ArchiveChangedSave } else { $false })
+    RestoresProtectedSave = [bool]$ProtectSave
     LeavesGameRunning = -not [bool]$DryRun
     LaunchesGame = -not [bool]$DryRun
 }
@@ -361,8 +380,24 @@ $restoredReleaseSafeNative = -not [bool]$UseSdkWrapperNative
 $status = "Failed"
 $failureReason = ""
 $cleanupRequired = $false
+$saveBackup = $null
+$saveRestore = $null
+$saveProtectionBackedUp = $false
+$saveRestoreAttempted = $false
+$saveRestored = -not [bool]$ProtectSave
+$saveRestoreSkippedReason = ""
 
 try {
+    if ($ProtectSave) {
+        $saveBackup = & (Join-Path $resolvedRoot "scripts\protect-vrising-save.ps1") `
+            -Mode Backup `
+            -SaveDir $saveDirResolved `
+            -Label $saveProtectionLabel `
+            -Root $resolvedRoot
+        $saveBackup | Format-List | Out-String -Width 220 | Write-Host
+        $saveProtectionBackedUp = $true
+    }
+
     if (-not $SkipInstall) {
         & (Join-Path $resolvedRoot "scripts\install-local-package.ps1") -GamePath $resolvedGamePath | Out-Host
     }
@@ -504,6 +539,34 @@ try {
         }
 
         try {
+            if ($ProtectSave) {
+                if ($saveProtectionBackedUp -and $saveBackup -and -not [string]::IsNullOrWhiteSpace([string]$saveBackup.BackupDir)) {
+                    if (@(Get-VRisingProcess).Count -gt 0) {
+                        $saveRestoreSkippedReason = "VRising process remained after failed start; refusing to restore protected save while the game is running."
+                        Write-Warning $saveRestoreSkippedReason
+                    } else {
+                        $restoreParameters = @{
+                            Mode = "Restore"
+                            SaveDir = $saveDirResolved
+                            Label = $saveProtectionLabel
+                            ReferenceDir = [string]$saveBackup.BackupDir
+                            Root = $resolvedRoot
+                        }
+                        if ($ArchiveChangedSave) {
+                            $restoreParameters.ArchiveCurrent = $true
+                        }
+
+                        $saveRestoreAttempted = $true
+                        $saveRestore = & (Join-Path $resolvedRoot "scripts\protect-vrising-save.ps1") @restoreParameters
+                        $saveRestore | Format-List | Out-String -Width 220 | Write-Host
+                        $saveRestored = ([int]$saveRestore.ChangeCount -eq 0)
+                    }
+                } else {
+                    $saveRestoreSkippedReason = "Protected save backup did not complete; restore was not attempted."
+                    Write-Warning $saveRestoreSkippedReason
+                }
+            }
+
             if ($UseSdkWrapperNative) {
                 & (Join-Path $resolvedRoot "scripts\install-local-package.ps1") -GamePath $resolvedGamePath | Out-Host
                 $restoredReleaseSafeNative = $true
@@ -568,6 +631,22 @@ try {
         RestoredLoaderConfig = $restoredLoaderConfig
         RestoredBepInExConfig = $restoredBepInExConfig
         RestoredReleaseSafeNative = $restoredReleaseSafeNative
+        ProtectSave = [bool]$ProtectSave
+        SaveDir = $(if ($ProtectSave) { $saveDirResolved } else { "" })
+        SaveProtectionLabel = $(if ($ProtectSave) { $saveProtectionLabel } else { "" })
+        SaveBackupDir = $(if ($saveBackup) { [string]$saveBackup.BackupDir } else { "" })
+        SaveBackupZipPath = $(if ($saveBackup) { [string]$saveBackup.ZipPath } else { "" })
+        SaveBackupManifestPath = $(if ($saveBackup) { [string]$saveBackup.ManifestPath } else { "" })
+        SaveProtectionBackedUp = $saveProtectionBackedUp
+        SaveRestoreAttempted = $saveRestoreAttempted
+        SaveRestored = $saveRestored
+        SaveRestoreArchivePath = $(if ($saveRestore) { [string]$saveRestore.ArchivePath } else { "" })
+        SaveBeforeRestoreChangeCount = $(if ($saveRestore) { [int]$saveRestore.BeforeChangeCount } else { $null })
+        SaveAfterRestoreChangeCount = $(if ($saveRestore) { [int]$saveRestore.ChangeCount } else { $null })
+        SaveCompareStatus = $(if ($saveRestore) { [string]$saveRestore.CompareStatus } else { "" })
+        SaveRestoreSkippedReason = $saveRestoreSkippedReason
+        ArchiveChangedSave = $(if ($ProtectSave) { $ArchiveChangedSave } else { $false })
+        RestoresProtectedSave = [bool]$ProtectSave
         CleanupRequired = $cleanupRequired
         CleanupCommand = "powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\stop-vrising-automation-session.ps1 -SessionPath `"$sessionArtifact`""
         RemainingVRisingProcessCount = @(Get-VRisingProcess).Count

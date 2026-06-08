@@ -46,6 +46,16 @@ if ([string]::IsNullOrWhiteSpace($playerLogArtifact)) {
 
 $werArtifact = Join-Path $artifactRoot "WER-$artifactLabel.txt"
 $cleanupArtifact = Join-Path $artifactRoot "Cleanup-$artifactLabel.json"
+$protectSave = [bool]$session.ProtectSave
+$saveDir = [string]$session.SaveDir
+$saveProtectionLabel = [string]$session.SaveProtectionLabel
+$saveBackupDir = [string]$session.SaveBackupDir
+$saveBackupZipPath = [string]$session.SaveBackupZipPath
+$saveBackupManifestPath = [string]$session.SaveBackupManifestPath
+$archiveChangedSave = $true
+if ($session.PSObject.Properties["ArchiveChangedSave"]) {
+    $archiveChangedSave = [bool]$session.ArchiveChangedSave
+}
 
 function Get-ScopedVRisingProcess {
     $names = @("VRising.exe", "VRisingServer.exe")
@@ -128,10 +138,11 @@ $plan = [pscustomobject]@{
         "VRising process count scoped to the game path is zero",
         "ClientSettings restored when the session changed it",
         "Loader diagnostic config restored",
-        "BepInEx, Player, and WER artifacts captured when available"
+        "BepInEx, Player, and WER artifacts captured when available",
+        "Protected save restored to ChangeCount=0 when the session used -ProtectSave"
     )
-    PassSignal = "Status=Pass with RemainingVRisingProcessCount=0, RestoredLoaderConfig=true, and RestoredClientSettings=true when required."
-    FailSignal = "Any remaining scoped game process, restore failure, or crash event."
+    PassSignal = "Status=Pass with RemainingVRisingProcessCount=0, RestoredLoaderConfig=true, RestoredClientSettings=true when required, and SaveRestored=true when required."
+    FailSignal = "Any remaining scoped game process, restore failure, protected-save restore failure, or crash event."
     CleanupPath = "This script is the cleanup path; rerun it with the same session artifact if the first attempt fails."
     SessionPath = $resolvedSessionPath
     GamePath = $resolvedGamePath
@@ -145,6 +156,11 @@ $plan = [pscustomobject]@{
     ClientSettingsBackupArtifact = [string]$session.ClientSettingsBackupArtifact
     BepInExConfigPath = [string]$session.BepInExConfigPath
     BepInExConfigBackupArtifact = [string]$session.BepInExConfigBackupArtifact
+    ProtectSave = $protectSave
+    SaveDir = $(if ($protectSave) { $saveDir } else { "" })
+    SaveProtectionLabel = $(if ($protectSave) { $saveProtectionLabel } else { "" })
+    SaveBackupDir = $(if ($protectSave) { $saveBackupDir } else { "" })
+    ArchiveChangedSave = $(if ($protectSave) { $archiveChangedSave } else { $false })
     CleanupArtifact = $cleanupArtifact
 }
 
@@ -166,6 +182,10 @@ $bepInExLogArchived = $false
 $analysisArchived = $false
 $playerLogArchived = $false
 $crashEvents = @()
+$saveRestore = $null
+$saveRestoreAttempted = $false
+$saveRestoreSkippedReason = ""
+$saveRestored = -not $protectSave
 
 try {
     $processId = 0
@@ -267,6 +287,40 @@ try {
     } catch {
         $failureReasons.Add("Loader config restore failed: $($_.Exception.Message)")
     }
+
+    if ($protectSave) {
+        if ([string]::IsNullOrWhiteSpace($saveDir) -or [string]::IsNullOrWhiteSpace($saveBackupDir)) {
+            $saveRestoreSkippedReason = "Session did not contain protected save restore paths."
+            $failureReasons.Add($saveRestoreSkippedReason)
+        } elseif (@(Get-ScopedVRisingProcess).Count -gt 0) {
+            $saveRestoreSkippedReason = "Scoped V Rising process remained; refusing to restore protected save while the game is running."
+            $failureReasons.Add($saveRestoreSkippedReason)
+        } else {
+            try {
+                $restoreParameters = @{
+                    Mode = "Restore"
+                    SaveDir = $saveDir
+                    Label = $saveProtectionLabel
+                    ReferenceDir = $saveBackupDir
+                    Root = $resolvedRoot
+                }
+                if ($archiveChangedSave) {
+                    $restoreParameters.ArchiveCurrent = $true
+                }
+
+                $saveRestoreAttempted = $true
+                $saveRestore = & (Join-Path $resolvedRoot "scripts\protect-vrising-save.ps1") @restoreParameters
+                $saveRestore | Format-List | Out-String -Width 220 | Write-Host
+                $saveRestored = ([int]$saveRestore.ChangeCount -eq 0)
+                if (-not $saveRestored) {
+                    $failureReasons.Add("Protected save restore did not end with ChangeCount=0.")
+                }
+            } catch {
+                $saveRestoreSkippedReason = "Protected save restore failed: $($_.Exception.Message)"
+                $failureReasons.Add($saveRestoreSkippedReason)
+            }
+        }
+    }
 } catch {
     $failureReasons.Add("Unexpected cleanup failure: $($_.Exception.Message)")
 }
@@ -277,7 +331,7 @@ if ($remainingProcessCount -gt 0) {
     $failureReasons.Add("Scoped V Rising process remained after cleanup.")
 }
 
-if ($failureReasons.Count -gt 0 -or -not $restoredLoaderConfig -or -not $restoredClientSettings -or -not $restoredBepInExConfig -or $remainingProcessCount -gt 0) {
+if ($failureReasons.Count -gt 0 -or -not $restoredLoaderConfig -or -not $restoredClientSettings -or -not $restoredBepInExConfig -or -not $saveRestored -or $remainingProcessCount -gt 0) {
     $status = "Failed"
 }
 
@@ -316,6 +370,20 @@ $result = [pscustomobject]@{
     RestoredBepInExConfig = $restoredBepInExConfig
     BepInExConfigBackupArtifact = $(if (-not [string]::IsNullOrWhiteSpace($bepInExConfigBackupArtifact) -and (Test-Path -LiteralPath $bepInExConfigBackupArtifact)) { $bepInExConfigBackupArtifact } else { "" })
     RestoredReleaseSafeNative = $restoredReleaseSafeNative
+    ProtectSave = $protectSave
+    SaveDir = $(if ($protectSave) { $saveDir } else { "" })
+    SaveProtectionLabel = $(if ($protectSave) { $saveProtectionLabel } else { "" })
+    SaveBackupDir = $(if ($protectSave) { $saveBackupDir } else { "" })
+    SaveBackupZipPath = $(if ($protectSave) { $saveBackupZipPath } else { "" })
+    SaveBackupManifestPath = $(if ($protectSave) { $saveBackupManifestPath } else { "" })
+    SaveRestoreAttempted = $saveRestoreAttempted
+    SaveRestored = $saveRestored
+    SaveRestoreArchivePath = $(if ($saveRestore) { [string]$saveRestore.ArchivePath } else { "" })
+    SaveBeforeRestoreChangeCount = $(if ($saveRestore) { [int]$saveRestore.BeforeChangeCount } else { $null })
+    SaveAfterRestoreChangeCount = $(if ($saveRestore) { [int]$saveRestore.ChangeCount } else { $null })
+    SaveCompareStatus = $(if ($saveRestore) { [string]$saveRestore.CompareStatus } else { "" })
+    SaveRestoreSkippedReason = $saveRestoreSkippedReason
+    ArchiveChangedSave = $(if ($protectSave) { $archiveChangedSave } else { $false })
     CleanupRequired = $false
     RemainingVRisingProcessCount = $remainingProcessCount
     LaunchesGame = $false
