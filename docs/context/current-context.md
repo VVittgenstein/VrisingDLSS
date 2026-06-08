@@ -2006,13 +2006,30 @@ As of the read-only RenderGraph pass-map runtime result:
   `InitializePostProcess -> DLSSPass.Create` is not resolved. V Rising's
   `ProjectM.GraphicsSettingsManager` and `FSRQualityMode` confirm a real
   game-side FSR/TAAU/dynamic-resolution control layer, but no local evidence
-  shows a game-specific DLSS replacement layer. Asset string extraction found
-  HDRP/DLSS/FSR markers but not trustworthy serialized HDRP asset bool values,
-  so current actual gate values still come from our read-only runtime snapshot.
+  shows a game-specific DLSS replacement layer. The earlier asset-string-only
+  limitation is superseded by the follow-up UnityPy/type-tree HDRP asset unpack
+  and repeatable static audit, which now provide serialized HDRP asset gate
+  values without launching the game.
   Durable decision: treat official `DoDLSSPass` as the semantic resource-order
   contract, not as a callable implementation; do not patch `DLSSPass.Render` or
   force `m_DLSSPass` as the fix. Mainline remains contract-bind evidence, then
   bounded no-write cost proof, then NGX evaluate only if the boundary is cheap.
+- Repeatable static route audit is now recorded in
+  `docs/development/vrising-hdrp-dlss-static-route-audit-2026-06-08.md`, with
+  local JSON at
+  `artifacts/research/vrising-hdrp-dlss-static-route-audit-20260608.json`.
+  It ran read-only (`LaunchesGame=false`, `ModifiesGameFiles=false`) and
+  reported: HDRP route anchors `9/9`, DLSSPass methods `9/9`,
+  `DLSSPass.BeginFrame/SetupDRSScaling/Render/.ctor` sharing `0x171E170`,
+  active asset `HDRP DefaultSettings` with `enableDLSS=0` and
+  `upsampleFilter=EdgeAdaptiveScalingUpres`,
+  `SetupDLSSFeature -> DLSSPass.SetupFeature=False`,
+  `InitializePostProcess -> DLSSPass.Create=False`,
+  `DoDLSSPassDeclaresRenderGraphBoundary=True`,
+  `ActivateDLSSCallerCount=0`, ProjectM DLSS/NGX/Streamline hits `0`, and
+  upscaler runtime files outside our mod/config `0`. This mechanically
+  reinforces the route decision: use `DoDLSSPass` as clean-room semantic
+  contract, not as a callable V Rising DLSS implementation.
 - HDRP asset unpack follow-up is now recorded in
   `docs/development/vrising-hdrp-asset-unpack-followup-2026-06-08.md`.
   No V Rising runtime was launched and no game files were modified. UnityPy

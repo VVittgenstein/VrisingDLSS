@@ -3,6 +3,11 @@
 Status: local/static investigation completed for this pass. No V Rising runtime
 launch was performed, and no game files were modified.
 
+Follow-up repeatable audit:
+`docs/development/vrising-hdrp-dlss-static-route-audit-2026-06-08.md`.
+The corresponding local JSON artifact is
+`artifacts/research/vrising-hdrp-dlss-static-route-audit-20260608.json`.
+
 ## Scope And Clean-Room Boundary
 
 Goal: reconstruct the practical V Rising HDRP / RenderGraph / dynamic
@@ -48,7 +53,18 @@ rg -n "HDRenderPipeline\$\$(SetupDLSSFeature|SetupDLSSForCameraDataAndDynamicRes
 rg -n "DLSSPass\$\$(Create|SetupFeature|BeginFrame|SetupDRSScaling|Render|GetViewResources|CreateCameraResources|GetCameraResources|\.ctor)" ref\decompilation-vrising-2026-06-08\il2cpp-dumper\script.json
 C:\Software\dotnet\dotnet.exe artifacts\tools\InteropXrefProbe\bin\Release\net6.0\InteropXrefProbe.dll C:\Software\VRising
 C:\Software\w64devkit\bin\strings.exe C:\Software\VRising\VRising_Data\globalgamemanagers.assets
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\inspect-vrising-hdrp-dlss-static-route.ps1 -GamePath C:\Software\VRising -Json
 ```
+
+The repeatable audit script mechanically checks the same local IL2CPP method
+anchors, DLSSPass execution shape, pass strings, field/layout evidence, HDRP
+asset unpack, interop xref summary, ProjectM FSR/DLSS metadata search, and
+upscaler-runtime file search. On this pass it reported `Status=Pass`,
+`LaunchesGame=false`, `ModifiesGameFiles=false`, `HDRP anchors=9/9`,
+`DLSSPass methods=9/9`, `DLSSPass execution shared address=0x171E170`,
+`active asset enableDLSS=0`, `upsampleFilter=EdgeAdaptiveScalingUpres`,
+`DoDLSSPassDeclaresRenderGraphBoundary=True`, `ActivateDLSSCallerCount=0`,
+`ProjectM DLSS hits=0`, and `UpscalerRuntimeFilesOutsideMod=0`.
 
 ## Evidence 1: V Rising Contains The Official HDRP Postprocess Route Shell
 
