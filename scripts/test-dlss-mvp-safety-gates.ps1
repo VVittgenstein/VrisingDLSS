@@ -23,7 +23,8 @@ function Resolve-RepoPath {
 function Test-ValidationRecord {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
-        [Parameter(Mandatory = $true)][string[]]$RequiredMarkers
+        [Parameter(Mandatory = $true)][string[]]$RequiredMarkers,
+        [Parameter(Mandatory = $true)][ValidateSet("ResizeReset", "Fallback")][string]$Kind
     )
 
     $resolvedPath = Resolve-RepoPath -Path $Path
@@ -32,6 +33,7 @@ function Test-ValidationRecord {
     $missingMarkers = @()
     $emptyMarkers = @()
     $placeholderMatches = @()
+    $markerValues = @{}
 
     if (-not $exists) {
         return [pscustomobject]@{
@@ -59,6 +61,8 @@ function Test-ValidationRecord {
             $markerMatch = [regex]::Match($text, "(?im)^\s*$escapedMarker\s*(?<value>\S.*)?$")
             if (-not $markerMatch.Success -or [string]::IsNullOrWhiteSpace($markerMatch.Groups["value"].Value)) {
                 $emptyMarkers += $marker
+            } else {
+                $markerValues[$marker] = $markerMatch.Groups["value"].Value.Trim()
             }
         }
     }
@@ -75,6 +79,64 @@ function Test-ValidationRecord {
         [void]$issues.Add("Validation record still contains placeholders: $($placeholderMatches -join ', ')")
     }
 
+    $validationRoute = [string]$markerValues["Validation Route:"]
+    if ($validationRoute -match '(?i)(synthetic|dry[- ]?run|template|paper[- ]?only|startup[- ]?only|menu[- ]?only)') {
+        [void]$issues.Add("Validation Route must describe real gameplay validation, not synthetic/dry-run/startup-only evidence.")
+    }
+
+    $artifacts = [string]$markerValues["Artifacts:"]
+    if (-not [string]::IsNullOrWhiteSpace($artifacts) -and $artifacts -notmatch '(?i)\bartifacts[\\/]') {
+        [void]$issues.Add("Artifacts must reference local artifact paths under artifacts/.")
+    }
+
+    $cleanupEvidence = [string]$markerValues["Cleanup Evidence:"]
+    if (-not [string]::IsNullOrWhiteSpace($cleanupEvidence) -and $cleanupEvidence -notmatch '(?i)(no .*process|process.*none|restor|cleanup.*pass|ChangeCount=0|release-safe)') {
+        [void]$issues.Add("Cleanup Evidence must prove process cleanup and restored/release-safe state.")
+    }
+
+    if ($Kind -eq "ResizeReset") {
+        $matrixAndResize = @(
+            [string]$markerValues["Test Matrix:"],
+            [string]$markerValues["Resolution Change Evidence:"]
+        ) -join "`n"
+        $resolutionTokens = @([regex]::Matches($matrixAndResize, '\b[0-9]{3,5}x[0-9]{3,5}\b') | ForEach-Object { $_.Value.ToLowerInvariant() } | Select-Object -Unique)
+        if ($resolutionTokens.Count -lt 2 -and $matrixAndResize -notmatch '(?i)(resize|resolution).*(change|switch|->|to)') {
+            [void]$issues.Add("Resize/reset validation must show an actual resolution or resize transition.")
+        }
+
+        $historyEvidence = [string]$markerValues["Camera/History Reset Evidence:"]
+        if (-not [string]::IsNullOrWhiteSpace($historyEvidence) -and $historyEvidence -notmatch '(?i)(resetHistory|reset history|history reset|camera cut|reset=1)') {
+            [void]$issues.Add("Camera/History Reset Evidence must mention resetHistory/history reset/camera cut evidence.")
+        }
+
+        $featureEvidence = [string]$markerValues["Feature Recreate/Reuse Evidence:"]
+        if (-not [string]::IsNullOrWhiteSpace($featureEvidence) -and $featureEvidence -notmatch '(?i)((feature|ngx|dlss).*(recreate|reuse|destroy|release|resize|reset)|(recreate|reuse).*(feature|ngx|dlss))') {
+            [void]$issues.Add("Feature Recreate/Reuse Evidence must cover DLSS/NGX feature lifecycle across resize/reset.")
+        }
+    } elseif ($Kind -eq "Fallback") {
+        $fallbackCases = [string]$markerValues["Fallback Cases:"]
+        foreach ($requiredCase in @("missing runtime", "unsupported gpu", "resource")) {
+            if ($fallbackCases -notmatch [regex]::Escape($requiredCase)) {
+                [void]$issues.Add("Fallback Cases must include $requiredCase.")
+            }
+        }
+
+        foreach ($marker in @("Runtime Missing Behavior:", "Unsupported GPU Behavior:", "Resource Missing Behavior:", "Disable/Restore Behavior:")) {
+            $value = [string]$markerValues[$marker]
+            if ($value -match '(?i)(not tested|skipped|not run|unverified)') {
+                [void]$issues.Add("$marker must not be untested/skipped/unverified.")
+            }
+            if (-not [string]::IsNullOrWhiteSpace($value) -and $value -notmatch '(?i)(fallback|disable|disabled|restor|unchanged|safe|substitute proof|clear status)') {
+                [void]$issues.Add("$marker must prove safe fallback/disable/restore behavior or a documented substitute proof.")
+            }
+        }
+
+        $userStatus = [string]$markerValues["User-Facing Status:"]
+        if (-not [string]::IsNullOrWhiteSpace($userStatus) -and $userStatus -notmatch '(?i)(log|status|message|overlay|config|warning|reason)') {
+            [void]$issues.Add("User-Facing Status must identify logs/status/messages that explain the fallback reason.")
+        }
+    }
+
     [pscustomobject]@{
         Status = $(if ($issues.Count -eq 0) { "Pass" } else { "Fail" })
         Path = $resolvedPath
@@ -84,6 +146,7 @@ function Test-ValidationRecord {
         EmptyMarkers = @($emptyMarkers)
         PlaceholderCount = $placeholderMatches.Count
         Placeholders = @($placeholderMatches)
+        MarkerValues = [pscustomobject]$markerValues
         Issues = @($issues)
     }
 }
@@ -121,8 +184,8 @@ $fallbackMarkers = @(
     "Validation Date:"
 )
 
-$resizeReset = Test-ValidationRecord -Path $ResizeResetPath -RequiredMarkers $resizeResetMarkers
-$fallback = Test-ValidationRecord -Path $FallbackPath -RequiredMarkers $fallbackMarkers
+$resizeReset = Test-ValidationRecord -Path $ResizeResetPath -RequiredMarkers $resizeResetMarkers -Kind ResizeReset
+$fallback = Test-ValidationRecord -Path $FallbackPath -RequiredMarkers $fallbackMarkers -Kind Fallback
 $overallStatus = if ($resizeReset.Status -eq "Pass" -and $fallback.Status -eq "Pass") {
     "Pass"
 } elseif ($resizeReset.Status -eq "Fail" -or $fallback.Status -eq "Fail") {

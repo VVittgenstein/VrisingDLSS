@@ -2149,6 +2149,12 @@ As of the read-only RenderGraph pass-map runtime result:
   `Windows computer-use client is closed` on both the lightweight probe and
   retry. No V Rising process was started, no game/config/save files were
   touched, and no fallback foreground key/mouse automation was used.
+- A subsequent continuation on 2026-06-08 again checked the same precondition:
+  the supported Computer Use app-list probe and required retry both returned
+  `Windows computer-use client is closed`. The contract-bind gameplay proof
+  stayed deferred before launch; no V Rising process was started, no config/save
+  files were touched, no input was sent, and no fallback foreground automation
+  was used.
 - `scripts\test-hdrp-dlss-schedule-analyzer-contract.ps1` now protects the
   schedule analyzer's target contract-bind verdicts without launching V Rising
   or modifying game files. It creates synthetic logs for the desired
@@ -2239,8 +2245,17 @@ As of the read-only RenderGraph pass-map runtime result:
   validator `scripts\test-dlss-mvp-safety-gates.ps1` checks the future live
   records `docs/release/dlss-resize-reset-validation.md` and
   `docs/release/dlss-fallback-validation.md`; both currently report
-  `Status=Blocked` because the live records do not exist yet. The starter
-  templates are
+  `Status=Blocked` because the live records do not exist yet. It now performs
+  semantic checks as well as marker/placeholder checks: live records must be real
+  gameplay validation, reference `artifacts/`, prove cleanup/release-safe state,
+  and for resize/reset prove a resize transition, history reset, and DLSS/NGX
+  feature lifecycle; fallback records must cover missing runtime, unsupported GPU
+  or substitute proof, resource-missing behavior, disable/restore behavior, and
+  user-facing fallback status. `scripts\test-dlss-mvp-safety-gates-contract.ps1`
+  protects those rules with synthetic pass/fail records; local result is
+  `Status=Pass`, `LaunchesGame=false`, `ModifiesGameFiles=false`,
+  `CheckCount=3`. GitHub Actions and release readiness run this contract guard.
+  The starter templates are
   `docs/release/dlss-resize-reset-validation.template.md` and
   `docs/release/dlss-fallback-validation.template.md`, and they intentionally
   contain `TBD` so they fail if used as release evidence unchanged.

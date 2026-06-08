@@ -31,9 +31,15 @@ Validation Date: TBD
 ## Notes
 
 - The record must prove resize or resolution change behavior, not just startup.
+- `Validation Route:` must describe real gameplay validation, not synthetic,
+  dry-run, menu-only, startup-only, or paper-only evidence.
+- `Test Matrix:` and `Resolution Change Evidence:` must show an actual
+  resolution/resize transition, such as two concrete `WIDTHxHEIGHT` entries.
 - The record must prove camera/history reset behavior and feature lifecycle
   handling after the reset, not just first-frame `reset=1`.
 - The record must point to local artifacts such as logs, screenshots, and
   cleanup/save-restore evidence.
+- `Artifacts:` must reference local paths under `artifacts/`.
+- `Cleanup Evidence:` must prove process cleanup and restored/release-safe state.
 - The record must not contain placeholders when used as the live validation
   file.

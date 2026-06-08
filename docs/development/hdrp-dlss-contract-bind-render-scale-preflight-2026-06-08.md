@@ -299,6 +299,18 @@ Follow-up work stayed no-runtime: the analyzer contract guard above was added so
 the next successful gameplay log has a machine-checked target verdict before any
 bounded no-write cost proof or visible DLSS write-back is attempted.
 
+## Deferred Runtime Attempt 3 - 2026-06-08
+
+Another continuation again stopped before launch because Computer Use returned
+`Windows computer-use client is closed` on both the initial lightweight
+`list_apps` probe and the required retry. No V Rising process was started, no
+loader/client configuration was written, no input was sent, and the protected
+`11111` save was not touched.
+
+Follow-up work stayed no-runtime and tightened the resize/reset and fallback
+validation gates so future live records cannot pass with startup-only,
+synthetic, missing-artifact, or untested fallback evidence.
+
 When Computer Use is available again, resume with the protected session command
 above, using a fresh artifact label such as
 `hdrp-dlss-contract-bind-render-scale-1080p-gameplay-20260608-r2` if the earlier

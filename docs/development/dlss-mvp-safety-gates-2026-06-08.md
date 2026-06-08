@@ -17,18 +17,34 @@ The validator checks future release records for:
 - `docs/release/dlss-resize-reset-validation.md`
 - `docs/release/dlss-fallback-validation.md`
 
-Until those live records exist and pass marker/placeholder checks, readiness
-reports both gates as `Blocked`.
+Until those live records exist and pass marker, placeholder, and semantic checks,
+readiness reports both gates as `Blocked`.
+
+The semantic contract is protected by:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\test-dlss-mvp-safety-gates-contract.ps1 -Json
+```
+
+That guard creates synthetic validation records and confirms:
+
+- a gameplay-shaped resize/fallback record with artifacts, cleanup, resize
+  transition, history reset, feature lifecycle, and fallback cases passes;
+- a startup-only resize record fails;
+- fallback records with missing cases or `not tested` / `skipped` / `unverified`
+  behavior fail.
 
 ## Required Evidence
 
 Resize/reset validation must prove:
 
 - resolution or resize behavior, not just startup;
+- real gameplay validation, not synthetic/dry-run/menu-only evidence;
 - camera/history reset behavior after the first frame;
 - DLSS feature recreate/reuse behavior after resize or reset;
 - cleanup and protected-save recovery;
-- exact artifacts such as logs, screenshots, and performance captures.
+- exact artifacts under `artifacts/`, such as logs, screenshots, and performance
+  captures.
 
 Fallback validation must prove:
 
@@ -38,7 +54,8 @@ Fallback validation must prove:
 - missing-resource behavior;
 - disable/restore behavior that leaves native rendering unchanged or restored;
 - user-facing status or logs explaining the fallback reason;
-- cleanup and protected-save recovery.
+- cleanup and protected-save recovery;
+- exact artifacts under `artifacts/`.
 
 Templates live at:
 
@@ -47,3 +64,7 @@ Templates live at:
 
 The templates intentionally contain `TBD`, so they fail the validator when used
 as live validation records.
+
+GitHub Actions and release readiness now run the semantic contract guard before
+packaging/readiness reporting. The live resize/reset and fallback gates still
+remain blocked until real gameplay validation records exist.

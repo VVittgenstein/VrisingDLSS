@@ -106,6 +106,7 @@ $contractAnalyzerRequirement = "HDRP DLSS schedule analyzer recognizes the contr
 $localSaveFixtureRequirement = "Local V Rising save fixture resolver finds exactly one usable Continue target named 11111 without launching or modifying the game."
 $renderGraphBoundaryRouteRequirement = "RenderGraph boundary route guard keeps mod-owned RenderGraph pass injection rejected as the normal route without launching or modifying the game."
 $runtimeDistributionRequirement = "Normal-user DLSS runtime distribution path is approved and does not require ad hoc manual DLL downloads."
+$mvpSafetyContractRequirement = "DLSS resize/reset and fallback validation gates reject semantic false positives such as startup-only resize records, missing artifacts, and untested fallback cases."
 $resizeResetRequirement = "Normal-user DLSS resize/reset behavior is validated with gameplay artifacts."
 $fallbackRequirement = "Normal-user DLSS fallback behavior is validated for missing runtime, unsupported GPU, and resource failures."
 
@@ -198,6 +199,7 @@ if (Test-Path -LiteralPath $workflowPath) {
         -and $workflowText -match "validate-thunderstore-package\.ps1" `
         -and $workflowText -match "package-thunderstore\.ps1" `
         -and $workflowText -match "test-dlss-runtime-distribution-gate-contract\.ps1" `
+        -and $workflowText -match "test-dlss-mvp-safety-gates-contract\.ps1" `
         -and $workflowText -match "test-hdrp-dlss-contract-bind-stage\.ps1\s+-RequirePass" `
         -and $workflowText -match "test-hdrp-dlss-schedule-analyzer-contract\.ps1" `
         -and $workflowText -match "test-rendergraph-boundary-route-status\.ps1\s+-RequirePass" `
@@ -772,6 +774,41 @@ $items.Add((New-ReadinessItem `
     -Requirement "Normal-user dlss-user-rendering gameplay visual/performance comparison proves the DLSS candidate is image-correct enough for MVP integration." `
     -Status $visualStatus.Status `
     -Evidence $visualEvidence))
+
+$mvpSafetyContractGate = Invoke-CapturedCommand -Command {
+    & (Join-Path $resolvedRoot "scripts\test-dlss-mvp-safety-gates-contract.ps1") -Root $resolvedRoot -Json
+}
+$mvpSafetyContractStatus = "Blocked"
+$mvpSafetyContractEvidence = "DLSS MVP safety gate contract guard did not produce evidence."
+if ($mvpSafetyContractGate.Succeeded) {
+    try {
+        $mvpSafetyContractReport = $mvpSafetyContractGate.Output | ConvertFrom-Json
+        $mvpSafetyContractStatus = if ($mvpSafetyContractReport.Status -eq "Pass" `
+                -and -not [bool]$mvpSafetyContractReport.LaunchesGame `
+                -and -not [bool]$mvpSafetyContractReport.ModifiesGameFiles) {
+            "Pass"
+        } elseif ($mvpSafetyContractReport.Status -eq "Fail") {
+            "Fail"
+        } else {
+            "Blocked"
+        }
+        $mvpSafetyContractEvidence = "Status=$($mvpSafetyContractReport.Status); Checks=$($mvpSafetyContractReport.CheckCount); FailedChecks=$(@($mvpSafetyContractReport.FailedChecks).Count); LaunchesGame=$($mvpSafetyContractReport.LaunchesGame); ModifiesGameFiles=$($mvpSafetyContractReport.ModifiesGameFiles)"
+        if (@($mvpSafetyContractReport.FailedChecks).Count -gt 0) {
+            $mvpSafetyContractEvidence = "$mvpSafetyContractEvidence; Failed=$(@($mvpSafetyContractReport.FailedChecks | ForEach-Object { $_.Name }) -join ' | ')"
+        }
+    } catch {
+        $mvpSafetyContractStatus = "Blocked"
+        $mvpSafetyContractEvidence = "Failed to parse DLSS MVP safety gate contract guard JSON: $($_.Exception.Message); Output=$($mvpSafetyContractGate.Output)"
+    }
+} else {
+    $mvpSafetyContractEvidence = "DLSS MVP safety gate contract guard failed: $($mvpSafetyContractGate.Output)"
+}
+
+$items.Add((New-ReadinessItem `
+    -Area "Evidence" `
+    -Requirement $mvpSafetyContractRequirement `
+    -Status $mvpSafetyContractStatus `
+    -Evidence $mvpSafetyContractEvidence))
 
 $mvpSafetyGate = Invoke-CapturedCommand -Command {
     & (Join-Path $resolvedRoot "scripts\test-dlss-mvp-safety-gates.ps1") `

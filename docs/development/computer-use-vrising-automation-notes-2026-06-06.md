@@ -1209,3 +1209,16 @@ Follow-up on the same 2026-06-08 continuation:
   C:\Software\VRising -Json` as `NextRuntimeProofPlan`, so the protected
   start/Computer Use/stop/analyze plan is discoverable when Computer Use becomes
   available again.
+
+Second follow-up on 2026-06-08:
+
+- The protected contract-bind runtime proof was considered again from readiness.
+- Computer Use was probed through the supported plugin path with the lightweight
+  app-list request and one retry.
+- Both attempts returned `Windows computer-use client is closed`.
+- V Rising was not launched, no game config was written, no input was sent, no
+  fallback foreground keyboard/mouse automation was used, and the protected
+  `11111` save was not touched.
+- The no-runtime follow-up tightened the resize/reset and fallback release gates
+  instead, so future live validation records cannot pass with startup-only,
+  synthetic, missing-artifact, or untested fallback evidence.
