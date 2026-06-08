@@ -30,11 +30,15 @@ ad hoc manual DLL download.
 - NVIDIA's DLSS GitHub repository describes itself as the public RTX DLSS SDK
   repository and says the sample app is included only in releases:
   https://github.com/NVIDIA/DLSS
-- The NVIDIA RTX SDK license permits SDK material distribution only when
+- The current NVIDIA/DLSS repository license is the NVIDIA RTX SDKs license,
+  version dated 2024-03-14. It permits SDK material distribution only when
   incorporated in object-code form into an application and subject to the
   license's distribution requirements; it also forbids standalone SDK
-  redistribution and includes DLSS/NGX notification/marketing obligations:
-  https://developer.nvidia.com/gameworks/nvidia_rtx_sdks_license_12apr2021.pdf
+  redistribution and includes DLSS/NGX notification/trademark/update obligations:
+  https://github.com/NVIDIA/DLSS/blob/main/LICENSE.txt
+- The current visible NVIDIA/DLSS GitHub release is `DLSS 310.6.0 SDK`,
+  released 2026-04-21:
+  https://github.com/NVIDIA/DLSS/releases/tag/v310.6.0
 - NVIDIA's NGX programming guide says applications should distribute only the
   DLLs for the features they use and remove them on uninstall:
   https://docs.nvidia.com/ngx/latest/programming-guide/
@@ -43,6 +47,9 @@ ad hoc manual DLL download.
   it also highlights signature/security requirements and release-vs-development
   binary distinctions:
   https://github.com/NVIDIA-RTX/Streamline/blob/main/docs/ProgrammingGuide.md
+
+The detailed route review is recorded in
+`docs/development/dlss-runtime-distribution-route-review-2026-06-08.md`.
 
 ## Current Decision
 
@@ -75,7 +82,8 @@ until all fields are resolved.
 One of these would close this gate:
 
 - an approved bundled-runtime path with exact `nvngx_dlss.dll` provenance,
-  version, license/notice text, and package validation updates; or
+  version, source evidence URLs, license/notice text, and package validation
+  updates; or
 - an approved installer/dependency path that obtains the runtime from an
   authoritative source without requiring users to manually download or copy an
   arbitrary DLL; or

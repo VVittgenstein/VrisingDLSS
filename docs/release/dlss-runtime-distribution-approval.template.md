@@ -8,6 +8,8 @@ Runtime Route: TBD
 
 Runtime Source: TBD
 
+Source Evidence URLs: TBD
+
 Runtime Version: TBD
 
 Runtime Files: TBD
@@ -36,6 +38,7 @@ Approval Date: TBD
   angle-bracket placeholders, or empty marker values.
 - The approval record must identify the exact binary provenance and version, not
   a generic web search or user-supplied DLL.
+- The approval record must include source evidence URLs for the selected route.
 - If the selected path bundles runtime files, update release-boundary and package
   validation before approving.
 - If the selected path uses an installer or dependency, describe the exact

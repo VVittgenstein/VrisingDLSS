@@ -34,6 +34,7 @@ $requiredApprovalMarkers = @(
     "# DLSS Runtime Distribution Approval",
     "Runtime Route:",
     "Runtime Source:",
+    "Source Evidence URLs:",
     "Runtime Version:",
     "Runtime Files:",
     "Checksums:",

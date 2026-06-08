@@ -2210,6 +2210,21 @@ As of the read-only RenderGraph pass-map runtime result:
   `ApprovalExists=false`. A future approval should start from
   `docs/release/dlss-runtime-distribution-approval.template.md`; the validator
   rejects missing markers, empty marker values, and placeholder text.
+- `docs/development/dlss-runtime-distribution-route-review-2026-06-08.md` now
+  refreshes the runtime-distribution evidence against current official sources:
+  NVIDIA/DLSS `LICENSE.txt` is the NVIDIA RTX SDKs license dated 2024-03-14, and
+  the current visible NVIDIA/DLSS release is `DLSS 310.6.0 SDK` from
+  2026-04-21. The local research candidate
+  `ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll` is signed by NVIDIA, reports
+  file/product version `310.6.0.0`, description `NVIDIA DLSS - DVS PRODUCTION`,
+  size `58830448`, and SHA256
+  `099B3E1E3AD3F226DE621FE570B26CC554CC775E2606BE23EB222D6245674070`.
+  This remains candidate evidence only; it does not approve bundling. The route
+  matrix keeps source-safe/no-runtime accepted only for diagnostic releases,
+  marks bundled `nvngx_dlss.dll` and authoritative installer/dependency routes
+  as candidates needing approval, rejects third-party/manual DLL downloads, and
+  does not select Streamline as a distribution-only fix. The approval template
+  and validator now require `Source Evidence URLs:`.
 - DLSS resize/reset and fallback behavior are now separate explicit MVP gates,
   not one generic enable/disable safety blocker. The no-launch/no-modification
   validator `scripts\test-dlss-mvp-safety-gates.ps1` checks the future live
