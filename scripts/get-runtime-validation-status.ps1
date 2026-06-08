@@ -10,7 +10,9 @@ param(
 
     [string]$ArchivedLogRoot,
 
-    [int]$MaxArchivedAnalysisFiles = 120
+    [int]$MaxArchivedAnalysisFiles = 120,
+
+    [switch]$Json
 )
 
 $ErrorActionPreference = "Stop"
@@ -939,7 +941,7 @@ $recommendation = Get-NextRecommendation `
     -CurrentLogResults $currentLogResults `
     -CurrentLogText $currentLogText
 
-[pscustomobject]@{
+$summary = [pscustomobject]@{
     GamePath = $inspect.GamePath
     GameVersion = $inspect.GameVersion
     BepInExInstalled = $inspect.BepInExInstalled
@@ -956,4 +958,10 @@ $recommendation = Get-NextRecommendation `
     StageResults = $logResults
     NextRecommendation = $recommendation
     LaunchesGame = $false
+}
+
+if ($Json) {
+    $summary | ConvertTo-Json -Depth 6
+} else {
+    $summary
 }

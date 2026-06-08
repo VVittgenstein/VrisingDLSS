@@ -2044,3 +2044,8 @@ As of the read-only RenderGraph pass-map runtime result:
   `ConfiguredStage=loader`, `LaunchesGame=False`, and recommends the protected
   `hdrp-dlss-contract-bind-render-scale` gameplay proof while still preserving
   the actual live-log stage results.
+- The same runtime status script now supports `-Json`, matching the release
+  readiness script's machine-readable mode. This keeps future automation from
+  depending on fragile PowerShell formatting when checking
+  `ConfiguredStage=loader`, `LaunchesGame=False`, and whether the current
+  recommendation still points to the protected contract-bind proof.
