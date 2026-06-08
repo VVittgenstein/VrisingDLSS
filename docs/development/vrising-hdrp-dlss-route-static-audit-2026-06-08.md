@@ -110,6 +110,14 @@ Local V Rising metadata exposes the same gate fields:
 | `GlobalDynamicResolutionSettings.enableDLSS` | `dump.cs` offset `0x2` |
 | `GlobalDynamicResolutionSettings.DLSSInjectionPoint` | `dump.cs` offset `0x8` |
 
+Follow-up asset unpack evidence is recorded in
+`docs/development/vrising-hdrp-asset-unpack-followup-2026-06-08.md`. It shows
+Unity `GraphicsSettings.m_CustomRenderPipeline` points to `HDRP DefaultSettings`
+(`path_id=9008`), whose serialized values include `m_UseRenderGraph=1`,
+`dynamicResolutionSettings.enabled=1`, `dynamicResolutionSettings.enableDLSS=0`,
+`DLSSInjectionPoint=0` (`BeforePost`), and `upsampleFilter=4`
+(`EdgeAdaptiveScalingUpres` / FSR 1.0 EASU).
+
 The read-only menu audit already captured V Rising's safe-settings state:
 
 - `allowDeepLearningSuperSampling=True`
@@ -119,7 +127,8 @@ The read-only menu audit already captured V Rising's safe-settings state:
 - `UpsampleSyncPoint=AfterPost`
 - no `"Deep Learning Super Sampling"` RenderGraph pass observed
 
-Evidence level: strong local source/metadata/runtime-log evidence.
+Evidence level: strong local source/metadata/serialized-asset/runtime-log
+evidence.
 
 Inference: under normal current settings, V Rising does not schedule the
 official HDRP DLSS pass shell because the official gates are not all true.

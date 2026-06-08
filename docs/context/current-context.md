@@ -2013,6 +2013,26 @@ As of the read-only RenderGraph pass-map runtime result:
   contract, not as a callable implementation; do not patch `DLSSPass.Render` or
   force `m_DLSSPass` as the fix. Mainline remains contract-bind evidence, then
   bounded no-write cost proof, then NGX evaluate only if the boundary is cheap.
+- HDRP asset unpack follow-up is now recorded in
+  `docs/development/vrising-hdrp-asset-unpack-followup-2026-06-08.md`.
+  No V Rising runtime was launched and no game files were modified. UnityPy
+  `1.25.0` and TypeTreeGeneratorAPI `0.0.10` were installed into
+  `C:\Software\Python314` and used read-only with local Il2CppDumper `DummyDll`
+  type trees after direct IL2CPP type-tree loading failed against the local
+  metadata v31/GameAssembly pair. The Unity `GraphicsSettings` object in
+  `globalgamemanagers` points `m_CustomRenderPipeline` to path id `9008`,
+  `HDRP DefaultSettings`. That active `HDRenderPipelineAsset` parses with
+  `m_UseRenderGraph=1`, `dynamicResolutionSettings.enabled=1`,
+  `enableDLSS=0`, `DLSSInjectionPoint=0` (`BeforePost`), `dynResType=1`
+  (`Hardware`), and `upsampleFilter=4` (`EdgeAdaptiveScalingUpres` / FSR 1.0
+  EASU). `HDRP_Low` and `HDRP_Medium` also have `enableDLSS=0`, and their
+  dynamic-resolution setting is disabled. `HDRenderPipelineGlobalSettings`
+  structured parsing remains incomplete, but its object/header and embedded
+  custom postprocess strings confirm V Rising registers types such as
+  `CustomVignette`, `DarkForeground`, `BatFormFog`, and
+  `ProjectM.ContestAreaEffect`. This promotes the asset evidence from raw
+  strings to serialized active-asset values and further explains why official
+  HDRP DLSS is not scheduled normally.
 - Automation session protected-save support was added after the contract-bind
   preflight. `scripts/start-vrising-automation-session.ps1` now accepts
   `-ProtectSave -SaveDir <local-save-dir>` and records `SaveBackupDir`,

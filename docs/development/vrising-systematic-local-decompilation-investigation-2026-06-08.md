@@ -159,7 +159,7 @@ output boundary, but it is not semantically identical to the official DLSS pass
 because EASU declares source/destination, while the official DLSS pass declares
 source/output/depth/motion/bias resources as one pass contract.
 
-## Evidence 4: Runtime Gate Values Seen So Far
+## Evidence 4: Runtime And Serialized Asset Gate Values
 
 Static metadata exposes the official gate fields:
 
@@ -173,6 +173,28 @@ Static metadata exposes the official gate fields:
 | `GlobalDynamicResolutionSettings.enableDLSS` | `dump.cs` offset `0x2` |
 | `GlobalDynamicResolutionSettings.DLSSInjectionPoint` | `dump.cs` offset `0x8` |
 
+The follow-up asset unpack is recorded in
+`docs/development/vrising-hdrp-asset-unpack-followup-2026-06-08.md`. It used
+`UnityPy 1.25.0` plus `TypeTreeGeneratorAPI 0.0.10` against local
+Il2CppDumper `DummyDll` type trees and read the Unity asset objects without
+modifying game files.
+
+Key serialized asset evidence:
+
+- Unity `GraphicsSettings.m_CustomRenderPipeline` points to path id `9008`,
+  `HDRP DefaultSettings`.
+- `HDRP DefaultSettings` has `m_UseRenderGraph=1`.
+- `HDRP DefaultSettings.dynamicResolutionSettings.enabled=1`.
+- `HDRP DefaultSettings.dynamicResolutionSettings.enableDLSS=0`.
+- `HDRP DefaultSettings.dynamicResolutionSettings.DLSSInjectionPoint=0`
+  (`BeforePost`).
+- `HDRP DefaultSettings.dynamicResolutionSettings.dynResType=1`
+  (`Hardware`).
+- `HDRP DefaultSettings.dynamicResolutionSettings.upsampleFilter=4`
+  (`EdgeAdaptiveScalingUpres` / FSR 1.0 EASU).
+- Additional `HDRP_Low` and `HDRP_Medium` assets also have `enableDLSS=0`;
+  both have `dynamicResolutionSettings.enabled=0`.
+
 Our read-only schedule-audit runtime log captured this normal menu state:
 
 - `allowDeepLearningSuperSampling=True`
@@ -184,16 +206,21 @@ Our read-only schedule-audit runtime log captured this normal menu state:
 - `HDCamera.UpsampleSyncPoint=AfterPost`
 - no `"Deep Learning Super Sampling"` RenderGraph pass observed
 
-Asset string extraction from `globalgamemanagers.assets`, `resources.assets`,
-and `sharedassets0.assets` found type/string markers but did not produce
-trustworthy serialized bool values for the HDRP asset.
+Earlier raw string extraction from `globalgamemanagers.assets`,
+`resources.assets`, and `sharedassets0.assets` only found type/string markers.
+The follow-up type-tree parse supersedes that limitation for the
+`HDRenderPipelineAsset` objects.
 
-Evidence level: strong for metadata fields and diagnostic runtime values;
-insufficient for direct serialized asset values.
+Evidence level: strong for metadata fields, serialized active HDRP asset values,
+and diagnostic runtime values. `HDRenderPipelineGlobalSettings` structured
+fields are still only partially parsed; its object identity and embedded custom
+postprocess type strings are reliable.
 
-Inference: the practical normal game path does not schedule official HDRP DLSS.
-The most reliable current actual-value source is our own runtime snapshot, not
-raw asset strings.
+Inference: the practical normal game path does not schedule official HDRP DLSS
+because both the serialized active asset gate (`enableDLSS=0`) and runtime
+camera/gate snapshot (`cameraCanRenderDLSS=False`, `IsDLSSEnabled=False`) agree.
+The active EASU path is not accidental: the active asset's upscaler is
+explicitly `EdgeAdaptiveScalingUpres`.
 
 ## Evidence 5: V Rising Has Its Own FSR/Dynamic-Resolution Control Layer
 
@@ -271,10 +298,14 @@ interpretation is null/inert in normal V Rising runtime.
 
 ### What are the actual gate values and sources?
 
-The gate fields are present in metadata. Our read-only runtime evidence shows
-`enableDLSS=False`, `cameraCanRenderDLSS=False`, and `HDCamera.IsDLSSEnabled=False`
-under normal menu conditions. Raw asset string extraction was not enough to
-prove serialized HDRP asset bools.
+The gate fields are present in metadata. Follow-up serialized asset parsing now
+shows the active Unity `GraphicsSettings.m_CustomRenderPipeline` points to
+`HDRP DefaultSettings`, with `m_UseRenderGraph=1`,
+`dynamicResolutionSettings.enabled=1`, `enableDLSS=0`, `DLSSInjectionPoint=0`
+(`BeforePost`), and `upsampleFilter=4` (`EdgeAdaptiveScalingUpres` / FSR 1.0
+EASU). Our read-only runtime evidence separately shows
+`cameraCanRenderDLSS=False`, `HDCamera.IsDLSSEnabled=False`, and no official
+DLSS pass under normal menu conditions.
 
 ### Where is the official equivalent evaluate boundary?
 
