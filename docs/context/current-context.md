@@ -1991,3 +1991,25 @@ As of the read-only RenderGraph pass-map runtime result:
   gameplay run of this stage at true `1920x1080` Windowed with V Rising FSR Off,
   followed by `analyze-hdrp-dlss-schedule-audit.ps1`; do not pass SDK-wrapper
   native or DLSS runtime for this stage.
+- Systematic local decompilation investigation is now recorded in
+  `docs/development/vrising-systematic-local-decompilation-investigation-2026-06-08.md`.
+  No V Rising runtime was launched and no game files were modified. The pass
+  rechecked local Il2CppDumper output, BepInEx interop/xref cache, UnityGraphics
+  2022.3 source, and asset strings. Evidence: V Rising contains the official
+  HDRP postprocess route shell (`RenderPostProcess`, `DoDLSSPasses`,
+  `DoDLSSPass`, `GetPostprocessUpsampledOutputHandle`, EASU, FinalPass);
+  xrefs show `DoDLSSPasses` has five callers from `RenderPostProcess` and
+  `DoDLSSPass` calls `AddRenderPass`, `ReadTexture`,
+  `DLSSPass.CreateCameraResources`, `RenderFunc<T>.ctor`, and `SetRenderFunc`.
+  Counter-evidence: `DLSSPass.BeginFrame`, `SetupDRSScaling`, `Render`, and
+  `.ctor` all share `0x171E170`, `ActivateDLSS` has no useful caller path, and
+  `InitializePostProcess -> DLSSPass.Create` is not resolved. V Rising's
+  `ProjectM.GraphicsSettingsManager` and `FSRQualityMode` confirm a real
+  game-side FSR/TAAU/dynamic-resolution control layer, but no local evidence
+  shows a game-specific DLSS replacement layer. Asset string extraction found
+  HDRP/DLSS/FSR markers but not trustworthy serialized HDRP asset bool values,
+  so current actual gate values still come from our read-only runtime snapshot.
+  Durable decision: treat official `DoDLSSPass` as the semantic resource-order
+  contract, not as a callable implementation; do not patch `DLSSPass.Render` or
+  force `m_DLSSPass` as the fix. Mainline remains contract-bind evidence, then
+  bounded no-write cost proof, then NGX evaluate only if the boundary is cheap.
