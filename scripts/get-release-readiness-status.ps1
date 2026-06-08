@@ -82,6 +82,7 @@ $resolvedRoot = (Resolve-Path -LiteralPath $Root).Path
 $items = New-Object System.Collections.Generic.List[object]
 $runtimeNextRecommendation = $null
 $visualNextRecommendation = $null
+$nextRuntimeProofPlan = $null
 
 $manifestPath = Join-Path $resolvedRoot "package\thunderstore\manifest.json"
 $packageReadmePath = Join-Path $resolvedRoot "package\thunderstore\README.md"
@@ -288,6 +289,9 @@ if ($contractBindGuard.Succeeded) {
         }
         if (@($contractBindReport.Issues).Count -gt 0) {
             $contractBindGuardEvidence = "$contractBindGuardEvidence; Issues=$(@($contractBindReport.Issues) -join ' | ')"
+        }
+        if ($contractBindReport.RuntimeProofPlan) {
+            $nextRuntimeProofPlan = $contractBindReport.RuntimeProofPlan
         }
     } catch {
         $contractBindGuardStatus = "Blocked"
@@ -595,6 +599,7 @@ $summary = [pscustomobject]@{
     PackagePath = $PackagePath
     GamePath = $GamePath
     Items = $items
+    NextRuntimeProofPlan = $nextRuntimeProofPlan
     NextRecommendation = if ($mvpReady) {
         "MVP evidence is complete. Prepare a final release review."
     } elseif ([string]::IsNullOrWhiteSpace($GamePath)) {

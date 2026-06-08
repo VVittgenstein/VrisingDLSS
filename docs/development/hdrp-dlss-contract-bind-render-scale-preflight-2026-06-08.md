@@ -251,6 +251,11 @@ command templates, pass signals, and fail signals. Local validation on
 `MovementKeysAllowed=false`, and `StartCommand` uses `-SaveName 11111` while the
 guard itself still reports `LaunchesGame=false`.
 
+`scripts\get-release-readiness-status.ps1 -GamePath C:\Software\VRising -Json`
+now forwards that object as `NextRuntimeProofPlan`, so automation can discover
+the protected start/Computer Use/stop/analyze plan from the readiness entrypoint
+without launching V Rising or parsing prose recommendations.
+
 When Computer Use is available again, resume with the protected session command
 above, using a fresh artifact label such as
 `hdrp-dlss-contract-bind-render-scale-1080p-gameplay-20260608-r2` if the earlier

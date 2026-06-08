@@ -1191,3 +1191,16 @@ State at deferral:
 - The worktree was clean.
 - No game config was written.
 - The protected save was not touched.
+
+Follow-up on the same 2026-06-08 continuation:
+
+- Computer Use was probed through the supported plugin path again.
+- Two lightweight app-list attempts returned `Windows computer-use client is
+  closed`.
+- V Rising was not launched, and no fallback foreground keyboard/mouse
+  automation was used.
+- The no-runtime follow-up instead exposed the contract-bind
+  `RuntimeProofPlan` through `get-release-readiness-status.ps1 -GamePath
+  C:\Software\VRising -Json` as `NextRuntimeProofPlan`, so the protected
+  start/Computer Use/stop/analyze plan is discoverable when Computer Use becomes
+  available again.

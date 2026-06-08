@@ -2126,7 +2126,10 @@ As of the read-only RenderGraph pass-map runtime result:
   (click Continue/11111 once, send no movement keys), stop/analyze command
   templates, pass signals, and fail signals. Local validation confirmed
   `LaunchesGame=false`, `RequiresComputerUse=true`, and
-  `MovementKeysAllowed=false`.
+  `MovementKeysAllowed=false`. `scripts\get-release-readiness-status.ps1
+  -GamePath C:\Software\VRising -Json` now forwards this same object as
+  `NextRuntimeProofPlan`, making the protected start/Computer Use/stop/analyze
+  plan discoverable from the readiness entrypoint without launching the game.
 - `scripts\test-rendergraph-boundary-route-status.ps1 -RequirePass -Json`
   now makes the mod-owned RenderGraph boundary decision repeatable without
   launching V Rising or modifying game files. It validates the old
