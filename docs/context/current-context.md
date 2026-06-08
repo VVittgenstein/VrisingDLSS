@@ -1662,3 +1662,38 @@ As of the read-only RenderGraph pass-map runtime result:
   metrics-only failure artifact cannot accidentally satisfy the MVP gate. A
   fake PresentMon non-runtime test covered `PresentMonCsvMissing`, and a
   temporary readiness check confirmed the visual gate stays `Blocked`.
+- Candidate-only performance rerun
+  `candidate-user-rendering-perf-1080p-20260608-r1` then proved the harness can
+  capture the source-guided `dlss-user-rendering` candidate FPS after the
+  structured PresentMon fix. Runtime shape was true `1920x1080` Windowed,
+  V Rising `FsrQualityMode=Off`, protected local save, and Computer Use clicked
+  Continue once with no movement keys. `DLSS User Rendering Candidate=Pass` and
+  `Native RenderFunc CommandBuffer DLSS User Rendering=Pass`; the FPS summary
+  wrote `Status=Pass`, `AverageFps=136.322`, `OnePercentLowFps=105.096`,
+  `P95FrameMs=8.624`, `P99FrameMs=9.515`,
+  `AverageGpuUtilPercent=53.111`, and `AverageGpuPowerW=85.199`. Screenshot was
+  nonblank `1920x1080` with SHA-256
+  `057A21D3365DA16E6BC5D27ED5474A9A74BFA37BD71CE16D557AAA0DD93ADD8B`.
+  Cleanup passed: no crash/WER, no remaining V Rising process,
+  release-safe state restored, BepInEx/client settings restored, FSR restored
+  Off, and protected save restore ended `CompareStatus=Restored` with final
+  `ChangeCount=0`. This candidate-only run is not MVP performance evidence:
+  cross-run comparison against the earlier paired baseline would be about
+  `-12.67%` average FPS, `+16.06%` 1% low, and `-6.35%` P95 frame time, but a
+  same-run paired baseline/candidate comparison and human visual review are
+  still required.
+- Next direction after the candidate-only rerun: the current EASU `ctx.cmd`
+  route is stable enough to measure and avoids the old hot
+  `RenderGraph.GetTexture` path, so more blind runtime loops are lower value
+  than a narrow source/decompilation pass. Use local Unity HDRP source plus V
+  Rising IL2CPP metadata/decompilation to compare official
+  `RenderPostProcess -> DoDLSSPasses -> DoDLSSPass -> DLSSPass.Render(...,
+  ctx.cmd)` behavior with the current EASU `ctx.cmd` candidate. Focus only on
+  concrete differences that could affect quality/performance: jitter,
+  motion-vector scale, reset/history state, pre-exposure, sharpness,
+  camera/resource history, resize/reset lifecycle, feature reuse, resource
+  declarations, synchronization/present behavior, and whether any
+  BepInEx/Harmony-safe equivalent to `DoDLSSPass`/`DLSSPass.Render` is reachable
+  without broad steady-state resource discovery. Keep decompiled game evidence
+  local and summarized; do not copy proprietary method bodies or game assets
+  into the public package.

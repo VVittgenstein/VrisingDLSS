@@ -192,3 +192,80 @@ confirmed that such a summary is reported as a performance capture failure and
 does not satisfy the MVP visual/performance gate. A second fake PresentMon script
 wrote a three-row CSV and confirmed the success path still emits `Status=Pass`
 with `AverageFps`, `OnePercentLowFps`, and `P95FrameMs`.
+
+## Candidate-Only Performance Rerun
+
+After the harness fix, a candidate-only runtime repro verified that the new
+structured PresentMon path can capture FPS for the current source-guided
+`dlss-user-rendering` candidate:
+
+- Artifact label:
+  `candidate-user-rendering-perf-1080p-20260608-r1`
+- Shape: true `1920x1080` Windowed, V Rising `FsrQualityMode=Off`,
+  `DLSS.EnableDLSS=true`, protected local save, manual Continue click only.
+- Computer Use selected the real
+  `process:C:\Software\VRising\VRising.exe` Unity window, clicked Continue once,
+  and sent no movement/gameplay keys.
+- User-rendering evidence was detected at `2026-06-08T14:12:01.4409834+08:00`.
+- Screenshot:
+  `artifacts\visual-validation\candidate-user-rendering-perf-1080p-20260608-r1-user-rendering.png`
+  with `Width=1920`, `Height=1080`, `AverageLuma=24.685`,
+  `NearBlackRatio=0.310741`, and SHA-256
+  `057A21D3365DA16E6BC5D27ED5474A9A74BFA37BD71CE16D557AAA0DD93ADD8B`.
+- FPS summary:
+  `artifacts\fps-validation\candidate-user-rendering-perf-1080p-20260608-r1-user-rendering.txt`
+  with `Status=Pass`.
+
+| Metric | Candidate-only |
+| --- | ---: |
+| Average FPS | 136.322 |
+| 1% low FPS | 105.096 |
+| P95 frame time | 8.624 ms |
+| P99 frame time | 9.515 ms |
+| Average GPU utilization | 53.111% |
+| P95 GPU utilization | 58.2% |
+| Average GPU power | 85.199 W |
+| Average process CPU | 6.427% |
+| Average GPU memory | 4563.333 MB |
+
+Runtime cleanup passed: no crash/WER evidence, `ClosedByScript=True`, no
+remaining V Rising process, loader/native/client/BepInEx config restored, V
+Rising FSR restored to `Off`, and protected save restore ended with
+`CompareStatus=Restored` and final `ChangeCount=0`.
+
+This is a measurement-harness success and useful candidate diagnostic, not an
+MVP performance pass. Cross-run comparison against the earlier paired baseline
+(`AverageFps=156.105`, `OnePercentLowFps=90.552`, `P95FrameMs=9.209`) would put
+the candidate at about `-12.67%` average FPS, `+16.06%` 1% low, and `-6.35%`
+P95 frame time, but that comparison is not controlled because this was
+candidate-only. The readiness gate remains blocked until a same-run paired
+baseline/candidate comparison produces `Status=Pass` performance summaries and
+a human visual review.
+
+## Source/Decompilation Direction
+
+The candidate-only rerun changes the next technical question. The current
+source-guided EASU `ctx.cmd` route is stable enough to measure, avoids the old
+hot `RenderGraph.GetTexture` path, and produces nonblank visible output. More
+blind runtime loops are now lower value than a narrow source/decompilation pass.
+
+Use local Unity HDRP source plus V Rising IL2CPP metadata/decompilation to
+compare the official
+`RenderPostProcess -> DoDLSSPasses -> DoDLSSPass -> DLSSPass.Render(..., ctx.cmd)`
+path against the current EASU `ctx.cmd` candidate. The narrow questions are:
+
+- Which official per-frame values are passed to DLSS but missing or approximated
+  in the candidate: jitter, motion-vector scale, reset/history state,
+  pre-exposure, sharpness, camera/resource history, render size, and output size?
+- Where does official HDRP create/reuse/reset the DLSS feature across resize,
+  camera, dynamic-resolution, and history changes?
+- Does the official pass declare/read/write resources differently from the
+  current EASU-visible write-back route in a way that would explain lower GPU
+  utilization or synchronization/present behavior?
+- Is there a BepInEx/Harmony-safe equivalent boundary closer to
+  `DoDLSSPass`/`DLSSPass.Render` than the EASU render func, without broad
+  steady-state resource discovery?
+
+Keep any decompiled-game evidence local and summarized. Do not copy proprietary
+method bodies or game assets into the public package; use the result as a map for
+clean-room patches and focused probes only.
