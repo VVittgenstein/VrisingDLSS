@@ -55,6 +55,18 @@ Until that exists, release readiness must keep a blocked MVP item for runtime
 distribution even if the technical DLSS evaluate path and visual/performance
 evidence improve.
 
+The gate is mechanically checked by:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\test-dlss-runtime-distribution-gate.ps1 -Json
+```
+
+With no approval record, the validator reports `Status=Blocked`,
+`RuntimeDistributionApproved=false`, `LaunchesGame=false`, and
+`ModifiesGameFiles=false`. If an approval record is added later, it must pass
+the validator's required-marker and placeholder checks before readiness can mark
+this gate as `Pass`.
+
 ## Accepted Future Evidence
 
 One of these would close this gate:

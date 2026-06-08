@@ -561,15 +561,35 @@ $items.Add((New-ReadinessItem `
     -Status $(if ($releaseConfigSurfaceReady) { "Pass" } else { "Blocked" }) `
     -Evidence $(if ($releaseConfigSurfaceReady) { $configTemplatePath } else { "Release DLSS defaults are documented in docs/mvp.md but the package config does not expose every key yet." })))
 
-$runtimeDistributionGateExists = Test-Path -LiteralPath $runtimeDistributionGatePath
-$runtimeDistributionApprovalExists = Test-Path -LiteralPath $runtimeDistributionApprovalPath
-$runtimeDistributionStatus = if ($runtimeDistributionApprovalExists) { "Pass" } else { "Blocked" }
-$runtimeDistributionEvidence = if ($runtimeDistributionApprovalExists) {
-    "Approved runtime distribution record exists: $runtimeDistributionApprovalPath"
-} elseif ($runtimeDistributionGateExists) {
-    "No approved runtime distribution record exists. Current gate: $runtimeDistributionGatePath"
+$runtimeDistributionGate = Invoke-CapturedCommand -Command {
+    & (Join-Path $resolvedRoot "scripts\test-dlss-runtime-distribution-gate.ps1") `
+        -Root $resolvedRoot `
+        -GatePath $runtimeDistributionGatePath `
+        -ApprovalPath $runtimeDistributionApprovalPath `
+        -Json
+}
+$runtimeDistributionStatus = "Blocked"
+$runtimeDistributionEvidence = "DLSS runtime distribution gate did not produce evidence."
+if ($runtimeDistributionGate.Succeeded) {
+    try {
+        $runtimeDistributionReport = $runtimeDistributionGate.Output | ConvertFrom-Json
+        $runtimeDistributionStatus = if ($runtimeDistributionReport.Status -eq "Pass") {
+            "Pass"
+        } elseif ($runtimeDistributionReport.Status -eq "Fail") {
+            "Fail"
+        } else {
+            "Blocked"
+        }
+        $runtimeDistributionEvidence = "Status=$($runtimeDistributionReport.Status); Approved=$($runtimeDistributionReport.RuntimeDistributionApproved); GateExists=$($runtimeDistributionReport.GateExists); ApprovalExists=$($runtimeDistributionReport.ApprovalExists); RequiredMarkers=$($runtimeDistributionReport.RequiredApprovalMarkerCount); MissingMarkers=$(@($runtimeDistributionReport.MissingApprovalMarkers).Count); PlaceholderCount=$($runtimeDistributionReport.PlaceholderCount); Gate=$($runtimeDistributionReport.GatePath); Approval=$($runtimeDistributionReport.ApprovalPath)"
+        if (@($runtimeDistributionReport.Issues).Count -gt 0) {
+            $runtimeDistributionEvidence = "$runtimeDistributionEvidence; Issues=$(@($runtimeDistributionReport.Issues) -join ' | ')"
+        }
+    } catch {
+        $runtimeDistributionStatus = "Blocked"
+        $runtimeDistributionEvidence = "Failed to parse DLSS runtime distribution gate JSON: $($_.Exception.Message); Output=$($runtimeDistributionGate.Output)"
+    }
 } else {
-    "Missing runtime distribution gate document: $runtimeDistributionGatePath"
+    $runtimeDistributionEvidence = "DLSS runtime distribution gate failed: $($runtimeDistributionGate.Output)"
 }
 $items.Add((New-ReadinessItem `
     -Area "MVP" `

@@ -2161,7 +2161,11 @@ As of the read-only RenderGraph pass-map runtime result:
   NVIDIA SDK files, or PureDark binaries. `get-release-readiness-status.ps1`
   now reports `Normal-user DLSS runtime distribution path is approved and does
   not require ad hoc manual DLL downloads` as `Blocked` until a separate
-  `docs/release/dlss-runtime-distribution-approval.md` record exists.
+  `docs/release/dlss-runtime-distribution-approval.md` record exists and passes
+  `scripts\test-dlss-runtime-distribution-gate.ps1`. The validator is
+  no-launch/no-modification and currently reports `Status=Blocked`,
+  `RuntimeDistributionApproved=false`, `GateExists=true`, and
+  `ApprovalExists=false`.
 - `scripts/get-runtime-validation-status.ps1` was updated after that deferral
   so a safe live `loader` config/log no longer sends the next-action advice
   back to the old hook-probe ladder when the repository already contains the
