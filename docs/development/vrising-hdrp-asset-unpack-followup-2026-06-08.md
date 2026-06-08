@@ -54,6 +54,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\inspect-vrising-hdrp
 The script launches no game process, modifies no game files, and reports
 `LaunchesGame=false` / `ModifiesGameFiles=false`.
 
+`scripts\get-release-readiness-status.ps1 -GamePath C:\Software\VRising -Json`
+now includes the same static unpack as an `Evidence` readiness item. A local
+successful run reports the active HDRP asset and DLSS/upscaler gates directly in
+the readiness summary; missing Python/type-tree tooling is treated as `Blocked`
+evidence rather than as a diagnostic package failure.
+
 Tooling note: `TypeTreeGeneratorAPI.load_il2cpp()` failed against the local
 `GameAssembly.dll` / metadata v31 pair, but `load_local_dll_folder()` succeeded
 with the Il2CppDumper `DummyDll` folder and generated usable type trees for

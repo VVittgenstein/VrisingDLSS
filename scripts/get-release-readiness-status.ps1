@@ -92,6 +92,7 @@ $mvpDocPath = Join-Path $resolvedRoot "docs\mvp.md"
 $measurementPlanPath = Join-Path $resolvedRoot "docs\development\measurement-plan.md"
 $workflowPath = Join-Path $resolvedRoot ".github\workflows\build-package.yml"
 $configTemplatePath = Join-Path $resolvedRoot "package\thunderstore\VrisingDLSS.cfg"
+$hdrpAssetRequirement = "Local HDRP asset unpack identifies the active render pipeline asset and DLSS/upscaler gates without launching or modifying the game."
 
 if ([string]::IsNullOrWhiteSpace($PackagePath) -and (Test-Path -LiteralPath $manifestPath)) {
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
@@ -228,6 +229,45 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
     $loader = Get-FirstStageStatus -StageResults $stageResults -StagePrefix "Stage 1"
     $sdkWrapperProofStatus = if (($stage6 -eq "Pass" -and $stage7 -eq "Pass") -or $stage8B -eq "Pass") { "Pass" } else { "Blocked" }
 
+    $assetInspector = Invoke-CapturedCommand -Command {
+        & (Join-Path $resolvedRoot "scripts\inspect-vrising-hdrp-assets.ps1") -Root $resolvedRoot -GamePath $GamePath -Json
+    }
+    $assetInspectorStatus = "Blocked"
+    $assetInspectorEvidence = "Inspector command did not produce evidence."
+    if ($assetInspector.Succeeded) {
+        try {
+            $assetReport = $assetInspector.Output | ConvertFrom-Json
+            $assetSummary = $assetReport.Summary
+            $assetLaunchesGame = [bool]$assetReport.LaunchesGame
+            $assetModifiesGameFiles = [bool]$assetReport.ModifiesGameFiles
+            $assetActiveName = [string]$assetSummary.ActiveAssetName
+            $assetInspectorEvidence = "Status=$($assetReport.Status); Unity=$($assetReport.UnityVersion); Active=$assetActiveName; UseRenderGraph=$($assetSummary.UseRenderGraph); DRS=$($assetSummary.DynamicResolutionEnabled); EnableDLSS=$($assetSummary.EnableDLSS); DLSSInjectionPoint=$($assetSummary.DLSSInjectionPointName); DynResType=$($assetSummary.DynamicResolutionTypeName); UpsampleFilter=$($assetSummary.UpsampleFilterName); LaunchesGame=$($assetReport.LaunchesGame); ModifiesGameFiles=$($assetReport.ModifiesGameFiles)"
+            if ($assetLaunchesGame -or $assetModifiesGameFiles) {
+                $assetInspectorStatus = "Fail"
+            } elseif ($assetReport.Status -eq "Pass" -and -not [string]::IsNullOrWhiteSpace($assetActiveName)) {
+                $assetInspectorStatus = "Pass"
+            } elseif ($assetReport.Status -eq "Pass") {
+                $assetInspectorStatus = "Fail"
+            } else {
+                $assetInspectorStatus = "Blocked"
+                if ($assetReport.Error) {
+                    $assetInspectorEvidence = "$assetInspectorEvidence; Error=$($assetReport.Error)"
+                }
+            }
+        } catch {
+            $assetInspectorStatus = "Blocked"
+            $assetInspectorEvidence = "Failed to parse inspector JSON: $($_.Exception.Message); Output=$($assetInspector.Output)"
+        }
+    } else {
+        $assetInspectorEvidence = "Inspector command failed or dependencies are missing: $($assetInspector.Output)"
+    }
+
+    $items.Add((New-ReadinessItem `
+        -Area "Evidence" `
+        -Requirement $hdrpAssetRequirement `
+        -Status $assetInspectorStatus `
+        -Evidence $assetInspectorEvidence))
+
     $items.Add((New-ReadinessItem `
         -Area "Runtime" `
         -Requirement "Local staged install has loaded the plugin at least once." `
@@ -289,6 +329,12 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
         -Status $(if ($userRendering -eq "Pass") { "Pass" } elseif ($userRendering -eq "Fail") { "Fail" } elseif ($userRendering -eq "Missing") { "Missing" } else { "Blocked" }) `
         -Evidence "DLSS User Rendering Candidate=$userRendering; Next=$($runtimeStatus.NextRecommendation)"))
 } else {
+    $items.Add((New-ReadinessItem `
+        -Area "Evidence" `
+        -Requirement $hdrpAssetRequirement `
+        -Status "Missing" `
+        -Evidence "Pass -GamePath to include local HDRP asset unpack evidence."))
+
     $items.Add((New-ReadinessItem `
         -Area "Runtime" `
         -Requirement "Stage 8A proves same-frame color/output/depth/motion D3D11 inputs for DLSS evaluate." `

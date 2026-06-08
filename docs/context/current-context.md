@@ -2039,6 +2039,12 @@ As of the read-only RenderGraph pass-map runtime result:
   `Status=Pass`, `LaunchesGame=false`, `ModifiesGameFiles=false`,
   `ActiveAssetName=HDRP DefaultSettings`, `UseRenderGraph=1`, `EnableDLSS=0`,
   and `UpsampleFilterName=EdgeAdaptiveScalingUpres` on the current local install.
+- `scripts\get-release-readiness-status.ps1 -GamePath C:\Software\VRising -Json`
+  now includes that HDRP asset unpack as an `Evidence` readiness item. Local
+  success reports the active HDRP asset, RenderGraph/dynamic-resolution gates,
+  `EnableDLSS=0`, `DLSSInjectionPoint=BeforePost`, and `UpsampleFilter=EASU`;
+  missing local Python/type-tree tooling is a `Blocked` evidence item, not a
+  diagnostic package hard failure.
 - Automation session protected-save support was added after the contract-bind
   preflight. `scripts/start-vrising-automation-session.ps1` now accepts
   `-ProtectSave -SaveDir <local-save-dir>` and records `SaveBackupDir`,
