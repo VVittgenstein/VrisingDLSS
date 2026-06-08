@@ -200,6 +200,7 @@ if (Test-Path -LiteralPath $workflowPath) {
 }
 
 $contractBindSaveDir = ""
+$contractBindSaveName = ""
 if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
     $saveFixtureProbe = Invoke-CapturedCommand -Command {
         & (Join-Path $resolvedRoot "scripts\find-vrising-save-fixture.ps1") -SaveName "11111" -Json
@@ -217,6 +218,7 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
             }
             if ($saveFixture.Status -eq "Pass" -and -not [string]::IsNullOrWhiteSpace([string]$saveFixture.SelectedSaveDir)) {
                 $contractBindSaveDir = [string]$saveFixture.SelectedSaveDir
+                $contractBindSaveName = [string]$saveFixture.SaveName
             }
             if (@($saveFixture.Issues).Count -gt 0) {
                 $saveFixtureEvidence = "$saveFixtureEvidence; Issues=$(@($saveFixture.Issues) -join ' | ')"
@@ -249,7 +251,9 @@ $contractBindArgs = @{
 if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
     $contractBindArgs["GamePath"] = $GamePath
 }
-if (-not [string]::IsNullOrWhiteSpace($contractBindSaveDir)) {
+if (-not [string]::IsNullOrWhiteSpace($contractBindSaveName)) {
+    $contractBindArgs["SaveName"] = $contractBindSaveName
+} elseif (-not [string]::IsNullOrWhiteSpace($contractBindSaveDir)) {
     $contractBindArgs["SaveDir"] = $contractBindSaveDir
 }
 $contractBindGuard = Invoke-CapturedCommand -Command {
@@ -276,7 +280,7 @@ if ($contractBindGuard.Succeeded) {
             $contractBindGuardEvidence = "$contractBindGuardEvidence; DiagnosticDryRun=not requested"
         }
         if ($sessionDryRun) {
-            $contractBindGuardEvidence = "$contractBindGuardEvidence; SessionDryRunLaunchesGame=$($sessionDryRun.LaunchesGame); LeavesGameRunning=$($sessionDryRun.LeavesGameRunning); ProtectSave=$($sessionDryRun.ProtectSave); RestoresProtectedSave=$($sessionDryRun.RestoresProtectedSave); SessionUseSdkWrapperNative=$($sessionDryRun.UseSdkWrapperNative)"
+            $contractBindGuardEvidence = "$contractBindGuardEvidence; SessionDryRunLaunchesGame=$($sessionDryRun.LaunchesGame); LeavesGameRunning=$($sessionDryRun.LeavesGameRunning); ProtectSave=$($sessionDryRun.ProtectSave); RestoresProtectedSave=$($sessionDryRun.RestoresProtectedSave); SessionUseSdkWrapperNative=$($sessionDryRun.UseSdkWrapperNative); SessionSaveName=$($sessionDryRun.SaveName); SessionSaveFixtureResolved=$($sessionDryRun.SaveFixtureResolved); SessionSaveFixtureStatus=$($sessionDryRun.SaveFixtureStatus); SessionSaveFixtureMatchCount=$($sessionDryRun.SaveFixtureMatchCount); SessionSaveFixtureSaveId=$($sessionDryRun.SaveFixtureSaveId)"
         } else {
             $contractBindGuardEvidence = "$contractBindGuardEvidence; SessionDryRun=not requested"
         }

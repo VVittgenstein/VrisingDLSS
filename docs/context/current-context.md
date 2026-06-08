@@ -2066,14 +2066,19 @@ As of the read-only RenderGraph pass-map runtime result:
   preflight. `scripts/start-vrising-automation-session.ps1` now accepts
   `-ProtectSave -SaveDir <local-save-dir>` and records `SaveBackupDir`,
   `SaveBackupZipPath`, `SaveBackupManifestPath`, `RestoresProtectedSave`, and
-  `ArchiveChangedSave` in the session JSON. On failed starts it attempts to
-  restore immediately after closing V Rising. `scripts/stop-vrising-automation-session.ps1`
+  `ArchiveChangedSave` in the session JSON. It now also accepts
+  `-ProtectSave -SaveName 11111`, resolves the local CloudSaves fixture through
+  `find-vrising-save-fixture.ps1 -RequireOne`, and records
+  `SaveFixtureResolved`, `SaveFixtureStatus`, `SaveFixtureMatchCount`, and
+  `SaveFixtureSaveId` in dry-run and real session results. On failed starts it
+  attempts to restore immediately after closing V Rising. `scripts/stop-vrising-automation-session.ps1`
   now restores protected saves after scoped V Rising processes are closed and
   reports `SaveRestoreAttempted`, `SaveRestored`,
   `SaveBeforeRestoreChangeCount`, `SaveAfterRestoreChangeCount`, and
   `SaveCompareStatus`; protected-save restore failure makes cleanup fail. The
   next `hdrp-dlss-contract-bind-render-scale` gameplay run should use this
-  built-in protection instead of a separate manual protect/restore pair.
+  built-in protection, preferably as `-ProtectSave -SaveName 11111`, instead of
+  a separate manual protect/restore pair.
 - A resumed attempt to run the protected
   `hdrp-dlss-contract-bind-render-scale` gameplay proof on 2026-06-08 was
   deferred before launch because Computer Use returned
@@ -2105,10 +2110,10 @@ As of the read-only RenderGraph pass-map runtime result:
   V Rising or modifying save files. On this machine it reports `Status=Pass`,
   `MatchCount=1`, `AutoSaveCount=8`, `HasServerGameSettings=true`, and
   `Usable=true`. `get-release-readiness-status.ps1 -GamePath C:\Software\VRising`
-  now includes this as an `Evidence` item and passes the resolved save directory
-  into the contract-bind guard, so the readiness evidence includes
+  now includes this as an `Evidence` item and passes `SaveName=11111` into the
+  contract-bind guard, so the readiness evidence includes
   `SessionDryRunLaunchesGame=False`, `ProtectSave=True`, and
-  `RestoresProtectedSave=True`.
+  `RestoresProtectedSave=True`, plus session fixture resolution fields.
 - `scripts/get-runtime-validation-status.ps1` was updated after that deferral
   so a safe live `loader` config/log no longer sends the next-action advice
   back to the old hook-probe ladder when the repository already contains the

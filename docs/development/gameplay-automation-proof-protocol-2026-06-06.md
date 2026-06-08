@@ -217,13 +217,21 @@ character `Helen`. Cleanup passed with `CrashEventCount=0` and no remaining proc
 Entering gameplay rotated autosaves, so the save was restored from the pre-proof backup.
 Future gameplay-entry tests must include the same save backup/compare/restore discipline.
 
-As of 2026-06-08, use the save fixture resolver before protected gameplay runs:
+As of 2026-06-08, protected gameplay runs can resolve the known local/private
+fixture by name directly:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start-vrising-automation-session.ps1 -GamePath C:\Software\VRising -Stage <stage> -ArtifactLabel <label> -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080 -ProtectSave -SaveName 11111
+```
+
+The lower-level resolver remains available for inspection and fallback:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\find-vrising-save-fixture.ps1 -SaveName 11111 -RequireOne -Json
 ```
 
 It resolves the local/private fixture path from `CloudSaves`. The resolver is
-read-only, requires exactly one usable match, and lets follow-up commands pass
-`-ProtectSave -SaveDir <SelectedSaveDir>` without manually copying the
-CloudSaves path.
+read-only and requires exactly one usable match. Manual
+`-ProtectSave -SaveDir <SelectedSaveDir>` remains a fallback when needed, but
+normal protected runs should prefer `-SaveName 11111` so the session JSON records
+`SaveFixtureResolved`, `SaveFixtureMatchCount`, and `SaveFixtureSaveId`.

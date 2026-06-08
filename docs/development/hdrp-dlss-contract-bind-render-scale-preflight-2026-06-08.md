@@ -112,12 +112,16 @@ pass-data snapshots, even though it contains older HDRP/EASU correlation lines.
 
 When deliberately running this stage in gameplay, use a protected automation
 session, true `1920x1080` Windowed, and V Rising FSR Off. The session harness now
-accepts `-ProtectSave -SaveDir <local-save-dir>` so it backs up the local/private
-`11111` save before launch and the stop script restores it during cleanup:
+accepts `-ProtectSave -SaveName 11111` so it resolves the local/private
+CloudSaves fixture, backs it up before launch, and the stop script restores it
+during cleanup:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start-vrising-automation-session.ps1 -GamePath C:\Software\VRising -Stage hdrp-dlss-contract-bind-render-scale -ArtifactLabel hdrp-dlss-contract-bind-render-scale-1080p-gameplay-<date>-r1 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080 -ProtectSave -SaveDir "<local-save-dir>"
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start-vrising-automation-session.ps1 -GamePath C:\Software\VRising -Stage hdrp-dlss-contract-bind-render-scale -ArtifactLabel hdrp-dlss-contract-bind-render-scale-1080p-gameplay-<date>-r1 -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080 -ProtectSave -SaveName 11111
 ```
+
+Manual `-SaveDir <local-save-dir>` remains a fallback if the fixture resolver is
+unavailable or the local machine has multiple same-named saves.
 
 Do not use `-UseSdkWrapperNative` or `-DlssRuntimePath`; this stage should not
 load NGX or evaluate DLSS.
@@ -214,15 +218,18 @@ Negative smoke also passed: using `-RequirePass` with a deliberately missing
 `GamePath` produced `Contract-bind stage guard status=Blocked` and threw instead
 of silently passing.
 
-The same guard also passed with the current local `11111` save directory supplied
-through `-SaveDir`, confirming the automation session dry-run preserves
-`ProtectSave=true`, `RestoresProtectedSave=true`, `LaunchesGame=false`, and
-`UseSdkWrapperNative=false`.
+The same guard also passed with the current local `11111` save supplied through
+`-SaveName`, confirming the automation session dry-run resolves exactly one
+fixture and preserves `ProtectSave=true`, `RestoresProtectedSave=true`,
+`LaunchesGame=false`, and `UseSdkWrapperNative=false`.
 
 `scripts\find-vrising-save-fixture.ps1 -SaveName 11111 -RequireOne -Json` now
 resolves that local/private fixture without launching V Rising or modifying save
 files. On the current machine it reports `Status=Pass`, `MatchCount=1`,
-`AutoSaveCount=8`, `HasServerGameSettings=true`, and `Usable=true`.
+`AutoSaveCount=8`, `HasServerGameSettings=true`, and `Usable=true`. The session
+harness and contract-bind guard can now call the same resolver through
+`-SaveName 11111`, so the long CloudSaves path no longer has to be copied into
+normal protected-run commands.
 
 `scripts\get-release-readiness-status.ps1` now includes this guard as an
 `Evidence` readiness item. With `-GamePath`, it includes the diagnostic dry-run

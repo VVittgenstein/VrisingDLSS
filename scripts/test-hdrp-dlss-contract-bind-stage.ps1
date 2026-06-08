@@ -2,6 +2,7 @@ param(
     [string]$Root = (Resolve-Path "$PSScriptRoot\..").Path,
     [string]$GamePath,
     [string]$SaveDir,
+    [string]$SaveName,
     [switch]$RequirePass,
     [switch]$Json
 )
@@ -190,20 +191,28 @@ try {
         }
     }
 
-    if (-not [string]::IsNullOrWhiteSpace($GamePath) -and -not [string]::IsNullOrWhiteSpace($SaveDir)) {
-        $sessionDryRun = & (Join-Path $resolvedRoot "scripts\start-vrising-automation-session.ps1") `
-            -Root $resolvedRoot `
-            -GamePath $GamePath `
-            -Stage $stage `
-            -ArtifactLabel "hdrp-dlss-contract-bind-render-scale-dryrun" `
-            -SetClientResolution `
-            -SetClientWindowMode `
-            -ClientWindowMode 3 `
-            -Width 1920 `
-            -Height 1080 `
-            -ProtectSave `
-            -SaveDir $SaveDir `
-            -DryRun
+    if (-not [string]::IsNullOrWhiteSpace($GamePath) -and
+        (-not [string]::IsNullOrWhiteSpace($SaveDir) -or -not [string]::IsNullOrWhiteSpace($SaveName))) {
+        $sessionArgs = @{
+            Root = $resolvedRoot
+            GamePath = $GamePath
+            Stage = $stage
+            ArtifactLabel = "hdrp-dlss-contract-bind-render-scale-dryrun"
+            SetClientResolution = $true
+            SetClientWindowMode = $true
+            ClientWindowMode = 3
+            Width = 1920
+            Height = 1080
+            ProtectSave = $true
+            DryRun = $true
+        }
+        if (-not [string]::IsNullOrWhiteSpace($SaveDir)) {
+            $sessionArgs["SaveDir"] = $SaveDir
+        } else {
+            $sessionArgs["SaveName"] = $SaveName
+        }
+
+        $sessionDryRun = & (Join-Path $resolvedRoot "scripts\start-vrising-automation-session.ps1") @sessionArgs
 
         if ($sessionDryRun.Stage -ne $stage) {
             [void]$issues.Add("start-vrising-automation-session dry-run returned unexpected stage: $($sessionDryRun.Stage)")
@@ -216,6 +225,9 @@ try {
         }
         if ([bool]$sessionDryRun.UseSdkWrapperNative) {
             [void]$issues.Add("start-vrising-automation-session dry-run unexpectedly requests UseSdkWrapperNative=True")
+        }
+        if ([string]::IsNullOrWhiteSpace($SaveDir) -and -not [bool]$sessionDryRun.SaveFixtureResolved) {
+            [void]$issues.Add("start-vrising-automation-session dry-run did not resolve SaveName=$SaveName")
         }
     }
 } catch {
@@ -255,6 +267,11 @@ $result = [pscustomobject]@{
             ProtectSave = [bool]$sessionDryRun.ProtectSave
             RestoresProtectedSave = [bool]$sessionDryRun.RestoresProtectedSave
             UseSdkWrapperNative = [bool]$sessionDryRun.UseSdkWrapperNative
+            SaveName = [string]$sessionDryRun.SaveName
+            SaveFixtureResolved = [bool]$sessionDryRun.SaveFixtureResolved
+            SaveFixtureStatus = [string]$sessionDryRun.SaveFixtureStatus
+            SaveFixtureMatchCount = $sessionDryRun.SaveFixtureMatchCount
+            SaveFixtureSaveId = [string]$sessionDryRun.SaveFixtureSaveId
         }
     } else {
         $null

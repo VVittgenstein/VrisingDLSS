@@ -89,6 +89,7 @@ param(
     [int]$ClientWindowMode = 3,
     [switch]$ProtectSave,
     [string]$SaveDir,
+    [string]$SaveName,
     [bool]$ArchiveChangedSave = $true,
     [switch]$SkipInstall,
     [switch]$DryRun
@@ -112,10 +113,6 @@ if ($ScreenshotRetrySeconds -lt 1) {
     throw "ScreenshotRetrySeconds must be at least 1."
 }
 
-if ($ProtectSave -and [string]::IsNullOrWhiteSpace($SaveDir)) {
-    throw "ProtectSave requires -SaveDir pointing to the local/private V Rising save directory to back up and restore."
-}
-
 if ([string]::IsNullOrWhiteSpace($Root)) {
     $Root = Split-Path -Parent $PSScriptRoot
 }
@@ -127,6 +124,28 @@ $pluginPath = Join-Path $resolvedGamePath "BepInEx\plugins\VrisingDLSS"
 $nativeTargetPath = Join-Path $pluginPath "VrisingDLSS.Native.dll"
 $artifactRoot = Join-Path $resolvedRoot "artifacts\gameplay-automation"
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+
+$saveFixtureResolved = $false
+$saveFixtureStatus = ""
+$saveFixtureMatchCount = $null
+$saveFixtureSaveId = ""
+if ($ProtectSave) {
+    if ([string]::IsNullOrWhiteSpace($SaveDir)) {
+        if ([string]::IsNullOrWhiteSpace($SaveName)) {
+            throw "ProtectSave requires -SaveDir pointing to the local/private V Rising save directory, or -SaveName for automatic CloudSaves resolution."
+        }
+
+        $fixture = & (Join-Path $resolvedRoot "scripts\find-vrising-save-fixture.ps1") -SaveName $SaveName -RequireOne
+        $SaveDir = [string]$fixture.SelectedSaveDir
+        $selectedFixture = @($fixture.Matches | Where-Object { $_.SaveDir -eq $fixture.SelectedSaveDir } | Select-Object -First 1)
+        $saveFixtureResolved = $true
+        $saveFixtureStatus = [string]$fixture.Status
+        $saveFixtureMatchCount = [int]$fixture.MatchCount
+        if ($selectedFixture.Count -gt 0) {
+            $saveFixtureSaveId = [string]$selectedFixture[0].SaveId
+        }
+    }
+}
 
 if ([string]::IsNullOrWhiteSpace($ArtifactLabel)) {
     $ArtifactLabel = "automation-session-$timestamp"
@@ -347,6 +366,11 @@ $plan = [pscustomobject]@{
     RestoresReleaseSafeNative = [bool]$UseSdkWrapperNative
     ProtectSave = [bool]$ProtectSave
     SaveDir = $(if ($ProtectSave) { $saveDirResolved } else { "" })
+    SaveName = $(if ($ProtectSave) { $SaveName } else { "" })
+    SaveFixtureResolved = $saveFixtureResolved
+    SaveFixtureStatus = $saveFixtureStatus
+    SaveFixtureMatchCount = $saveFixtureMatchCount
+    SaveFixtureSaveId = $saveFixtureSaveId
     SaveProtectionLabel = $(if ($ProtectSave) { $saveProtectionLabel } else { "" })
     ArchiveChangedSave = $(if ($ProtectSave) { $ArchiveChangedSave } else { $false })
     RestoresProtectedSave = [bool]$ProtectSave
@@ -633,6 +657,11 @@ try {
         RestoredReleaseSafeNative = $restoredReleaseSafeNative
         ProtectSave = [bool]$ProtectSave
         SaveDir = $(if ($ProtectSave) { $saveDirResolved } else { "" })
+        SaveName = $(if ($ProtectSave) { $SaveName } else { "" })
+        SaveFixtureResolved = $saveFixtureResolved
+        SaveFixtureStatus = $saveFixtureStatus
+        SaveFixtureMatchCount = $saveFixtureMatchCount
+        SaveFixtureSaveId = $saveFixtureSaveId
         SaveProtectionLabel = $(if ($ProtectSave) { $saveProtectionLabel } else { "" })
         SaveBackupDir = $(if ($saveBackup) { [string]$saveBackup.BackupDir } else { "" })
         SaveBackupZipPath = $(if ($saveBackup) { [string]$saveBackup.ZipPath } else { "" })

@@ -790,7 +790,7 @@ function Get-NextRecommendation {
     if ((Test-Path -LiteralPath $contractBindPreflightDoc) -and
         (Test-Path -LiteralPath $contractAnalysisDoc) -and
         (Test-Path -LiteralPath $systematicDecompilationDoc)) {
-        return "Current repository evidence has moved beyond the early hook-probe ladder. Next normal proof is the protected hdrp-dlss-contract-bind-render-scale gameplay run at true 1920x1080 Windowed: use scripts\start-vrising-automation-session.ps1 -Stage hdrp-dlss-contract-bind-render-scale -ProtectSave -SaveDir <local-save-dir>, click Continue/11111 once through Computer Use, send no movement keys, stop with scripts\stop-vrising-automation-session.ps1, require SaveAfterRestoreChangeCount=0, then analyze with scripts\analyze-hdrp-dlss-schedule-audit.ps1. If Computer Use is unavailable, keep this run deferred rather than falling back to foreground key scripts."
+        return "Current repository evidence has moved beyond the early hook-probe ladder. Next normal proof is the protected hdrp-dlss-contract-bind-render-scale gameplay run at true 1920x1080 Windowed: use scripts\start-vrising-automation-session.ps1 -Stage hdrp-dlss-contract-bind-render-scale -ProtectSave -SaveName 11111, click Continue/11111 once through Computer Use, send no movement keys, stop with scripts\stop-vrising-automation-session.ps1, require SaveAfterRestoreChangeCount=0, then analyze with scripts\analyze-hdrp-dlss-schedule-audit.ps1. If Computer Use is unavailable, keep this run deferred rather than falling back to foreground key scripts."
     }
 
     $hook = Get-FirstStageStatus -Results $LogResults -StagePrefix "Stage 2"
