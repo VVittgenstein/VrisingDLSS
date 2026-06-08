@@ -258,6 +258,9 @@ function New-Status {
         Stage10AProved = $(if ($Details.ContainsKey("Stage10AProved")) { $Details.Stage10AProved } else { $false })
         UserRenderingLogPath = $(if ($Details.ContainsKey("UserRenderingLogPath")) { $Details.UserRenderingLogPath } else { "" })
         UserRenderingProved = $(if ($Details.ContainsKey("UserRenderingProved")) { $Details.UserRenderingProved } else { $false })
+        ContractBindGameplayProofStatus = $(if ($Details.ContainsKey("ContractBindGameplayProofStatus")) { $Details.ContractBindGameplayProofStatus } else { "" })
+        ContractBindGameplayProofSource = $(if ($Details.ContainsKey("ContractBindGameplayProofSource")) { $Details.ContractBindGameplayProofSource } else { "" })
+        ContractBindGameplayProofPath = $(if ($Details.ContainsKey("ContractBindGameplayProofPath")) { $Details.ContractBindGameplayProofPath } else { "" })
         PerformanceSummaryPath = $(if ($Details.ContainsKey("CandidatePerformanceSummaryPath")) { $Details.CandidatePerformanceSummaryPath } elseif ($Details.ContainsKey("PerformanceSummaryPath")) { $Details.PerformanceSummaryPath } else { "" })
         PerformanceSummaryPresent = $(if ($Details.ContainsKey("CandidatePerformanceSummaryPresent")) { $Details.CandidatePerformanceSummaryPresent } elseif ($Details.ContainsKey("PerformanceSummaryPresent")) { $Details.PerformanceSummaryPresent } else { $false })
         BaselinePerformanceSummaryPath = $(if ($Details.ContainsKey("BaselinePerformanceSummaryPath")) { $Details.BaselinePerformanceSummaryPath } else { "" })
@@ -297,6 +300,23 @@ $resolvedRoot = (Resolve-Path -LiteralPath $Root).Path
 $visualRoot = Join-Path $resolvedRoot "artifacts\visual-validation"
 $runtimeLogRoot = Join-Path $resolvedRoot "artifacts\runtime-logs"
 $fpsRoot = Join-Path $resolvedRoot "artifacts\fps-validation"
+$contractBindProofScript = Join-Path $resolvedRoot "scripts\get-contract-bind-gameplay-proof.ps1"
+$contractBindGameplayProof = $null
+if (Test-Path -LiteralPath $contractBindProofScript -PathType Leaf) {
+    try {
+        $contractBindProofJson = & $contractBindProofScript -Root $resolvedRoot -Json
+        if (-not [string]::IsNullOrWhiteSpace([string]$contractBindProofJson)) {
+            $contractBindGameplayProof = $contractBindProofJson | ConvertFrom-Json
+        }
+    } catch {
+        $contractBindGameplayProof = [pscustomobject]@{
+            Status = "Blocked"
+            Source = "ProofDetectorError"
+            Evidence = $_.Exception.Message
+            NextRecommendation = ""
+        }
+    }
+}
 
 $comparisonResolved = Resolve-OptionalPath -Path $ComparisonPath -Base $resolvedRoot
 if ([string]::IsNullOrWhiteSpace($comparisonResolved)) {
@@ -395,6 +415,11 @@ $details = @{
     Stage10AProved = $false
     UserRenderingLogPath = $userRenderingLogPath
     UserRenderingProved = $false
+    ContractBindGameplayProofStatus = $(if ($contractBindGameplayProof) { [string]$contractBindGameplayProof.Status } else { "" })
+    ContractBindGameplayProofSource = $(if ($contractBindGameplayProof) { [string]$contractBindGameplayProof.Source } else { "" })
+    ContractBindGameplayProofPath = $(if ($contractBindGameplayProof) {
+            if (-not [string]::IsNullOrWhiteSpace([string]$contractBindGameplayProof.DocPath)) { [string]$contractBindGameplayProof.DocPath } elseif (-not [string]::IsNullOrWhiteSpace([string]$contractBindGameplayProof.CleanupPath)) { [string]$contractBindGameplayProof.CleanupPath } else { "" }
+        } else { "" })
     BaselinePerformanceSummaryPath = $baselinePerformanceSummaryPath
     CandidatePerformanceSummaryPath = $candidatePerformanceSummaryPath
     BaselinePerformanceSummaryPresent = -not [string]::IsNullOrWhiteSpace($baselinePerformanceSummaryPath) -and (Test-Path -LiteralPath $baselinePerformanceSummaryPath)
@@ -572,7 +597,11 @@ if (Test-Path -LiteralPath $reviewResolved) {
 }
 
 if (@($issues | Where-Object { $_ -like "Candidate * regressed*" -or $_ -like "Candidate P95 frame time worsened*" }).Count -gt 0) {
-    $nextRecommendation = "Do not rerun the same EASU ctx.cmd dlss-user-rendering candidate unchanged. Current evidence, including the official-HDRP flag/invert parity run, proves clean DLSS evaluate with RenderGraph.GetTexture=0 but still fails performance with low GPU utilization. The local static HDRP/DLSS route audit shows the official pass shell exists while the built-in DLSS execution body is no-op-style/stubbed, the m_DLSSPass xref audit shows the official activation/object chain is absent or inert, and the official-equivalent boundary audit shows the existing EASU chain is observable while new mod-owned pass injection is rejected by prior coreclr crash evidence. The contract analyzer now proves that observed EASU chain alone is incomplete because EASU does not declare depth/motion reads. Next work should run the protected hdrp-dlss-contract-bind-render-scale proof at true 1920x1080 Windowed with scripts\start-vrising-automation-session.ps1 -Stage hdrp-dlss-contract-bind-render-scale -ProtectSave -SaveName 11111, click Continue/11111 once through Computer Use, send no movement keys, stop with scripts\stop-vrising-automation-session.ps1, require SaveAfterRestoreChangeCount=0, then analyze with scripts\analyze-hdrp-dlss-schedule-audit.ps1 before any bounded no-write cost proof. If Computer Use is unavailable, keep the run deferred and inspect only no-runtime evidence."
+    if ($contractBindGameplayProof -and [string]$contractBindGameplayProof.Status -eq "Pass") {
+        $nextRecommendation = [string]$contractBindGameplayProof.NextRecommendation
+    } else {
+        $nextRecommendation = "Do not rerun the same EASU ctx.cmd dlss-user-rendering candidate unchanged. Current evidence, including the official-HDRP flag/invert parity run, proves clean DLSS evaluate with RenderGraph.GetTexture=0 but still fails performance with low GPU utilization. The local static HDRP/DLSS route audit shows the official pass shell exists while the built-in DLSS execution body is no-op-style/stubbed, the m_DLSSPass xref audit shows the official activation/object chain is absent or inert, and the official-equivalent boundary audit shows the existing EASU chain is observable while new mod-owned pass injection is rejected by prior coreclr crash evidence. The contract analyzer now proves that observed EASU chain alone is incomplete because EASU does not declare depth/motion reads. Next work should run the protected hdrp-dlss-contract-bind-render-scale proof at true 1920x1080 Windowed with scripts\start-vrising-automation-session.ps1 -Stage hdrp-dlss-contract-bind-render-scale -ProtectSave -SaveName 11111, click Continue/11111 once through Computer Use, send no movement keys, stop with scripts\stop-vrising-automation-session.ps1, require SaveAfterRestoreChangeCount=0, then analyze with scripts\analyze-hdrp-dlss-schedule-audit.ps1 before any bounded no-write cost proof. If Computer Use is unavailable, keep the run deferred and inspect only no-runtime evidence."
+    }
 }
 
 if ($issues.Count -gt 0) {

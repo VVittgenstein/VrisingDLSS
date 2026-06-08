@@ -105,8 +105,9 @@ $phase1GameplayAutomationRequirement = "Phase 1 gameplay automation coverage pre
 $runtimeDistributionContractRequirement = "DLSS runtime distribution approval gate rejects semantic false positives such as third-party mirrors, missing source URLs, and bundled runtimes without SHA256 checksums."
 $contractBindStageRequirement = "Contract-bind render-scale stage dry-run remains no-native/no-evaluate and launch-safe before gameplay automation."
 $contractAnalyzerRequirement = "HDRP DLSS schedule analyzer recognizes the contract-bind success shape and rejects evaluate-polluted logs without launching or modifying the game."
-$runtimeNextRecommendationContractRequirement = "Runtime status recommendations defer the known-regressed EASU ctx.cmd user-rendering candidate to the official-equivalent contract-bind route instead of sending the next run back to the same candidate."
-$docNextRecommendationContractRequirement = "Current docs keep the known-regressed dlss-user-rendering route framed as reproduction/investigation and name hdrp-dlss-contract-bind-render-scale as the next runtime proof."
+$contractBindGameplayProofRequirement = "Protected contract-bind gameplay proof advances the route to bounded no-write B/C/D cost isolation without evaluate/GetTexture pollution."
+$runtimeNextRecommendationContractRequirement = "Runtime status recommendations defer the known-regressed EASU ctx.cmd user-rendering candidate, run contract-bind only until it passes, then advance to bounded no-write B/C/D cost isolation."
+$docNextRecommendationContractRequirement = "Current docs keep the known-regressed dlss-user-rendering route framed as reproduction/investigation, record the contract-bind proof, and name bounded no-write B/C/D cost isolation as the next runtime proof."
 $experimentEvidenceLockRequirement = "Experiment evidence locks preserve rejected routes and require the staged carrier/native/plugin-event/NGX/scratch/copy/visible-write matrix before 4K value proof."
 $runtimeEnvironmentSnapshotRequirement = "Runtime performance captures preserve before/after system snapshots with CPU, GPU utilization, power, temperature, memory, and top-process context without launching or modifying the game."
 $localDecompilationInvestigationRequirement = "Systematic local decompilation investigation keeps clean-room evidence/inference boundaries and, when GamePath is available, rechecks HDRP route anchors, inert DLSSPass bodies, asset gates, and the official DLSS vs EASU contract split without launching or modifying the game."
@@ -457,6 +458,67 @@ $items.Add((New-ReadinessItem `
     -Requirement $contractAnalyzerRequirement `
     -Status $contractAnalyzerStatus `
     -Evidence $contractAnalyzerEvidence))
+
+$contractBindGameplayProof = $null
+$contractBindGameplayProofGuard = Invoke-CapturedCommand -Command {
+    & (Join-Path $resolvedRoot "scripts\get-contract-bind-gameplay-proof.ps1") -Root $resolvedRoot -Json
+}
+$contractBindGameplayProofStatus = "Blocked"
+$contractBindGameplayProofEvidence = "Contract-bind gameplay proof guard did not produce evidence."
+if ($contractBindGameplayProofGuard.Succeeded) {
+    try {
+        $contractBindGameplayProof = $contractBindGameplayProofGuard.Output | ConvertFrom-Json
+        $contractBindGameplayProofStatus = if ($contractBindGameplayProof.Status -eq "Pass" `
+                -and -not [bool]$contractBindGameplayProof.LaunchesGame `
+                -and -not [bool]$contractBindGameplayProof.ModifiesGameFiles) {
+            "Pass"
+        } elseif ($contractBindGameplayProof.Status -eq "Missing") {
+            "Blocked"
+        } else {
+            "Blocked"
+        }
+        $contractBindGameplayProofEvidence = "Status=$($contractBindGameplayProof.Status); Source=$($contractBindGameplayProof.Source); Artifact=$($contractBindGameplayProof.ArtifactLabel); Contract=$($contractBindGameplayProof.ContractStatus); ChainsWithDepthMotion=$($contractBindGameplayProof.SuperResolutionChainsWithHdrpDepthMotion); RenderGraphGetTextureCalls=$($contractBindGameplayProof.RenderGraphGetTextureCalls); UserRenderingCandidateStarted=$($contractBindGameplayProof.UserRenderingCandidateStarted); DlssEvaluateSucceeded=$($contractBindGameplayProof.DlssEvaluateSucceeded); SaveEvidence=$($contractBindGameplayProof.Evidence); LaunchesGame=$($contractBindGameplayProof.LaunchesGame); ModifiesGameFiles=$($contractBindGameplayProof.ModifiesGameFiles)"
+        if (@($contractBindGameplayProof.Issues).Count -gt 0) {
+            $contractBindGameplayProofEvidence = "$contractBindGameplayProofEvidence; Issues=$(@($contractBindGameplayProof.Issues) -join ' | ')"
+        }
+
+        if ($contractBindGameplayProofStatus -eq "Pass") {
+            $nextRuntimeProofPlan = [pscustomobject]@{
+                Question = "Which official-equivalent boundary layer is responsible for the current user-rendering performance regression?"
+                Hypothesis = "If the engine-owned EASU boundary is cheap, B/C/D no-write layers should stay near baseline at 1920x1080 Windowed before NGX evaluate or visible write-back is retried."
+                RequiresComputerUse = $true
+                MovementKeysAllowed = $false
+                Fixture = "1920x1080 Windowed protected 11111, V Rising FSR Off, Computer Use Continue click once, no movement keys, save restore ChangeCount=0."
+                Layers = @(
+                    "B: EASU carrier-only cost; no native, no evaluate, no broad GetTexture.",
+                    "C: native D3D11 resource-desc validate-only; no NGX init, no evaluate.",
+                    "D: empty existing command-buffer plugin-event callback; no DLSS evaluate and no visible write."
+                )
+                PassSignals = @(
+                    "Average FPS ratio >= 0.98 versus same-run baseline.",
+                    "P95 frame-time delta <= 0.5 ms and P99 delta <= 1.0 ms for B/C/D.",
+                    "No GPU utilization or power collapse relative to baseline.",
+                    "SaveAfterRestoreChangeCount=0 and RemainingVRisingProcessCount=0 after each run."
+                )
+                FailSignals = @(
+                    "Any NGX/DLSS evaluate, visible write-back, broad RenderGraph.GetTexture loop, crash, or save restore failure.",
+                    "Any B/C/D layer reproduces the low-GPU-utilization performance collapse."
+                )
+            }
+        }
+    } catch {
+        $contractBindGameplayProofStatus = "Blocked"
+        $contractBindGameplayProofEvidence = "Failed to parse contract-bind gameplay proof JSON: $($_.Exception.Message); Output=$($contractBindGameplayProofGuard.Output)"
+    }
+} else {
+    $contractBindGameplayProofEvidence = "Contract-bind gameplay proof guard failed: $($contractBindGameplayProofGuard.Output)"
+}
+
+$items.Add((New-ReadinessItem `
+    -Area "Evidence" `
+    -Requirement $contractBindGameplayProofRequirement `
+    -Status $contractBindGameplayProofStatus `
+    -Evidence $contractBindGameplayProofEvidence))
 
 $runtimeNextRecommendationArgs = @{
     Root = $resolvedRoot
@@ -1194,10 +1256,15 @@ $summary = [pscustomobject]@{
     GamePath = $GamePath
     Items = $items
     NextRuntimeProofPlan = $nextRuntimeProofPlan
+    ContractBindGameplayProof = $contractBindGameplayProof
     NextRecommendation = if ($mvpReady) {
         "MVP evidence is complete. Prepare a final release review."
     } elseif ([string]::IsNullOrWhiteSpace($GamePath)) {
-        "Pass -GamePath to include local runtime evidence. Current MVP route is paused on direct runtime probing: use the static HDRP/DLSS route, m_DLSSPass xref, and official-equivalent RenderGraph boundary audits. The contract analyzer now proves the observed EASU chain alone is incomplete; next run or inspect the default-off hdrp-dlss-contract-bind-render-scale stage to bind HDRP depth/motion correlation to the Uber->EASU->Final chain before any bounded no-write cost proof. Avoid camera-gate probing and new mod-owned pass injection."
+        if ($contractBindGameplayProof -and [string]$contractBindGameplayProof.Status -eq "Pass") {
+            [string]$contractBindGameplayProof.NextRecommendation
+        } else {
+            "Pass -GamePath to include local runtime evidence. Current MVP route is paused on direct runtime probing: use the static HDRP/DLSS route, m_DLSSPass xref, and official-equivalent RenderGraph boundary audits. The contract analyzer now proves the observed EASU chain alone is incomplete; next run or inspect the default-off hdrp-dlss-contract-bind-render-scale stage to bind HDRP depth/motion correlation to the Uber->EASU->Final chain before any bounded no-write cost proof. Avoid camera-gate probing and new mod-owned pass injection."
+        }
     } elseif ($visualStatus.Status -ne "Pass" -and $visualStatus.HumanReviewStatus -eq "Pending") {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation

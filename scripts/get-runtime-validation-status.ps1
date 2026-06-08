@@ -317,7 +317,9 @@ function Get-NextRecommendation {
 
         [object[]]$CurrentLogResults = @(),
 
-        [string]$CurrentLogText = ""
+        [string]$CurrentLogText = "",
+
+        [object]$ContractBindGameplayProof = $null
     )
 
     if (-not $Inspect.GameInstalled) {
@@ -376,6 +378,7 @@ function Get-NextRecommendation {
     $hdrpPostProcessRenderArgsGlobalTextures = Get-FirstStageStatus -Results $LogResults -StagePrefix "HDRP PostProcess Render Args Global Textures"
     $hdrpPostProcessRenderArgs = Get-FirstStageStatus -Results $LogResults -StagePrefix "HDRP PostProcess Render Args"
     $hdrpPostProcessBoundary = Get-FirstStageStatus -Results $LogResults -StagePrefix "HDRP PostProcess Boundary"
+    $hdrpDlssContractBind = Get-FirstStageStatus -Results $LogResults -StagePrefix "HDRP DLSS Contract Bind"
     $currentUserRendering = Get-FirstStageStatus -Results $CurrentLogResults -StagePrefix "DLSS User Rendering Candidate"
     if ($currentUserRendering -eq "Partial" -and
         $CurrentLogText.IndexOf("DLSS super-resolution input probe not accepted", [StringComparison]::OrdinalIgnoreCase) -ge 0 -and
@@ -409,6 +412,14 @@ function Get-NextRecommendation {
         }
 
         return "The latest dlss-user-rendering gameplay log did not accept an FSR Off Super Resolution tuple: the main candidate stayed color=1920x1080 output=1920x1080. Before rerunning the same runtime proof, use the targeted render-scale diagnostic to check for `Render-scale control member write did not stick`, `RTHandles.SetHardwareDynamicResolutionState=true`, and whether the gameplay camera/main targets remain full-size."
+    }
+
+    if ($ContractBindGameplayProof -and [string]$ContractBindGameplayProof.Status -eq "Pass") {
+        return [string]$ContractBindGameplayProof.NextRecommendation
+    }
+
+    if ($hdrpDlssContractBind -eq "Pass") {
+        return "Contract-bind gameplay proof is present in current or archived analysis. Next work is evidence-lock matrix B/C/D bounded no-write cost proof: B EASU carrier-only cost, C native D3D11 resource-desc validate-only, and D empty existing command-buffer plugin-event callback under the same 1920x1080 Windowed protected 11111 fixture with environment snapshots. Do not rerun hdrp-dlss-contract-bind-render-scale unchanged and do not attempt visible DLSS write-back until B-G pass."
     }
 
     if ($userRendering -eq "Pass") {
@@ -917,6 +928,7 @@ $resolvedArchivedLogRoot = if ([string]::IsNullOrWhiteSpace($ArchivedLogRoot)) {
 }
 $inspectScript = Join-Path $resolvedRoot "scripts\inspect-vrising-install.ps1"
 $analyzeScript = Join-Path $resolvedRoot "scripts\analyze-bepinex-log.ps1"
+$contractBindProofScript = Join-Path $resolvedRoot "scripts\get-contract-bind-gameplay-proof.ps1"
 
 $inspectJson = & $inspectScript -GamePath $GamePath -Json
 $inspect = $inspectJson | ConvertFrom-Json
@@ -973,13 +985,33 @@ $logResults = if ($IncludeArchivedLogs) {
 } else {
     $currentLogResults
 }
+
+$contractBindGameplayProof = $null
+if (Test-Path -LiteralPath $contractBindProofScript -PathType Leaf) {
+    try {
+        $contractBindProofJson = & $contractBindProofScript -Root $resolvedRoot -Json
+        if (-not [string]::IsNullOrWhiteSpace([string]$contractBindProofJson)) {
+            $contractBindGameplayProof = $contractBindProofJson | ConvertFrom-Json
+        }
+    } catch {
+        $contractBindGameplayProof = [pscustomobject]@{
+            Status = "Blocked"
+            Evidence = "Failed to read contract-bind gameplay proof: $($_.Exception.Message)"
+            NextRecommendation = ""
+            LaunchesGame = $false
+            ModifiesGameFiles = $false
+        }
+    }
+}
+
 $recommendation = Get-NextRecommendation `
     -Inspect $inspect `
     -PluginInstalled $pluginInstalled `
     -ConfigExists $configExists `
     -LogResults $logResults `
     -CurrentLogResults $currentLogResults `
-    -CurrentLogText $currentLogText
+    -CurrentLogText $currentLogText `
+    -ContractBindGameplayProof $contractBindGameplayProof
 
 $summary = [pscustomobject]@{
     GamePath = $inspect.GamePath
@@ -996,6 +1028,7 @@ $summary = [pscustomobject]@{
     ArchivedLogRoot = $(if ($IncludeArchivedLogs) { $resolvedArchivedLogRoot } else { "" })
     ArchivedAnalysisCount = $(if ($IncludeArchivedLogs) { $archivedAnalysisCount } else { 0 })
     StageResults = $logResults
+    ContractBindGameplayProof = $contractBindGameplayProof
     NextRecommendation = $recommendation
     LaunchesGame = $false
 }

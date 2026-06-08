@@ -1250,3 +1250,47 @@ Fourth follow-up on 2026-06-08 21:45 +08:00:
 - Treat native-pipe-missing as a different pre-launch blocker than
   `Windows computer-use client is closed`; both require deferring protected
   runtime proof until the app-list call succeeds.
+
+## Computer Use Post-Reboot Contract-Bind Success
+
+Date: 2026-06-08.
+
+The next post-reboot Computer Use probe succeeded and listed the running V
+Rising app/window after `scripts\start-vrising-automation-session.ps1` launched
+the protected contract-bind session.
+
+Run:
+
+- Stage: `hdrp-dlss-contract-bind-render-scale`
+- Artifact label:
+  `hdrp-dlss-contract-bind-render-scale-1080p-gameplay-20260608-r1`
+- Windowing: true `1920x1080` Windowed, `ClientWindowMode=3`
+- Save fixture: `-ProtectSave -SaveName 11111`
+- Computer Use target: exactly one real `VRising` Unity window from
+  `C:\Software\VRising\VRising.exe`
+
+Computer Use action:
+
+- Captured the main menu in Chinese with Continue visible.
+- Clicked Continue once at approximately `(205,354)`.
+- Sent no movement keys and no gameplay keyboard input.
+- Waited through server startup/loading until stable gameplay with HUD,
+  character, and minimap was visible.
+
+Cleanup result:
+
+- `Status=Pass`
+- `CrashEventCount=0`
+- `SaveRestored=True`
+- `SaveAfterRestoreChangeCount=0`
+- `SaveCompareStatus=Restored`
+- `RemainingVRisingProcessCount=0`
+- `CleanupRequired=False`
+
+Decision:
+
+- Computer Use is valid again for V Rising runtime proof work on this machine.
+- Keep using Computer Use for the Continue/`11111` click.
+- Do not use PowerShell `SendKeys` or foreground key scripts for gameplay.
+- After a full runtime session and cleanup, close/stop the game and leave no
+  residual `VRising`/`VRisingServer` process.

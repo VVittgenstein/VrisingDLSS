@@ -41,6 +41,9 @@ function Get-RepoPath {
 
 $runtimeScript = Get-RepoPath -RelativePath "scripts\get-runtime-validation-status.ps1"
 $visualScript = Get-RepoPath -RelativePath "scripts\get-visual-validation-status.ps1"
+$contractBindProofScript = Get-RepoPath -RelativePath "scripts\get-contract-bind-gameplay-proof.ps1"
+$contractBindProof = $null
+$contractBindProofPassed = $false
 
 Add-Check `
     -Name "runtime status script exists" `
@@ -52,11 +55,32 @@ Add-Check `
     -Passed (Test-Path -LiteralPath $visualScript -PathType Leaf) `
     -Evidence $visualScript
 
+Add-Check `
+    -Name "contract-bind gameplay proof detector exists" `
+    -Passed (Test-Path -LiteralPath $contractBindProofScript -PathType Leaf) `
+    -Evidence $contractBindProofScript
+
+if (Test-Path -LiteralPath $contractBindProofScript -PathType Leaf) {
+    try {
+        $contractBindProofJson = & $contractBindProofScript -Root $resolvedRoot -Json
+        if (-not [string]::IsNullOrWhiteSpace([string]$contractBindProofJson)) {
+            $contractBindProof = $contractBindProofJson | ConvertFrom-Json
+            $contractBindProofPassed = [string]$contractBindProof.Status -eq "Pass"
+        }
+    } catch {
+        Add-Check -Name "contract-bind gameplay proof detector is readable" -Passed $false -Evidence $_.Exception.Message
+    }
+}
+
 if (Test-Path -LiteralPath $runtimeScript -PathType Leaf) {
     $runtimeText = Get-Content -LiteralPath $runtimeScript -Raw
     Add-Check `
         -Name "runtime status consults blocked user-rendering visual gate before recommending another visual run" `
         -Passed ($runtimeText -match "Get-BlockedUserRenderingVisualRecommendation" -and $runtimeText -match "get-visual-validation-status\.ps1" -and $runtimeText -match "RequiredCandidateStage dlss-user-rendering") `
+        -Evidence "get-runtime-validation-status.ps1"
+    Add-Check `
+        -Name "runtime status consumes contract-bind gameplay proof before repeating contract-bind" `
+        -Passed ($runtimeText -match "get-contract-bind-gameplay-proof\.ps1" -and $runtimeText -match "ContractBindGameplayProof") `
         -Evidence "get-runtime-validation-status.ps1"
 }
 
@@ -73,10 +97,20 @@ if (Test-Path -LiteralPath $visualScript -PathType Leaf) {
             )
 
             if ($hasVisualPerformanceRegression) {
+                $visualRecommendationPassed = if ($contractBindProofPassed) {
+                    $visualStatus.NextRecommendation -match "bounded no-write" -and
+                    $visualStatus.NextRecommendation -match "EASU carrier-only" -and
+                    $visualStatus.NextRecommendation -match "empty existing command-buffer plugin-event" -and
+                    $visualStatus.NextRecommendation -notmatch "Next work should run the protected hdrp-dlss-contract-bind-render-scale proof"
+                } else {
+                    $visualStatus.NextRecommendation -match "Do not rerun the same EASU ctx\.cmd" -and
+                    $visualStatus.NextRecommendation -match "hdrp-dlss-contract-bind-render-scale"
+                }
+
                 Add-Check `
-                    -Name "visual gate recommends official-equivalent contract-bind route after performance regression" `
-                    -Passed ($visualStatus.NextRecommendation -match "Do not rerun the same EASU ctx\.cmd" -and $visualStatus.NextRecommendation -match "hdrp-dlss-contract-bind-render-scale") `
-                    -Evidence "Status=$($visualStatus.Status); AverageFpsDeltaPercent=$($visualStatus.AverageFpsDeltaPercent); P95FrameMsDeltaPercent=$($visualStatus.P95FrameMsDeltaPercent)"
+                    -Name "visual gate advances past unchanged user-rendering according to contract-bind proof state" `
+                    -Passed $visualRecommendationPassed `
+                    -Evidence "ProofPassed=$contractBindProofPassed; Status=$($visualStatus.Status); AverageFpsDeltaPercent=$($visualStatus.AverageFpsDeltaPercent); P95FrameMsDeltaPercent=$($visualStatus.P95FrameMsDeltaPercent); Next=$($visualStatus.NextRecommendation)"
             }
         }
     } catch {
@@ -99,9 +133,22 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
 
         $runtimeStatus = $runtimeJson | ConvertFrom-Json
         if ($hasVisualPerformanceRegression) {
+            $runtimeRecommendationPassed = if ($contractBindProofPassed) {
+                $runtimeStatus.NextRecommendation -match "bounded no-write" -and
+                $runtimeStatus.NextRecommendation -match "EASU carrier-only" -and
+                $runtimeStatus.NextRecommendation -match "native D3D11 resource-desc validate-only" -and
+                $runtimeStatus.NextRecommendation -match "empty existing command-buffer plugin-event" -and
+                $runtimeStatus.NextRecommendation -notmatch "Next work should run the protected hdrp-dlss-contract-bind-render-scale proof" -and
+                $runtimeStatus.NextRecommendation -notmatch "Next engineering step is paired dlss-user-rendering gameplay visual/performance comparison"
+            } else {
+                $runtimeStatus.NextRecommendation -match "Do not rerun the same EASU ctx\.cmd" -and
+                $runtimeStatus.NextRecommendation -match "hdrp-dlss-contract-bind-render-scale" -and
+                $runtimeStatus.NextRecommendation -notmatch "Next engineering step is paired dlss-user-rendering gameplay visual/performance comparison"
+            }
+
             Add-Check `
                 -Name "runtime next recommendation does not send user-rendering performance regression back to the same candidate" `
-                -Passed ($runtimeStatus.NextRecommendation -match "Do not rerun the same EASU ctx\.cmd" -and $runtimeStatus.NextRecommendation -match "hdrp-dlss-contract-bind-render-scale" -and $runtimeStatus.NextRecommendation -notmatch "Next engineering step is paired dlss-user-rendering gameplay visual/performance comparison") `
+                -Passed $runtimeRecommendationPassed `
                 -Evidence $runtimeStatus.NextRecommendation
         } else {
             Add-Check `
@@ -128,6 +175,8 @@ $result = [pscustomobject]@{
     ModifiesGameFiles = $false
     GamePath = $GamePath
     VisualPerformanceRegressionEvidence = [bool]$hasVisualPerformanceRegression
+    ContractBindGameplayProofStatus = if ($contractBindProof) { [string]$contractBindProof.Status } else { "" }
+    ContractBindGameplayProofSource = if ($contractBindProof) { [string]$contractBindProof.Source } else { "" }
     RuntimeNextRecommendation = $runtimeNextRecommendation
     VisualNextRecommendation = $visualNextRecommendation
     CheckCount = $checks.Count

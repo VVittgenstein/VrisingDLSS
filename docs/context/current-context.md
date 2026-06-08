@@ -2356,3 +2356,38 @@ As of the read-only RenderGraph pass-map runtime result:
   and GPU CSV metrics, and `artifacts/system-snapshots/*.snapshot.json` files so
   low-GPU-utilization regressions can be compared against process load,
   temperature, power, VRAM, and environment drift.
+- After reboot, Computer Use worked for the protected
+  `hdrp-dlss-contract-bind-render-scale-1080p-gameplay-20260608-r1` run. The
+  session started V Rising at true `1920x1080` Windowed with
+  `-ProtectSave -SaveName 11111`; Computer Use selected the real Unity window,
+  clicked Continue/`11111` once, sent no movement keys, and waited for stable
+  gameplay. Cleanup passed with `CrashEventCount=0`,
+  `UseSdkWrapperNative=False`, `SaveRestored=True`,
+  `SaveAfterRestoreChangeCount=0`, `SaveCompareStatus=Restored`,
+  `RemainingVRisingProcessCount=0`, and `CleanupRequired=False`. The schedule
+  analyzer reported `Status=NoOfficialDlssPassObserved`,
+  `Contract.Status=EasuSuperResolutionChainWithHdrpDepthMotionObservedButContractIncomplete`,
+  `EngineOwnedSuperResolutionChainWithHdrpDepthMotionObserved=true`,
+  `SuperResolutionChainsWithHdrpDepthMotion=73`,
+  `RenderGraphGetTextureCalls=0`, `UserRenderingCandidateStarted=0`,
+  `DlssEvaluateSucceeded=0`, and `AccessViolationIndicators=0`.
+  `docs/development/hdrp-dlss-contract-bind-render-scale-gameplay-result-2026-06-08.md`
+  is the durable committed result; ignored local artifacts remain under
+  `artifacts/gameplay-automation/`.
+- `scripts\get-contract-bind-gameplay-proof.ps1` now detects this proof without
+  launching or modifying the game. It prefers local gameplay artifacts plus
+  `scripts\analyze-hdrp-dlss-schedule-audit.ps1`, and falls back to the durable
+  result doc when ignored artifacts are absent. Runtime, visual, and release
+  readiness status now consume that detector, so recommendations cannot drift
+  back to rerunning the unchanged `dlss-user-rendering` candidate or rerunning
+  `hdrp-dlss-contract-bind-render-scale` unchanged after the contract-bind proof
+  has passed. The current next runtime proof is bounded no-write B/C/D cost
+  isolation: EASU carrier-only, native D3D11 resource-desc validate-only, and
+  empty existing command-buffer plugin-event callback under the same protected
+  `11111` fixture and system-snapshot protocol. `scripts\test-doc-next-recommendation-contract.ps1`
+  and `scripts\test-runtime-next-recommendation-contract.ps1` guard that the
+  docs/status cannot drift back to stale guidance.
+  Guard marker: the contract-bind proof has passed; the next route is bounded
+  no-write B/C/D cost isolation; do not resume by rerunning the unchanged
+  `dlss-user-rendering` candidate.
+  Guard marker one-line: contract-bind proof has passed; bounded no-write B/C/D cost isolation; rerunning the unchanged `dlss-user-rendering` candidate is stale.
