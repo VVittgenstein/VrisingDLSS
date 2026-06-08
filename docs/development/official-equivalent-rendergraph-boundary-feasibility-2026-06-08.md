@@ -166,6 +166,36 @@ DLSS compiled-pass patterns.
 The follow-up contract/gap result is recorded in
 `docs/development/official-dlss-contract-vs-easu-chain-analysis-2026-06-08.md`.
 
+## Repeatable Guard
+
+The route decision is now mechanically checked by:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\test-rendergraph-boundary-route-status.ps1 -RequirePass -Json
+```
+
+The guard launches no game process and modifies no game files. It checks:
+
+- `RenderGraphDiagnosticPass.cs` still contains the local
+  `AddRenderPass`/`SetRenderFunc` proof path;
+- the archived diagnostic-pass gameplay log configured and injected a
+  color/depth/motion pass with `hasRenderFunc=True` and
+  `allowPassCulling=False`;
+- the paired WER file still proves `VRising.exe -> coreclr.dll -> c0000005`;
+- `ModConfig`, Thunderstore package validation, and the contract-bind guard keep
+  `EnableRenderGraphDiagnosticPass=false` and
+  `EnableExistingRenderFuncProbe=false` on the normal route;
+- the current safe schedule-audit analyzer still observes an engine-owned
+  `Uber -> EASU -> FinalPass` chain while rejecting the menu log as an
+  official-equivalent DLSS contract.
+
+Local validation on 2026-06-08 reported `Status=Pass`, `CheckCount=18`,
+`LaunchesGame=false`, `ModifiesGameFiles=false`,
+`RouteDecision=RejectedAsNormalRoute`, analyzer status
+`NoOfficialDlssPassObserved`, analyzer contract
+`EasuChainObservedButContractIncomplete`, and `73` complete
+`Uber -> EASU -> FinalPass` chains.
+
 ## Decision
 
 Current mainline:

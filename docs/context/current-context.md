@@ -2127,6 +2127,19 @@ As of the read-only RenderGraph pass-map runtime result:
   templates, pass signals, and fail signals. Local validation confirmed
   `LaunchesGame=false`, `RequiresComputerUse=true`, and
   `MovementKeysAllowed=false`.
+- `scripts\test-rendergraph-boundary-route-status.ps1 -RequirePass -Json`
+  now makes the mod-owned RenderGraph boundary decision repeatable without
+  launching V Rising or modifying game files. It validates the old
+  `AddRenderPass`/`SetRenderFunc` proof path, the archived diagnostic-pass
+  gameplay crash (`VRising.exe -> coreclr.dll -> c0000005` before any diagnostic
+  render-function log), default false high-risk flags, the contract-bind guard,
+  and the current schedule analyzer. Local validation reported `Status=Pass`,
+  `CheckCount=18`, `RouteDecision=RejectedAsNormalRoute`,
+  `AnalyzerStatus=NoOfficialDlssPassObserved`,
+  `AnalyzerContractStatus=EasuChainObservedButContractIncomplete`, and `73`
+  complete `Uber -> EASU -> FinalPass` chains. This closes the previous static
+  follow-up question: new mod-owned RenderGraph pass injection remains a
+  research-only/rejected normal route, not the next playable-MVP path.
 - `scripts\find-vrising-save-fixture.ps1 -SaveName 11111 -RequireOne -Json`
   now resolves the current local/private Continue fixture without launching
   V Rising or modifying save files. On this machine it reports `Status=Pass`,

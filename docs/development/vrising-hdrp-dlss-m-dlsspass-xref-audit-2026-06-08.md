@@ -303,16 +303,30 @@ Mainline direction:
    discovery.
 4. Only then reintroduce NGX/DLSS evaluate.
 
-## Next Static Work
+## Answered Static Follow-Up
 
-Before another gameplay or native evaluate test, inspect whether a managed
-BepInEx plugin can safely create or influence a narrow RenderGraph pass near
-`DoDLSSPass`/EASU/FinalPass without relying on private `DLSSPass.Render`:
+The next static question from this audit is now answered in
+`docs/development/official-equivalent-rendergraph-boundary-feasibility-2026-06-08.md`
+and guarded by:
 
-- Can `RenderGraph.AddRenderPass<TPassData>` and
-  `RenderGraphBuilder.SetRenderFunc<TPassData>` be called safely from IL2CPP
-  plugin code for a mod-owned pass-data type?
-- If not, can an existing postprocess pass boundary expose the necessary
-  resource handles without broad `GetTexture` and without write hazards?
-- What is the smallest no-native proof that can show official-like resource
-  declaration, stable pass timing, and no CPU/GPU stall before adding NGX?
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\test-rendergraph-boundary-route-status.ps1 -RequirePass -Json
+```
+
+Current guard result: `Status=Pass`, `LaunchesGame=false`,
+`ModifiesGameFiles=false`, `RouteDecision=RejectedAsNormalRoute`.
+
+Summary:
+
+- `RenderGraph.AddRenderPass<TPassData>` and
+  `RenderGraphBuilder.SetRenderFunc<TPassData>` can be called from the local
+  interop plugin path; archived logs show a configured diagnostic pass with
+  `hasRenderFunc=True` and `allowPassCulling=False`.
+- The same mod-owned pass route crashed protected gameplay before any
+  diagnostic render-function log, with WER evidence
+  `VRising.exe -> coreclr.dll -> c0000005`.
+- Existing generated render-function patching is also rejected as a normal
+  route because it reproduced the same crash family before useful scope logs.
+- The safe next proof remains `hdrp-dlss-contract-bind-render-scale`: bind HDRP
+  depth/motion correlation to the engine-owned `Uber -> EASU -> FinalPass`
+  chain, then run a bounded no-write cost proof only if that boundary is clean.
