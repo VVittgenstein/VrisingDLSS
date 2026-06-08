@@ -2140,6 +2140,9 @@ As of the read-only RenderGraph pass-map runtime result:
   complete `Uber -> EASU -> FinalPass` chains. This closes the previous static
   follow-up question: new mod-owned RenderGraph pass injection remains a
   research-only/rejected normal route, not the next playable-MVP path.
+  Release readiness now includes this as an `Evidence` item, and the GitHub
+  Actions package workflow runs the same guard with `-RequirePass` before
+  packaging.
 - `scripts\find-vrising-save-fixture.ps1 -SaveName 11111 -RequireOne -Json`
   now resolves the current local/private Continue fixture without launching
   V Rising or modifying save files. On this machine it reports `Status=Pass`,

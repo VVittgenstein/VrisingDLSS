@@ -95,6 +95,7 @@ $configTemplatePath = Join-Path $resolvedRoot "package\thunderstore\VrisingDLSS.
 $hdrpAssetRequirement = "Local HDRP asset unpack identifies the active render pipeline asset and DLSS/upscaler gates without launching or modifying the game."
 $contractBindStageRequirement = "Contract-bind render-scale stage dry-run remains no-native/no-evaluate and launch-safe before gameplay automation."
 $localSaveFixtureRequirement = "Local V Rising save fixture resolver finds exactly one usable Continue target named 11111 without launching or modifying the game."
+$renderGraphBoundaryRouteRequirement = "RenderGraph boundary route guard keeps mod-owned RenderGraph pass injection rejected as the normal route without launching or modifying the game."
 
 if ([string]::IsNullOrWhiteSpace($PackagePath) -and (Test-Path -LiteralPath $manifestPath)) {
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
@@ -185,6 +186,7 @@ if (Test-Path -LiteralPath $workflowPath) {
         -and $workflowText -match "validate-thunderstore-package\.ps1" `
         -and $workflowText -match "package-thunderstore\.ps1" `
         -and $workflowText -match "test-hdrp-dlss-contract-bind-stage\.ps1\s+-RequirePass" `
+        -and $workflowText -match "test-rendergraph-boundary-route-status\.ps1\s+-RequirePass" `
         -and $workflowText -match "actions/upload-artifact@v4"
     $items.Add((New-ReadinessItem `
         -Area "Automation" `
@@ -300,6 +302,45 @@ $items.Add((New-ReadinessItem `
     -Requirement $contractBindStageRequirement `
     -Status $contractBindGuardStatus `
     -Evidence $contractBindGuardEvidence))
+
+$renderGraphBoundaryRouteGuard = Invoke-CapturedCommand -Command {
+    & (Join-Path $resolvedRoot "scripts\test-rendergraph-boundary-route-status.ps1") -Root $resolvedRoot -RequirePass -Json
+}
+$renderGraphBoundaryRouteStatus = "Blocked"
+$renderGraphBoundaryRouteEvidence = "RenderGraph boundary route guard did not produce evidence."
+if ($renderGraphBoundaryRouteGuard.Succeeded) {
+    try {
+        $renderGraphBoundaryRouteReport = $renderGraphBoundaryRouteGuard.Output | ConvertFrom-Json
+        $renderGraphBoundaryRouteLaunchesGame = [bool]$renderGraphBoundaryRouteReport.LaunchesGame
+        $renderGraphBoundaryRouteModifiesGameFiles = [bool]$renderGraphBoundaryRouteReport.ModifiesGameFiles
+        $renderGraphBoundaryRouteEvidenceDetails = $renderGraphBoundaryRouteReport.Evidence
+        $renderGraphBoundaryRouteStatus = if ($renderGraphBoundaryRouteReport.Status -eq "Pass" `
+                -and $renderGraphBoundaryRouteReport.RouteDecision -eq "RejectedAsNormalRoute" `
+                -and -not $renderGraphBoundaryRouteLaunchesGame `
+                -and -not $renderGraphBoundaryRouteModifiesGameFiles) {
+            "Pass"
+        } elseif ($renderGraphBoundaryRouteReport.Status -eq "Fail") {
+            "Fail"
+        } else {
+            "Blocked"
+        }
+        $renderGraphBoundaryRouteEvidence = "Status=$($renderGraphBoundaryRouteReport.Status); RouteDecision=$($renderGraphBoundaryRouteReport.RouteDecision); Checks=$($renderGraphBoundaryRouteReport.CheckCount); FailedChecks=$(@($renderGraphBoundaryRouteReport.FailedChecks).Count); LaunchesGame=$($renderGraphBoundaryRouteReport.LaunchesGame); ModifiesGameFiles=$($renderGraphBoundaryRouteReport.ModifiesGameFiles); AnalyzerStatus=$($renderGraphBoundaryRouteEvidenceDetails.AnalyzerStatus); AnalyzerContractStatus=$($renderGraphBoundaryRouteEvidenceDetails.AnalyzerContractStatus); CompleteUberEasuFinalChains=$($renderGraphBoundaryRouteEvidenceDetails.CompleteUberEasuFinalChains)"
+        if (@($renderGraphBoundaryRouteReport.Issues).Count -gt 0) {
+            $renderGraphBoundaryRouteEvidence = "$renderGraphBoundaryRouteEvidence; Issues=$(@($renderGraphBoundaryRouteReport.Issues) -join ' | ')"
+        }
+    } catch {
+        $renderGraphBoundaryRouteStatus = "Blocked"
+        $renderGraphBoundaryRouteEvidence = "Failed to parse RenderGraph boundary route guard JSON: $($_.Exception.Message); Output=$($renderGraphBoundaryRouteGuard.Output)"
+    }
+} else {
+    $renderGraphBoundaryRouteEvidence = "RenderGraph boundary route guard failed: $($renderGraphBoundaryRouteGuard.Output)"
+}
+
+$items.Add((New-ReadinessItem `
+    -Area "Evidence" `
+    -Requirement $renderGraphBoundaryRouteRequirement `
+    -Status $renderGraphBoundaryRouteStatus `
+    -Evidence $renderGraphBoundaryRouteEvidence))
 
 if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
     $runtimeArgs = @{
