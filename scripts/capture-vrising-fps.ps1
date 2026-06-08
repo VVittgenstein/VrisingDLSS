@@ -106,6 +106,201 @@ if (-not (Test-Path -LiteralPath $presentMonResolved)) {
 
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $targetPath), (Split-Path -Parent $summaryTargetPath), (Split-Path -Parent $metricsTargetPath) | Out-Null
 
+$culture = [Globalization.CultureInfo]::InvariantCulture
+
+function Convert-NullableDouble {
+    param([string]$Value)
+
+    if ([string]::IsNullOrWhiteSpace($Value) -or $Value -eq "NA") {
+        return $null
+    }
+
+    return [double]::Parse($Value, $culture)
+}
+
+function Get-Percentile {
+    param(
+        [double[]]$Values,
+        [double]$Percentile
+    )
+
+    if (-not $Values -or $Values.Count -eq 0) {
+        return $null
+    }
+
+    $sorted = @($Values | Sort-Object)
+    if ($sorted.Count -eq 1) {
+        return $sorted[0]
+    }
+
+    $rank = ($sorted.Count - 1) * $Percentile
+    $lower = [int][Math]::Floor($rank)
+    $upper = [int][Math]::Ceiling($rank)
+    if ($lower -eq $upper) {
+        return $sorted[$lower]
+    }
+
+    $weight = $rank - $lower
+    return ($sorted[$lower] * (1.0 - $weight)) + ($sorted[$upper] * $weight)
+}
+
+function Round-Nullable {
+    param(
+        $Value,
+        [int]$Digits = 3
+    )
+
+    if ($null -eq $Value) {
+        return $null
+    }
+
+    $number = [double]$Value
+    if ([double]::IsNaN($number) -or [double]::IsInfinity($number)) {
+        return $null
+    }
+
+    return [Math]::Round($number, $Digits)
+}
+
+function Get-SystemMetricsSummary {
+    param(
+        [bool]$Skip,
+        [string]$Path
+    )
+
+    $metricRows = @()
+    $cpuValues = New-Object System.Collections.Generic.List[double]
+    $workingSetValues = New-Object System.Collections.Generic.List[double]
+    $privateValues = New-Object System.Collections.Generic.List[double]
+    $gpuUtilValues = New-Object System.Collections.Generic.List[double]
+    $gpuMemoryUsedValues = New-Object System.Collections.Generic.List[double]
+    $gpuPowerValues = New-Object System.Collections.Generic.List[double]
+    $gpuTemperatureValues = New-Object System.Collections.Generic.List[double]
+
+    if (-not $Skip -and (Test-Path -LiteralPath $Path)) {
+        $metricRows = @(Import-Csv -LiteralPath $Path)
+        foreach ($row in $metricRows) {
+            $value = Convert-NullableDouble -Value $row.ProcessCpuPercent
+            if ($null -ne $value) {
+                $cpuValues.Add($value)
+            }
+            $value = Convert-NullableDouble -Value $row.ProcessWorkingSetMb
+            if ($null -ne $value) {
+                $workingSetValues.Add($value)
+            }
+            $value = Convert-NullableDouble -Value $row.ProcessPrivateMb
+            if ($null -ne $value) {
+                $privateValues.Add($value)
+            }
+            $value = Convert-NullableDouble -Value $row.GpuUtilPercent
+            if ($null -ne $value) {
+                $gpuUtilValues.Add($value)
+            }
+            $value = Convert-NullableDouble -Value $row.GpuMemoryUsedMb
+            if ($null -ne $value) {
+                $gpuMemoryUsedValues.Add($value)
+            }
+            $value = Convert-NullableDouble -Value $row.GpuPowerW
+            if ($null -ne $value) {
+                $gpuPowerValues.Add($value)
+            }
+            $value = Convert-NullableDouble -Value $row.GpuTemperatureC
+            if ($null -ne $value) {
+                $gpuTemperatureValues.Add($value)
+            }
+        }
+    }
+
+    [pscustomobject]@{
+        MetricsPath = $(if (-not $Skip -and (Test-Path -LiteralPath $Path)) { $Path } else { "" })
+        MetricsSampleCount = $metricRows.Count
+        AverageProcessCpuPercent = $(if ($cpuValues.Count -gt 0) { Round-Nullable -Value (($cpuValues.ToArray() | Measure-Object -Average).Average) } else { $null })
+        P95ProcessCpuPercent = $(if ($cpuValues.Count -gt 0) { Round-Nullable -Value (Get-Percentile -Values $cpuValues.ToArray() -Percentile 0.95) } else { $null })
+        AverageWorkingSetMb = $(if ($workingSetValues.Count -gt 0) { Round-Nullable -Value (($workingSetValues.ToArray() | Measure-Object -Average).Average) } else { $null })
+        MaxWorkingSetMb = $(if ($workingSetValues.Count -gt 0) { Round-Nullable -Value (($workingSetValues.ToArray() | Measure-Object -Maximum).Maximum) } else { $null })
+        AveragePrivateMb = $(if ($privateValues.Count -gt 0) { Round-Nullable -Value (($privateValues.ToArray() | Measure-Object -Average).Average) } else { $null })
+        AverageGpuUtilPercent = $(if ($gpuUtilValues.Count -gt 0) { Round-Nullable -Value (($gpuUtilValues.ToArray() | Measure-Object -Average).Average) } else { $null })
+        P95GpuUtilPercent = $(if ($gpuUtilValues.Count -gt 0) { Round-Nullable -Value (Get-Percentile -Values $gpuUtilValues.ToArray() -Percentile 0.95) } else { $null })
+        AverageGpuMemoryUsedMb = $(if ($gpuMemoryUsedValues.Count -gt 0) { Round-Nullable -Value (($gpuMemoryUsedValues.ToArray() | Measure-Object -Average).Average) } else { $null })
+        MaxGpuMemoryUsedMb = $(if ($gpuMemoryUsedValues.Count -gt 0) { Round-Nullable -Value (($gpuMemoryUsedValues.ToArray() | Measure-Object -Maximum).Maximum) } else { $null })
+        AverageGpuPowerW = $(if ($gpuPowerValues.Count -gt 0) { Round-Nullable -Value (($gpuPowerValues.ToArray() | Measure-Object -Average).Average) } else { $null })
+        AverageGpuTemperatureC = $(if ($gpuTemperatureValues.Count -gt 0) { Round-Nullable -Value (($gpuTemperatureValues.ToArray() | Measure-Object -Average).Average) } else { $null })
+    }
+}
+
+function New-FpsCaptureResult {
+    param(
+        [string]$Status = "Pass",
+        [string]$FailureReason = "",
+        [string]$CsvPath = $targetPath,
+        [int]$RowCount = 0,
+        [int]$FrameCount = 0,
+        [int]$GpuFrameCount = 0,
+        [string]$ProcessIds = "",
+        [string]$PresentRuntimes = "",
+        [string]$PresentModes = "",
+        $AverageFrameMs = $null,
+        $P50FrameMs = $null,
+        $P95FrameMs = $null,
+        $P99FrameMs = $null,
+        $MinFrameMs = $null,
+        $MaxFrameMs = $null,
+        $AverageGpuMs = $null,
+        $P95GpuMs = $null
+    )
+
+    $metricSummary = Get-SystemMetricsSummary -Skip ([bool]$SkipSystemMetrics) -Path $metricsTargetPath
+    $csvValue = if (-not [string]::IsNullOrWhiteSpace($CsvPath) -and (Test-Path -LiteralPath $CsvPath)) { $CsvPath } else { "" }
+
+    $result = [pscustomobject]@{
+        Mode = "CapturedFPS"
+        Status = $Status
+        FailureReason = $FailureReason
+        CsvPath = $csvValue
+        MetricsPath = $metricSummary.MetricsPath
+        SummaryPath = $summaryTargetPath
+        PresentMonPath = $presentMonResolved
+        NvidiaSmiPath = $nvidiaSmiResolved
+        RequestedSeconds = $Seconds
+        DelaySeconds = $DelaySeconds
+        MetricsIntervalMs = $MetricsIntervalMs
+        RowCount = $RowCount
+        FrameCount = $FrameCount
+        GpuFrameCount = $GpuFrameCount
+        MetricsSampleCount = $metricSummary.MetricsSampleCount
+        ProcessIds = $ProcessIds
+        PresentRuntimes = $PresentRuntimes
+        PresentModes = $PresentModes
+        AverageFrameMs = Round-Nullable -Value $AverageFrameMs
+        P50FrameMs = Round-Nullable -Value $P50FrameMs
+        P95FrameMs = Round-Nullable -Value $P95FrameMs
+        P99FrameMs = Round-Nullable -Value $P99FrameMs
+        MinFrameMs = Round-Nullable -Value $MinFrameMs
+        MaxFrameMs = Round-Nullable -Value $MaxFrameMs
+        AverageFps = $(if ($null -ne $AverageFrameMs -and [double]$AverageFrameMs -gt 0.0) { Round-Nullable -Value (1000.0 / [double]$AverageFrameMs) } else { $null })
+        P50Fps = $(if ($null -ne $P50FrameMs -and [double]$P50FrameMs -gt 0.0) { Round-Nullable -Value (1000.0 / [double]$P50FrameMs) } else { $null })
+        FivePercentLowFps = $(if ($null -ne $P95FrameMs -and [double]$P95FrameMs -gt 0.0) { Round-Nullable -Value (1000.0 / [double]$P95FrameMs) } else { $null })
+        OnePercentLowFps = $(if ($null -ne $P99FrameMs -and [double]$P99FrameMs -gt 0.0) { Round-Nullable -Value (1000.0 / [double]$P99FrameMs) } else { $null })
+        AverageGpuMs = Round-Nullable -Value $AverageGpuMs
+        P95GpuMs = Round-Nullable -Value $P95GpuMs
+        AverageProcessCpuPercent = $metricSummary.AverageProcessCpuPercent
+        P95ProcessCpuPercent = $metricSummary.P95ProcessCpuPercent
+        AverageWorkingSetMb = $metricSummary.AverageWorkingSetMb
+        MaxWorkingSetMb = $metricSummary.MaxWorkingSetMb
+        AveragePrivateMb = $metricSummary.AveragePrivateMb
+        AverageGpuUtilPercent = $metricSummary.AverageGpuUtilPercent
+        P95GpuUtilPercent = $metricSummary.P95GpuUtilPercent
+        AverageGpuMemoryUsedMb = $metricSummary.AverageGpuMemoryUsedMb
+        MaxGpuMemoryUsedMb = $metricSummary.MaxGpuMemoryUsedMb
+        AverageGpuPowerW = $metricSummary.AverageGpuPowerW
+        AverageGpuTemperatureC = $metricSummary.AverageGpuTemperatureC
+        LaunchesGame = $false
+    }
+
+    $result | Format-List | Out-String -Width 220 | Set-Content -LiteralPath $summaryTargetPath -Encoding UTF8
+    return $result
+}
+
 $arguments = New-Object System.Collections.Generic.List[string]
 if ($ProcessId -gt 0) {
     $arguments.Add("--process_id")
@@ -234,11 +429,13 @@ if (-not $SkipSystemMetrics) {
     } -ArgumentList $ProcessName, $ProcessId, $Seconds, $DelaySeconds, $MetricsIntervalMs, $nvidiaSmiResolved, $metricsTargetPath, $logicalProcessorCount
 }
 
-& $presentMonResolved @arguments | Out-Host
+$presentMonException = $null
+$presentMonExitCode = 0
 try {
-    if ($LASTEXITCODE -ne 0) {
-        throw "PresentMon exited with code $LASTEXITCODE."
-    }
+    & $presentMonResolved @arguments | Out-Host
+    $presentMonExitCode = $LASTEXITCODE
+} catch {
+    $presentMonException = $_
 } finally {
     if ($metricsJob) {
         Wait-Job -Job $metricsJob | Out-Null
@@ -247,64 +444,19 @@ try {
     }
 }
 
+if ($presentMonException) {
+    New-FpsCaptureResult -Status "PresentMonInvocationFailed" -FailureReason $presentMonException.Exception.Message
+    return
+}
+
+if ($presentMonExitCode -ne 0) {
+    New-FpsCaptureResult -Status "PresentMonFailed" -FailureReason "PresentMon exited with code $presentMonExitCode."
+    return
+}
+
 if (-not (Test-Path -LiteralPath $targetPath)) {
-    throw "PresentMon did not create a CSV file: $targetPath"
-}
-
-$culture = [Globalization.CultureInfo]::InvariantCulture
-
-function Convert-NullableDouble {
-    param([string]$Value)
-
-    if ([string]::IsNullOrWhiteSpace($Value) -or $Value -eq "NA") {
-        return $null
-    }
-
-    return [double]::Parse($Value, $culture)
-}
-
-function Get-Percentile {
-    param(
-        [double[]]$Values,
-        [double]$Percentile
-    )
-
-    if (-not $Values -or $Values.Count -eq 0) {
-        return $null
-    }
-
-    $sorted = @($Values | Sort-Object)
-    if ($sorted.Count -eq 1) {
-        return $sorted[0]
-    }
-
-    $rank = ($sorted.Count - 1) * $Percentile
-    $lower = [int][Math]::Floor($rank)
-    $upper = [int][Math]::Ceiling($rank)
-    if ($lower -eq $upper) {
-        return $sorted[$lower]
-    }
-
-    $weight = $rank - $lower
-    return ($sorted[$lower] * (1.0 - $weight)) + ($sorted[$upper] * $weight)
-}
-
-function Round-Nullable {
-    param(
-        $Value,
-        [int]$Digits = 3
-    )
-
-    if ($null -eq $Value) {
-        return $null
-    }
-
-    $number = [double]$Value
-    if ([double]::IsNaN($number) -or [double]::IsInfinity($number)) {
-        return $null
-    }
-
-    return [Math]::Round($number, $Digits)
+    New-FpsCaptureResult -Status "PresentMonCsvMissing" -FailureReason "PresentMon did not create a CSV file: $targetPath"
+    return
 }
 
 $rows = @(Import-Csv -LiteralPath $targetPath)
@@ -337,7 +489,17 @@ foreach ($row in $rows) {
 }
 
 if ($frameTimes.Count -eq 0) {
-    throw "PresentMon CSV did not contain usable MsBetweenPresents samples."
+    New-FpsCaptureResult `
+        -Status "PresentMonNoUsableFrames" `
+        -FailureReason "PresentMon CSV did not contain usable MsBetweenPresents samples." `
+        -CsvPath $targetPath `
+        -RowCount $rows.Count `
+        -FrameCount 0 `
+        -GpuFrameCount $gpuTimes.Count `
+        -ProcessIds (($processIds.Keys | Sort-Object) -join ",") `
+        -PresentRuntimes (($runtimeNames.Keys | Sort-Object) -join ",") `
+        -PresentModes (($presentModes.GetEnumerator() | Sort-Object Name | ForEach-Object { "$($_.Name)=$($_.Value)" }) -join "; ")
+    return
 }
 
 $frameTimeArray = $frameTimes.ToArray()
@@ -352,90 +514,20 @@ $gpuTimeArray = $gpuTimes.ToArray()
 $averageGpuMs = if ($gpuTimes.Count -gt 0) { ($gpuTimeArray | Measure-Object -Average).Average } else { $null }
 $p95GpuMs = if ($gpuTimes.Count -gt 0) { Get-Percentile -Values $gpuTimes.ToArray() -Percentile 0.95 } else { $null }
 
-$metricRows = @()
-$cpuValues = New-Object System.Collections.Generic.List[double]
-$workingSetValues = New-Object System.Collections.Generic.List[double]
-$privateValues = New-Object System.Collections.Generic.List[double]
-$gpuUtilValues = New-Object System.Collections.Generic.List[double]
-$gpuMemoryUsedValues = New-Object System.Collections.Generic.List[double]
-$gpuPowerValues = New-Object System.Collections.Generic.List[double]
-$gpuTemperatureValues = New-Object System.Collections.Generic.List[double]
-
-if (-not $SkipSystemMetrics -and (Test-Path -LiteralPath $metricsTargetPath)) {
-    $metricRows = @(Import-Csv -LiteralPath $metricsTargetPath)
-    foreach ($row in $metricRows) {
-        $value = Convert-NullableDouble -Value $row.ProcessCpuPercent
-        if ($null -ne $value) {
-            $cpuValues.Add($value)
-        }
-        $value = Convert-NullableDouble -Value $row.ProcessWorkingSetMb
-        if ($null -ne $value) {
-            $workingSetValues.Add($value)
-        }
-        $value = Convert-NullableDouble -Value $row.ProcessPrivateMb
-        if ($null -ne $value) {
-            $privateValues.Add($value)
-        }
-        $value = Convert-NullableDouble -Value $row.GpuUtilPercent
-        if ($null -ne $value) {
-            $gpuUtilValues.Add($value)
-        }
-        $value = Convert-NullableDouble -Value $row.GpuMemoryUsedMb
-        if ($null -ne $value) {
-            $gpuMemoryUsedValues.Add($value)
-        }
-        $value = Convert-NullableDouble -Value $row.GpuPowerW
-        if ($null -ne $value) {
-            $gpuPowerValues.Add($value)
-        }
-        $value = Convert-NullableDouble -Value $row.GpuTemperatureC
-        if ($null -ne $value) {
-            $gpuTemperatureValues.Add($value)
-        }
-    }
-}
-
-$result = [pscustomobject]@{
-    Mode = "CapturedFPS"
-    CsvPath = $targetPath
-    MetricsPath = $(if (-not $SkipSystemMetrics -and (Test-Path -LiteralPath $metricsTargetPath)) { $metricsTargetPath } else { "" })
-    SummaryPath = $summaryTargetPath
-    PresentMonPath = $presentMonResolved
-    NvidiaSmiPath = $nvidiaSmiResolved
-    RequestedSeconds = $Seconds
-    DelaySeconds = $DelaySeconds
-    MetricsIntervalMs = $MetricsIntervalMs
-    RowCount = $rows.Count
-    FrameCount = $frameTimes.Count
-    MetricsSampleCount = $metricRows.Count
-    ProcessIds = ($processIds.Keys | Sort-Object) -join ","
-    PresentRuntimes = ($runtimeNames.Keys | Sort-Object) -join ","
-    PresentModes = ($presentModes.GetEnumerator() | Sort-Object Name | ForEach-Object { "$($_.Name)=$($_.Value)" }) -join "; "
-    AverageFrameMs = Round-Nullable -Value $averageFrameMs
-    P50FrameMs = Round-Nullable -Value $p50FrameMs
-    P95FrameMs = Round-Nullable -Value $p95FrameMs
-    P99FrameMs = Round-Nullable -Value $p99FrameMs
-    MinFrameMs = Round-Nullable -Value $minFrameMs
-    MaxFrameMs = Round-Nullable -Value $maxFrameMs
-    AverageFps = Round-Nullable -Value (1000.0 / $averageFrameMs)
-    P50Fps = Round-Nullable -Value (1000.0 / $p50FrameMs)
-    FivePercentLowFps = Round-Nullable -Value (1000.0 / $p95FrameMs)
-    OnePercentLowFps = Round-Nullable -Value (1000.0 / $p99FrameMs)
-    AverageGpuMs = Round-Nullable -Value $averageGpuMs
-    P95GpuMs = Round-Nullable -Value $p95GpuMs
-    AverageProcessCpuPercent = $(if ($cpuValues.Count -gt 0) { Round-Nullable -Value (($cpuValues.ToArray() | Measure-Object -Average).Average) } else { $null })
-    P95ProcessCpuPercent = $(if ($cpuValues.Count -gt 0) { Round-Nullable -Value (Get-Percentile -Values $cpuValues.ToArray() -Percentile 0.95) } else { $null })
-    AverageWorkingSetMb = $(if ($workingSetValues.Count -gt 0) { Round-Nullable -Value (($workingSetValues.ToArray() | Measure-Object -Average).Average) } else { $null })
-    MaxWorkingSetMb = $(if ($workingSetValues.Count -gt 0) { Round-Nullable -Value (($workingSetValues.ToArray() | Measure-Object -Maximum).Maximum) } else { $null })
-    AveragePrivateMb = $(if ($privateValues.Count -gt 0) { Round-Nullable -Value (($privateValues.ToArray() | Measure-Object -Average).Average) } else { $null })
-    AverageGpuUtilPercent = $(if ($gpuUtilValues.Count -gt 0) { Round-Nullable -Value (($gpuUtilValues.ToArray() | Measure-Object -Average).Average) } else { $null })
-    P95GpuUtilPercent = $(if ($gpuUtilValues.Count -gt 0) { Round-Nullable -Value (Get-Percentile -Values $gpuUtilValues.ToArray() -Percentile 0.95) } else { $null })
-    AverageGpuMemoryUsedMb = $(if ($gpuMemoryUsedValues.Count -gt 0) { Round-Nullable -Value (($gpuMemoryUsedValues.ToArray() | Measure-Object -Average).Average) } else { $null })
-    MaxGpuMemoryUsedMb = $(if ($gpuMemoryUsedValues.Count -gt 0) { Round-Nullable -Value (($gpuMemoryUsedValues.ToArray() | Measure-Object -Maximum).Maximum) } else { $null })
-    AverageGpuPowerW = $(if ($gpuPowerValues.Count -gt 0) { Round-Nullable -Value (($gpuPowerValues.ToArray() | Measure-Object -Average).Average) } else { $null })
-    AverageGpuTemperatureC = $(if ($gpuTemperatureValues.Count -gt 0) { Round-Nullable -Value (($gpuTemperatureValues.ToArray() | Measure-Object -Average).Average) } else { $null })
-    LaunchesGame = $false
-}
-
-$result | Format-List | Out-String -Width 220 | Set-Content -LiteralPath $summaryTargetPath -Encoding UTF8
-$result
+New-FpsCaptureResult `
+    -Status "Pass" `
+    -CsvPath $targetPath `
+    -RowCount $rows.Count `
+    -FrameCount $frameTimes.Count `
+    -GpuFrameCount $gpuTimes.Count `
+    -ProcessIds (($processIds.Keys | Sort-Object) -join ",") `
+    -PresentRuntimes (($runtimeNames.Keys | Sort-Object) -join ",") `
+    -PresentModes (($presentModes.GetEnumerator() | Sort-Object Name | ForEach-Object { "$($_.Name)=$($_.Value)" }) -join "; ") `
+    -AverageFrameMs $averageFrameMs `
+    -P50FrameMs $p50FrameMs `
+    -P95FrameMs $p95FrameMs `
+    -P99FrameMs $p99FrameMs `
+    -MinFrameMs $minFrameMs `
+    -MaxFrameMs $maxFrameMs `
+    -AverageGpuMs $averageGpuMs `
+    -P95GpuMs $p95GpuMs

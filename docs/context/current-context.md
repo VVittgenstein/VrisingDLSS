@@ -1651,3 +1651,14 @@ As of the read-only RenderGraph pass-map runtime result:
   no V Rising process remained and protected save restore ended with
   `ChangeCount=0`. See
   `docs/development/source-guided-user-rendering-visual-performance-2026-06-08.md`.
+- Harness follow-up after that partial run: `scripts\capture-vrising-fps.ps1`
+  now emits a structured summary for PresentMon failure cases instead of
+  throwing before writing performance evidence. Failure statuses include
+  `PresentMonCsvMissing`, `PresentMonFailed`,
+  `PresentMonInvocationFailed`, and `PresentMonNoUsableFrames`; successful
+  captures now write `Status=Pass`. `scripts\get-visual-validation-status.ps1`
+  now blocks when a performance summary has a non-`Pass` status or is missing
+  required FPS metrics (`AverageFps`, `OnePercentLowFps`, `P95FrameMs`), so a
+  metrics-only failure artifact cannot accidentally satisfy the MVP gate. A
+  fake PresentMon non-runtime test covered `PresentMonCsvMissing`, and a
+  temporary readiness check confirmed the visual gate stays `Blocked`.

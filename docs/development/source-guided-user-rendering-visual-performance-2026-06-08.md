@@ -170,3 +170,25 @@ partial performance-capture failures as structured result fields and/or make
 without a CSV. Then rerun the paired comparison, or run a shorter candidate-only
 performance repro to isolate why PresentMon returned success but wrote no frame
 CSV.
+
+## Follow-Up Harness Fix
+
+Implemented after this partial run:
+
+- `scripts/capture-vrising-fps.ps1` now writes a structured summary even when
+  PresentMon exits successfully but creates no CSV, when PresentMon exits
+  nonzero, or when the CSV has no usable `MsBetweenPresents` samples.
+- Successful summaries now include `Status=Pass`; failure summaries include a
+  specific status such as `PresentMonCsvMissing` and a `FailureReason`, while
+  still preserving any system metrics CSV averages that were captured.
+- `scripts/get-visual-validation-status.ps1` now blocks if a baseline or
+  candidate performance summary has a non-`Pass` status or lacks required FPS
+  metrics: `AverageFps`, `OnePercentLowFps`, or `P95FrameMs`.
+
+Validation was intentionally non-runtime: a fake PresentMon script exited `0`
+without writing a CSV, and the FPS helper produced
+`Status=PresentMonCsvMissing` with empty FPS fields. A temporary readiness check
+confirmed that such a summary is reported as a performance capture failure and
+does not satisfy the MVP visual/performance gate. A second fake PresentMon script
+wrote a three-row CSV and confirmed the success path still emits `Status=Pass`
+with `AverageFps`, `OnePercentLowFps`, and `P95FrameMs`.

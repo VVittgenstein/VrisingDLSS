@@ -141,6 +141,42 @@ function Get-DeltaPercent {
     return [Math]::Round((([double]$Candidate - [double]$Baseline) / [double]$Baseline * 100.0), 3)
 }
 
+function Get-PerformanceSummaryIssues {
+    param(
+        [string]$Prefix,
+        [hashtable]$Map,
+        [bool]$Present
+    )
+
+    if (-not $Present) {
+        return @()
+    }
+
+    $summaryIssues = New-Object System.Collections.Generic.List[string]
+    $captureStatus = Get-MapString -Map $Map -Key "Status"
+    if (-not [string]::IsNullOrWhiteSpace($captureStatus) -and $captureStatus -ine "Pass") {
+        $failureReason = Get-MapString -Map $Map -Key "FailureReason"
+        if ([string]::IsNullOrWhiteSpace($failureReason)) {
+            $summaryIssues.Add("$Prefix performance capture status is $captureStatus.")
+        } else {
+            $summaryIssues.Add("$Prefix performance capture status is ${captureStatus}: $failureReason")
+        }
+    }
+
+    $missingMetrics = New-Object System.Collections.Generic.List[string]
+    foreach ($metricName in @("AverageFps", "OnePercentLowFps", "P95FrameMs")) {
+        if ($null -eq (Get-MapNullableDouble -Map $Map -Key $metricName)) {
+            $missingMetrics.Add($metricName)
+        }
+    }
+
+    if ($missingMetrics.Count -gt 0) {
+        $summaryIssues.Add("$Prefix performance summary is missing required FPS metrics: $($missingMetrics.ToArray() -join ", ").")
+    }
+
+    return @($summaryIssues.ToArray())
+}
+
 function Get-VisualComparisonPattern {
     param(
         [string]$Label,
@@ -228,6 +264,10 @@ function New-Status {
         CandidatePerformanceSummaryPath = $(if ($Details.ContainsKey("CandidatePerformanceSummaryPath")) { $Details.CandidatePerformanceSummaryPath } else { "" })
         BaselinePerformanceSummaryPresent = $(if ($Details.ContainsKey("BaselinePerformanceSummaryPresent")) { $Details.BaselinePerformanceSummaryPresent } else { $false })
         CandidatePerformanceSummaryPresent = $(if ($Details.ContainsKey("CandidatePerformanceSummaryPresent")) { $Details.CandidatePerformanceSummaryPresent } else { $false })
+        BaselinePerformanceStatus = $(if ($Details.ContainsKey("BaselinePerformanceStatus")) { $Details.BaselinePerformanceStatus } else { "" })
+        CandidatePerformanceStatus = $(if ($Details.ContainsKey("CandidatePerformanceStatus")) { $Details.CandidatePerformanceStatus } else { "" })
+        BaselinePerformanceFailureReason = $(if ($Details.ContainsKey("BaselinePerformanceFailureReason")) { $Details.BaselinePerformanceFailureReason } else { "" })
+        CandidatePerformanceFailureReason = $(if ($Details.ContainsKey("CandidatePerformanceFailureReason")) { $Details.CandidatePerformanceFailureReason } else { "" })
         BaselineAverageFps = $(if ($Details.ContainsKey("BaselineAverageFps")) { $Details.BaselineAverageFps } else { $null })
         CandidateAverageFps = $(if ($Details.ContainsKey("CandidateAverageFps")) { $Details.CandidateAverageFps } else { $null })
         AverageFpsDelta = $(if ($Details.ContainsKey("AverageFpsDelta")) { $Details.AverageFpsDelta } else { $null })
@@ -332,6 +372,10 @@ $baselineOnePercentLowFps = Get-MapNullableDouble -Map $baselinePerformance -Key
 $candidateOnePercentLowFps = Get-MapNullableDouble -Map $candidatePerformance -Key "OnePercentLowFps"
 $baselineP95FrameMs = Get-MapNullableDouble -Map $baselinePerformance -Key "P95FrameMs"
 $candidateP95FrameMs = Get-MapNullableDouble -Map $candidatePerformance -Key "P95FrameMs"
+$baselinePerformanceStatus = Get-MapString -Map $baselinePerformance -Key "Status"
+$candidatePerformanceStatus = Get-MapString -Map $candidatePerformance -Key "Status"
+$baselinePerformanceFailureReason = Get-MapString -Map $baselinePerformance -Key "FailureReason"
+$candidatePerformanceFailureReason = Get-MapString -Map $candidatePerformance -Key "FailureReason"
 
 $details = @{
     ComparisonPath = $comparisonResolved
@@ -355,6 +399,10 @@ $details = @{
     CandidatePerformanceSummaryPath = $candidatePerformanceSummaryPath
     BaselinePerformanceSummaryPresent = -not [string]::IsNullOrWhiteSpace($baselinePerformanceSummaryPath) -and (Test-Path -LiteralPath $baselinePerformanceSummaryPath)
     CandidatePerformanceSummaryPresent = -not [string]::IsNullOrWhiteSpace($candidatePerformanceSummaryPath) -and (Test-Path -LiteralPath $candidatePerformanceSummaryPath)
+    BaselinePerformanceStatus = $baselinePerformanceStatus
+    CandidatePerformanceStatus = $candidatePerformanceStatus
+    BaselinePerformanceFailureReason = $baselinePerformanceFailureReason
+    CandidatePerformanceFailureReason = $candidatePerformanceFailureReason
     BaselineAverageFps = $baselineAverageFps
     CandidateAverageFps = $candidateAverageFps
     AverageFpsDelta = Get-Delta -Baseline $baselineAverageFps -Candidate $candidateAverageFps
@@ -438,6 +486,14 @@ if (-not $details.BaselinePerformanceSummaryPresent) {
 
 if (-not $details.CandidatePerformanceSummaryPresent) {
     $issues.Add("Candidate performance summary is missing.")
+}
+
+foreach ($issue in Get-PerformanceSummaryIssues -Prefix "Baseline" -Map $baselinePerformance -Present $details.BaselinePerformanceSummaryPresent) {
+    $issues.Add($issue)
+}
+
+foreach ($issue in Get-PerformanceSummaryIssues -Prefix "Candidate" -Map $candidatePerformance -Present $details.CandidatePerformanceSummaryPresent) {
+    $issues.Add($issue)
 }
 
 if ($candidateStage -eq "dlss-user-rendering" -and $details.BaselinePerformanceSummaryPresent -and $details.CandidatePerformanceSummaryPresent) {
