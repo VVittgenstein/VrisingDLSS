@@ -1713,10 +1713,32 @@ As of the read-only RenderGraph pass-map runtime result:
   The native SDK-wrapper frame-sequence evaluate now sets NGX `InPreExposure`
   from the payload and logs `jitter`, `mvScale`, and `preExposure`. Non-runtime
   verification passed: C# Release, release-safe native, SDK-wrapper native, and
-  visual readiness remained `Blocked`. This does not yet prove runtime behavior
-  or performance. Next runtime guard should be a short protected
-  `1920x1080` Windowed candidate-only `dlss-user-rendering` run that verifies
-  API 21 logs show the new per-frame values, no crash, and clean restore before
-  another paired visual/performance run. Feature-create flags, AutoExposure vs
-  supplied pre-exposure, bias color mask, and resize/reset behavior remain
-  separate source-backed questions.
+  visual readiness remained `Blocked`.
+- API 21 candidate-only runtime guard
+  `api21-user-rendering-1080p-20260608-r4` passed after that patch. The helper
+  used true `1920x1080` Windowed, V Rising `FsrQualityMode=Off`, SDK-wrapper
+  native, explicit local research `nvngx_dlss.dll`, the protected `11111`
+  fixture, and Computer Use clicked Continue once with no movement/gameplay
+  keys. Analysis reported `Native bridge API version: 21`,
+  `HDRP PostProcess Render Args=Pass`, `HDRP/EASU Input Output Correlation=Pass`,
+  `Native RenderFunc CommandBuffer DLSS User Rendering=Pass`, and
+  `DLSS User Rendering Candidate=Pass`. Logs showed `dlssFrameParams=` 11 times,
+  `dlssEvaluateParams=` once, and native `jitter/mvScale/preExposure` status 59
+  times; the accepted descriptor included
+  `jitter=(0.0375,0.0833),mvScale=(-960,-540),preExposure=1,resetHistory=False`,
+  and native evaluate statuses carried matching non-default jitter and
+  `mvScale=(-960.0000,-540.0000)`. FPS capture passed with
+  `AverageFps=131.241`, `OnePercentLowFps=99.398`, `P95FrameMs=9.037`,
+  `P99FrameMs=10.061`, `AverageGpuUtilPercent=52`, and
+  `AverageGpuPowerW=85.836`; screenshot SHA-256 was
+  `18FC7DEF8DF0B3BBC58CFEAD98ED1F0CD1BC9742BBAACE0A9B30639C7C2141AB`.
+  Negative evidence: `RenderGraph GetTexture call #=0`, explicit
+  user-rendering failed/blocked/skipped lines `0`, access violation /
+  `0xc0000005` / `nvwgf2umx` evidence `0`, crash events `0`, no remaining
+  V Rising process, release-safe state restored, and protected save final
+  `ChangeCount=0`. This proves the API 21 parameter path reaches real gameplay
+  NGX evaluate; it is still not MVP performance evidence because it is
+  candidate-only and short. The next guard should be a same-run protected
+  baseline-vs-candidate visual/performance comparison plus human visual review.
+  Feature-create flags, AutoExposure vs supplied pre-exposure, bias color mask,
+  and resize/reset behavior remain separate source-backed questions.

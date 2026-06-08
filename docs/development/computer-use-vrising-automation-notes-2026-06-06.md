@@ -1076,3 +1076,39 @@ Computer Use notes:
   the true VRising window before any click.
 - For the Continue action, one mouse click near `(205,354)` on the
   `1283x751` menu screenshot is enough. Do not send movement or gameplay keys.
+
+## API 21 Parameter-Alignment Candidate Run
+
+Run label:
+`api21-user-rendering-1080p-20260608-r4`.
+
+Result:
+
+- The visual-comparison helper launched V Rising in true `1920x1080` Windowed
+  mode with V Rising `FsrQualityMode=Off`, SDK-wrapper native, explicit
+  `DlssRuntimePath`, and protected save restore.
+- Computer Use selected exactly one real game app,
+  `process:C:\Software\VRising\VRising.exe`, with a single `VRising` window.
+- The main-menu screenshot was again `1283x751`; the Chinese Continue entry was
+  clicked once near `(205,354)`.
+- The next screenshot showed the world loading screen, and a later screenshot
+  showed stable gameplay/HUD. Only after that was the ready file created:
+  `artifacts\manual-ready\api21-user-rendering-1080p-20260608-r4.ready`.
+- No movement, combat, inventory, menu, or gameplay keys were sent.
+- The helper captured the final gameplay screenshot and FPS summary, closed the
+  game, restored release-safe native/config/client settings/FSR state, archived
+  the changed post-run save, and restored the protected save with
+  `ChangeCount=0`.
+
+Runner pitfalls from the same validation:
+
+- Avoid `Start-Process -ArgumentList` with unquoted paths containing spaces,
+  especially the save path under `Stunlock Studios`; it can mis-bind script
+  parameters before the game launches.
+- When using an encoded PowerShell command for a hidden runner, create
+  `$params = @{ ... }` and invoke the script as `& script.ps1 @params`. Passing
+  the hashtable literally (`& script.ps1 @{ ... }`) binds it to `GamePath` and
+  fails before launch.
+- SDK-wrapper visual-comparison candidate stages require an explicit
+  `-DlssRuntimePath` to a local research `nvngx_dlss.dll`; omitting it is a safe
+  preflight failure, not a gameplay or DLSS evaluate failure.
