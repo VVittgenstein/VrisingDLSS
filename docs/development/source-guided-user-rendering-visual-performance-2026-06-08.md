@@ -269,3 +269,109 @@ path against the current EASU `ctx.cmd` candidate. The narrow questions are:
 Keep any decompiled-game evidence local and summarized. Do not copy proprietary
 method bodies or game assets into the public package; use the result as a map for
 clean-room patches and focused probes only.
+
+## API 21 Paired Visual/Performance Rerun
+
+After the API 21 parameter-alignment patch, a same-run protected paired
+comparison was captured:
+
+- Artifact label:
+  `api21-paired-user-rendering-1080p-20260608-r1`
+- Shape: true `1920x1080` Windowed, V Rising `FsrQualityMode=Off`,
+  protected local/private `11111` save, SDK-wrapper native and local research
+  `nvngx_dlss.dll` only for the candidate.
+- Computer Use selected the real
+  `process:C:\Software\VRising\VRising.exe` Unity window for both runs, clicked
+  Continue once per run, sent no movement/gameplay keys, and was disconnected
+  after the game had exited and cleanup completed.
+- Additional system snapshots were saved under
+  `artifacts/system-snapshots/api21-paired-user-rendering-1080p-20260608-r1-*.json`.
+
+The baseline returned to the earlier high-performance range. This supports the
+user's observation that the previous `156 FPS` baseline was likely an
+environment/measurement-timing drift rather than save-state drift:
+
+| Metric | Baseline | Candidate | Delta |
+| --- | ---: | ---: | ---: |
+| Average FPS | 199.704 | 126.358 | -36.727% |
+| 1% low FPS | 150.016 | 99.225 | -33.857% |
+| Average frame time | 5.007 ms | 7.914 ms | +58.058% |
+| P95 frame time | 6.061 ms | 9.088 ms | +49.942% |
+| P99 frame time | 6.666 ms | 10.078 ms | +51.164% |
+| Average GPU utilization | 97.75% | 51.0% | -46.75 pp |
+| Average GPU power | 138.106 W | 86.064 W | -52.042 W |
+| Average GPU memory | 4975.625 MB | 4799.444 MB | -176.181 MB |
+| Average process CPU | 8.175% | 6.608% | -1.567 pp |
+
+Image comparison:
+
+- `BaselineSha256=C5208146D248FED25133380B8720E897E416CA2F2D22D6456C002CAB81DA4255`
+- `CandidateSha256=E0750646B64C7A90186933E0C76BEA9774C14D2EF788B2F034D09D7B59463D4C`
+- `MeanAbsRgbDelta=1.8288`
+- `ChangedRatioGt10=0.021332`
+- both captures were `1920x1080`.
+
+Candidate DLSS evidence stayed technically clean:
+
+- Readiness selected this comparison as the current evidence.
+- `CandidateEvidenceProved=True`, `UserRenderingProved=True`.
+- Candidate log counts:
+  `Native bridge API version: 21` = `1`,
+  `dlssFrameParams=` = `11`,
+  `dlssEvaluateParams=` = `1`,
+  native `jitter/mvScale/preExposure` status = `66`,
+  `DLSS user rendering evaluate succeeded` = `1`,
+  `RenderGraph GetTexture call #` = `0`,
+  explicit user-rendering failed/blocked/skipped = `0`,
+  access violation / `0xc0000005` / `nvwgf2umx` = `0`.
+
+System snapshot summary:
+
+- Baseline gameplay-ready snapshot:
+  GPU `96%`, `138.86 W`, `87 C`, `4997 MB`; CPU total `26%`.
+- Candidate gameplay-ready snapshot:
+  GPU `48%`, `87.93 W`, `75 C`, `4801 MB`; CPU total `12%`.
+- The snapshots do not point to an external GPU-heavy process stealing the
+  candidate run. They reinforce the same signal as PresentMon: the candidate is
+  running with much lower GPU utilization/power while frame time is worse.
+
+Cleanup passed: crash count `0`, no remaining V Rising process, release-safe
+state restored, BepInEx config restored, client settings restored, FSR restored
+to `Off`, changed post-run save archived, and protected save restore ended with
+`CompareStatus=Restored` and `ChangeCount=0`.
+
+Readiness remains blocked for the right reason: the current API 21 command-buffer
+candidate regresses performance in a same-run paired comparison. This is not a
+missing-metrics problem anymore. The next useful route is source/decompilation
+analysis of official HDRP `DLSSPass` behavior versus the current EASU `ctx.cmd`
+candidate, especially feature flags, lifecycle/reset, resource declarations,
+pass ordering, and whether V Rising modifies the HDRP/postprocess/dynamic-res
+flow in ways not covered by upstream Unity source.
+
+## Official DLSSPass Audit Result
+
+The source/decompilation comparison is recorded in
+`docs/development/official-dlsspass-vs-easu-candidate-audit-2026-06-08.md`.
+
+Key findings:
+
+- Official HDRP creates DLSS with `IsHDR | MVLowRes | DepthInverted |
+  DoSharpening` (`0x2B` in the current NGX headers), while the candidate run
+  used `AutoExposure` only (`0x40`).
+- Official eval sets invert Y to `1`; the current native eval leaves the NGX
+  invert-axis fields at zero.
+- The current command-buffer path carries jitter, motion-vector scale,
+  pre-exposure, and camera reset into the native payload, but the native frame
+  sequence only applies reset on the first evaluate. Official HDRP also applies
+  later camera reset/history requests.
+- Official HDRP writes a `"DLSS destination"` postprocess-upsampled output
+  handle and then uses that as the source; the candidate writes into the EASU
+  visible output target.
+- V Rising IL2CPP interops confirm the relevant HDRP DLSS symbols and tokens
+  exist locally, but no game-specific replacement of the upstream DLSS flow has
+  been proven from the wrapper files.
+
+Next runtime work should follow a small source-backed patch, not another blind
+rerun. The first likely experiment is official feature flags plus invert-axis
+parity, with reset/lifecycle parity either included if tiny or left for the next
+focused patch.

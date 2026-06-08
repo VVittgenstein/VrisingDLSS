@@ -1742,3 +1742,44 @@ As of the read-only RenderGraph pass-map runtime result:
   baseline-vs-candidate visual/performance comparison plus human visual review.
   Feature-create flags, AutoExposure vs supplied pre-exposure, bias color mask,
   and resize/reset behavior remain separate source-backed questions.
+- API 21 same-run paired visual/performance rerun
+  `api21-paired-user-rendering-1080p-20260608-r1` then converted the
+  candidate-only proof into current readiness evidence. The run used true
+  `1920x1080` Windowed, V Rising `FsrQualityMode=Off`, protected `11111` save,
+  SDK-wrapper native/runtime only for the candidate, and Computer Use clicked
+  Continue once per run with no movement/gameplay keys. It also added system
+  snapshots under `artifacts/system-snapshots/` and disconnected Computer Use
+  after game cleanup. Baseline returned to the expected high-performance range:
+  `AverageFps=199.704`, `OnePercentLowFps=150.016`, `P95FrameMs=6.061`,
+  `AverageGpuUtilPercent=97.75`, `AverageGpuPowerW=138.106`,
+  `AverageGpuTemperatureC=86.875`. Candidate passed technical DLSS evidence but
+  failed performance: `AverageFps=126.358`, `OnePercentLowFps=99.225`,
+  `P95FrameMs=9.088`, `P99FrameMs=10.078`,
+  `AverageGpuUtilPercent=51`, `AverageGpuPowerW=86.064`,
+  `AverageGpuTemperatureC=75`. Readiness now blocks on
+  `AverageFpsDeltaPercent=-36.727`, `OnePercentLowFpsDeltaPercent=-33.857`,
+  `P95FrameMsDeltaPercent=49.942`, plus missing human visual review. Image
+  comparison stayed close (`MeanAbsRgbDelta=1.8288`,
+  `ChangedRatioGt10=0.021332`, both `1920x1080`). Candidate log counts remained
+  clean: API 21 present, `dlssFrameParams=11`, `dlssEvaluateParams=1`,
+  native `jitter/mvScale/preExposure=66`, `RenderGraph GetTexture call #=0`,
+  explicit user-rendering failures `0`, crash/access-violation evidence `0`.
+  Cleanup passed with no remaining V Rising process, release-safe state
+  restored, FSR restored Off, and protected save final `ChangeCount=0`.
+  Therefore API 21 fixed a parameter correctness gap but did not fix the core
+  performance blocker. The next aligned route is comprehensive
+  source/decompilation comparison of official HDRP `DLSSPass` versus the
+  current EASU `ctx.cmd` candidate, not another blind runtime loop.
+- Official HDRP DLSSPass vs EASU candidate audit is now recorded in
+  `docs/development/official-dlsspass-vs-easu-candidate-audit-2026-06-08.md`.
+  Main findings: active user-rendering carries jitter/mvScale/preExposure/reset
+  into the command-buffer payload, but it still differs from official HDRP in
+  feature flags (`0x40` AutoExposure-only vs official-HDRP-like `0x2B`),
+  NGX invert-axis eval fields (current Y=0 vs official Y=1), reset semantics
+  (current native sequence applies reset only on first evaluate), and output
+  boundary (EASU visible destination vs official `"DLSS destination"`). V Rising
+  IL2CPP interops confirm the relevant HDRP DLSS symbols/tokens are present but
+  do not prove a game-specific replacement body. Next runtime work should follow
+  a small source-backed patch, most likely official feature flags plus invert-Y
+  parity first, with reset/lifecycle parity next or included if the patch stays
+  tiny.

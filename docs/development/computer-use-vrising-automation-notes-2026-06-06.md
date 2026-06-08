@@ -1112,3 +1112,31 @@ Runner pitfalls from the same validation:
 - SDK-wrapper visual-comparison candidate stages require an explicit
   `-DlssRuntimePath` to a local research `nvngx_dlss.dll`; omitting it is a safe
   preflight failure, not a gameplay or DLSS evaluate failure.
+
+## Paired API 21 Visual/Performance Run
+
+Run label:
+`api21-paired-user-rendering-1080p-20260608-r1`.
+
+Computer Use notes:
+
+- The same real `process:C:\Software\VRising\VRising.exe` window route worked for
+  both baseline and candidate.
+- The first candidate-window refresh detected recent user input and required a
+  fresh `get_window_state` before any click. The safe recovery was to refresh
+  the app/window list and re-snapshot before clicking Continue.
+- Continue was clicked once near `(205,354)` for baseline and once for
+  candidate. No movement/gameplay keys were sent.
+- Computer Use was kept connected while the baseline and candidate performance
+  captures ran, then disconnected after the helper had closed the game and
+  completed cleanup. This keeps the automation overhead shape consistent during
+  paired measurements while avoiding a lingering automation connection after
+  the run.
+- Additional system snapshots for environment comparison were saved under
+  `artifacts\system-snapshots\api21-paired-user-rendering-1080p-20260608-r1-*.json`.
+
+Future paired performance runs should keep this wider snapshot shape. Capture at
+least menu-before-click and gameplay-ready snapshots for baseline and candidate,
+including process list, CPU load, GPU utilization, GPU power, GPU memory, and GPU
+temperature. This makes baseline drift like `~200 FPS` to `~156 FPS` comparable
+without guessing whether the protected save or external environment changed.
