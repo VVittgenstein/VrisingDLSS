@@ -622,7 +622,7 @@ $summary = [pscustomobject]@{
         if (-not [string]::IsNullOrWhiteSpace($runtimeNextRecommendation)) {
             $runtimeNextRecommendation
         } else {
-            "Do not rerun rejected RenderGraph wrapper stages unchanged. Re-run or inspect the source-guided EASU ctx.cmd dlss-user-rendering protected gameplay proof, then move to paired visual/performance validation with V Rising FSR Off and -ProtectSave -SaveDir <local-save-dir>."
+            "Do not rerun rejected RenderGraph wrapper stages unchanged. Re-run or inspect the source-guided EASU ctx.cmd dlss-user-rendering protected gameplay proof, then move to paired visual/performance validation with V Rising FSR Off and -ProtectSave -SaveName 11111."
         }
     } elseif (@($items | Where-Object { $_.Requirement -like "Normal-user dlss-user-rendering gameplay visual/performance comparison*" -and $_.Status -ne "Pass" }).Count -gt 0) {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {

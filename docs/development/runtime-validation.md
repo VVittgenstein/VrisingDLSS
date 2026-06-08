@@ -1059,7 +1059,7 @@ Scope:
   -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080`. The helper
   temporarily writes `ClientSettings.json`, launches with matching screen arguments,
   and restores the original settings during cleanup.
-- For local/private gameplay fixtures, use `-ProtectSave -SaveDir <local-save-dir>`.
+- For the known local/private `11111` gameplay fixture, use `-ProtectSave -SaveName 11111`; manual `-ProtectSave -SaveDir <local-save-dir>` remains a fallback for other fixtures.
   The helper backs up the save before any launch, archives the changed after-run
   state by default, restores the backup after game/config cleanup, and reports the
   final save compare fields including `SaveAfterRestoreChangeCount`. If protected
@@ -1081,7 +1081,7 @@ powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.p
 Example manual-ready paired gameplay run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\Software\VRising" -CandidateStage dlss-user-rendering -FsrMode Off -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -CapturePerformance:$true -WaitForUserRendering:$true -DlssRuntimePath "Z:\VrisingDLSS\ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll" -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080 -ProtectSave -SaveDir "C:\Users\you\AppData\LocalLow\Stunlock Studios\VRising\CloudSaves\<steam-id>\v4\<save-id>"
+powershell -ExecutionPolicy Bypass -File scripts\run-vrising-visual-comparison.ps1 -GamePath "C:\Software\VRising" -CandidateStage dlss-user-rendering -FsrMode Off -ManualCapture -ReadyFile "Z:\VrisingDLSS\artifacts\visual-validation\ready.txt" -ReadyTimeoutSeconds 900 -CaptureAtSeconds 150 -CapturePerformance:$true -WaitForUserRendering:$true -DlssRuntimePath "Z:\VrisingDLSS\ref\NVIDIA-DLSS-310.6.0\nvngx_dlss.dll" -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080 -ProtectSave -SaveName 11111
 ```
 
 Use `-FsrMode Performance` only for explicitly labeled transition diagnostics. Those runs can prove the DLSS evaluate path against an HDRP Super Resolution tuple, but they cannot satisfy the MVP product-value comparison because V Rising's built-in FSR is participating in the render-scale change.

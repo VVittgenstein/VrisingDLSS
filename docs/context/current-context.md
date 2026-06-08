@@ -1618,15 +1618,18 @@ As of the read-only RenderGraph pass-map runtime result:
   performance gate fails. See
   `docs/research/source-guided-boundary-check-2026-06-08.md`.
 - Harness checkpoint on 2026-06-08: `scripts\run-vrising-visual-comparison.ps1`
-  now supports `-ProtectSave -SaveDir <local-save-dir>`. When enabled, the
+  now supports `-ProtectSave -SaveDir <local-save-dir>` and, for the known
+  local/private fixture, `-ProtectSave -SaveName 11111`. When enabled, the
   helper backs up the local/private save before any launch, archives the
   changed after-run state by default, closes any remaining V Rising process
   before restore, restores from the backup, and reports save evidence including
+  `SaveFixtureResolved`, `SaveFixtureMatchCount`, `SaveFixtureSaveId`,
   `SaveRestoreAttempted`, `SaveRestored`, `SaveBeforeRestoreChangeCount`, and
   `SaveAfterRestoreChangeCount`. If protected-save restore fails, the helper
   emits its result object and exits nonzero. The next source-guided
-  `dlss-user-rendering` paired visual/performance validation should use this
-  built-in protection rather than relying on an external manual restore step.
+  `dlss-user-rendering` paired visual/performance validation should prefer
+  `-SaveName 11111` and use this built-in protection rather than relying on an
+  external manual restore step.
 - The same visual comparison helper now mirrors the automation session's
   BepInEx console mitigation: before launching paired visual runs it backs up
   `BepInEx\config\BepInEx.cfg`, disables `Logging.Console`, enables disk log
@@ -2098,13 +2101,23 @@ As of the read-only RenderGraph pass-map runtime result:
   `RequiredTrueCount=10`, `RequiredFalseCount=50`, `CheckCount=62`,
   `DiagnosticDryRun.UseSdkWrapperNative=false`,
   `DiagnosticDryRun.RestoresReleaseSafeNative=false`, and
-  `ClientWindowMode=3`. With the current local save directory supplied, the
-  session dry-run also preserved `ProtectSave=true` and
-  `RestoresProtectedSave=true`. `get-release-readiness-status.ps1` now includes
-  this guard as an `Evidence` readiness item. The GitHub Actions package
+  `ClientWindowMode=3`. With `SaveName=11111` supplied, the session dry-run
+  also preserved `ProtectSave=true`, `RestoresProtectedSave=true`, and fixture
+  resolution fields. `get-release-readiness-status.ps1` now includes this guard
+  as an `Evidence` readiness item. The GitHub Actions package
   workflow now runs the config-only guard before packaging with `-RequirePass`,
   so `Fail` or `Blocked` guard results fail CI; the Automation readiness check
   requires that enforcing CI step to remain present.
+- On the next continuation, Computer Use still returned
+  `Windows computer-use client is closed` on both lightweight probes. No V
+  Rising process was started and no game/config/save files were touched. The
+  no-runtime follow-up hardened `scripts\run-vrising-visual-comparison.ps1` to
+  support `-ProtectSave -SaveName 11111` with the same fixture fields as the
+  session harness. Dry-run validation passed with `LaunchesGame=false`,
+  `SaveFixtureResolved=true`, `SaveFixtureMatchCount=1`,
+  `SaveFixtureSaveId=f0e07524-03f4-4ef4-945c-b1f7e982071b`,
+  `RestoresProtectedSave=true`, V Rising FSR Off, true `1920x1080` Windowed,
+  and `ClientWindowMode=3`; negative smoke without `SaveDir`/`SaveName` fails.
 - `scripts\find-vrising-save-fixture.ps1 -SaveName 11111 -RequireOne -Json`
   now resolves the current local/private Continue fixture without launching
   V Rising or modifying save files. On this machine it reports `Status=Pass`,

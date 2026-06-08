@@ -44,6 +44,7 @@ param(
     [int]$ClientWindowMode = 3,
     [switch]$ProtectSave,
     [string]$SaveDir,
+    [string]$SaveName,
     $ArchiveChangedSave = $true,
     [switch]$DryRun
 )
@@ -131,10 +132,6 @@ if ($Width -lt 640 -or $Height -lt 480) {
     throw "Width/Height are too small for a useful V Rising visual comparison."
 }
 
-if ($ProtectSave -and [string]::IsNullOrWhiteSpace($SaveDir)) {
-    throw "ProtectSave requires -SaveDir pointing to the local/private V Rising save directory to back up and restore."
-}
-
 if ([string]::IsNullOrWhiteSpace($Root)) {
     $Root = Split-Path -Parent $PSScriptRoot
 }
@@ -151,6 +148,28 @@ $fpsRoot = Join-Path $resolvedRoot "artifacts\fps-validation"
 $clientSettingsPath = Join-Path $env:USERPROFILE "AppData\LocalLow\Stunlock Studios\VRising\Settings\v4\ClientSettings.json"
 $bepInExConfigPath = Join-Path $resolvedGamePath "BepInEx\config\BepInEx.cfg"
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+
+$saveFixtureResolved = $false
+$saveFixtureStatus = ""
+$saveFixtureMatchCount = $null
+$saveFixtureSaveId = ""
+if ($ProtectSave) {
+    if ([string]::IsNullOrWhiteSpace($SaveDir)) {
+        if ([string]::IsNullOrWhiteSpace($SaveName)) {
+            throw "ProtectSave requires -SaveDir pointing to the local/private V Rising save directory, or -SaveName for automatic CloudSaves resolution."
+        }
+
+        $fixture = & (Join-Path $resolvedRoot "scripts\find-vrising-save-fixture.ps1") -SaveName $SaveName -RequireOne
+        $SaveDir = [string]$fixture.SelectedSaveDir
+        $selectedFixture = @($fixture.Matches | Where-Object { $_.SaveDir -eq $fixture.SelectedSaveDir } | Select-Object -First 1)
+        $saveFixtureResolved = $true
+        $saveFixtureStatus = [string]$fixture.Status
+        $saveFixtureMatchCount = [int]$fixture.MatchCount
+        if ($selectedFixture.Count -gt 0) {
+            $saveFixtureSaveId = [string]$selectedFixture[0].SaveId
+        }
+    }
+}
 
 if ([string]::IsNullOrWhiteSpace($ArtifactLabel)) {
     $ArtifactLabel = "gameplay-visual-$timestamp"
@@ -988,6 +1007,11 @@ $plan = [pscustomobject]@{
     RestoresReleaseSafeState = $true
     ProtectSave = [bool]$ProtectSave
     SaveDir = $(if ($ProtectSave) { $saveDirResolved } else { "" })
+    SaveName = $(if ($ProtectSave) { $SaveName } else { "" })
+    SaveFixtureResolved = $saveFixtureResolved
+    SaveFixtureStatus = $saveFixtureStatus
+    SaveFixtureMatchCount = $saveFixtureMatchCount
+    SaveFixtureSaveId = $saveFixtureSaveId
     SaveProtectionLabel = $(if ($ProtectSave) { $saveProtectionLabel } else { "" })
     ArchiveChangedSave = $(if ($ProtectSave) { $archiveChangedSaveEnabled } else { $false })
     RestoresProtectedSave = [bool]$ProtectSave
@@ -1228,6 +1252,11 @@ $result = [pscustomobject]@{
     RestoredBepInExConfig = $restoredBepInExConfig
     ProtectSave = [bool]$ProtectSave
     SaveDir = $(if ($ProtectSave) { $saveDirResolved } else { "" })
+    SaveName = $(if ($ProtectSave) { $SaveName } else { "" })
+    SaveFixtureResolved = $saveFixtureResolved
+    SaveFixtureStatus = $saveFixtureStatus
+    SaveFixtureMatchCount = $saveFixtureMatchCount
+    SaveFixtureSaveId = $saveFixtureSaveId
     SaveProtectionLabel = $(if ($ProtectSave) { $saveProtectionLabel } else { "" })
     SaveBackupDir = $(if ($saveBackup) { [string]$saveBackup.BackupDir } else { "" })
     SaveBackupZipPath = $(if ($saveBackup) { [string]$saveBackup.ZipPath } else { "" })

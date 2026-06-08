@@ -205,10 +205,10 @@ function Get-VisualNextRecommendation {
 
     if ($Stage -eq "dlss-user-rendering") {
         if ([string]::IsNullOrWhiteSpace($ReviewPath)) {
-            return "Run scripts\run-vrising-visual-comparison.ps1 -CandidateStage dlss-user-rendering -FsrMode Off -ProtectSave -SaveDir <local-save-dir> in a stable gameplay scene to validate the current source-guided EASU ctx.cmd candidate, capture performance, restore the save to ChangeCount=0, then add a matching human review file."
+            return "Run scripts\run-vrising-visual-comparison.ps1 -CandidateStage dlss-user-rendering -FsrMode Off -ProtectSave -SaveName 11111 in a stable gameplay scene to validate the current source-guided EASU ctx.cmd candidate, capture performance, restore the save to ChangeCount=0, then add a matching human review file."
         }
 
-        return "Run scripts\run-vrising-visual-comparison.ps1 -CandidateStage dlss-user-rendering -FsrMode Off -ProtectSave -SaveDir <local-save-dir> in a stable gameplay scene to validate the current source-guided EASU ctx.cmd candidate, capture performance, restore the save to ChangeCount=0, then create $ReviewPath after human review with matching image SHA256 values."
+        return "Run scripts\run-vrising-visual-comparison.ps1 -CandidateStage dlss-user-rendering -FsrMode Off -ProtectSave -SaveName 11111 in a stable gameplay scene to validate the current source-guided EASU ctx.cmd candidate, capture performance, restore the save to ChangeCount=0, then create $ReviewPath after human review with matching image SHA256 values."
     }
 
     if ($Stage -eq "dlss-visible-writeback") {

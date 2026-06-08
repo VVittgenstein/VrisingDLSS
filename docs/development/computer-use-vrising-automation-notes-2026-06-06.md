@@ -45,9 +45,10 @@ included in the GitHub/Thunderstore release package.
    This makes the player log report `fullScreenMode Windowed` and keeps the
    script-side screenshot at `1920x1080`.
 9. Before entering the `11111` save, start the session with
-   `-ProtectSave -SaveDir <local-save-dir>`. Gameplay entry can rotate autosaves
-   even if no further input is sent; the session artifact records the backup and
-   the stop-session script restores it.
+   `-ProtectSave -SaveName 11111`. Gameplay entry can rotate autosaves even if
+   no further input is sent; the session artifact records the resolved fixture,
+   backup, and restore evidence. Manual `-SaveDir <local-save-dir>` remains a
+   fallback for other fixtures.
 10. For DLSS runtime gameplay sessions, use the session harness' diagnostic stage
     parameters rather than hand-editing config/native DLL state:
     - `-Stage dlss-user-rendering`
