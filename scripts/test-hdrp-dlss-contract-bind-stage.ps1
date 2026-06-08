@@ -2,6 +2,7 @@ param(
     [string]$Root = (Resolve-Path "$PSScriptRoot\..").Path,
     [string]$GamePath,
     [string]$SaveDir,
+    [switch]$RequirePass,
     [switch]$Json
 )
 
@@ -265,4 +266,8 @@ if ($Json) {
     $result | ConvertTo-Json -Depth 6
 } else {
     $result
+}
+
+if ($RequirePass -and $status -ne "Pass") {
+    throw "Contract-bind stage guard status=$status; Issues=$(@($issues) -join ' | ')"
 }

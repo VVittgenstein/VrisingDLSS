@@ -47,7 +47,7 @@ jobs:
 
       - name: Guard contract-bind diagnostic stage
         shell: pwsh
-        run: .\scripts\test-hdrp-dlss-contract-bind-stage.ps1
+        run: .\scripts\test-hdrp-dlss-contract-bind-stage.ps1 -RequirePass
 
       - name: Package Thunderstore zip
         shell: pwsh

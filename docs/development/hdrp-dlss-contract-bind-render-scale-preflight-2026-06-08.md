@@ -194,7 +194,7 @@ gate mutation, custom postprocess probes, and hook/call probes disabled.
 Local checks passed:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\test-hdrp-dlss-contract-bind-stage.ps1 -GamePath C:\Software\VRising -Json
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\test-hdrp-dlss-contract-bind-stage.ps1 -GamePath C:\Software\VRising -RequirePass -Json
 ```
 
 Result summary:
@@ -210,6 +210,10 @@ Result summary:
 - `DiagnosticDryRun.RestoresReleaseSafeNative=false`
 - `DiagnosticDryRun.ClientWindowMode=3`
 
+Negative smoke also passed: using `-RequirePass` with a deliberately missing
+`GamePath` produced `Contract-bind stage guard status=Blocked` and threw instead
+of silently passing.
+
 The same guard also passed with the current local `11111` save directory supplied
 through `-SaveDir`, confirming the automation session dry-run preserves
 `ProtectSave=true`, `RestoresProtectedSave=true`, `LaunchesGame=false`, and
@@ -219,8 +223,9 @@ through `-SaveDir`, confirming the automation session dry-run preserves
 `Evidence` readiness item. With `-GamePath`, it includes the diagnostic dry-run
 plan check; without `-GamePath`, it still checks the stage config matrix.
 The GitHub Actions package workflow also runs the same config-only guard on
-`windows-2022` before packaging, and release readiness now requires that CI guard
-step to remain present.
+`windows-2022` before packaging with `-RequirePass`, so `Fail` or `Blocked`
+guard results fail the workflow. Release readiness now requires that enforcing
+CI guard step to remain present.
 
 When Computer Use is available again, resume with the protected session command
 above, using a fresh artifact label such as
