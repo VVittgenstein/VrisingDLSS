@@ -105,6 +105,7 @@ $phase1GameplayAutomationRequirement = "Phase 1 gameplay automation coverage pre
 $runtimeDistributionContractRequirement = "DLSS runtime distribution approval gate rejects semantic false positives such as third-party mirrors, missing source URLs, and bundled runtimes without SHA256 checksums."
 $contractBindStageRequirement = "Contract-bind render-scale stage dry-run remains no-native/no-evaluate and launch-safe before gameplay automation."
 $contractAnalyzerRequirement = "HDRP DLSS schedule analyzer recognizes the contract-bind success shape and rejects evaluate-polluted logs without launching or modifying the game."
+$runtimeNextRecommendationContractRequirement = "Runtime status recommendations defer the known-regressed EASU ctx.cmd user-rendering candidate to the official-equivalent contract-bind route instead of sending the next run back to the same candidate."
 $localSaveFixtureRequirement = "Local V Rising save fixture resolver finds exactly one usable Continue target named 11111 without launching or modifying the game."
 $renderGraphBoundaryRouteRequirement = "RenderGraph boundary route guard keeps mod-owned RenderGraph pass injection rejected as the normal route without launching or modifying the game."
 $runtimeDistributionRequirement = "Normal-user DLSS runtime distribution path is approved and does not require ad hoc manual DLL downloads."
@@ -291,6 +292,7 @@ if (Test-Path -LiteralPath $workflowPath) {
         -and $workflowText -match "test-dlss-mvp-safety-gates-contract\.ps1" `
         -and $workflowText -match "test-hdrp-dlss-contract-bind-stage\.ps1\s+-RequirePass" `
         -and $workflowText -match "test-hdrp-dlss-schedule-analyzer-contract\.ps1" `
+        -and $workflowText -match "test-runtime-next-recommendation-contract\.ps1" `
         -and $workflowText -match "test-rendergraph-boundary-route-status\.ps1\s+-RequirePass" `
         -and $workflowText -match "actions/upload-artifact@v4"
     $items.Add((New-ReadinessItem `
@@ -447,6 +449,51 @@ $items.Add((New-ReadinessItem `
     -Requirement $contractAnalyzerRequirement `
     -Status $contractAnalyzerStatus `
     -Evidence $contractAnalyzerEvidence))
+
+$runtimeNextRecommendationArgs = @{
+    Root = $resolvedRoot
+    Json = $true
+}
+if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
+    $runtimeNextRecommendationArgs["GamePath"] = $GamePath
+}
+$runtimeNextRecommendationGuard = Invoke-CapturedCommand -Command {
+    & (Join-Path $resolvedRoot "scripts\test-runtime-next-recommendation-contract.ps1") @runtimeNextRecommendationArgs
+}
+$runtimeNextRecommendationStatus = "Blocked"
+$runtimeNextRecommendationEvidence = "Runtime next-recommendation contract guard did not produce evidence."
+if ($runtimeNextRecommendationGuard.Succeeded) {
+    try {
+        $runtimeNextRecommendationReport = $runtimeNextRecommendationGuard.Output | ConvertFrom-Json
+        $runtimeNextRecommendationStatus = if ($runtimeNextRecommendationReport.Status -eq "Pass" `
+                -and -not [bool]$runtimeNextRecommendationReport.LaunchesGame `
+                -and -not [bool]$runtimeNextRecommendationReport.ModifiesGameFiles) {
+            "Pass"
+        } elseif ($runtimeNextRecommendationReport.Status -eq "Fail") {
+            "Fail"
+        } else {
+            "Blocked"
+        }
+        $runtimeNextRecommendationEvidence = "Status=$($runtimeNextRecommendationReport.Status); VisualRegressionEvidence=$($runtimeNextRecommendationReport.VisualPerformanceRegressionEvidence); Checks=$($runtimeNextRecommendationReport.CheckCount); FailedChecks=$(@($runtimeNextRecommendationReport.FailedChecks).Count); LaunchesGame=$($runtimeNextRecommendationReport.LaunchesGame); ModifiesGameFiles=$($runtimeNextRecommendationReport.ModifiesGameFiles)"
+        if (-not [string]::IsNullOrWhiteSpace([string]$runtimeNextRecommendationReport.RuntimeNextRecommendation)) {
+            $runtimeNextRecommendationEvidence = "$runtimeNextRecommendationEvidence; RuntimeNext=$($runtimeNextRecommendationReport.RuntimeNextRecommendation)"
+        }
+        if (@($runtimeNextRecommendationReport.FailedChecks).Count -gt 0) {
+            $runtimeNextRecommendationEvidence = "$runtimeNextRecommendationEvidence; Failed=$(@($runtimeNextRecommendationReport.FailedChecks | ForEach-Object { $_.Name }) -join ' | ')"
+        }
+    } catch {
+        $runtimeNextRecommendationStatus = "Blocked"
+        $runtimeNextRecommendationEvidence = "Failed to parse runtime next-recommendation guard JSON: $($_.Exception.Message); Output=$($runtimeNextRecommendationGuard.Output)"
+    }
+} else {
+    $runtimeNextRecommendationEvidence = "Runtime next-recommendation guard failed: $($runtimeNextRecommendationGuard.Output)"
+}
+
+$items.Add((New-ReadinessItem `
+    -Area "Evidence" `
+    -Requirement $runtimeNextRecommendationContractRequirement `
+    -Status $runtimeNextRecommendationStatus `
+    -Evidence $runtimeNextRecommendationEvidence))
 
 $renderGraphBoundaryRouteGuard = Invoke-CapturedCommand -Command {
     & (Join-Path $resolvedRoot "scripts\test-rendergraph-boundary-route-status.ps1") -Root $resolvedRoot -RequirePass -Json

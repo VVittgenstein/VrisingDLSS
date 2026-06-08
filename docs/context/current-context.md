@@ -34,6 +34,12 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
   the durable route/protocol evidence, and local `-GamePath C:\Software\VRising`
   mode also verifies the `11111` save fixture and protected contract-bind
   dry-run without launching or modifying the game.
+- Runtime next-step guidance is now guarded by
+  `scripts/test-runtime-next-recommendation-contract.ps1`: when the latest
+  `dlss-user-rendering` visual/performance evidence shows the known severe
+  EASU `ctx.cmd` regression, `get-runtime-validation-status.ps1` must recommend
+  the `hdrp-dlss-contract-bind-render-scale` official-equivalent route instead
+  of sending the next run back to the same candidate.
 - Search, source reading, upstream investigation, and route exploration are first-class work.
 - Every implementation/test loop should be small, reversible, and evidence-backed.
 - Automation into gameplay must be systematically explored before accepting semi-automatic gameplay testing.

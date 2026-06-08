@@ -271,6 +271,36 @@ function Merge-StageResults {
     return @($merged.Values)
 }
 
+function Get-BlockedUserRenderingVisualRecommendation {
+    param([Parameter(Mandatory = $true)][string]$RootPath)
+
+    $visualStatusScript = Join-Path $RootPath "scripts\get-visual-validation-status.ps1"
+    if (-not (Test-Path -LiteralPath $visualStatusScript -PathType Leaf)) {
+        return ""
+    }
+
+    try {
+        $visualJson = & $visualStatusScript -Root $RootPath -RequiredCandidateStage dlss-user-rendering -Json
+        if ([string]::IsNullOrWhiteSpace([string]$visualJson)) {
+            return ""
+        }
+
+        $visualStatus = $visualJson | ConvertFrom-Json
+        $issuesText = @($visualStatus.Issues) -join " | "
+        $hasPerformanceRegression = $visualStatus.NextRecommendation -match "Do not rerun the same EASU ctx\.cmd" `
+            -or $issuesText -match "Candidate average FPS regressed|Candidate 1% low FPS regressed|Candidate P95 frame time worsened"
+
+        if ($visualStatus.Status -ne "Pass" -and $hasPerformanceRegression -and
+            -not [string]::IsNullOrWhiteSpace([string]$visualStatus.NextRecommendation)) {
+            return [string]$visualStatus.NextRecommendation
+        }
+    } catch {
+        return ""
+    }
+
+    return ""
+}
+
 function Get-NextRecommendation {
     param(
         [Parameter(Mandatory = $true)]
@@ -382,6 +412,11 @@ function Get-NextRecommendation {
     }
 
     if ($userRendering -eq "Pass") {
+        $blockedVisualRecommendation = Get-BlockedUserRenderingVisualRecommendation -RootPath $Root
+        if (-not [string]::IsNullOrWhiteSpace($blockedVisualRecommendation)) {
+            return $blockedVisualRecommendation
+        }
+
         return "DLSS user-rendering candidate passed on the source-guided EASU ctx.cmd command-buffer route. Next engineering step is paired dlss-user-rendering gameplay visual/performance comparison with V Rising FSR Off and -ProtectSave -SaveName 11111, human image-quality review, resize/reset handling, and fallback validation."
     }
 
@@ -701,6 +736,11 @@ function Get-NextRecommendation {
     }
 
     if ($userRendering -eq "Pass") {
+        $blockedVisualRecommendation = Get-BlockedUserRenderingVisualRecommendation -RootPath $Root
+        if (-not [string]::IsNullOrWhiteSpace($blockedVisualRecommendation)) {
+            return $blockedVisualRecommendation
+        }
+
         return "DLSS user-rendering candidate passed. Next engineering step is a paired dlss-user-rendering gameplay visual/performance comparison with -ProtectSave -SaveName 11111, human image-quality review, resize/reset handling, and fallback validation."
     }
 
