@@ -2025,3 +2025,14 @@ As of the read-only RenderGraph pass-map runtime result:
   `SaveCompareStatus`; protected-save restore failure makes cleanup fail. The
   next `hdrp-dlss-contract-bind-render-scale` gameplay run should use this
   built-in protection instead of a separate manual protect/restore pair.
+- A resumed attempt to run the protected
+  `hdrp-dlss-contract-bind-render-scale` gameplay proof on 2026-06-08 was
+  deferred before launch because Computer Use returned
+  `Windows computer-use client is closed`. No V Rising process was started, no
+  game config was written, and the protected save was not touched. The current
+  mainline is unchanged: once Computer Use is available, run the protected
+  `hdrp-dlss-contract-bind-render-scale` session at true `1920x1080` Windowed,
+  click Continue/`11111` once, send no movement keys, stop through
+  `stop-vrising-automation-session.ps1`, require `SaveAfterRestoreChangeCount=0`,
+  and analyze the BepInEx log with
+  `scripts/analyze-hdrp-dlss-schedule-audit.ps1`.

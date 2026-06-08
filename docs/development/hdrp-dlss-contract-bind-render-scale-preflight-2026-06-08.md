@@ -152,6 +152,40 @@ The diagnostic runner must restore:
 If a protected gameplay fixture is used, save restore must still end with
 `ChangeCount=0`.
 
+## Deferred Runtime Attempt - 2026-06-08
+
+The first resumed attempt to run the protected gameplay proof was deliberately
+deferred before launching V Rising because Computer Use returned:
+
+```text
+Windows computer-use client is closed
+```
+
+No game process was started, no configuration was written to the game
+directory, and the protected `11111` save was not touched. This is not runtime
+evidence for or against the stage; it only records that the automation-control
+precondition was unavailable.
+
+Static/regression checks performed during the deferral:
+
+- `git status --short` was clean.
+- `Get-Process VRising,VRisingServer` found no running game process.
+- The protected save path still existed.
+- `scripts/analyze-hdrp-dlss-schedule-audit.ps1` on the archived menu audit
+  still reported `Status=NoOfficialDlssPassObserved` and
+  `Contract.Status=EasuChainObservedButContractIncomplete`.
+- `scripts/write-diagnostic-config.ps1 -Stage hdrp-dlss-contract-bind-render-scale -DryRun`
+  still emitted the intended no-native/no-evaluate switch matrix with
+  `LaunchesGame=False`.
+- `scripts/get-release-readiness-status.ps1 -GamePath C:\Software\VRising`
+  still reported `DiagnosticPackageReady_MvpBlocked` and recommended this
+  contract-bind stage as the next normal runtime proof.
+
+When Computer Use is available again, resume with the protected session command
+above, using a fresh artifact label such as
+`hdrp-dlss-contract-bind-render-scale-1080p-gameplay-20260608-r2` if the earlier
+label already exists.
+
 ## Decision
 
 This is the next normal runtime classification step if runtime work resumes.

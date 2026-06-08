@@ -1163,3 +1163,30 @@ least menu-before-click and gameplay-ready snapshots for baseline and candidate,
 including process list, CPU load, GPU utilization, GPU power, GPU memory, and GPU
 temperature. This makes baseline drift like `~200 FPS` to `~156 FPS` comparable
 without guessing whether the protected save or external environment changed.
+
+## Computer Use Unavailable During Contract-Bind Resume
+
+Date: 2026-06-08.
+
+The planned protected
+`hdrp-dlss-contract-bind-render-scale-1080p-gameplay-20260608-r1` run was
+stopped before launching V Rising because Computer Use returned:
+
+```text
+Windows computer-use client is closed
+```
+
+Decision:
+
+- Do not start V Rising when the window-control precondition is unavailable.
+- Do not fall back to foreground key scripts or ad hoc SendKeys for the Continue
+  click.
+- Keep the run queued as deferred, not failed.
+- Resume with a fresh artifact label once Computer Use can list apps again.
+
+State at deferral:
+
+- No `VRising` or `VRisingServer` process was running.
+- The worktree was clean.
+- No game config was written.
+- The protected save was not touched.
