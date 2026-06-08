@@ -1233,3 +1233,20 @@ Third follow-up on 2026-06-08 21:35 +08:00:
   fallback keyboard/mouse automation was used.
 - Treat this as a pre-launch deferral. The next runtime proof remains queued
   until Computer Use can list apps and expose the real `VRising` Unity window.
+
+Fourth follow-up on 2026-06-08 21:45 +08:00:
+
+- After a computer reboot, the user again reported that Computer Use should be
+  normal.
+- The supported lightweight app-list probe was retried.
+- The first attempt returned
+  `Computer Use native pipe is unavailable: Error: failed to connect native pipe:
+  系统找不到指定的文件。 (os error 2)`.
+- The Computer Use connection state was reset once and the same lightweight
+  app-list probe was retried.
+- The retry returned the same native-pipe error.
+- V Rising was not launched, no config or save files were touched, and no
+  fallback foreground input automation was used.
+- Treat native-pipe-missing as a different pre-launch blocker than
+  `Windows computer-use client is closed`; both require deferring protected
+  runtime proof until the app-list call succeeds.

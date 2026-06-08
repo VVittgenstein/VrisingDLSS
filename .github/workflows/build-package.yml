@@ -77,6 +77,10 @@ jobs:
         shell: pwsh
         run: .\scripts\test-doc-next-recommendation-contract.ps1
 
+      - name: Guard experiment evidence-lock contract
+        shell: pwsh
+        run: .\scripts\test-experiment-evidence-lock-contract.ps1
+
       - name: Guard runtime environment snapshot contract
         shell: pwsh
         run: .\scripts\test-runtime-environment-snapshot-contract.ps1

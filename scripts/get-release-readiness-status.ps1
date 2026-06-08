@@ -107,6 +107,7 @@ $contractBindStageRequirement = "Contract-bind render-scale stage dry-run remain
 $contractAnalyzerRequirement = "HDRP DLSS schedule analyzer recognizes the contract-bind success shape and rejects evaluate-polluted logs without launching or modifying the game."
 $runtimeNextRecommendationContractRequirement = "Runtime status recommendations defer the known-regressed EASU ctx.cmd user-rendering candidate to the official-equivalent contract-bind route instead of sending the next run back to the same candidate."
 $docNextRecommendationContractRequirement = "Current docs keep the known-regressed dlss-user-rendering route framed as reproduction/investigation and name hdrp-dlss-contract-bind-render-scale as the next runtime proof."
+$experimentEvidenceLockRequirement = "Experiment evidence locks preserve rejected routes and require the staged carrier/native/plugin-event/NGX/scratch/copy/visible-write matrix before 4K value proof."
 $runtimeEnvironmentSnapshotRequirement = "Runtime performance captures preserve before/after system snapshots with CPU, GPU utilization, power, temperature, memory, and top-process context without launching or modifying the game."
 $localDecompilationInvestigationRequirement = "Systematic local decompilation investigation keeps clean-room evidence/inference boundaries and, when GamePath is available, rechecks HDRP route anchors, inert DLSSPass bodies, asset gates, and the official DLSS vs EASU contract split without launching or modifying the game."
 $localSaveFixtureRequirement = "Local V Rising save fixture resolver finds exactly one usable Continue target named 11111 without launching or modifying the game."
@@ -297,6 +298,7 @@ if (Test-Path -LiteralPath $workflowPath) {
         -and $workflowText -match "test-hdrp-dlss-schedule-analyzer-contract\.ps1" `
         -and $workflowText -match "test-runtime-next-recommendation-contract\.ps1" `
         -and $workflowText -match "test-doc-next-recommendation-contract\.ps1" `
+        -and $workflowText -match "test-experiment-evidence-lock-contract\.ps1" `
         -and $workflowText -match "test-runtime-environment-snapshot-contract\.ps1" `
         -and $workflowText -match "test-vrising-local-decompilation-investigation\.ps1" `
         -and $workflowText -match "test-rendergraph-boundary-route-status\.ps1\s+-RequirePass" `
@@ -535,6 +537,41 @@ $items.Add((New-ReadinessItem `
     -Requirement $docNextRecommendationContractRequirement `
     -Status $docNextRecommendationStatus `
     -Evidence $docNextRecommendationEvidence))
+
+$experimentEvidenceLockGuard = Invoke-CapturedCommand -Command {
+    & (Join-Path $resolvedRoot "scripts\test-experiment-evidence-lock-contract.ps1") -Root $resolvedRoot -Json
+}
+$experimentEvidenceLockStatus = "Blocked"
+$experimentEvidenceLockEvidence = "Experiment evidence-lock contract guard did not produce evidence."
+if ($experimentEvidenceLockGuard.Succeeded) {
+    try {
+        $experimentEvidenceLockReport = $experimentEvidenceLockGuard.Output | ConvertFrom-Json
+        $experimentEvidenceLockStatus = if ($experimentEvidenceLockReport.Status -eq "Pass" `
+                -and -not [bool]$experimentEvidenceLockReport.LaunchesGame `
+                -and -not [bool]$experimentEvidenceLockReport.ModifiesGameFiles) {
+            "Pass"
+        } elseif ($experimentEvidenceLockReport.Status -eq "Fail") {
+            "Fail"
+        } else {
+            "Blocked"
+        }
+        $experimentEvidenceLockEvidence = "Status=$($experimentEvidenceLockReport.Status); Locks=$($experimentEvidenceLockReport.EvidenceLockCount); MatrixLayers=$($experimentEvidenceLockReport.MatrixLayerCount); Checks=$($experimentEvidenceLockReport.CheckCount); FailedChecks=$(@($experimentEvidenceLockReport.FailedChecks).Count); LaunchesGame=$($experimentEvidenceLockReport.LaunchesGame); ModifiesGameFiles=$($experimentEvidenceLockReport.ModifiesGameFiles)"
+        if (@($experimentEvidenceLockReport.Issues).Count -gt 0) {
+            $experimentEvidenceLockEvidence = "$experimentEvidenceLockEvidence; Issues=$(@($experimentEvidenceLockReport.Issues) -join ' | ')"
+        }
+    } catch {
+        $experimentEvidenceLockStatus = "Blocked"
+        $experimentEvidenceLockEvidence = "Failed to parse experiment evidence-lock guard JSON: $($_.Exception.Message); Output=$($experimentEvidenceLockGuard.Output)"
+    }
+} else {
+    $experimentEvidenceLockEvidence = "Experiment evidence-lock guard failed: $($experimentEvidenceLockGuard.Output)"
+}
+
+$items.Add((New-ReadinessItem `
+    -Area "Evidence" `
+    -Requirement $experimentEvidenceLockRequirement `
+    -Status $experimentEvidenceLockStatus `
+    -Evidence $experimentEvidenceLockEvidence))
 
 $runtimeEnvironmentSnapshotGuard = Invoke-CapturedCommand -Command {
     & (Join-Path $resolvedRoot "scripts\test-runtime-environment-snapshot-contract.ps1") -Root $resolvedRoot -Json

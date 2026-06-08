@@ -59,6 +59,16 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
   runtime `CustomPass BeforePostProcess` and `CustomPostProcess.Render` as
   explicit research candidates, not replacements for the immediate
   contract-bind proof.
+- `docs\development\experiment-facts.json` and
+  `scripts\test-experiment-evidence-lock-contract.ps1` now guard the
+  user-provided evidence-lock idea. The lock set preserves stopped routes:
+  steady-state broad `GetTexture`, cached-tuple
+  `DynamicResolutionHandler.Update` evaluate, forced inert `DLSSPass`, new
+  mod-owned RenderGraph pass production, unchanged `dlss-user-rendering`
+  reruns, and visible evaluate without scratch/no-write layers. The guarded
+  matrix is A-I: baseline, EASU carrier-only, native desc validate-only, empty
+  plugin event, NGX init/create only, scratch evaluate not consumed, controlled
+  copy, visible write, then 4K GPU-bound value proof.
 - Search, source reading, upstream investigation, and route exploration are first-class work.
 - Every implementation/test loop should be small, reversible, and evidence-backed.
 - Automation into gameplay must be systematically explored before accepting semi-automatic gameplay testing.

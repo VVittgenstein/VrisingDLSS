@@ -58,6 +58,8 @@ This does not change the immediate next runtime proof:
 6. Analyze with `scripts\analyze-hdrp-dlss-schedule-audit.ps1`.
 
 The main addition is what should come after a successful contract-bind proof:
+the staged B-H cost matrix must pass before visible output is treated as a
+candidate product path. Visible write requires prior B-G cost layers to pass.
 
 ```text
 A. Baseline: FSR Off, 1080p Windowed, protected 11111 fixture.

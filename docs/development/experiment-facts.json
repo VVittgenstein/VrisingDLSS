@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-06-08",
+  "launchesGame": false,
+  "modifiesGameFiles": false,
+  "purpose": "Machine-readable evidence locks and boundary cost matrix for the V Rising DLSS playable-MVP route.",
+  "evidenceLocks": [
+    {
+      "id": "steady-state-broad-rendergraph-gettexture-discovery",
+      "status": "rejected",
+      "enforcement": "DoNotRunUnchanged",
+      "evidence": [
+        "dlss-user-rendering-no-evaluate r1-r4 regressed performance without NGX evaluate.",
+        "cached-driver-no-evaluate recovered near-baseline performance after broad GetTexture stopped."
+      ],
+      "allowedChallenge": "Only a bounded, non-steady-state discovery probe with explicit call budget and performance guard may challenge this lock."
+    },
+    {
+      "id": "cached-tuple-dynamicresolutionhandler-evaluate",
+      "status": "unsafe_crash",
+      "enforcement": "DoNotRunUnchanged",
+      "evidence": [
+        "cached-driver evaluate reached DLSS success but crashed in nvwgf2umx.dll before gameplay proof."
+      ],
+      "allowedChallenge": "Only after a new command-buffer/evaluate boundary removes the DynamicResolutionHandler.Update evaluate submission shape."
+    },
+    {
+      "id": "force-or-patch-inert-dlsspass-render",
+      "status": "rejected",
+      "enforcement": "DesignMapOnly",
+      "evidence": [
+        "Local native-stub audit reports DLSSPass setup/create/render bodies as inert while DoDLSSPass shell remains non-stub-like."
+      ],
+      "allowedChallenge": "Only new local evidence that V Rising's built-in DLSSPass body is no longer inert may challenge this lock."
+    },
+    {
+      "id": "new-mod-owned-rendergraph-pass-production",
+      "status": "rejected",
+      "enforcement": "ResearchOnly",
+      "evidence": [
+        "Prior diagnostic-pass gameplay route crashed in coreclr before a useful render-function log."
+      ],
+      "allowedChallenge": "Only a separate no-native stability proof may reopen this as research, not as the normal route."
+    },
+    {
+      "id": "unchanged-dlss-user-rendering-rerun",
+      "status": "known_regressed",
+      "enforcement": "DoNotRunUnchanged",
+      "evidence": [
+        "official-flags paired user-rendering 1080p run proved clean evaluate with RenderGraph.GetTexture=0 but average FPS regressed by 36.514 percent."
+      ],
+      "allowedChallenge": "Only a changed boundary or changed cost layer may be tested; do not rerun the same EASU ctx.cmd shape as the next proof."
+    },
+    {
+      "id": "visible-evaluate-without-scratch-or-no-write-layers",
+      "status": "blocked_until_matrix_passes",
+      "enforcement": "RequiresPriorLayerPass",
+      "evidence": [
+        "User-provided 5.5 plan and current performance data both require separating carrier, native validate, NGX create, scratch evaluate, copy, and visible write."
+      ],
+      "allowedChallenge": "Visible write requires prior B-G cost layers to pass or a written exception explaining the new evidence."
+    }
+  ],
+  "boundaryCostMatrix": [
+    {
+      "layer": "A",
+      "id": "baseline",
+      "description": "FSR Off, 1080p Windowed, protected 11111 fixture, PresentMon plus GPU/system snapshots."
+    },
+    {
+      "layer": "B",
+      "id": "easu-carrier-only-cost",
+      "description": "Focused engine-owned EASU carrier evidence only; no native, no evaluate, no broad GetTexture.",
+      "passCriteria": {
+        "averageFpsRatioMin": 0.98,
+        "p95FrameMsDeltaMax": 0.5,
+        "p99FrameMsDeltaMax": 1.0,
+        "forbidGpuUtilPowerCollapse": true
+      }
+    },
+    {
+      "layer": "C",
+      "id": "native-desc-validate-only",
+      "description": "Same-device D3D11 resource desc audit; no NGX init, no evaluate.",
+      "passCriteria": {
+        "averageFpsRatioMin": 0.98,
+        "p95FrameMsDeltaMax": 0.5,
+        "p99FrameMsDeltaMax": 1.0,
+        "forbidGpuUtilPowerCollapse": true
+      }
+    },
+    {
+      "layer": "D",
+      "id": "empty-plugin-event-callback",
+      "description": "Issue one existing command-buffer plugin event with an empty native callback.",
+      "passCriteria": {
+        "averageFpsRatioMin": 0.98,
+        "p95FrameMsDeltaMax": 0.5,
+        "p99FrameMsDeltaMax": 1.0,
+        "forbidGpuUtilPowerCollapse": true
+      }
+    },
+    {
+      "layer": "E",
+      "id": "ngx-init-create-steady-state",
+      "description": "Initialize/create/reuse DLSS feature outside per-frame recreate loops; no evaluate.",
+      "passCriteria": {
+        "featureCreatePerResizeOrResetOnly": true,
+        "averageFpsRatioMin": 0.98,
+        "forbidPerFrameRecreate": true
+      }
+    },
+    {
+      "layer": "F",
+      "id": "scratch-evaluate-not-consumed",
+      "description": "Evaluate DLSS to scratch output; FinalPass does not consume the output.",
+      "passCriteria": {
+        "requiresNgxSuccess": true,
+        "forbidCrashOrWer": true,
+        "forbidGpuUtilPowerCollapse": true
+      }
+    },
+    {
+      "layer": "G",
+      "id": "scratch-evaluate-controlled-copy",
+      "description": "Copy scratch to dummy first, then only later to EASU destination to isolate handoff cost.",
+      "requiresPriorLayers": [
+        "B",
+        "C",
+        "D",
+        "E",
+        "F"
+      ]
+    },
+    {
+      "layer": "H",
+      "id": "visible-write",
+      "description": "Bind output to the visible EASU destination only after all no-write/copy layers pass.",
+      "requiresPriorLayers": [
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G"
+      ]
+    },
+    {
+      "layer": "I",
+      "id": "4k-gpu-bound-value-test",
+      "description": "Only the surviving candidate moves to 4K GPU-bound FSR Off baseline vs DLSS On product-value proof.",
+      "requiresPriorLayers": [
+        "H"
+      ],
+      "resolution": "4K GPU-bound"
+    }
+  ]
+}
