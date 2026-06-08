@@ -57,8 +57,28 @@ function Convert-GroupInt {
     return [int]::Parse($Group.Value, [System.Globalization.CultureInfo]::InvariantCulture)
 }
 
+$uberPassDataPattern = 'RenderGraph pass-data snapshot #[^\r\n]*compile=(?<compile>\d+);[^\r\n]*pass="Uber Post"[^\r\n]*width:value:[^=]+=(?<width>\d+); height:value:[^=]+=(?<height>\d+);[^\r\n]*source:texture:[^;\]]*index=(?<source>\d+); destination:texture:[^;\]]*index=(?<destination>\d+)'
 $easuPassDataPattern = 'RenderGraph pass-data snapshot #[^\r\n]*compile=(?<compile>\d+);[^\r\n]*pass="Edge Adaptive Spatial Upsampling"[^\r\n]*inputWidth:value:[^=]+=(?<inputWidth>\d+); inputHeight:value:[^=]+=(?<inputHeight>\d+); outputWidth:value:[^=]+=(?<outputWidth>\d+); outputHeight:value:[^=]+=(?<outputHeight>\d+);[^\r\n]*source:texture:[^;\]]*index=(?<source>\d+); destination:texture:[^;\]]*index=(?<destination>\d+)'
 $finalPassDataPattern = 'RenderGraph pass-data snapshot #[^\r\n]*compile=(?<compile>\d+);[^\r\n]*pass="Final Pass"[^\r\n]*source:texture:[^;\]]*index=(?<source>\d+); destination:texture:[^;\]]*index=(?<destination>\d+)'
+$easuDeclarationPattern = 'RenderGraph pass declaration #[^\r\n]*compile=(?<compile>\d+);[^\r\n]*pass="Edge Adaptive Spatial Upsampling"[^\r\n]*declarations=\[(?<declarations>[^\r\n]*)\]'
+
+$uberRecords = New-Object System.Collections.Generic.List[object]
+$uberByCompile = @{}
+foreach ($match in Get-RegexMatches -Text $text -Pattern $uberPassDataPattern) {
+    $compile = Convert-GroupInt $match.Groups["compile"]
+    $record = [pscustomobject]@{
+        Compile = $compile
+        Width = Convert-GroupInt $match.Groups["width"]
+        Height = Convert-GroupInt $match.Groups["height"]
+        SourceIndex = Convert-GroupInt $match.Groups["source"]
+        DestinationIndex = Convert-GroupInt $match.Groups["destination"]
+    }
+    [void]$uberRecords.Add($record)
+
+    if ($null -ne $compile -and -not $uberByCompile.ContainsKey($compile)) {
+        $uberByCompile[$compile] = $record
+    }
+}
 
 $easuRecords = New-Object System.Collections.Generic.List[object]
 foreach ($match in Get-RegexMatches -Text $text -Pattern $easuPassDataPattern) {
@@ -78,6 +98,20 @@ foreach ($match in Get-RegexMatches -Text $text -Pattern $easuPassDataPattern) {
     })
 }
 
+$easuDeclarationRecords = New-Object System.Collections.Generic.List[object]
+foreach ($match in Get-RegexMatches -Text $text -Pattern $easuDeclarationPattern) {
+    $declarations = $match.Groups["declarations"].Value
+    [void]$easuDeclarationRecords.Add([pscustomobject]@{
+        Compile = Convert-GroupInt $match.Groups["compile"]
+        ReadCount = Count-Regex -Text $declarations -Pattern 'read\['
+        WriteCount = Count-Regex -Text $declarations -Pattern 'write\['
+        HasNonZeroDepthAttachment = [regex]::IsMatch(
+            $declarations,
+            'depth:texture:[^;\]]*index=(?!0(?:;|\]))\d+',
+            [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    })
+}
+
 $finalByCompile = @{}
 foreach ($match in Get-RegexMatches -Text $text -Pattern $finalPassDataPattern) {
     $compile = Convert-GroupInt $match.Groups["compile"]
@@ -93,17 +127,46 @@ foreach ($match in Get-RegexMatches -Text $text -Pattern $finalPassDataPattern) 
 }
 
 $easuFinalChainCount = 0
+$uberEasuChainCount = 0
+$completeUberEasuFinalChainCount = 0
+$completeSuperResolutionChainCount = 0
 $firstEasuFinalChain = $null
+$firstCompleteUberEasuFinalChain = $null
 foreach ($record in $easuRecords) {
-    if ($null -eq $record.Compile -or -not $finalByCompile.ContainsKey($record.Compile)) {
+    if ($null -eq $record.Compile) {
+        continue
+    }
+
+    $uberMatchesEasu = $false
+    if ($uberByCompile.ContainsKey($record.Compile)) {
+        $uberRecord = $uberByCompile[$record.Compile]
+        if ($null -ne $uberRecord.DestinationIndex -and $uberRecord.DestinationIndex -eq $record.SourceIndex) {
+            $uberMatchesEasu = $true
+            $uberEasuChainCount++
+        }
+    }
+
+    if (-not $finalByCompile.ContainsKey($record.Compile)) {
         continue
     }
 
     $finalRecord = $finalByCompile[$record.Compile]
-    if ($null -ne $record.DestinationIndex -and $record.DestinationIndex -eq $finalRecord.SourceIndex) {
+    $easuMatchesFinal = $null -ne $record.DestinationIndex -and $record.DestinationIndex -eq $finalRecord.SourceIndex
+    if ($easuMatchesFinal) {
         $easuFinalChainCount++
         if ($null -eq $firstEasuFinalChain) {
             $firstEasuFinalChain = "compile=$($record.Compile); easu=$($record.InputWidth)x$($record.InputHeight)->$($record.OutputWidth)x$($record.OutputHeight); easuSource=$($record.SourceIndex); easuDestination/finalSource=$($record.DestinationIndex); finalDestination=$($finalRecord.DestinationIndex)"
+        }
+    }
+
+    if ($uberMatchesEasu -and $easuMatchesFinal) {
+        $completeUberEasuFinalChainCount++
+        if ($record.IsSuperResolution) {
+            $completeSuperResolutionChainCount++
+        }
+
+        if ($null -eq $firstCompleteUberEasuFinalChain) {
+            $firstCompleteUberEasuFinalChain = "compile=$($record.Compile); uberDestination/easuSource=$($record.SourceIndex); easu=$($record.InputWidth)x$($record.InputHeight)->$($record.OutputWidth)x$($record.OutputHeight); easuDestination/finalSource=$($record.DestinationIndex); finalDestination=$($finalRecord.DestinationIndex)"
         }
     }
 }
@@ -120,12 +183,19 @@ $counts = [ordered]@{
     DlssCompiledPassInfo = Count-Regex -Text $text -Pattern 'RenderGraph compiled-pass-info #[^\r\n]*pass="Deep Learning Super Sampling"'
     DlssDestinationMentions = Count-Regex -Text $text -Pattern "DLSS destination"
     EasuPassMentions = Count-Regex -Text $text -Pattern "Edge Adaptive Spatial Upsampling"
+    UberPassDataSnapshots = $uberRecords.Count
     EasuPassDataSnapshots = $easuRecords.Count
     EasuSuperResolutionPassDataSnapshots = @($easuRecords | Where-Object { $_.IsSuperResolution }).Count
     EasuResourceDeclarations = Count-Regex -Text $text -Pattern 'RenderGraph pass declaration #[^\r\n]*pass="Edge Adaptive Spatial Upsampling"'
+    EasuSingleReadSingleWriteDeclarations = @($easuDeclarationRecords | Where-Object { $_.ReadCount -eq 1 -and $_.WriteCount -eq 1 }).Count
+    EasuMultiReadDeclarations = @($easuDeclarationRecords | Where-Object { $_.ReadCount -gt 1 }).Count
+    EasuNonZeroDepthAttachmentDeclarations = @($easuDeclarationRecords | Where-Object { $_.HasNonZeroDepthAttachment }).Count
     EasuRenderFuncMetadata = Count-Regex -Text $text -Pattern 'RenderGraph pass render-func metadata #[^\r\n]*pass="Edge Adaptive Spatial Upsampling"'
     EasuCompiledPassInfo = Count-Regex -Text $text -Pattern 'RenderGraph compiled-pass-info #[^\r\n]*pass="Edge Adaptive Spatial Upsampling"'
+    UberEasuSourceChains = $uberEasuChainCount
     EasuFinalSourceChains = $easuFinalChainCount
+    CompleteUberEasuFinalChains = $completeUberEasuFinalChainCount
+    CompleteSuperResolutionChains = $completeSuperResolutionChainCount
     FinalPassMentions = Count-Regex -Text $text -Pattern "Final Pass"
     FinalPassDataSnapshots = $finalByCompile.Count
     MotionVectorPassMentions = Count-Regex -Text $text -Pattern 'pass="[^"]*Motion Vectors[^"]*"'
@@ -150,6 +220,51 @@ $counts = [ordered]@{
 
 $boundaryDetails = [pscustomobject]@{
     FirstEasuFinalChain = $firstEasuFinalChain
+    FirstCompleteUberEasuFinalChain = $firstCompleteUberEasuFinalChain
+}
+
+$officialContractObserved =
+    $counts.DeepLearningSuperSamplingPass -gt 0 -and
+    $counts.DlssPassDataSnapshots -gt 0 -and
+    $counts.DlssResourceDeclarations -gt 0
+$engineOwnedChainObserved = $counts.CompleteUberEasuFinalChains -gt 0
+$engineOwnedSuperResolutionChainObserved = $counts.CompleteSuperResolutionChains -gt 0
+$easuDeclaresDepthMotion = $counts.EasuMultiReadDeclarations -gt 0 -or $counts.EasuNonZeroDepthAttachmentDeclarations -gt 0
+
+$contractMissing = New-Object System.Collections.Generic.List[string]
+if (-not $officialContractObserved) {
+    [void]$contractMissing.Add("Official Deep Learning Super Sampling RenderGraph pass/resource contract was not observed.")
+}
+if (-not $engineOwnedChainObserved) {
+    [void]$contractMissing.Add("Engine-owned Uber Post -> EASU -> Final Pass color/output chain was not fully observed.")
+}
+if ($engineOwnedChainObserved -and -not $engineOwnedSuperResolutionChainObserved) {
+    [void]$contractMissing.Add("Observed EASU chain is same-sized in this log; use gameplay/render-scale evidence for SR-sized 960x540 -> 1920x1080 shape.")
+}
+if ($engineOwnedChainObserved -and -not $easuDeclaresDepthMotion) {
+    [void]$contractMissing.Add("EASU pass declaration exposes source/destination only, not DLSS depth/motion reads; depth/motion must come from the separate HDRP postprocess/global texture correlation path.")
+}
+if ($counts.MotionVectorPassMentions -eq 0) {
+    [void]$contractMissing.Add("No motion-vector RenderGraph pass evidence was observed in this log.")
+}
+
+$contractStatus = if ($officialContractObserved) {
+    "OfficialDlssContractObserved"
+} elseif ($engineOwnedSuperResolutionChainObserved) {
+    "EasuSuperResolutionChainObservedButContractIncomplete"
+} elseif ($engineOwnedChainObserved) {
+    "EasuChainObservedButContractIncomplete"
+} else {
+    "InsufficientBoundaryEvidence"
+}
+
+$contractDetails = [pscustomobject]@{
+    Status = $contractStatus
+    OfficialContractObserved = $officialContractObserved
+    EngineOwnedChainObserved = $engineOwnedChainObserved
+    EngineOwnedSuperResolutionChainObserved = $engineOwnedSuperResolutionChainObserved
+    EasuDeclaresDepthMotion = $easuDeclaresDepthMotion
+    MissingForOfficialEquivalentBoundary = $contractMissing.ToArray()
 }
 
 $issues = New-Object System.Collections.Generic.List[string]
@@ -195,6 +310,8 @@ $nextRecommendation = switch ($status) {
     "NoOfficialDlssPassObserved" {
         if ($counts.HdrpDlssScheduleGateLogs -gt 0) {
             "The schedule-gate probe ran but no official Deep Learning Super Sampling pass shell appeared. Treat this as confirmation that camera/dynamic-resolution gates are insufficient; use the local m_DLSSPass xref audit to continue toward a no-native official-equivalent RenderGraph boundary proof."
+        } elseif ($contractStatus -eq "EasuChainObservedButContractIncomplete") {
+            "Treat the official HDRP DLSS pass shell as absent under current V Rising settings. Existing Uber->EASU->Final RenderGraph color/output chain evidence is present, but this log is not an official-equivalent DLSS contract: EASU is same-sized here and does not declare depth/motion reads. Next work should bind the separate HDRP depth/motion correlation evidence to this engine-owned chain or produce a bounded no-write proof; avoid camera-gate probing and new mod-owned pass injection."
         } elseif ($counts.EasuFinalSourceChains -gt 0 -and $counts.EasuRenderFuncMetadata -gt 0) {
             "Treat the official HDRP DLSS pass shell as absent under current V Rising settings. Existing EASU->Final RenderGraph chain evidence is present; next work should compare this engine-owned upscaler chain against the official DLSS resource contract and avoid both camera-gate probing and new mod-owned pass injection."
         } else {
@@ -214,6 +331,7 @@ $result = [pscustomobject]@{
     LogPath = $resolvedLogPath
     Counts = [pscustomobject]$counts
     Boundary = $boundaryDetails
+    Contract = $contractDetails
     Issues = $issues.ToArray()
     NextRecommendation = $nextRecommendation
     LaunchesGame = $false

@@ -149,13 +149,22 @@ The next aligned route is:
 - `EasuResourceDeclarations`
 - `EasuRenderFuncMetadata`
 - `EasuCompiledPassInfo`
+- `UberEasuSourceChains`
 - `EasuFinalSourceChains`
+- `CompleteUberEasuFinalChains`
+- `CompleteSuperResolutionChains`
 - `FinalPassDataSnapshots`
 - `MotionVectorPassMentions`
 - `Boundary.FirstEasuFinalChain`
+- `Boundary.FirstCompleteUberEasuFinalChain`
+- `Contract.Status`
+- `Contract.MissingForOfficialEquivalentBoundary`
 
 It also fixes the previous `compiled-pass-info` spelling in the observation and
 DLSS compiled-pass patterns.
+
+The follow-up contract/gap result is recorded in
+`docs/development/official-dlss-contract-vs-easu-chain-analysis-2026-06-08.md`.
 
 ## Decision
 

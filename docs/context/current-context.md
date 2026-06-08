@@ -1953,3 +1953,20 @@ As of the read-only RenderGraph pass-map runtime result:
   and keep using the already-proven EASU `ctx.cmd` descriptor boundary for
   bounded no-native/no-evaluate or no-write work, not camera-gate probing or new
   pass injection.
+- Official DLSS contract vs EASU chain analysis is now recorded in
+  `docs/development/official-dlss-contract-vs-easu-chain-analysis-2026-06-08.md`.
+  No V Rising runtime was launched. `scripts/analyze-hdrp-dlss-schedule-audit.ps1`
+  now parses `Uber Post`, `Edge Adaptive Spatial Upsampling`, and `Final Pass`
+  pass-data together, reports `CompleteUberEasuFinalChains`,
+  `CompleteSuperResolutionChains`, EASU declaration read/write shape, and a
+  `Contract` verdict. On the archived menu audit it reports
+  `Contract.Status=EasuChainObservedButContractIncomplete`,
+  `CompleteUberEasuFinalChains=73`, `CompleteSuperResolutionChains=0`,
+  `EasuSingleReadSingleWriteDeclarations=44`, `EasuMultiReadDeclarations=0`,
+  and `EasuNonZeroDepthAttachmentDeclarations=0`. Current decision: the
+  engine-owned EASU boundary is a usable four-resource descriptor carrier only
+  when combined with separate HDRP depth/motion correlation evidence; EASU
+  pass declaration alone is not official-equivalent. Next proof should bind the
+  HDRP depth/motion correlation to the observed `Uber->EASU->Final` chain in one
+  no-native/no-evaluate run or produce a bounded no-write cost proof before any
+  visible DLSS write-back is retried.
