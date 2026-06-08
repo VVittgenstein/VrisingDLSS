@@ -36,7 +36,8 @@ QualityMode = Performance
 PresetMode = Recommended
 Sharpness = 0
 DlssRuntimePath = nvngx_dlss.dll
-AutoExposure = true
+UseOfficialHdrpFeatureFlags = true
+AutoExposure = false
 
 [Advanced]
 RenderScaleOverride = 0

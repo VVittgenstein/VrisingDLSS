@@ -153,7 +153,8 @@ function New-ConfigMap {
             QualityMode = "Performance"
             PresetMode = "Recommended"
             Sharpness = "0"
-            AutoExposure = "true"
+            UseOfficialHdrpFeatureFlags = "true"
+            AutoExposure = "false"
         }
         Advanced = [ordered]@{
             RenderScaleOverride = "0"

@@ -2088,6 +2088,8 @@ namespace
                 evalParams.InMVScaleY = motionVectorScaleY == 0.0f ? 1.0f : motionVectorScaleY;
                 evalParams.InPreExposure = preExposure == 0.0f ? 1.0f : preExposure;
                 evalParams.InExposureScale = 1.0f;
+                evalParams.InIndicatorInvertXAxis = 0;
+                evalParams.InIndicatorInvertYAxis = 1;
                 QueryPerformanceCounter(&timingEvaluateStart);
                 evaluateResult = NGX_D3D11_EVALUATE_DLSS_EXT(
                     g_dlssFrameSequence.context,
@@ -2106,7 +2108,7 @@ namespace
                 std::snprintf(
                     message,
                     sizeof(message),
-                    "DLSS frame-sequence evaluate probe completed via %s; appId=%llu; recreated=%s; init=0x%08X; capability=0x%08X; available=%d(result=0x%08X); render=%ux%u; target=%ux%u; perfQuality=%d; flags=0x%08X; jitter=(%.4f,%.4f); mvScale=(%.4f,%.4f); preExposure=%.4f; sharpness=%.4f; requestedReset=%d; appliedReset=%d; sequenceCreates=%d; sequenceEvaluates=%d; evaluateSuccesses=%d; create=0x%08X; feature=%s; evaluateLast=0x%08X; nativeTimingMs=(describe=%.3f,query=%.3f,prepare=%.3f,evaluate=%.3f,total=%.3f)",
+                    "DLSS frame-sequence evaluate probe completed via %s; appId=%llu; recreated=%s; init=0x%08X; capability=0x%08X; available=%d(result=0x%08X); render=%ux%u; target=%ux%u; perfQuality=%d; flags=0x%08X; jitter=(%.4f,%.4f); mvScale=(%.4f,%.4f); preExposure=%.4f; invertAxis=(%d,%d); sharpness=%.4f; requestedReset=%d; appliedReset=%d; sequenceCreates=%d; sequenceEvaluates=%d; evaluateSuccesses=%d; create=0x%08X; feature=%s; evaluateLast=0x%08X; nativeTimingMs=(describe=%.3f,query=%.3f,prepare=%.3f,evaluate=%.3f,total=%.3f)",
                     g_dlssFrameSequence.initRoute,
                     g_dlssFrameSequence.applicationId,
                     recreated ? "yes" : "no",
@@ -2125,6 +2127,8 @@ namespace
                     motionVectorScaleX == 0.0f ? 1.0f : motionVectorScaleX,
                     motionVectorScaleY == 0.0f ? 1.0f : motionVectorScaleY,
                     preExposure == 0.0f ? 1.0f : preExposure,
+                    evalParams.InIndicatorInvertXAxis,
+                    evalParams.InIndicatorInvertYAxis,
                     sharpness,
                     reset,
                     appliedReset,
@@ -2735,6 +2739,8 @@ namespace
                         evalParams.InMVScaleY = motionVectorScaleY == 0.0f ? 1.0f : motionVectorScaleY;
                         evalParams.InPreExposure = 1.0f;
                         evalParams.InExposureScale = 1.0f;
+                        evalParams.InIndicatorInvertXAxis = 0;
+                        evalParams.InIndicatorInvertYAxis = 1;
                         evaluateResult = NGX_D3D11_EVALUATE_DLSS_EXT(context, feature, parameters, &evalParams);
                     }
                 }
@@ -2985,6 +2991,8 @@ namespace
                             evalParams.InMVScaleY = motionVectorScaleY == 0.0f ? 1.0f : motionVectorScaleY;
                             evalParams.InPreExposure = 1.0f;
                             evalParams.InExposureScale = 1.0f;
+                            evalParams.InIndicatorInvertXAxis = 0;
+                            evalParams.InIndicatorInvertYAxis = 1;
                             evaluateResult = NGX_D3D11_EVALUATE_DLSS_EXT(context, feature, parameters, &evalParams);
                             if (evaluateResult != NVSDK_NGX_Result_Success)
                             {

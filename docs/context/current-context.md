@@ -1783,3 +1783,19 @@ As of the read-only RenderGraph pass-map runtime result:
   a small source-backed patch, most likely official feature flags plus invert-Y
   parity first, with reset/lifecycle parity next or included if the patch stays
   tiny.
+- Official feature-flag/invert-axis parity patch is now implemented and
+  non-runtime build-validated; see
+  `docs/development/official-hdrp-dlss-flag-invert-parity-2026-06-08.md`.
+  New default config key: `DLSS.UseOfficialHdrpFeatureFlags=true`; in that mode
+  feature flags resolve to official-HDRP-like `0x2B`
+  (`IsHDR | MVLowRes | DepthInverted | DoSharpening`) and `AutoExposure` is not
+  added. `DLSS.AutoExposure` now defaults `false` and is only a legacy fallback
+  when official flags are disabled. Native SDK-wrapper eval paths now set
+  `InIndicatorInvertXAxis=0`, `InIndicatorInvertYAxis=1`, and frame-sequence
+  status logs `invertAxis=(0,1)`. C# Release, release-safe native, SDK-wrapper
+  native, release readiness static check, diagnostic config dry-run, and
+  `git diff --check` passed. Next runtime guard: protected same-run 1080p
+  baseline/candidate test expecting candidate logs to show `flags=0x0000002B`
+  and `invertAxis=(0,1)`, while measuring whether low GPU utilization/FPS
+  regression improves. Reset/lifecycle and official output-boundary parity
+  remain separate follow-up variables.

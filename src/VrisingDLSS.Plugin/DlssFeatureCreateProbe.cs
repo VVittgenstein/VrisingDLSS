@@ -10,7 +10,15 @@ internal static class DlssFeatureCreateProbe
     private const int ProbeSize = 64;
     private const int TargetWidth = 1920;
     private const int TargetHeight = 1080;
-    private const int DlssFeatureFlagAutoExposure = 1 << 6;
+    private const int DlssFeatureFlagIsHdr = 1 << 0;
+    private const int DlssFeatureFlagMvLowRes = 1 << 1;
+    private const int DlssFeatureFlagDepthInverted = 1 << 3;
+    private const int DlssFeatureFlagDoSharpening = 1 << 5;
+    private const int OfficialHdrpDlssFeatureFlags =
+        DlssFeatureFlagIsHdr |
+        DlssFeatureFlagMvLowRes |
+        DlssFeatureFlagDepthInverted |
+        DlssFeatureFlagDoSharpening;
 
     internal static void Run(
         ManualLogSource log,
@@ -67,7 +75,7 @@ internal static class DlssFeatureCreateProbe
                 TargetWidth,
                 TargetHeight,
                 mode.PerfQualityValue,
-                DlssFeatureFlagAutoExposure);
+                OfficialHdrpDlssFeatureFlags);
             var status = bridge.GetDlssFeatureCreateStatus();
             if (success)
             {

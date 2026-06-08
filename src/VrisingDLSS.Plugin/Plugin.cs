@@ -12,6 +12,17 @@ namespace VrisingDLSS.Plugin;
 public sealed class Plugin : BasePlugin
 {
     private const string ModConfigFileName = "VrisingDLSS.cfg";
+    private const int DlssFeatureFlagIsHdr = 1 << 0;
+    private const int DlssFeatureFlagMvLowRes = 1 << 1;
+    private const int DlssFeatureFlagDepthInverted = 1 << 3;
+    private const int DlssFeatureFlagDoSharpening = 1 << 5;
+    private const int DlssFeatureFlagAutoExposure = 1 << 6;
+    private const int OfficialHdrpDlssFeatureFlags =
+        DlssFeatureFlagIsHdr |
+        DlssFeatureFlagMvLowRes |
+        DlssFeatureFlagDepthInverted |
+        DlssFeatureFlagDoSharpening;
+
     private ManualLogSource? _log;
     private ModConfig? _config;
     private NativeBridge? _nativeBridge;
@@ -502,7 +513,7 @@ public sealed class Plugin : BasePlugin
             _log?.LogWarning($"DLSS evaluate probe will use application id 0 because DLSS.DlssApplicationId is invalid: {_config.DlssApplicationId.Value}");
         }
 
-        var featureFlags = _config.AutoExposure.Value ? 1 << 6 : 0;
+        var featureFlags = ResolveDlssFeatureFlags(_config);
         return new DlssEvaluateProbeSettings(
             runtimePath,
             ResolvePluginDirectory(),
@@ -511,6 +522,16 @@ public sealed class Plugin : BasePlugin
             featureFlags,
             _config.Sharpness.Value,
             _config.ResetOnCameraCut.Value ? 1 : 0);
+    }
+
+    private static int ResolveDlssFeatureFlags(ModConfig config)
+    {
+        if (config.UseOfficialHdrpFeatureFlags.Value)
+        {
+            return OfficialHdrpDlssFeatureFlags;
+        }
+
+        return config.AutoExposure.Value ? DlssFeatureFlagAutoExposure : 0;
     }
 
     private static int ResolveDlssPerfQualityValue(string qualityMode)

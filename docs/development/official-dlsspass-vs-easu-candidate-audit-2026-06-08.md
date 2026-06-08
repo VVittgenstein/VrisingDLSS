@@ -1,8 +1,9 @@
 # Official HDRP DLSSPass vs EASU Candidate Audit
 
 Status: initial source/decompilation audit after
-`api21-paired-user-rendering-1080p-20260608-r1`. No code change is included in
-this note.
+`api21-paired-user-rendering-1080p-20260608-r1`. Follow-up flag/invert parity
+implementation is recorded in
+`docs/development/official-hdrp-dlss-flag-invert-parity-2026-06-08.md`.
 
 ## Trigger
 
@@ -73,8 +74,7 @@ user-rendering path. The remaining highest-value source-backed differences are:
    first evaluate.
 4. Output boundary: current EASU output vs official `"DLSS destination"` pass.
 
-The next runtime test should not be another blind API 21 rerun. It should follow
-one small code patch with a named hypothesis, most likely official feature
-flags plus invert-axis parity, and then rerun the same protected 1080p
-baseline/candidate shape with Computer Use kept connected during capture and
-disconnected after cleanup.
+The next runtime test should not be another blind API 21 rerun. The first small
+code patch, official feature flags plus invert-axis parity, is now implemented
+and build-validated. Rerun the same protected 1080p baseline/candidate shape
+with Computer Use kept connected during capture and disconnected after cleanup.

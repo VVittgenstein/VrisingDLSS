@@ -349,6 +349,7 @@ $configTemplateText = if (Test-Path -LiteralPath $configTemplatePath) {
 $releaseConfigSurfaceReady = $configTemplateText -match "EnableDLSS" `
     -and $configTemplateText -match "QualityMode" `
     -and $configTemplateText -match "PresetMode" `
+    -and $configTemplateText -match "UseOfficialHdrpFeatureFlags" `
     -and $configTemplateText -match "AutoExposure" `
     -and $configTemplateText -match "RenderScaleOverride" `
     -and $configTemplateText -match "MipBiasOverride" `

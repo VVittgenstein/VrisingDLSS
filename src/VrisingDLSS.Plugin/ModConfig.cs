@@ -68,6 +68,7 @@ internal sealed class ModConfig
     internal ConfigEntry<string> QualityMode { get; }
     internal ConfigEntry<string> PresetMode { get; }
     internal ConfigEntry<float> Sharpness { get; }
+    internal ConfigEntry<bool> UseOfficialHdrpFeatureFlags { get; }
     internal ConfigEntry<bool> AutoExposure { get; }
     internal ConfigEntry<int> RenderScaleOverride { get; }
     internal ConfigEntry<string> MipBiasOverride { get; }
@@ -141,7 +142,8 @@ internal sealed class ModConfig
         QualityMode = config.Bind("DLSS", "QualityMode", "Performance", "Requested DLSS mode: DLAA, Quality, Balanced, Performance, or UltraPerformance.");
         PresetMode = config.Bind("DLSS", "PresetMode", "Recommended", "Requested DLSS preset mode: Recommended, Auto, PresetK, PresetL, or PresetM. Explicit presets are applied only after SDK mapping is verified.");
         Sharpness = config.Bind("DLSS", "Sharpness", 0.0f, "Optional sharpening value. 0 disables sharpening.");
-        AutoExposure = config.Bind("DLSS", "AutoExposure", true, "Use DLSS auto-exposure when supported and verified.");
+        UseOfficialHdrpFeatureFlags = config.Bind("DLSS", "UseOfficialHdrpFeatureFlags", true, "Use Unity HDRP-style DLSS feature-create flags: IsHDR, MVLowRes, DepthInverted, and DoSharpening. When true, AutoExposure is not added because HDRP supplies pre-exposure explicitly.");
+        AutoExposure = config.Bind("DLSS", "AutoExposure", false, "Legacy diagnostic fallback. Adds DLSS auto-exposure only when UseOfficialHdrpFeatureFlags is false.");
         RenderScaleOverride = config.Bind("Advanced", "RenderScaleOverride", 0, "Optional render-height override in pixels. 0 lets the selected DLSS quality mode choose the render scale.");
         MipBiasOverride = config.Bind("Advanced", "MipBiasOverride", "Auto", "Optional mip-map bias override. Auto lets the plugin choose a DLSS-appropriate bias when implemented.");
         ResetOnCameraCut = config.Bind("Advanced", "ResetOnCameraCut", true, "Reset temporal DLSS history on camera cuts when implemented.");

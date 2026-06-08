@@ -223,3 +223,9 @@ Do not spend another game run on a blind API 21 rerun. The next runtime test
 should follow a small source-backed patch, most likely official feature flags
 plus invert-axis parity first, with reset/lifecycle handled either in the same
 patch if very small or in the next focused patch.
+
+That first patch is now implemented and non-runtime build-validated in
+`docs/development/official-hdrp-dlss-flag-invert-parity-2026-06-08.md`. The
+next runtime question is whether `flags=0x0000002B` plus
+`invertAxis=(0,1)` improves the current low-GPU-utilization performance
+regression without losing clean user-rendering evaluate evidence.
