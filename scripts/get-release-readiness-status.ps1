@@ -93,6 +93,8 @@ $mvpDocPath = Join-Path $resolvedRoot "docs\mvp.md"
 $measurementPlanPath = Join-Path $resolvedRoot "docs\development\measurement-plan.md"
 $runtimeDistributionGatePath = Join-Path $resolvedRoot "docs\development\dlss-runtime-distribution-gate-2026-06-08.md"
 $runtimeDistributionApprovalPath = Join-Path $resolvedRoot "docs\release\dlss-runtime-distribution-approval.md"
+$resizeResetValidationPath = Join-Path $resolvedRoot "docs\release\dlss-resize-reset-validation.md"
+$fallbackValidationPath = Join-Path $resolvedRoot "docs\release\dlss-fallback-validation.md"
 $workflowPath = Join-Path $resolvedRoot ".github\workflows\build-package.yml"
 $configTemplatePath = Join-Path $resolvedRoot "package\thunderstore\VrisingDLSS.cfg"
 $hdrpAssetRequirement = "Local HDRP asset unpack identifies the active render pipeline asset and DLSS/upscaler gates without launching or modifying the game."
@@ -100,6 +102,8 @@ $contractBindStageRequirement = "Contract-bind render-scale stage dry-run remain
 $localSaveFixtureRequirement = "Local V Rising save fixture resolver finds exactly one usable Continue target named 11111 without launching or modifying the game."
 $renderGraphBoundaryRouteRequirement = "RenderGraph boundary route guard keeps mod-owned RenderGraph pass injection rejected as the normal route without launching or modifying the game."
 $runtimeDistributionRequirement = "Normal-user DLSS runtime distribution path is approved and does not require ad hoc manual DLL downloads."
+$resizeResetRequirement = "Normal-user DLSS resize/reset behavior is validated with gameplay artifacts."
+$fallbackRequirement = "Normal-user DLSS fallback behavior is validated for missing runtime, unsupported GPU, and resource failures."
 
 if ([string]::IsNullOrWhiteSpace($PackagePath) -and (Test-Path -LiteralPath $manifestPath)) {
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
@@ -609,11 +613,66 @@ $items.Add((New-ReadinessItem `
     -Status $visualStatus.Status `
     -Evidence $visualEvidence))
 
+$mvpSafetyGate = Invoke-CapturedCommand -Command {
+    & (Join-Path $resolvedRoot "scripts\test-dlss-mvp-safety-gates.ps1") `
+        -Root $resolvedRoot `
+        -ResizeResetPath $resizeResetValidationPath `
+        -FallbackPath $fallbackValidationPath `
+        -Json
+}
+$resizeResetStatus = "Blocked"
+$resizeResetEvidence = "DLSS resize/reset validation gate did not produce evidence."
+$fallbackStatus = "Blocked"
+$fallbackEvidence = "DLSS fallback validation gate did not produce evidence."
+if ($mvpSafetyGate.Succeeded) {
+    try {
+        $mvpSafetyReport = $mvpSafetyGate.Output | ConvertFrom-Json
+        $resizeResetReport = $mvpSafetyReport.ResizeReset
+        $fallbackReport = $mvpSafetyReport.Fallback
+        $resizeResetStatus = if ($resizeResetReport.Status -eq "Pass") {
+            "Pass"
+        } elseif ($resizeResetReport.Status -eq "Fail") {
+            "Fail"
+        } else {
+            "Blocked"
+        }
+        $fallbackStatus = if ($fallbackReport.Status -eq "Pass") {
+            "Pass"
+        } elseif ($fallbackReport.Status -eq "Fail") {
+            "Fail"
+        } else {
+            "Blocked"
+        }
+        $resizeResetEvidence = "Status=$($resizeResetReport.Status); Exists=$($resizeResetReport.Exists); RequiredMarkers=$($resizeResetReport.RequiredMarkerCount); MissingMarkers=$(@($resizeResetReport.MissingMarkers).Count); EmptyMarkers=$(@($resizeResetReport.EmptyMarkers).Count); PlaceholderCount=$($resizeResetReport.PlaceholderCount); Path=$($resizeResetReport.Path)"
+        if (@($resizeResetReport.Issues).Count -gt 0) {
+            $resizeResetEvidence = "$resizeResetEvidence; Issues=$(@($resizeResetReport.Issues) -join ' | ')"
+        }
+        $fallbackEvidence = "Status=$($fallbackReport.Status); Exists=$($fallbackReport.Exists); RequiredMarkers=$($fallbackReport.RequiredMarkerCount); MissingMarkers=$(@($fallbackReport.MissingMarkers).Count); EmptyMarkers=$(@($fallbackReport.EmptyMarkers).Count); PlaceholderCount=$($fallbackReport.PlaceholderCount); Path=$($fallbackReport.Path)"
+        if (@($fallbackReport.Issues).Count -gt 0) {
+            $fallbackEvidence = "$fallbackEvidence; Issues=$(@($fallbackReport.Issues) -join ' | ')"
+        }
+    } catch {
+        $resizeResetStatus = "Blocked"
+        $fallbackStatus = "Blocked"
+        $resizeResetEvidence = "Failed to parse DLSS MVP safety gate JSON: $($_.Exception.Message); Output=$($mvpSafetyGate.Output)"
+        $fallbackEvidence = $resizeResetEvidence
+    }
+} else {
+    $resizeResetEvidence = "DLSS MVP safety gate failed: $($mvpSafetyGate.Output)"
+    $fallbackEvidence = $resizeResetEvidence
+}
+
 $items.Add((New-ReadinessItem `
     -Area "MVP" `
-    -Requirement "Normal-user DLSS enable/disable changes rendering correctly and safely." `
-    -Status "Blocked" `
-    -Evidence "EnableDLSS is exposed and wired to the experimental source-guided EASU ctx.cmd command-buffer candidate. Runtime evidence and the user-rendering candidate proof are tracked by readiness when present, but image-correctness, performance, resize/reset, and fallback validation are not complete yet."))
+    -Requirement $resizeResetRequirement `
+    -Status $resizeResetStatus `
+    -Evidence $resizeResetEvidence))
+
+$items.Add((New-ReadinessItem `
+    -Area "MVP" `
+    -Requirement $fallbackRequirement `
+    -Status $fallbackStatus `
+    -Evidence $fallbackEvidence))
 
 $mvpBlockingStatuses = @("Fail", "Blocked", "Missing")
 $hardFailures = @($items | Where-Object { $_.Status -eq "Fail" })

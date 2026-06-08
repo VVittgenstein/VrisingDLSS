@@ -2168,6 +2168,16 @@ As of the read-only RenderGraph pass-map runtime result:
   `ApprovalExists=false`. A future approval should start from
   `docs/release/dlss-runtime-distribution-approval.template.md`; the validator
   rejects missing markers, empty marker values, and placeholder text.
+- DLSS resize/reset and fallback behavior are now separate explicit MVP gates,
+  not one generic enable/disable safety blocker. The no-launch/no-modification
+  validator `scripts\test-dlss-mvp-safety-gates.ps1` checks the future live
+  records `docs/release/dlss-resize-reset-validation.md` and
+  `docs/release/dlss-fallback-validation.md`; both currently report
+  `Status=Blocked` because the live records do not exist yet. The starter
+  templates are
+  `docs/release/dlss-resize-reset-validation.template.md` and
+  `docs/release/dlss-fallback-validation.template.md`, and they intentionally
+  contain `TBD` so they fail if used as release evidence unchanged.
 - `scripts/get-runtime-validation-status.ps1` was updated after that deferral
   so a safe live `loader` config/log no longer sends the next-action advice
   back to the old hook-probe ladder when the repository already contains the
