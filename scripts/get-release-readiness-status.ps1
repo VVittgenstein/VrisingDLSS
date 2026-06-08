@@ -100,6 +100,7 @@ $configTemplatePath = Join-Path $resolvedRoot "package\thunderstore\VrisingDLSS.
 $hdrpAssetRequirement = "Local HDRP asset unpack identifies the active render pipeline asset and DLSS/upscaler gates without launching or modifying the game."
 $dlssNativeStubRequirement = "Local HDRP DLSS native-stub audit confirms the official DLSS activation/execution body is inert while the RenderGraph shell remains non-stub without launching or modifying the game."
 $officialDlssContractRequirement = "Local HDRP DLSS official-contract guard confirms DoDLSSPass needs color/depth/motion/bias resources while V Rising's active EASU path remains color-only, without launching or modifying the game."
+$runtimeDistributionContractRequirement = "DLSS runtime distribution approval gate rejects semantic false positives such as third-party mirrors, missing source URLs, and bundled runtimes without SHA256 checksums."
 $contractBindStageRequirement = "Contract-bind render-scale stage dry-run remains no-native/no-evaluate and launch-safe before gameplay automation."
 $contractAnalyzerRequirement = "HDRP DLSS schedule analyzer recognizes the contract-bind success shape and rejects evaluate-polluted logs without launching or modifying the game."
 $localSaveFixtureRequirement = "Local V Rising save fixture resolver finds exactly one usable Continue target named 11111 without launching or modifying the game."
@@ -196,6 +197,7 @@ if (Test-Path -LiteralPath $workflowPath) {
     $workflowOk = $workflowText -match "windows-2022" `
         -and $workflowText -match "validate-thunderstore-package\.ps1" `
         -and $workflowText -match "package-thunderstore\.ps1" `
+        -and $workflowText -match "test-dlss-runtime-distribution-gate-contract\.ps1" `
         -and $workflowText -match "test-hdrp-dlss-contract-bind-stage\.ps1\s+-RequirePass" `
         -and $workflowText -match "test-hdrp-dlss-schedule-analyzer-contract\.ps1" `
         -and $workflowText -match "test-rendergraph-boundary-route-status\.ps1\s+-RequirePass" `
@@ -687,6 +689,41 @@ $items.Add((New-ReadinessItem `
     -Requirement "Normal-user DLSS/Advanced configuration surface is present in the mod-folder config." `
     -Status $(if ($releaseConfigSurfaceReady) { "Pass" } else { "Blocked" }) `
     -Evidence $(if ($releaseConfigSurfaceReady) { $configTemplatePath } else { "Release DLSS defaults are documented in docs/mvp.md but the package config does not expose every key yet." })))
+
+$runtimeDistributionContractGate = Invoke-CapturedCommand -Command {
+    & (Join-Path $resolvedRoot "scripts\test-dlss-runtime-distribution-gate-contract.ps1") -Root $resolvedRoot -Json
+}
+$runtimeDistributionContractStatus = "Blocked"
+$runtimeDistributionContractEvidence = "DLSS runtime distribution contract guard did not produce evidence."
+if ($runtimeDistributionContractGate.Succeeded) {
+    try {
+        $runtimeDistributionContractReport = $runtimeDistributionContractGate.Output | ConvertFrom-Json
+        $runtimeDistributionContractStatus = if ($runtimeDistributionContractReport.Status -eq "Pass" `
+                -and -not [bool]$runtimeDistributionContractReport.LaunchesGame `
+                -and -not [bool]$runtimeDistributionContractReport.ModifiesGameFiles) {
+            "Pass"
+        } elseif ($runtimeDistributionContractReport.Status -eq "Fail") {
+            "Fail"
+        } else {
+            "Blocked"
+        }
+        $runtimeDistributionContractEvidence = "Status=$($runtimeDistributionContractReport.Status); Checks=$($runtimeDistributionContractReport.CheckCount); FailedChecks=$(@($runtimeDistributionContractReport.FailedChecks).Count); LaunchesGame=$($runtimeDistributionContractReport.LaunchesGame); ModifiesGameFiles=$($runtimeDistributionContractReport.ModifiesGameFiles)"
+        if (@($runtimeDistributionContractReport.FailedChecks).Count -gt 0) {
+            $runtimeDistributionContractEvidence = "$runtimeDistributionContractEvidence; Failed=$(@($runtimeDistributionContractReport.FailedChecks | ForEach-Object { $_.Name }) -join ' | ')"
+        }
+    } catch {
+        $runtimeDistributionContractStatus = "Blocked"
+        $runtimeDistributionContractEvidence = "Failed to parse DLSS runtime distribution contract guard JSON: $($_.Exception.Message); Output=$($runtimeDistributionContractGate.Output)"
+    }
+} else {
+    $runtimeDistributionContractEvidence = "DLSS runtime distribution contract guard failed: $($runtimeDistributionContractGate.Output)"
+}
+
+$items.Add((New-ReadinessItem `
+    -Area "Evidence" `
+    -Requirement $runtimeDistributionContractRequirement `
+    -Status $runtimeDistributionContractStatus `
+    -Evidence $runtimeDistributionContractEvidence))
 
 $runtimeDistributionGate = Invoke-CapturedCommand -Command {
     & (Join-Path $resolvedRoot "scripts\test-dlss-runtime-distribution-gate.ps1") `

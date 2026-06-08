@@ -77,6 +77,16 @@ before readiness can mark this gate as `Pass`. Use
 shape for that future approval, but do not copy it to the live approval path
 until all fields are resolved.
 
+The gate semantics are protected by:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\test-dlss-runtime-distribution-gate-contract.ps1 -Json
+```
+
+That guard uses synthetic approval records to make sure a valid bundled NVIDIA
+SDK route can pass while rejected third-party/manual-download routes, missing
+source URLs, and missing SHA256 checksums fail.
+
 ## Accepted Future Evidence
 
 One of these would close this gate:

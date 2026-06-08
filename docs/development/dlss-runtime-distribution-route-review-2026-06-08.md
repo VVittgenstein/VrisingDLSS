@@ -72,6 +72,25 @@ one exact route is chosen. The approval must include:
 - package validation and release-boundary changes;
 - reviewer and approval date.
 
+`scripts\test-dlss-runtime-distribution-gate.ps1` now enforces more than
+non-empty template fields. A live approval must:
+
+- use exactly one approved `Runtime Route:` value:
+  `Bundled NVIDIA DLSS SDK runtime`,
+  `Authoritative NVIDIA installer or dependency`, or
+  `Documented non-NVIDIA-runtime route`;
+- include at least one `http` or `https` URL under `Source Evidence URLs:`;
+- avoid third-party mirror, DLSS Swapper, arbitrary/user-supplied DLL, and
+  manual DLL-download routes;
+- for bundled NVIDIA DLSS SDK runtime approval, name `nvngx_dlss.dll` and include
+  a SHA256 checksum.
+
+`scripts\test-dlss-runtime-distribution-gate-contract.ps1` protects those
+semantics with synthetic approval records: one bundled NVIDIA SDK approval shape
+must pass, while third-party/manual, missing-URL, and missing-SHA256 shapes must
+fail. The GitHub Actions package workflow now runs this no-launch/no-modify
+contract guard before packaging.
+
 Until then, `scripts\test-dlss-runtime-distribution-gate.ps1` must keep
 `RuntimeDistributionApproved=false`, and release readiness must keep the runtime
 distribution MVP item blocked.

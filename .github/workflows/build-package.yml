@@ -45,6 +45,10 @@ jobs:
         shell: pwsh
         run: .\scripts\check-release-boundary.ps1
 
+      - name: Guard DLSS runtime distribution gate semantics
+        shell: pwsh
+        run: .\scripts\test-dlss-runtime-distribution-gate-contract.ps1
+
       - name: Guard contract-bind diagnostic stage
         shell: pwsh
         run: .\scripts\test-hdrp-dlss-contract-bind-stage.ps1 -RequirePass

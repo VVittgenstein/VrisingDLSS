@@ -51,6 +51,7 @@ $requiredApprovalMarkers = @(
 $missingApprovalMarkers = @()
 $emptyApprovalMarkers = @()
 $placeholderMatches = @()
+$markerValues = @{}
 $approvalText = ""
 if ($approvalExists) {
     $approvalText = Get-Content -LiteralPath $resolvedApprovalPath -Raw
@@ -65,6 +66,8 @@ if ($approvalExists) {
             $markerMatch = [regex]::Match($approvalText, "(?im)^\s*$escapedMarker\s*(?<value>\S.*)?$")
             if (-not $markerMatch.Success -or [string]::IsNullOrWhiteSpace($markerMatch.Groups["value"].Value)) {
                 $emptyApprovalMarkers += $marker
+            } else {
+                $markerValues[$marker] = $markerMatch.Groups["value"].Value.Trim()
             }
         }
     }
@@ -79,6 +82,43 @@ if ($approvalExists) {
     }
     if ($placeholderMatches.Count -gt 0) {
         [void]$issues.Add("Approval record still contains placeholders: $($placeholderMatches -join ', ')")
+    }
+
+    $approvedRouteTypes = @(
+        "Bundled NVIDIA DLSS SDK runtime",
+        "Authoritative NVIDIA installer or dependency",
+        "Documented non-NVIDIA-runtime route"
+    )
+    $runtimeRoute = [string]$markerValues["Runtime Route:"]
+    if (-not [string]::IsNullOrWhiteSpace($runtimeRoute) -and -not ($approvedRouteTypes -contains $runtimeRoute)) {
+        [void]$issues.Add("Runtime Route must be one of: $($approvedRouteTypes -join '; ')")
+    }
+
+    $sourceEvidenceUrls = [string]$markerValues["Source Evidence URLs:"]
+    if (-not [string]::IsNullOrWhiteSpace($sourceEvidenceUrls) -and $sourceEvidenceUrls -notmatch 'https?://') {
+        [void]$issues.Add("Source Evidence URLs must include at least one http(s) URL.")
+    }
+
+    $forbiddenRoutePattern = '(?i)(techpowerup|techspot|dll[- ]?files|dlss\s*swapper|third[- ]party\s+mirror|mirror\s+site|user[- ]?supplied|manual\s+dll\s+download|manually\s+download|arbitrary\s+dll|copy\s+your\s+own\s+dll)'
+    $routeFieldsText = @(
+        [string]$markerValues["Runtime Route:"],
+        [string]$markerValues["Runtime Source:"],
+        [string]$markerValues["User Installation Behavior:"],
+        [string]$markerValues["Release Boundary Decision:"]
+    ) -join "`n"
+    if ($routeFieldsText -match $forbiddenRoutePattern) {
+        [void]$issues.Add("Approval record describes a rejected runtime route such as third-party mirrors, manual DLL downloads, or user-supplied arbitrary DLLs.")
+    }
+
+    if ($runtimeRoute -eq "Bundled NVIDIA DLSS SDK runtime") {
+        $runtimeFiles = [string]$markerValues["Runtime Files:"]
+        $checksums = [string]$markerValues["Checksums:"]
+        if ($runtimeFiles -notmatch '(?i)\bnvngx_dlss\.dll\b') {
+            [void]$issues.Add("Bundled NVIDIA DLSS SDK runtime approval must name nvngx_dlss.dll in Runtime Files.")
+        }
+        if ($checksums -notmatch '(?i)\bSHA256\b.*\b[0-9A-F]{64}\b') {
+            [void]$issues.Add("Bundled NVIDIA DLSS SDK runtime approval must include a SHA256 checksum.")
+        }
     }
 }
 
@@ -106,6 +146,7 @@ $result = [pscustomobject]@{
     EmptyApprovalMarkers = @($emptyApprovalMarkers)
     PlaceholderCount = $placeholderMatches.Count
     Placeholders = @($placeholderMatches)
+    MarkerValues = [pscustomobject]$markerValues
     Issues = @($issues)
 }
 

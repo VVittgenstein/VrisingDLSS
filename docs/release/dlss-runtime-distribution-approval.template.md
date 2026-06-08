@@ -39,6 +39,14 @@ Approval Date: TBD
 - The approval record must identify the exact binary provenance and version, not
   a generic web search or user-supplied DLL.
 - The approval record must include source evidence URLs for the selected route.
+- `Runtime Route:` must be exactly one of:
+  `Bundled NVIDIA DLSS SDK runtime`,
+  `Authoritative NVIDIA installer or dependency`, or
+  `Documented non-NVIDIA-runtime route`.
+- Third-party mirrors, DLSS Swapper, arbitrary/user-supplied DLLs, and manual DLL
+  download instructions are not approvable MVP runtime routes.
+- If `Runtime Route:` is `Bundled NVIDIA DLSS SDK runtime`, `Runtime Files:` must
+  name `nvngx_dlss.dll` and `Checksums:` must include a SHA256 value.
 - If the selected path bundles runtime files, update release-boundary and package
   validation before approving.
 - If the selected path uses an installer or dependency, describe the exact

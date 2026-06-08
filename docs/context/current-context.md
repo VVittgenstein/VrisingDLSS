@@ -2225,6 +2225,15 @@ As of the read-only RenderGraph pass-map runtime result:
   as candidates needing approval, rejects third-party/manual DLL downloads, and
   does not select Streamline as a distribution-only fix. The approval template
   and validator now require `Source Evidence URLs:`.
+- `scripts\test-dlss-runtime-distribution-gate.ps1` now performs semantic
+  approval checks: `Runtime Route:` must be one of the approved route classes,
+  `Source Evidence URLs:` must include an HTTP(S) URL, rejected third-party/manual
+  DLL routes fail, and bundled NVIDIA runtime approvals must name
+  `nvngx_dlss.dll` plus SHA256. `scripts\test-dlss-runtime-distribution-gate-contract.ps1`
+  protects those rules with synthetic approvals; local result is `Status=Pass`,
+  `LaunchesGame=false`, `ModifiesGameFiles=false`, `CheckCount=4`. GitHub Actions
+  and release readiness now run this contract guard, but the live runtime
+  distribution MVP gate remains blocked until a real approval record exists.
 - DLSS resize/reset and fallback behavior are now separate explicit MVP gates,
   not one generic enable/disable safety blocker. The no-launch/no-modification
   validator `scripts\test-dlss-mvp-safety-gates.ps1` checks the future live
