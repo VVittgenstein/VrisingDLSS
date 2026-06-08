@@ -126,8 +126,15 @@ with much lower GPU utilization/power and worse frame time than the FSR-Off
 baseline.
 
 Do not rerun this same 1080p candidate shape unchanged. The next useful route is
-to move from per-frame NGX parameter parity to boundary/lifecycle parity:
+to move from per-frame NGX parameter parity to boundary/lifecycle parity. A
+first no-runtime preflight for that route is now implemented as
+`hdrp-dlss-schedule-audit`; see
+`docs/development/hdrp-dlss-schedule-audit-preflight-2026-06-08.md`.
 
+- Run `hdrp-dlss-schedule-audit` to check whether the official
+  `"Deep Learning Super Sampling"` RenderGraph pass is ever scheduled under
+  current V Rising/HDRP state without native evaluate or broad
+  `RenderGraph.GetTexture` discovery.
 - Investigate an official-equivalent RenderGraph/DLSSData pass boundary that
   does not rely on the no-op built-in `DLSSPass.Render` body.
 - Compare resource declarations and ordering around official `"DLSS

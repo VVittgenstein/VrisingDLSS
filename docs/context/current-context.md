@@ -1837,3 +1837,17 @@ As of the read-only RenderGraph pass-map runtime result:
   as the FPS fix. Do not rerun the same EASU `ctx.cmd` candidate shape
   unchanged; next work should target boundary/lifecycle/resource-order or
   synchronization differences versus official HDRP.
+- A no-runtime preflight for the next boundary step is now implemented and
+  recorded in
+  `docs/development/hdrp-dlss-schedule-audit-preflight-2026-06-08.md`. New
+  diagnostic stage `hdrp-dlss-schedule-audit` keeps `DLSS.EnableDLSS=false`,
+  disables broad `RenderGraph.GetTexture`, disables HookProbe, and enables only
+  read-only RenderGraph compile-list/resource-declaration/pass-data/render-func
+  metadata/compiled-info plus `UpscalerStateProbe`. The paired analyzer
+  `scripts\analyze-hdrp-dlss-schedule-audit.ps1` classifies logs as
+  `OfficialDlssPassObserved`, `NoOfficialDlssPassObserved`, `Fail`, or
+  `Incomplete` and explicitly treats user-rendering evaluate, native DLSS
+  user-rendering, broad GetTexture calls, or crash indicators as audit
+  pollution/failure. The next runtime action should run this stage at true
+  `1920x1080` Windowed before any state-changing attempt to force official HDRP
+  DLSS scheduling.

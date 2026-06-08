@@ -207,6 +207,12 @@ $results.Add((New-StageResult `
     -StartedPatterns @("RenderGraph pass-data snapshot probe enabled", "RenderGraph pass-list patched")))
 
 $results.Add((New-StageResult `
+    -Stage "HDRP DLSS Schedule Audit" `
+    -PassPatterns @("RenderGraph pass-list compile #", "Upscaler state probe snapshot", "Upscaler state probe call #") `
+    -FailPatterns @("RenderGraph pass-list logging failed", "RenderGraph pass-list failed to patch", "RenderGraph pass-list target was not found", "DLSS user rendering evaluate succeeded from", "Native render-func command-buffer DLSS user-rendering") `
+    -StartedPatterns @("RenderGraph pass-list probe enabled", "RenderGraph pass-data snapshot probe enabled", "RenderGraph pass render-func metadata probe enabled", "RenderGraph compiled-pass-info probe enabled", "Upscaler state probe snapshot")))
+
+$results.Add((New-StageResult `
     -Stage "RenderGraph RenderFunc Metadata" `
     -PassPatterns @("RenderGraph pass render-func metadata #") `
     -FailPatterns @("RenderGraph pass-list logging failed", "RenderGraph pass-list failed to patch", "RenderGraph pass-list target was not found", "RenderGraph pass render-func metadata renderFunc=not found", "RenderGraph pass render-func metadata typed read failed") `

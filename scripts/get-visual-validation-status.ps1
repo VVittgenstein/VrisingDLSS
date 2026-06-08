@@ -572,7 +572,7 @@ if (Test-Path -LiteralPath $reviewResolved) {
 }
 
 if (@($issues | Where-Object { $_ -like "Candidate * regressed*" -or $_ -like "Candidate P95 frame time worsened*" }).Count -gt 0) {
-    $nextRecommendation = "Do not rerun the same EASU ctx.cmd dlss-user-rendering candidate unchanged. Current evidence, including the official-HDRP flag/invert parity run, proves clean DLSS evaluate with RenderGraph.GetTexture=0 but still fails performance with low GPU utilization. Next work should change the boundary/lifecycle/resource-order/synchronization hypothesis, then rerun a protected paired comparison with V Rising FSR Off, automatic system snapshots, and protected save restore."
+    $nextRecommendation = "Do not rerun the same EASU ctx.cmd dlss-user-rendering candidate unchanged. Current evidence, including the official-HDRP flag/invert parity run, proves clean DLSS evaluate with RenderGraph.GetTexture=0 but still fails performance with low GPU utilization. Next work should run the read-only hdrp-dlss-schedule-audit, analyze whether the official Deep Learning Super Sampling RenderGraph pass appears, then change the boundary/lifecycle/resource-order/synchronization hypothesis before another protected paired comparison."
 }
 
 if ($issues.Count -gt 0) {

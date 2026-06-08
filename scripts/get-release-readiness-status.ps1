@@ -406,7 +406,7 @@ $summary = [pscustomobject]@{
     NextRecommendation = if ($mvpReady) {
         "MVP evidence is complete. Prepare a final release review."
     } elseif ([string]::IsNullOrWhiteSpace($GamePath)) {
-        "Pass -GamePath to include local runtime evidence. Current MVP next step is the official-HDRP flag/invert parity protected paired 1080p dlss-user-rendering comparison using V Rising FSR Off, -ProtectSave -SaveDir <local-save-dir>, and the automatic before/after system snapshots, followed by a matching human visual review file."
+        "Pass -GamePath to include local runtime evidence. Current MVP next step is the read-only hdrp-dlss-schedule-audit at true 1920x1080 Windowed, then analyze the archived log with scripts\analyze-hdrp-dlss-schedule-audit.ps1 before changing boundary/lifecycle code."
     } elseif ($visualStatus.Status -ne "Pass" -and $visualStatus.HumanReviewStatus -eq "Pending") {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
@@ -477,7 +477,7 @@ $summary = [pscustomobject]@{
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
         } else {
-            "Run the official-HDRP flag/invert parity protected paired dlss-user-rendering gameplay visual/performance comparison with -ProtectSave -SaveDir <local-save-dir>, preserve automatic system snapshots, and add a matching human review file."
+            "Do not rerun the same EASU ctx.cmd candidate unchanged. Run the read-only hdrp-dlss-schedule-audit and analyze whether the official Deep Learning Super Sampling RenderGraph pass appears before changing boundary/lifecycle code."
         }
     } else {
         "Validate image correctness, output selection, resize/reset handling, and fallback behavior before public release."

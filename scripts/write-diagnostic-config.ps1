@@ -22,6 +22,7 @@ param(
         "rendergraph-pass-list",
         "rendergraph-pass-declarations",
         "rendergraph-pass-data",
+        "hdrp-dlss-schedule-audit",
         "rendergraph-renderfunc-metadata",
         "rendergraph-compiled-pass-info",
         "rendergraph-execute-delegate",
@@ -321,6 +322,18 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"
             $Config.Diagnostics.EnableHookProbe = "false"
+        }
+        "hdrp-dlss-schedule-audit" {
+            $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
+            $Config.Diagnostics.EnableRenderGraphPassListProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphPassResourceDeclarationProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphPassDataSnapshotProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphPassRenderFuncMetadataProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphCompiledPassInfoProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
+            $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+            $Config.Diagnostics.EnableHookProbe = "false"
+            $Config.DLSS.EnableDLSS = "false"
         }
         "rendergraph-renderfunc-metadata" {
             $Config.Diagnostics.EnableNativeBridgeSmokeTest = "true"
