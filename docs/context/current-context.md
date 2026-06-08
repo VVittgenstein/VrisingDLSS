@@ -2118,6 +2118,15 @@ As of the read-only RenderGraph pass-map runtime result:
   `SaveFixtureSaveId=f0e07524-03f4-4ef4-945c-b1f7e982071b`,
   `RestoresProtectedSave=true`, V Rising FSR Off, true `1920x1080` Windowed,
   and `ClientWindowMode=3`; negative smoke without `SaveDir`/`SaveName` fails.
+- `scripts\test-hdrp-dlss-contract-bind-stage.ps1 -GamePath C:\Software\VRising
+  -SaveName 11111 -RequirePass -Json` now emits a no-launch
+  `RuntimeProofPlan` for the next protected gameplay proof. It includes the
+  start command using `-Stage hdrp-dlss-contract-bind-render-scale
+  -ProtectSave -SaveName 11111`, the required Computer Use action
+  (click Continue/11111 once, send no movement keys), stop/analyze command
+  templates, pass signals, and fail signals. Local validation confirmed
+  `LaunchesGame=false`, `RequiresComputerUse=true`, and
+  `MovementKeysAllowed=false`.
 - `scripts\find-vrising-save-fixture.ps1 -SaveName 11111 -RequireOne -Json`
   now resolves the current local/private Continue fixture without launching
   V Rising or modifying save files. On this machine it reports `Status=Pass`,

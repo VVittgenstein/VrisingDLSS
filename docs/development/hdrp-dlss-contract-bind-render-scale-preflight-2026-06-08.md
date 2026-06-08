@@ -241,6 +241,16 @@ The GitHub Actions package workflow also runs the same config-only guard on
 guard results fail the workflow. Release readiness now requires that enforcing
 CI guard step to remain present.
 
+The guard JSON also emits a `RuntimeProofPlan` when `-GamePath` and
+`-SaveName`/`-SaveDir` are supplied. This is a no-launch machine-readable plan
+for the next protected gameplay proof. It records the question/hypothesis, the
+recommended `start-vrising-automation-session.ps1` command with
+`-ProtectSave -SaveName 11111`, the required Computer Use action, stop/analyze
+command templates, pass signals, and fail signals. Local validation on
+2026-06-08 confirmed `RuntimeProofPlan.RequiresComputerUse=true`,
+`MovementKeysAllowed=false`, and `StartCommand` uses `-SaveName 11111` while the
+guard itself still reports `LaunchesGame=false`.
+
 When Computer Use is available again, resume with the protected session command
 above, using a fresh artifact label such as
 `hdrp-dlss-contract-bind-render-scale-1080p-gameplay-20260608-r2` if the earlier

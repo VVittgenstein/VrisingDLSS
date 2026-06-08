@@ -140,6 +140,21 @@ $status = "Pass"
 $configDryRun = $null
 $diagnosticDryRun = $null
 $sessionDryRun = $null
+$runtimeProofPlan = $null
+
+function ConvertTo-CommandArgument {
+    param([AllowEmptyString()][string]$Value)
+
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        return '""'
+    }
+
+    if ($Value -match '^[A-Za-z0-9_./:\\-]+$') {
+        return $Value
+    }
+
+    '"' + ($Value -replace '"', '\"') + '"'
+}
 
 try {
     $configDryRun = & (Join-Path $resolvedRoot "scripts\write-diagnostic-config.ps1") `
@@ -229,6 +244,36 @@ try {
         if ([string]::IsNullOrWhiteSpace($SaveDir) -and -not [bool]$sessionDryRun.SaveFixtureResolved) {
             [void]$issues.Add("start-vrising-automation-session dry-run did not resolve SaveName=$SaveName")
         }
+
+        $recommendedArtifactLabel = "hdrp-dlss-contract-bind-render-scale-1080p-gameplay-<date>-r1"
+        $sessionPath = "Z:\VrisingDLSS\artifacts\gameplay-automation\Session-$recommendedArtifactLabel.json"
+        $logPath = "artifacts\gameplay-automation\LogOutput-$recommendedArtifactLabel.log"
+        $saveArg = if (-not [string]::IsNullOrWhiteSpace($SaveDir)) {
+            "-SaveDir $(ConvertTo-CommandArgument -Value $SaveDir)"
+        } else {
+            "-SaveName $(ConvertTo-CommandArgument -Value $SaveName)"
+        }
+
+        $runtimeProofPlan = [pscustomobject]@{
+            Question = "Can the no-native/no-evaluate contract-bind stage bind HDRP depth/motion evidence to the engine-owned Uber->EASU->Final chain in protected gameplay?"
+            Hypothesis = "The stage should produce same-run RenderGraph pass/resource/depth/motion evidence without NGX, native DLSS evaluate, broad GetTexture discovery, or save drift."
+            RequiresComputerUse = $true
+            MovementKeysAllowed = $false
+            StartCommand = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start-vrising-automation-session.ps1 -GamePath $(ConvertTo-CommandArgument -Value $GamePath) -Stage $stage -ArtifactLabel $(ConvertTo-CommandArgument -Value $recommendedArtifactLabel) -SetClientResolution -SetClientWindowMode -ClientWindowMode 3 -Width 1920 -Height 1080 -ProtectSave $saveArg"
+            ComputerUseAction = "Select the real VRising Unity window, click Continue/11111 exactly once, send no movement keys, then wait for the stable local/private scene."
+            StopCommandTemplate = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts\stop-vrising-automation-session.ps1 -SessionPath $(ConvertTo-CommandArgument -Value $sessionPath)"
+            AnalyzeCommandTemplate = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts\analyze-hdrp-dlss-schedule-audit.ps1 -LogPath $(ConvertTo-CommandArgument -Value $logPath) -Json"
+            PassSignals = @(
+                "Session cleanup reports SaveRestored=True and SaveAfterRestoreChangeCount=0.",
+                "RemainingVRisingProcessCount=0 after stop.",
+                "Analyzer reports no DLSS evaluate/user-rendering pollution.",
+                "Analyzer reports EasuSuperResolutionChainWithHdrpDepthMotionObservedButContractIncomplete or a stronger official-contract status."
+            )
+            FailSignals = @(
+                "Any NGX/DLSS evaluate, SDK-wrapper native use, broad GetTexture discovery, crash, or save restore failure.",
+                "Computer Use unavailable before launch; keep the run deferred rather than using foreground key scripts."
+            )
+        }
     }
 } catch {
     $status = "Blocked"
@@ -276,6 +321,7 @@ $result = [pscustomobject]@{
     } else {
         $null
     }
+    RuntimeProofPlan = $runtimeProofPlan
     Issues = @($issues)
 }
 
