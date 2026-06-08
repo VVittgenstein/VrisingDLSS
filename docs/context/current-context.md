@@ -40,6 +40,25 @@ The 2026-06-05 goal-shaping conversation clarified why this reconstruction exist
   EASU `ctx.cmd` regression, `get-runtime-validation-status.ps1` must recommend
   the `hdrp-dlss-contract-bind-render-scale` official-equivalent route instead
   of sending the next run back to the same candidate.
+- User-facing next-step docs are now guarded by
+  `scripts\test-doc-next-recommendation-contract.ps1`: `docs\mvp.md` and
+  `docs\install.md` must keep the latest `dlss-user-rendering` route framed as
+  known-regressed/reproduction-only evidence, so the documentation cannot drift
+  back toward rerunning the unchanged `dlss-user-rendering` candidate as the
+  next MVP proof. The guarded next runtime proof remains the protected
+  `hdrp-dlss-contract-bind-render-scale` route.
+- The user added two local research plan files on 2026-06-08; they were moved
+  into ignored local reference storage under `ref\user-provided\` and distilled
+  into
+  `docs\research\user-provided-easu-dlss-plan-synthesis-2026-06-08.md`.
+  The synthesis reinforces the current route: run protected
+  `hdrp-dlss-contract-bind-render-scale` first, then use a staged B-H cost
+  matrix (`EASU carrier-only`, `native desc validate-only`, `empty plugin
+  event`, `NGX init/create only`, `scratch evaluate not consumed`,
+  `controlled copy`, `visible write`) before any 4K value proof. It also keeps
+  runtime `CustomPass BeforePostProcess` and `CustomPostProcess.Render` as
+  explicit research candidates, not replacements for the immediate
+  contract-bind proof.
 - Search, source reading, upstream investigation, and route exploration are first-class work.
 - Every implementation/test loop should be small, reversible, and evidence-backed.
 - Automation into gameplay must be systematically explored before accepting semi-automatic gameplay testing.

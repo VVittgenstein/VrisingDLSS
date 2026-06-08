@@ -1222,3 +1222,14 @@ Second follow-up on 2026-06-08:
 - The no-runtime follow-up tightened the resize/reset and fallback release gates
   instead, so future live validation records cannot pass with startup-only,
   synthetic, missing-artifact, or untested fallback evidence.
+
+Third follow-up on 2026-06-08 21:35 +08:00:
+
+- The user reported that Computer Use should be normal again.
+- The supported lightweight app-list probe was retried through the Computer Use
+  plugin path.
+- The probe still returned `Windows computer-use client is closed`.
+- V Rising was not launched, no config or save files were touched, and no
+  fallback keyboard/mouse automation was used.
+- Treat this as a pre-launch deferral. The next runtime proof remains queued
+  until Computer Use can list apps and expose the real `VRising` Unity window.

@@ -106,6 +106,7 @@ $runtimeDistributionContractRequirement = "DLSS runtime distribution approval ga
 $contractBindStageRequirement = "Contract-bind render-scale stage dry-run remains no-native/no-evaluate and launch-safe before gameplay automation."
 $contractAnalyzerRequirement = "HDRP DLSS schedule analyzer recognizes the contract-bind success shape and rejects evaluate-polluted logs without launching or modifying the game."
 $runtimeNextRecommendationContractRequirement = "Runtime status recommendations defer the known-regressed EASU ctx.cmd user-rendering candidate to the official-equivalent contract-bind route instead of sending the next run back to the same candidate."
+$docNextRecommendationContractRequirement = "Current docs keep the known-regressed dlss-user-rendering route framed as reproduction/investigation and name hdrp-dlss-contract-bind-render-scale as the next runtime proof."
 $runtimeEnvironmentSnapshotRequirement = "Runtime performance captures preserve before/after system snapshots with CPU, GPU utilization, power, temperature, memory, and top-process context without launching or modifying the game."
 $localDecompilationInvestigationRequirement = "Systematic local decompilation investigation keeps clean-room evidence/inference boundaries and, when GamePath is available, rechecks HDRP route anchors, inert DLSSPass bodies, asset gates, and the official DLSS vs EASU contract split without launching or modifying the game."
 $localSaveFixtureRequirement = "Local V Rising save fixture resolver finds exactly one usable Continue target named 11111 without launching or modifying the game."
@@ -295,6 +296,7 @@ if (Test-Path -LiteralPath $workflowPath) {
         -and $workflowText -match "test-hdrp-dlss-contract-bind-stage\.ps1\s+-RequirePass" `
         -and $workflowText -match "test-hdrp-dlss-schedule-analyzer-contract\.ps1" `
         -and $workflowText -match "test-runtime-next-recommendation-contract\.ps1" `
+        -and $workflowText -match "test-doc-next-recommendation-contract\.ps1" `
         -and $workflowText -match "test-runtime-environment-snapshot-contract\.ps1" `
         -and $workflowText -match "test-vrising-local-decompilation-investigation\.ps1" `
         -and $workflowText -match "test-rendergraph-boundary-route-status\.ps1\s+-RequirePass" `
@@ -498,6 +500,41 @@ $items.Add((New-ReadinessItem `
     -Requirement $runtimeNextRecommendationContractRequirement `
     -Status $runtimeNextRecommendationStatus `
     -Evidence $runtimeNextRecommendationEvidence))
+
+$docNextRecommendationGuard = Invoke-CapturedCommand -Command {
+    & (Join-Path $resolvedRoot "scripts\test-doc-next-recommendation-contract.ps1") -Root $resolvedRoot -Json
+}
+$docNextRecommendationStatus = "Blocked"
+$docNextRecommendationEvidence = "Doc next-recommendation contract guard did not produce evidence."
+if ($docNextRecommendationGuard.Succeeded) {
+    try {
+        $docNextRecommendationReport = $docNextRecommendationGuard.Output | ConvertFrom-Json
+        $docNextRecommendationStatus = if ($docNextRecommendationReport.Status -eq "Pass" `
+                -and -not [bool]$docNextRecommendationReport.LaunchesGame `
+                -and -not [bool]$docNextRecommendationReport.ModifiesGameFiles) {
+            "Pass"
+        } elseif ($docNextRecommendationReport.Status -eq "Fail") {
+            "Fail"
+        } else {
+            "Blocked"
+        }
+        $docNextRecommendationEvidence = "Status=$($docNextRecommendationReport.Status); VisualStatus=$($docNextRecommendationReport.VisualStatus); Checks=$($docNextRecommendationReport.CheckCount); FailedChecks=$(@($docNextRecommendationReport.FailedChecks).Count); LaunchesGame=$($docNextRecommendationReport.LaunchesGame); ModifiesGameFiles=$($docNextRecommendationReport.ModifiesGameFiles)"
+        if (@($docNextRecommendationReport.Issues).Count -gt 0) {
+            $docNextRecommendationEvidence = "$docNextRecommendationEvidence; Issues=$(@($docNextRecommendationReport.Issues) -join ' | ')"
+        }
+    } catch {
+        $docNextRecommendationStatus = "Blocked"
+        $docNextRecommendationEvidence = "Failed to parse doc next-recommendation guard JSON: $($_.Exception.Message); Output=$($docNextRecommendationGuard.Output)"
+    }
+} else {
+    $docNextRecommendationEvidence = "Doc next-recommendation guard failed: $($docNextRecommendationGuard.Output)"
+}
+
+$items.Add((New-ReadinessItem `
+    -Area "Evidence" `
+    -Requirement $docNextRecommendationContractRequirement `
+    -Status $docNextRecommendationStatus `
+    -Evidence $docNextRecommendationEvidence))
 
 $runtimeEnvironmentSnapshotGuard = Invoke-CapturedCommand -Command {
     & (Join-Path $resolvedRoot "scripts\test-runtime-environment-snapshot-contract.ps1") -Root $resolvedRoot -Json
