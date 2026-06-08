@@ -93,6 +93,7 @@ $measurementPlanPath = Join-Path $resolvedRoot "docs\development\measurement-pla
 $workflowPath = Join-Path $resolvedRoot ".github\workflows\build-package.yml"
 $configTemplatePath = Join-Path $resolvedRoot "package\thunderstore\VrisingDLSS.cfg"
 $hdrpAssetRequirement = "Local HDRP asset unpack identifies the active render pipeline asset and DLSS/upscaler gates without launching or modifying the game."
+$contractBindStageRequirement = "Contract-bind render-scale stage dry-run remains no-native/no-evaluate and launch-safe before gameplay automation."
 
 if ([string]::IsNullOrWhiteSpace($PackagePath) -and (Test-Path -LiteralPath $manifestPath)) {
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
@@ -195,6 +196,52 @@ if (Test-Path -LiteralPath $workflowPath) {
         -Status "Missing" `
         -Evidence "Missing $workflowPath"))
 }
+
+$contractBindArgs = @{
+    Root = $resolvedRoot
+    Json = $true
+}
+if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
+    $contractBindArgs["GamePath"] = $GamePath
+}
+$contractBindGuard = Invoke-CapturedCommand -Command {
+    & (Join-Path $resolvedRoot "scripts\test-hdrp-dlss-contract-bind-stage.ps1") @contractBindArgs
+}
+$contractBindGuardStatus = "Blocked"
+$contractBindGuardEvidence = "Contract-bind stage guard did not produce evidence."
+if ($contractBindGuard.Succeeded) {
+    try {
+        $contractBindReport = $contractBindGuard.Output | ConvertFrom-Json
+        $contractBindGuardStatus = if ($contractBindReport.Status -eq "Pass") {
+            "Pass"
+        } elseif ($contractBindReport.Status -eq "Fail") {
+            "Fail"
+        } else {
+            "Blocked"
+        }
+        $diagnosticDryRun = $contractBindReport.DiagnosticDryRun
+        $contractBindGuardEvidence = "Status=$($contractBindReport.Status); Stage=$($contractBindReport.Stage); RequiredTrue=$($contractBindReport.RequiredTrueCount); RequiredFalse=$($contractBindReport.RequiredFalseCount); Checks=$($contractBindReport.CheckCount); FailedChecks=$(@($contractBindReport.FailedChecks).Count); LaunchesGame=$($contractBindReport.LaunchesGame); ModifiesGameFiles=$($contractBindReport.ModifiesGameFiles)"
+        if ($diagnosticDryRun) {
+            $contractBindGuardEvidence = "$contractBindGuardEvidence; DiagnosticDryRunLaunchesGame=$($diagnosticDryRun.LaunchesGame); UseSdkWrapperNative=$($diagnosticDryRun.UseSdkWrapperNative); RestoresReleaseSafeNative=$($diagnosticDryRun.RestoresReleaseSafeNative); SetClientResolution=$($diagnosticDryRun.SetClientResolution); ClientWindowMode=$($diagnosticDryRun.ClientWindowMode)"
+        } else {
+            $contractBindGuardEvidence = "$contractBindGuardEvidence; DiagnosticDryRun=not requested"
+        }
+        if (@($contractBindReport.Issues).Count -gt 0) {
+            $contractBindGuardEvidence = "$contractBindGuardEvidence; Issues=$(@($contractBindReport.Issues) -join ' | ')"
+        }
+    } catch {
+        $contractBindGuardStatus = "Blocked"
+        $contractBindGuardEvidence = "Failed to parse contract-bind stage guard JSON: $($_.Exception.Message); Output=$($contractBindGuard.Output)"
+    }
+} else {
+    $contractBindGuardEvidence = "Contract-bind stage guard failed: $($contractBindGuard.Output)"
+}
+
+$items.Add((New-ReadinessItem `
+    -Area "Evidence" `
+    -Requirement $contractBindStageRequirement `
+    -Status $contractBindGuardStatus `
+    -Evidence $contractBindGuardEvidence))
 
 if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
     $runtimeArgs = @{

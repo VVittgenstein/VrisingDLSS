@@ -181,6 +181,44 @@ Static/regression checks performed during the deferral:
   still reported `DiagnosticPackageReady_MvpBlocked` and recommended this
   contract-bind stage as the next normal runtime proof.
 
+## Static Stage Guard - 2026-06-08
+
+`scripts\test-hdrp-dlss-contract-bind-stage.ps1` now makes the preflight
+repeatable without launching V Rising or writing game files. It asserts the
+`hdrp-dlss-contract-bind-render-scale` dry-run config still enables the intended
+RenderGraph/pass-data/HDRP-postprocess/render-scale evidence switches while
+keeping native bridge smoke, D3D11 validation, NGX/DLSS runtime probes, DLSS
+feature/evaluate/write-back probes, broad `RenderGraph.GetTexture`, schedule
+gate mutation, custom postprocess probes, and hook/call probes disabled.
+
+Local checks passed:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\test-hdrp-dlss-contract-bind-stage.ps1 -GamePath C:\Software\VRising -Json
+```
+
+Result summary:
+
+- `Status=Pass`
+- `LaunchesGame=false`
+- `ModifiesGameFiles=false`
+- `RequiredTrueCount=10`
+- `RequiredFalseCount=50`
+- `CheckCount=62`
+- `DiagnosticDryRun.LaunchesGame=false`
+- `DiagnosticDryRun.UseSdkWrapperNative=false`
+- `DiagnosticDryRun.RestoresReleaseSafeNative=false`
+- `DiagnosticDryRun.ClientWindowMode=3`
+
+The same guard also passed with the current local `11111` save directory supplied
+through `-SaveDir`, confirming the automation session dry-run preserves
+`ProtectSave=true`, `RestoresProtectedSave=true`, `LaunchesGame=false`, and
+`UseSdkWrapperNative=false`.
+
+`scripts\get-release-readiness-status.ps1` now includes this guard as an
+`Evidence` readiness item. With `-GamePath`, it includes the diagnostic dry-run
+plan check; without `-GamePath`, it still checks the stage config matrix.
+
 When Computer Use is available again, resume with the protected session command
 above, using a fresh artifact label such as
 `hdrp-dlss-contract-bind-render-scale-1080p-gameplay-20260608-r2` if the earlier

@@ -2068,6 +2068,18 @@ As of the read-only RenderGraph pass-map runtime result:
   `stop-vrising-automation-session.ps1`, require `SaveAfterRestoreChangeCount=0`,
   and analyze the BepInEx log with
   `scripts/analyze-hdrp-dlss-schedule-audit.ps1`.
+- Because Computer Use remained closed on the next continuation, the
+  no-runtime "inspect" half of the same next step was advanced instead:
+  `scripts\test-hdrp-dlss-contract-bind-stage.ps1` now asserts the
+  `hdrp-dlss-contract-bind-render-scale` dry-run switch matrix. Local guard
+  evidence passed with `LaunchesGame=false`, `ModifiesGameFiles=false`,
+  `RequiredTrueCount=10`, `RequiredFalseCount=50`, `CheckCount=62`,
+  `DiagnosticDryRun.UseSdkWrapperNative=false`,
+  `DiagnosticDryRun.RestoresReleaseSafeNative=false`, and
+  `ClientWindowMode=3`. With the current local save directory supplied, the
+  session dry-run also preserved `ProtectSave=true` and
+  `RestoresProtectedSave=true`. `get-release-readiness-status.ps1` now includes
+  this guard as an `Evidence` readiness item.
 - `scripts/get-runtime-validation-status.ps1` was updated after that deferral
   so a safe live `loader` config/log no longer sends the next-action advice
   back to the old hook-probe ladder when the repository already contains the
