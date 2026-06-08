@@ -2155,6 +2155,13 @@ As of the read-only RenderGraph pass-map runtime result:
   contract-bind guard, so the readiness evidence includes
   `SessionDryRunLaunchesGame=False`, `ProtectSave=True`, and
   `RestoresProtectedSave=True`, plus session fixture resolution fields.
+- DLSS runtime distribution is now an explicit MVP gate in
+  `docs/development/dlss-runtime-distribution-gate-2026-06-08.md`. The current
+  release-safe package still does not bundle `nvngx_dlss.dll`, Streamline DLLs,
+  NVIDIA SDK files, or PureDark binaries. `get-release-readiness-status.ps1`
+  now reports `Normal-user DLSS runtime distribution path is approved and does
+  not require ad hoc manual DLL downloads` as `Blocked` until a separate
+  `docs/release/dlss-runtime-distribution-approval.md` record exists.
 - `scripts/get-runtime-validation-status.ps1` was updated after that deferral
   so a safe live `loader` config/log no longer sends the next-action advice
   back to the old hook-probe ladder when the repository already contains the

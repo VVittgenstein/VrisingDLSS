@@ -62,7 +62,7 @@ ShowOverlay = true
 
 ## Current MVP Gate
 
-The current blocker is image-correctness, performance, resize/reset, fallback behavior, productionizing render-scale control, runtime distribution, and release-boundary validation for the normal-user path. The older Stage 8/9/10 diagnostic ladder remains useful evidence, but it is no longer the best description of the active candidate: broad `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` discovery is now rejected for steady-state user rendering because it caused severe FPS collapse.
+The current blocker is image-correctness, performance, resize/reset, fallback behavior, productionizing render-scale control, runtime distribution, and release-boundary validation for the normal-user path. Runtime distribution is now tracked as an explicit MVP readiness gate in `docs/development/dlss-runtime-distribution-gate-2026-06-08.md`; until an approved runtime distribution record exists, the package remains diagnostic/source-safe rather than a drag-in playable MVP. The older Stage 8/9/10 diagnostic ladder remains useful evidence, but it is no longer the best description of the active candidate: broad `RenderGraphResourceRegistry.GetTexture(TextureHandle&)` discovery is now rejected for steady-state user rendering because it caused severe FPS collapse.
 
 The current normal-user candidate is source-guided by Unity HDRP and V Rising IL2CPP metadata. `DLSS.EnableDLSS=true` uses the focused HDRP EASU render-func boundary, carries EASU source/output plus HDRP depth/motion through `RenderGraphContext.cmd` plugin events, keeps broad `RenderGraph.GetTexture` disabled, and evaluates DLSS into the visible EASU output with one persistent frame sequence.
 

@@ -91,12 +91,15 @@ $installDocPath = Join-Path $resolvedRoot "docs\install.md"
 $troubleshootingDocPath = Join-Path $resolvedRoot "docs\troubleshooting.md"
 $mvpDocPath = Join-Path $resolvedRoot "docs\mvp.md"
 $measurementPlanPath = Join-Path $resolvedRoot "docs\development\measurement-plan.md"
+$runtimeDistributionGatePath = Join-Path $resolvedRoot "docs\development\dlss-runtime-distribution-gate-2026-06-08.md"
+$runtimeDistributionApprovalPath = Join-Path $resolvedRoot "docs\release\dlss-runtime-distribution-approval.md"
 $workflowPath = Join-Path $resolvedRoot ".github\workflows\build-package.yml"
 $configTemplatePath = Join-Path $resolvedRoot "package\thunderstore\VrisingDLSS.cfg"
 $hdrpAssetRequirement = "Local HDRP asset unpack identifies the active render pipeline asset and DLSS/upscaler gates without launching or modifying the game."
 $contractBindStageRequirement = "Contract-bind render-scale stage dry-run remains no-native/no-evaluate and launch-safe before gameplay automation."
 $localSaveFixtureRequirement = "Local V Rising save fixture resolver finds exactly one usable Continue target named 11111 without launching or modifying the game."
 $renderGraphBoundaryRouteRequirement = "RenderGraph boundary route guard keeps mod-owned RenderGraph pass injection rejected as the normal route without launching or modifying the game."
+$runtimeDistributionRequirement = "Normal-user DLSS runtime distribution path is approved and does not require ad hoc manual DLL downloads."
 
 if ([string]::IsNullOrWhiteSpace($PackagePath) -and (Test-Path -LiteralPath $manifestPath)) {
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
@@ -557,6 +560,22 @@ $items.Add((New-ReadinessItem `
     -Requirement "Normal-user DLSS/Advanced configuration surface is present in the mod-folder config." `
     -Status $(if ($releaseConfigSurfaceReady) { "Pass" } else { "Blocked" }) `
     -Evidence $(if ($releaseConfigSurfaceReady) { $configTemplatePath } else { "Release DLSS defaults are documented in docs/mvp.md but the package config does not expose every key yet." })))
+
+$runtimeDistributionGateExists = Test-Path -LiteralPath $runtimeDistributionGatePath
+$runtimeDistributionApprovalExists = Test-Path -LiteralPath $runtimeDistributionApprovalPath
+$runtimeDistributionStatus = if ($runtimeDistributionApprovalExists) { "Pass" } else { "Blocked" }
+$runtimeDistributionEvidence = if ($runtimeDistributionApprovalExists) {
+    "Approved runtime distribution record exists: $runtimeDistributionApprovalPath"
+} elseif ($runtimeDistributionGateExists) {
+    "No approved runtime distribution record exists. Current gate: $runtimeDistributionGatePath"
+} else {
+    "Missing runtime distribution gate document: $runtimeDistributionGatePath"
+}
+$items.Add((New-ReadinessItem `
+    -Area "MVP" `
+    -Requirement $runtimeDistributionRequirement `
+    -Status $runtimeDistributionStatus `
+    -Evidence $runtimeDistributionEvidence))
 
 $visualStatus = & (Join-Path $resolvedRoot "scripts\get-visual-validation-status.ps1") -Root $resolvedRoot -RequiredCandidateStage dlss-user-rendering
 $visualNextRecommendation = $visualStatus.NextRecommendation
