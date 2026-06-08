@@ -99,6 +99,10 @@ function Get-ConfiguredStage {
         (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassDataSnapshotProbe") -and
         (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableHdrpPostProcessRenderArgsGlobalTextureProbe") -and
         (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe")) { return "hdrp-dlss-contract-bind-render-scale" }
+    if ((Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassDataSnapshotProbe") -and
+        (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableHdrpPostProcessRenderArgsGlobalTextureProbe") -and
+        (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderScaleControlProbe") -and
+        (-not (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableNativeBridgeSmokeTest"))) { return "easu-carrier-only-cost-render-scale" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassListProbe") { return "rendergraph-pass-list" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassResourceDeclarationProbe") { return "rendergraph-pass-declarations" }
     if (Test-ConfigTrue -Map $Config -Key "Diagnostics.EnableRenderGraphPassDataSnapshotProbe") { return "rendergraph-pass-data" }

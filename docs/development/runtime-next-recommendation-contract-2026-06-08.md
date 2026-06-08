@@ -39,10 +39,16 @@ protected contract-bind proof:
 If the contract-bind proof is present, runtime status advances to:
 
 - bounded no-write B/C/D cost isolation;
-- B: EASU carrier-only cost;
-- C: native D3D11 resource-desc validate-only;
-- D: empty existing command-buffer plugin-event callback;
+- B: EASU carrier-only cost via `easu-carrier-only-cost-render-scale`;
+- C: native D3D11 resource-desc validate-only via
+  `native-renderfunc-commandbuffer-frame-descriptor-d3d11-render-scale`;
+- D: empty existing command-buffer plugin-event callback via
+  `native-renderfunc-commandbuffer-event-render-scale`;
 - no visible DLSS write-back until B-G pass.
+
+The concrete B/C/D stage mapping and no-evaluate/no-visible-write/no-broad
+`GetTexture` switch matrix are guarded separately by
+`scripts\test-bounded-no-write-cost-matrix-contract.ps1`.
 
 ## Guard
 

@@ -2391,3 +2391,24 @@ As of the read-only RenderGraph pass-map runtime result:
   no-write B/C/D cost isolation; do not resume by rerunning the unchanged
   `dlss-user-rendering` candidate.
   Guard marker one-line: contract-bind proof has passed; bounded no-write B/C/D cost isolation; rerunning the unchanged `dlss-user-rendering` candidate is stale.
+- After reboot, Computer Use passed a lightweight Windows app-list check again,
+  so the next gameplay run can use the supported Computer Use route. No V Rising
+  process was started during this check.
+- `scripts\test-bounded-no-write-cost-matrix-contract.ps1` now turns the
+  bounded no-write B/C/D route into a machine-checked, no-launch contract.
+  It requires the protected contract-bind proof first, verifies the A/B/C/D
+  thresholds from `docs\development\experiment-facts.json`, and dry-runs the
+  concrete layer mapping:
+  B `easu-carrier-only-cost-render-scale`,
+  C `native-renderfunc-commandbuffer-frame-descriptor-d3d11-render-scale`, and
+  D `native-renderfunc-commandbuffer-event-render-scale`.
+  Local validation with `-GamePath C:\Software\VRising` reported `Status=Pass`,
+  `StageCount=3`, `CheckCount=203`, `LaunchesGame=false`,
+  `ModifiesGameFiles=false`, `ContractBindGameplayProofStatus=Pass`, and all
+  three session dry-runs preserved true `1920x1080` Windowed,
+  `ProtectSave=true`, `RestoresProtectedSave=true`,
+  `SaveFixtureMatchCount=1`, `ClientWindowMode=3`, and
+  `UseSdkWrapperNative=false`. B is intentionally a lighter no-native
+  carrier-only stage rather than a reuse of heavy contract-bind metadata.
+  Release readiness now consumes this guard as the structured
+  `NextRuntimeProofPlan`, and GitHub Actions runs it before packaging.

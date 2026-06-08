@@ -28,6 +28,7 @@ param(
         "hdrp-dlss-schedule-audit",
         "hdrp-dlss-contract-bind-render-scale",
         "hdrp-dlss-schedule-gate",
+        "easu-carrier-only-cost-render-scale",
         "rendergraph-renderfunc-metadata",
         "rendergraph-compiled-pass-info",
         "rendergraph-execute-delegate",

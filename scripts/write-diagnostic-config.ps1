@@ -25,6 +25,7 @@ param(
         "hdrp-dlss-schedule-audit",
         "hdrp-dlss-contract-bind-render-scale",
         "hdrp-dlss-schedule-gate",
+        "easu-carrier-only-cost-render-scale",
         "rendergraph-renderfunc-metadata",
         "rendergraph-compiled-pass-info",
         "rendergraph-execute-delegate",
@@ -359,6 +360,16 @@ function Set-SwitchesForStage {
             $Config.Diagnostics.EnableRenderGraphPassDataSnapshotProbe = "true"
             $Config.Diagnostics.EnableRenderGraphPassRenderFuncMetadataProbe = "true"
             $Config.Diagnostics.EnableRenderGraphCompiledPassInfoProbe = "true"
+            $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
+            $Config.Diagnostics.EnableUpscalerStateProbe = "true"
+            $Config.Diagnostics.EnableHookProbe = "false"
+            $Config.DLSS.EnableDLSS = "false"
+        }
+        "easu-carrier-only-cost-render-scale" {
+            $Config.Diagnostics.EnableRenderGraphPassDataSnapshotProbe = "true"
+            $Config.Diagnostics.EnableHdrpPostProcessRenderArgsProbe = "true"
+            $Config.Diagnostics.EnableHdrpPostProcessRenderArgsGlobalTextureProbe = "true"
+            $Config.Diagnostics.EnableRenderScaleControlProbe = "true"
             $Config.Diagnostics.EnableRenderGraphGetTextureProbe = "false"
             $Config.Diagnostics.EnableUpscalerStateProbe = "true"
             $Config.Diagnostics.EnableHookProbe = "false"

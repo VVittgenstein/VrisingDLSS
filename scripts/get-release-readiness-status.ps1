@@ -106,6 +106,7 @@ $runtimeDistributionContractRequirement = "DLSS runtime distribution approval ga
 $contractBindStageRequirement = "Contract-bind render-scale stage dry-run remains no-native/no-evaluate and launch-safe before gameplay automation."
 $contractAnalyzerRequirement = "HDRP DLSS schedule analyzer recognizes the contract-bind success shape and rejects evaluate-polluted logs without launching or modifying the game."
 $contractBindGameplayProofRequirement = "Protected contract-bind gameplay proof advances the route to bounded no-write B/C/D cost isolation without evaluate/GetTexture pollution."
+$boundedNoWriteCostMatrixRequirement = "Bounded no-write B/C/D cost matrix guard maps carrier/native/plugin-event layers to launch-safe stages and near-baseline performance thresholds without launching or modifying the game."
 $runtimeNextRecommendationContractRequirement = "Runtime status recommendations defer the known-regressed EASU ctx.cmd user-rendering candidate, run contract-bind only until it passes, then advance to bounded no-write B/C/D cost isolation."
 $docNextRecommendationContractRequirement = "Current docs keep the known-regressed dlss-user-rendering route framed as reproduction/investigation, record the contract-bind proof, and name bounded no-write B/C/D cost isolation as the next runtime proof."
 $experimentEvidenceLockRequirement = "Experiment evidence locks preserve rejected routes and require the staged carrier/native/plugin-event/NGX/scratch/copy/visible-write matrix before 4K value proof."
@@ -297,6 +298,7 @@ if (Test-Path -LiteralPath $workflowPath) {
         -and $workflowText -match "test-dlss-mvp-safety-gates-contract\.ps1" `
         -and $workflowText -match "test-hdrp-dlss-contract-bind-stage\.ps1\s+-RequirePass" `
         -and $workflowText -match "test-hdrp-dlss-schedule-analyzer-contract\.ps1" `
+        -and $workflowText -match "test-bounded-no-write-cost-matrix-contract\.ps1" `
         -and $workflowText -match "test-runtime-next-recommendation-contract\.ps1" `
         -and $workflowText -match "test-doc-next-recommendation-contract\.ps1" `
         -and $workflowText -match "test-experiment-evidence-lock-contract\.ps1" `
@@ -519,6 +521,53 @@ $items.Add((New-ReadinessItem `
     -Requirement $contractBindGameplayProofRequirement `
     -Status $contractBindGameplayProofStatus `
     -Evidence $contractBindGameplayProofEvidence))
+
+$boundedNoWriteArgs = @{
+    Root = $resolvedRoot
+    Json = $true
+}
+if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
+    $boundedNoWriteArgs["GamePath"] = $GamePath
+    $boundedNoWriteArgs["SaveName"] = "11111"
+}
+$boundedNoWriteGuard = Invoke-CapturedCommand -Command {
+    & (Join-Path $resolvedRoot "scripts\test-bounded-no-write-cost-matrix-contract.ps1") @boundedNoWriteArgs
+}
+$boundedNoWriteStatus = "Blocked"
+$boundedNoWriteEvidence = "Bounded no-write B/C/D cost matrix guard did not produce evidence."
+if ($boundedNoWriteGuard.Succeeded) {
+    try {
+        $boundedNoWriteReport = $boundedNoWriteGuard.Output | ConvertFrom-Json
+        $boundedNoWriteStatus = if ($boundedNoWriteReport.Status -eq "Pass" `
+                -and -not [bool]$boundedNoWriteReport.LaunchesGame `
+                -and -not [bool]$boundedNoWriteReport.ModifiesGameFiles) {
+            "Pass"
+        } elseif ($boundedNoWriteReport.Status -eq "Fail") {
+            "Fail"
+        } else {
+            "Blocked"
+        }
+        $boundedNoWriteEvidence = "Status=$($boundedNoWriteReport.Status); ContractBind=$($boundedNoWriteReport.ContractBindGameplayProofStatus); Stages=$($boundedNoWriteReport.StageCount); Checks=$($boundedNoWriteReport.CheckCount); FailedChecks=$(@($boundedNoWriteReport.FailedChecks).Count); LaunchesGame=$($boundedNoWriteReport.LaunchesGame); ModifiesGameFiles=$($boundedNoWriteReport.ModifiesGameFiles)"
+        if ($boundedNoWriteReport.RuntimeProofPlan) {
+            $nextRuntimeProofPlan = $boundedNoWriteReport.RuntimeProofPlan
+            $boundedNoWriteEvidence = "$boundedNoWriteEvidence; Question=$($boundedNoWriteReport.RuntimeProofPlan.Question)"
+        }
+        if (@($boundedNoWriteReport.FailedChecks).Count -gt 0) {
+            $boundedNoWriteEvidence = "$boundedNoWriteEvidence; Failed=$(@($boundedNoWriteReport.FailedChecks | ForEach-Object { $_.Name }) -join ' | ')"
+        }
+    } catch {
+        $boundedNoWriteStatus = "Blocked"
+        $boundedNoWriteEvidence = "Failed to parse bounded no-write cost matrix guard JSON: $($_.Exception.Message); Output=$($boundedNoWriteGuard.Output)"
+    }
+} else {
+    $boundedNoWriteEvidence = "Bounded no-write cost matrix guard failed: $($boundedNoWriteGuard.Output)"
+}
+
+$items.Add((New-ReadinessItem `
+    -Area "Evidence" `
+    -Requirement $boundedNoWriteCostMatrixRequirement `
+    -Status $boundedNoWriteStatus `
+    -Evidence $boundedNoWriteEvidence))
 
 $runtimeNextRecommendationArgs = @{
     Root = $resolvedRoot

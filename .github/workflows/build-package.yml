@@ -69,6 +69,10 @@ jobs:
         shell: pwsh
         run: .\scripts\test-hdrp-dlss-schedule-analyzer-contract.ps1
 
+      - name: Guard bounded no-write cost matrix
+        shell: pwsh
+        run: .\scripts\test-bounded-no-write-cost-matrix-contract.ps1 -RequirePass
+
       - name: Guard runtime next recommendation contract
         shell: pwsh
         run: .\scripts\test-runtime-next-recommendation-contract.ps1
