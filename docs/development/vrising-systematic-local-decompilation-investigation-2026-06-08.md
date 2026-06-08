@@ -8,6 +8,16 @@ Follow-up repeatable audit:
 The corresponding local JSON artifact is
 `artifacts/research/vrising-hdrp-dlss-static-route-audit-20260608.json`.
 
+Native-stub/boundary refresh:
+`docs/development/vrising-local-decompilation-boundary-refresh-2026-06-08.md`.
+This follow-up adds a repeatable PE entry-byte audit via
+`scripts/inspect-vrising-hdrp-dlss-native-stubs.ps1`, confirming that
+`DLSSPass.SetupFeature` returns false, `DLSSPass.Create` returns null, and
+`DLSSPass.BeginFrame` / `SetupDRSScaling` / `Render` / `.ctor` return
+immediately, while `RenderPostProcess`, `DoDLSSPass`, and
+`DLSSPass.CreateCameraResources` remain non-stub shell/resource-contract
+methods.
+
 ## Scope And Clean-Room Boundary
 
 Goal: reconstruct the practical V Rising HDRP / RenderGraph / dynamic

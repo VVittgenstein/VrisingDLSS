@@ -98,6 +98,7 @@ $fallbackValidationPath = Join-Path $resolvedRoot "docs\release\dlss-fallback-va
 $workflowPath = Join-Path $resolvedRoot ".github\workflows\build-package.yml"
 $configTemplatePath = Join-Path $resolvedRoot "package\thunderstore\VrisingDLSS.cfg"
 $hdrpAssetRequirement = "Local HDRP asset unpack identifies the active render pipeline asset and DLSS/upscaler gates without launching or modifying the game."
+$dlssNativeStubRequirement = "Local HDRP DLSS native-stub audit confirms the official DLSS activation/execution body is inert while the RenderGraph shell remains non-stub without launching or modifying the game."
 $contractBindStageRequirement = "Contract-bind render-scale stage dry-run remains no-native/no-evaluate and launch-safe before gameplay automation."
 $localSaveFixtureRequirement = "Local V Rising save fixture resolver finds exactly one usable Continue target named 11111 without launching or modifying the game."
 $renderGraphBoundaryRouteRequirement = "RenderGraph boundary route guard keeps mod-owned RenderGraph pass injection rejected as the normal route without launching or modifying the game."
@@ -425,6 +426,46 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
         -Status $assetInspectorStatus `
         -Evidence $assetInspectorEvidence))
 
+    $nativeStubAudit = Invoke-CapturedCommand -Command {
+        & (Join-Path $resolvedRoot "scripts\inspect-vrising-hdrp-dlss-native-stubs.ps1") -Root $resolvedRoot -GamePath $GamePath -Json
+    }
+    $nativeStubStatus = "Blocked"
+    $nativeStubEvidence = "Native-stub audit did not produce evidence."
+    if ($nativeStubAudit.Succeeded) {
+        try {
+            $nativeStubReport = $nativeStubAudit.Output | ConvertFrom-Json
+            $nativeStubLaunchesGame = [bool]$nativeStubReport.LaunchesGame
+            $nativeStubModifiesGameFiles = [bool]$nativeStubReport.ModifiesGameFiles
+            $methodEvidence = (@($nativeStubReport.Methods) | ForEach-Object {
+                    "$($_.Name -replace '^.*\$\$', '')=$($_.Classification)"
+                }) -join ", "
+            $nativeStubEvidence = "Status=$($nativeStubReport.Status); LaunchesGame=$($nativeStubReport.LaunchesGame); ModifiesGameFiles=$($nativeStubReport.ModifiesGameFiles); Methods=$methodEvidence"
+            if ($nativeStubLaunchesGame -or $nativeStubModifiesGameFiles) {
+                $nativeStubStatus = "Fail"
+            } elseif ($nativeStubReport.Status -eq "Pass") {
+                $nativeStubStatus = "Pass"
+            } elseif ($nativeStubReport.Status -eq "Fail") {
+                $nativeStubStatus = "Fail"
+            } else {
+                $nativeStubStatus = "Blocked"
+            }
+            if (@($nativeStubReport.Issues).Count -gt 0) {
+                $nativeStubEvidence = "$nativeStubEvidence; Issues=$(@($nativeStubReport.Issues) -join ' | ')"
+            }
+        } catch {
+            $nativeStubStatus = "Blocked"
+            $nativeStubEvidence = "Failed to parse native-stub audit JSON: $($_.Exception.Message); Output=$($nativeStubAudit.Output)"
+        }
+    } else {
+        $nativeStubEvidence = "Native-stub audit failed: $($nativeStubAudit.Output)"
+    }
+
+    $items.Add((New-ReadinessItem `
+        -Area "Evidence" `
+        -Requirement $dlssNativeStubRequirement `
+        -Status $nativeStubStatus `
+        -Evidence $nativeStubEvidence))
+
     $items.Add((New-ReadinessItem `
         -Area "Runtime" `
         -Requirement "Local staged install has loaded the plugin at least once." `
@@ -491,6 +532,11 @@ if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
         -Requirement $hdrpAssetRequirement `
         -Status "Missing" `
         -Evidence "Pass -GamePath to include local HDRP asset unpack evidence."))
+    $items.Add((New-ReadinessItem `
+        -Area "Evidence" `
+        -Requirement $dlssNativeStubRequirement `
+        -Status "Missing" `
+        -Evidence "Pass -GamePath to include local HDRP DLSS native-stub audit evidence."))
 
     $items.Add((New-ReadinessItem `
         -Area "Runtime" `

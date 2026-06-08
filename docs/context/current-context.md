@@ -2033,6 +2033,20 @@ As of the read-only RenderGraph pass-map runtime result:
   upscaler runtime files outside our mod/config `0`. This mechanically
   reinforces the route decision: use `DoDLSSPass` as clean-room semantic
   contract, not as a callable V Rising DLSS implementation.
+- Native-stub/boundary refresh is now recorded in
+  `docs/development/vrising-local-decompilation-boundary-refresh-2026-06-08.md`.
+  The repeatable script
+  `scripts\inspect-vrising-hdrp-dlss-native-stubs.ps1 -GamePath C:\Software\VRising -Json`
+  maps IL2CPP RVAs to PE file offsets without launching V Rising or modifying
+  game files. It reports `Status=Pass`, `LaunchesGame=false`,
+  `ModifiesGameFiles=false`, `DLSSPass.SetupFeature=ReturnsFalse`,
+  `DLSSPass.Create=ReturnsNull`, `DLSSPass.BeginFrame/SetupDRSScaling/Render/.ctor=ReturnsImmediately`,
+  and `HDRenderPipeline.RenderPostProcess`, `HDRenderPipeline.DoDLSSPass`, and
+  `DLSSPass.CreateCameraResources` as `NonStubLike`. Release readiness now
+  includes this as a local `Evidence` item when `-GamePath` is supplied. This
+  upgrades the previous shared-address inference into direct native entry-byte
+  evidence that the built-in NVIDIA DLSS body is inert while the HDRP
+  RenderGraph shell/resource contract remains present.
 - HDRP asset unpack follow-up is now recorded in
   `docs/development/vrising-hdrp-asset-unpack-followup-2026-06-08.md`.
   No V Rising runtime was launched and no game files were modified. UnityPy
