@@ -2083,6 +2083,15 @@ As of the read-only RenderGraph pass-map runtime result:
   workflow now runs the config-only guard before packaging with `-RequirePass`,
   so `Fail` or `Blocked` guard results fail CI; the Automation readiness check
   requires that enforcing CI step to remain present.
+- `scripts\find-vrising-save-fixture.ps1 -SaveName 11111 -RequireOne -Json`
+  now resolves the current local/private Continue fixture without launching
+  V Rising or modifying save files. On this machine it reports `Status=Pass`,
+  `MatchCount=1`, `AutoSaveCount=8`, `HasServerGameSettings=true`, and
+  `Usable=true`. `get-release-readiness-status.ps1 -GamePath C:\Software\VRising`
+  now includes this as an `Evidence` item and passes the resolved save directory
+  into the contract-bind guard, so the readiness evidence includes
+  `SessionDryRunLaunchesGame=False`, `ProtectSave=True`, and
+  `RestoresProtectedSave=True`.
 - `scripts/get-runtime-validation-status.ps1` was updated after that deferral
   so a safe live `loader` config/log no longer sends the next-action advice
   back to the old hook-probe ladder when the repository already contains the

@@ -219,9 +219,16 @@ through `-SaveDir`, confirming the automation session dry-run preserves
 `ProtectSave=true`, `RestoresProtectedSave=true`, `LaunchesGame=false`, and
 `UseSdkWrapperNative=false`.
 
+`scripts\find-vrising-save-fixture.ps1 -SaveName 11111 -RequireOne -Json` now
+resolves that local/private fixture without launching V Rising or modifying save
+files. On the current machine it reports `Status=Pass`, `MatchCount=1`,
+`AutoSaveCount=8`, `HasServerGameSettings=true`, and `Usable=true`.
+
 `scripts\get-release-readiness-status.ps1` now includes this guard as an
 `Evidence` readiness item. With `-GamePath`, it includes the diagnostic dry-run
-plan check; without `-GamePath`, it still checks the stage config matrix.
+plan check and, when the `11111` fixture resolver passes, the protected-save
+automation session dry-run; without `-GamePath`, it still checks the stage config
+matrix.
 The GitHub Actions package workflow also runs the same config-only guard on
 `windows-2022` before packaging with `-RequirePass`, so `Fail` or `Blocked`
 guard results fail the workflow. Release readiness now requires that enforcing

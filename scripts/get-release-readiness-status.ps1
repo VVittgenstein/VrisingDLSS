@@ -94,6 +94,7 @@ $workflowPath = Join-Path $resolvedRoot ".github\workflows\build-package.yml"
 $configTemplatePath = Join-Path $resolvedRoot "package\thunderstore\VrisingDLSS.cfg"
 $hdrpAssetRequirement = "Local HDRP asset unpack identifies the active render pipeline asset and DLSS/upscaler gates without launching or modifying the game."
 $contractBindStageRequirement = "Contract-bind render-scale stage dry-run remains no-native/no-evaluate and launch-safe before gameplay automation."
+$localSaveFixtureRequirement = "Local V Rising save fixture resolver finds exactly one usable Continue target named 11111 without launching or modifying the game."
 
 if ([string]::IsNullOrWhiteSpace($PackagePath) -and (Test-Path -LiteralPath $manifestPath)) {
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
@@ -187,7 +188,7 @@ if (Test-Path -LiteralPath $workflowPath) {
         -and $workflowText -match "actions/upload-artifact@v4"
     $items.Add((New-ReadinessItem `
         -Area "Automation" `
-        -Requirement "GitHub Actions builds and validates the package artifact on a pinned Windows runner." `
+        -Requirement "GitHub Actions builds, guards, and validates the package artifact on a pinned Windows runner." `
         -Status $(if ($workflowOk) { "Pass" } else { "Fail" }) `
         -Evidence $workflowPath))
 } else {
@@ -198,12 +199,58 @@ if (Test-Path -LiteralPath $workflowPath) {
         -Evidence "Missing $workflowPath"))
 }
 
+$contractBindSaveDir = ""
+if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
+    $saveFixtureProbe = Invoke-CapturedCommand -Command {
+        & (Join-Path $resolvedRoot "scripts\find-vrising-save-fixture.ps1") -SaveName "11111" -Json
+    }
+    $saveFixtureStatus = "Blocked"
+    $saveFixtureEvidence = "Save fixture resolver did not produce evidence."
+    if ($saveFixtureProbe.Succeeded) {
+        try {
+            $saveFixture = $saveFixtureProbe.Output | ConvertFrom-Json
+            $saveFixtureStatus = if ($saveFixture.Status -eq "Pass") { "Pass" } else { "Blocked" }
+            $selectedMatch = @($saveFixture.Matches | Where-Object { $_.SaveDir -eq $saveFixture.SelectedSaveDir } | Select-Object -First 1)
+            $saveFixtureEvidence = "Status=$($saveFixture.Status); SaveName=$($saveFixture.SaveName); MatchCount=$($saveFixture.MatchCount); LaunchesGame=$($saveFixture.LaunchesGame); ModifiesGameFiles=$($saveFixture.ModifiesGameFiles)"
+            if ($selectedMatch.Count -gt 0) {
+                $saveFixtureEvidence = "$saveFixtureEvidence; SelectedSaveId=$($selectedMatch[0].SaveId); AutoSaveCount=$($selectedMatch[0].AutoSaveCount); HasServerGameSettings=$($selectedMatch[0].HasServerGameSettings); Usable=$($selectedMatch[0].Usable)"
+            }
+            if ($saveFixture.Status -eq "Pass" -and -not [string]::IsNullOrWhiteSpace([string]$saveFixture.SelectedSaveDir)) {
+                $contractBindSaveDir = [string]$saveFixture.SelectedSaveDir
+            }
+            if (@($saveFixture.Issues).Count -gt 0) {
+                $saveFixtureEvidence = "$saveFixtureEvidence; Issues=$(@($saveFixture.Issues) -join ' | ')"
+            }
+        } catch {
+            $saveFixtureStatus = "Blocked"
+            $saveFixtureEvidence = "Failed to parse save fixture resolver JSON: $($_.Exception.Message); Output=$($saveFixtureProbe.Output)"
+        }
+    } else {
+        $saveFixtureEvidence = "Save fixture resolver failed: $($saveFixtureProbe.Output)"
+    }
+
+    $items.Add((New-ReadinessItem `
+        -Area "Evidence" `
+        -Requirement $localSaveFixtureRequirement `
+        -Status $saveFixtureStatus `
+        -Evidence $saveFixtureEvidence))
+} else {
+    $items.Add((New-ReadinessItem `
+        -Area "Evidence" `
+        -Requirement $localSaveFixtureRequirement `
+        -Status "Missing" `
+        -Evidence "Pass -GamePath to include local save fixture resolver evidence."))
+}
+
 $contractBindArgs = @{
     Root = $resolvedRoot
     Json = $true
 }
 if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
     $contractBindArgs["GamePath"] = $GamePath
+}
+if (-not [string]::IsNullOrWhiteSpace($contractBindSaveDir)) {
+    $contractBindArgs["SaveDir"] = $contractBindSaveDir
 }
 $contractBindGuard = Invoke-CapturedCommand -Command {
     & (Join-Path $resolvedRoot "scripts\test-hdrp-dlss-contract-bind-stage.ps1") @contractBindArgs
@@ -221,11 +268,17 @@ if ($contractBindGuard.Succeeded) {
             "Blocked"
         }
         $diagnosticDryRun = $contractBindReport.DiagnosticDryRun
+        $sessionDryRun = $contractBindReport.SessionDryRun
         $contractBindGuardEvidence = "Status=$($contractBindReport.Status); Stage=$($contractBindReport.Stage); RequiredTrue=$($contractBindReport.RequiredTrueCount); RequiredFalse=$($contractBindReport.RequiredFalseCount); Checks=$($contractBindReport.CheckCount); FailedChecks=$(@($contractBindReport.FailedChecks).Count); LaunchesGame=$($contractBindReport.LaunchesGame); ModifiesGameFiles=$($contractBindReport.ModifiesGameFiles)"
         if ($diagnosticDryRun) {
             $contractBindGuardEvidence = "$contractBindGuardEvidence; DiagnosticDryRunLaunchesGame=$($diagnosticDryRun.LaunchesGame); UseSdkWrapperNative=$($diagnosticDryRun.UseSdkWrapperNative); RestoresReleaseSafeNative=$($diagnosticDryRun.RestoresReleaseSafeNative); SetClientResolution=$($diagnosticDryRun.SetClientResolution); ClientWindowMode=$($diagnosticDryRun.ClientWindowMode)"
         } else {
             $contractBindGuardEvidence = "$contractBindGuardEvidence; DiagnosticDryRun=not requested"
+        }
+        if ($sessionDryRun) {
+            $contractBindGuardEvidence = "$contractBindGuardEvidence; SessionDryRunLaunchesGame=$($sessionDryRun.LaunchesGame); LeavesGameRunning=$($sessionDryRun.LeavesGameRunning); ProtectSave=$($sessionDryRun.ProtectSave); RestoresProtectedSave=$($sessionDryRun.RestoresProtectedSave); SessionUseSdkWrapperNative=$($sessionDryRun.UseSdkWrapperNative)"
+        } else {
+            $contractBindGuardEvidence = "$contractBindGuardEvidence; SessionDryRun=not requested"
         }
         if (@($contractBindReport.Issues).Count -gt 0) {
             $contractBindGuardEvidence = "$contractBindGuardEvidence; Issues=$(@($contractBindReport.Issues) -join ' | ')"

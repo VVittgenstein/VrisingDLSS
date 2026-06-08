@@ -216,3 +216,14 @@ character `Helen`. Cleanup passed with `CrashEventCount=0` and no remaining proc
 
 Entering gameplay rotated autosaves, so the save was restored from the pre-proof backup.
 Future gameplay-entry tests must include the same save backup/compare/restore discipline.
+
+As of 2026-06-08, use the save fixture resolver before protected gameplay runs:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\find-vrising-save-fixture.ps1 -SaveName 11111 -RequireOne -Json
+```
+
+It resolves the local/private fixture path from `CloudSaves`. The resolver is
+read-only, requires exactly one usable match, and lets follow-up commands pass
+`-ProtectSave -SaveDir <SelectedSaveDir>` without manually copying the
+CloudSaves path.
