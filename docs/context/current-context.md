@@ -1921,3 +1921,17 @@ As of the read-only RenderGraph pass-map runtime result:
   state where possible and design a no-native official-equivalent RenderGraph
   pass boundary with explicit source/output/depth/motion resource declarations
   before introducing NGX evaluate again.
+- Follow-up `m_DLSSPass`/feature xref audit is now recorded in
+  `docs/development/vrising-hdrp-dlss-m-dlsspass-xref-audit-2026-06-08.md`.
+  No V Rising runtime was launched. Local xrefs show
+  `HDRenderPipeline.SetupDLSSFeature` exists and is called by
+  `SetRenderingFeatures` / `HDRenderPipelineAsset.OnEnable`, but it does not
+  xref `DLSSPass.SetupFeature` (`0x17312A0`) or
+  `HDDynamicResolutionPlatformCapabilities.ActivateDLSS` (`0x987C720`), and
+  `ActivateDLSS` has `CallerCount=0`. `InitializePostProcess` likewise has no
+  resolved xref to `DLSSPass.Create` (`0x173F700`), while `DoDLSSPasses` /
+  `DoDLSSPass` still record the official RenderGraph shell and resource
+  contract. Current decision: stop treating `m_DLSSPass` activation as the
+  likely fix; keep `hdrp-dlss-schedule-gate` only as a later menu classifier,
+  and make the mainline next step a no-native official-equivalent RenderGraph
+  boundary proof that is cheap before any NGX evaluate is reintroduced.

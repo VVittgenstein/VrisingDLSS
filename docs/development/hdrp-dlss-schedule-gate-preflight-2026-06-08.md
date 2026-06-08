@@ -161,9 +161,12 @@ logs:
 - `HdrpDlssScheduleGateForcedCamera`
 - `HdrpDlssScheduleGateMissingPass`
 
-For a schedule-gate log with no official pass, its next recommendation now
-points to `m_DLSSPass` / `DLSSPass.Create` / NVIDIA module availability instead
-of another camera-gate audit.
+For a schedule-gate log with no official pass, its next recommendation no longer
+points to more camera-gate writes. After the follow-up
+`docs/development/vrising-hdrp-dlss-m-dlsspass-xref-audit-2026-06-08.md`, the
+expected interpretation is that the official `m_DLSSPass`/NVIDIA feature route
+is absent or inert and the mainline should move to a no-native
+official-equivalent RenderGraph boundary proof.
 
 ## Non-Runtime Validation
 
@@ -180,13 +183,14 @@ Completed without launching V Rising:
 
 Do not rerun the same EASU `ctx.cmd` `dlss-user-rendering` candidate unchanged.
 
-After the later 2026-06-08 static-route pivot, do not treat this as the
-immediate next runtime action. The systematic local static audit in
-`docs/development/vrising-hdrp-dlss-route-static-audit-2026-06-08.md` found
-that V Rising contains the HDRP DLSS pass shell, but the key
+After the later 2026-06-08 static-route pivot and follow-up xref audit, do not
+treat this as the immediate next runtime action. The systematic local static
+audit found that V Rising contains the HDRP DLSS pass shell, but the key
 `DLSSPass.Render`/`BeginFrame`/`SetupDRSScaling` execution methods map to the
-same no-op-style stub address. That makes this stage a classification tool for
-`m_DLSSPass`/gate state, not a likely performance fix.
+same no-op-style stub address. The follow-up xref audit found no local
+`SetupDLSSFeature -> DLSSPass.SetupFeature -> ActivateDLSS` chain and no
+`InitializePostProcess -> DLSSPass.Create` xref. That makes this stage a
+classification tool for `m_DLSSPass`/gate state, not a likely performance fix.
 
 If this stage is run later, it must still be menu-only and its main branch point
 is:
@@ -194,7 +198,8 @@ is:
 - If the official pass shell appears, use the logged official `DLSSData`
   resource relationship to design the next no-native official-equivalent
   boundary proof.
-- If it still does not appear and `m_DLSSPass=null`, focus on the missing
-  HDRP/NVIDIA DLSS pass object/module path rather than more camera gate writes.
+- If it still does not appear and `m_DLSSPass=null`, treat that as confirmation
+  of the local static xref audit and continue the no-native official-equivalent
+  RenderGraph boundary route rather than more camera gate writes.
 - If it appears but render/evaluate remains no-op, keep treating the official
   HDRP path as a semantic map and avoid patching `DLSSPass.Render` directly.

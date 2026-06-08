@@ -244,3 +244,15 @@ Pause direct runtime probing for this branch. The schedule-gate probe is
 implemented and available, but the mainline next step is deeper local static
 route work around `m_DLSSPass` creation and a no-native official-equivalent
 RenderGraph/pass boundary.
+
+## 2026-06-08 Follow-Up
+
+The follow-up xref audit is recorded in
+`docs/development/vrising-hdrp-dlss-m-dlsspass-xref-audit-2026-06-08.md`.
+It found that `HDRenderPipeline.SetupDLSSFeature` is called locally, but does
+not xref `DLSSPass.SetupFeature` or `HDDynamicResolutionPlatformCapabilities.ActivateDLSS`;
+`ActivateDLSS` has `CallerCount=0`; and `InitializePostProcess` does not xref
+`DLSSPass.Create`. The official `DoDLSSPasses` / `DoDLSSPass` RenderGraph shell
+and resource contract remain useful, but the built-in `m_DLSSPass` activation
+route should now be treated as absent/inert rather than as the likely next
+performance fix.

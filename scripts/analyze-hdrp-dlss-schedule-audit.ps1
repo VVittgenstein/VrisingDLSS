@@ -103,9 +103,9 @@ $nextRecommendation = switch ($status) {
     }
     "NoOfficialDlssPassObserved" {
         if ($counts.HdrpDlssScheduleGateLogs -gt 0) {
-            "The schedule-gate probe ran but no official Deep Learning Super Sampling pass shell appeared. Treat camera/dynamic-resolution gates as insufficient and inspect whether m_DLSSPass/DLSSPass.Create/NVIDIA module availability is the remaining blocker."
+            "The schedule-gate probe ran but no official Deep Learning Super Sampling pass shell appeared. Treat this as confirmation that camera/dynamic-resolution gates are insufficient; use the local m_DLSSPass xref audit to continue toward a no-native official-equivalent RenderGraph boundary proof."
         } else {
-            "Treat the official HDRP DLSS pass shell as absent under current V Rising settings. Next probe should explain which state gates it off, preferably through read-only HDCamera/GlobalDynamicResolutionSettings evidence before any state-changing patch."
+            "Treat the official HDRP DLSS pass shell as absent under current V Rising settings. The current static evidence points to an absent/inert m_DLSSPass/NVIDIA feature route, so next work should be a no-native official-equivalent RenderGraph boundary proof rather than another camera-gate probe."
         }
     }
     "Fail" {

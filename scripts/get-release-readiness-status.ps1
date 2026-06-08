@@ -406,7 +406,7 @@ $summary = [pscustomobject]@{
     NextRecommendation = if ($mvpReady) {
         "MVP evidence is complete. Prepare a final release review."
     } elseif ([string]::IsNullOrWhiteSpace($GamePath)) {
-        "Pass -GamePath to include local runtime evidence. Current MVP route is paused on direct runtime probing: use the static HDRP/DLSS route audit to design a no-native official-equivalent RenderGraph/pass boundary, with hdrp-dlss-schedule-gate reserved as a later menu-only m_DLSSPass/gate classifier."
+        "Pass -GamePath to include local runtime evidence. Current MVP route is paused on direct runtime probing: use the static HDRP/DLSS route and m_DLSSPass xref audits to design a no-native official-equivalent RenderGraph/pass boundary, with hdrp-dlss-schedule-gate reserved only as a later menu classifier."
     } elseif ($visualStatus.Status -ne "Pass" -and $visualStatus.HumanReviewStatus -eq "Pending") {
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
@@ -477,7 +477,7 @@ $summary = [pscustomobject]@{
         if (-not [string]::IsNullOrWhiteSpace($visualNextRecommendation)) {
             $visualNextRecommendation
         } else {
-            "Do not rerun the same EASU ctx.cmd candidate unchanged. Use the static HDRP/DLSS route audit to design a no-native official-equivalent RenderGraph/pass boundary; reserve hdrp-dlss-schedule-gate as a later menu-only m_DLSSPass/gate classifier."
+            "Do not rerun the same EASU ctx.cmd candidate unchanged. Use the static HDRP/DLSS route and m_DLSSPass xref audits to design a no-native official-equivalent RenderGraph/pass boundary; reserve hdrp-dlss-schedule-gate only as a later menu classifier."
         }
     } else {
         "Validate image correctness, output selection, resize/reset handling, and fallback behavior before public release."
